@@ -1,0 +1,30 @@
+{
+  "name": "hgnc-webapp",
+  "version": "1.0.0",
+  "description": "Google Apps Script web application for netball team management",
+  "main": "Code.js",
+  "scripts": {
+    "deploy": "./scripts/quick-deploy.sh",
+    "test": "./scripts/pre-deploy-check.sh",
+    "lint": "./scripts/run_html_lint.sh"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caseytoll/hgnc-webapp.git"
+  },
+  "keywords": [
+    "google-apps-script",
+    "netball",
+    "team-management",
+    "web-app"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/caseytoll/hgnc-webapp/issues"
+  },
+  "homepage": "https://github.com/caseytoll/hgnc-webapp#readme"
+}

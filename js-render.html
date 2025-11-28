@@ -1,0 +1,3953 @@
+<script>
+    // === RENDER FUNCTIONS ===
+    // Expose showView to the global window object for console access
+    if (typeof showView === 'function') {
+        window.showView = showView;
+    }
+    // Safe DOM setter to avoid errors when elements are missing
+    function safeSetText(id, text) {
+        try {
+            var el = document.getElementById(id);
+            if (el) el.textContent = text;
+        } catch (e) { /* ignore */ }
+    }
+    // Safe class toggler for elements that may not exist
+    function safeToggleClass(id, className, shouldHave) {
+        try {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (shouldHave) el.classList.add(className); else el.classList.remove(className);
+        } catch (e) { /* ignore */ }
+    }
+        // Announce helper (assertive) — creates an assertive live region if needed
+        (function(){
+            window.announceAssertive = function(msg){
+                try{
+                    var id = 'aria-live-assertive';
+                    var el = document.getElementById(id);
+                    if (!el) {
+                        el = document.createElement('div');
+                        el.id = id;
+                        el.className = 'sr-only';
+                        el.setAttribute('role','status');
+                        el.setAttribute('aria-live','assertive');
+                        el.setAttribute('aria-atomic','true');
+                        // append to body if available
+                        if (document && document.body) document.body.appendChild(el);
+                    }
+                    el.textContent = '';
+                    setTimeout(function(){ el.textContent = String(msg || ''); }, 60);
+                }catch(e){ /* ignore */ }
+            };
+        })();
+    
+    const renderTeamSelector = () => {
+        const container = document.getElementById('team-list-container');
+        if (masterTeamList.length === 0) {
+            container.innerHTML = '<div class="empty-state-teams">' +
+                '<div class="empty-icon">🏐</div>' +
+                '<h3>No Teams Yet</h3>' +
+                '<p>Create your first team to get started</p>' +
+            '</div>';
+            return;
+        }
+        
+        masterTeamList.sort(function(a, b) {
+            if (a.year !== b.year) return b.year - a.year;  
+            if (a.season !== b.season) return a.season.localeCompare(b.season);
+            return a.name.localeCompare(b.name);
+        });
+        
+        // Group teams by year
+        const teamsByYear = {};
+        for (var i = 0; i < masterTeamList.length; i++) {
+            var team = masterTeamList[i];
+            if (!teamsByYear[team.year]) {
+                teamsByYear[team.year] = [];
+            }
+            teamsByYear[team.year].push(team);
+        }
+        
+        const owner = isOwner();
+        const html = [];
+        const years = Object.keys(teamsByYear).sort(function(a, b) { return b - a; });
+        
+        for (var y = 0; y < years.length; y++) {
+            const year = years[y];
+            const teams = teamsByYear[year];
+            
+            // Year header with badge styling
+            html.push('<div class="team-year-header"><div class="team-year-badge">' + year + '</div></div>');
+            html.push('<div class="team-list-grid">');
+            
+            for (var i = 0; i < teams.length; i++) {
+                var team = teams[i];
+                const displayName = team.name + ' - ' + team.year + ' ' + team.season;
+                const safeTeamID = team.teamID.replace(/'/g, "\\'");
+                const safeSheetName = team.sheetName.replace(/'/g, "\\'");
+                const safeDisplayName = displayName.replace(/'/g, "\\'");
+                
+                var editButton = '';
+                if (owner && isTeamEditMode) {
+                    editButton = '<button class="team-card-edit" onclick="event.stopPropagation(); showEditTeamModal(\'' + safeTeamID + '\')" aria-label="Edit Team"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>';
+                }
+
+                html.push(
+                '<div class="team-card" onclick="handleSelectTeam(\'' + safeTeamID + '\', \'' + safeSheetName + '\', \'' + safeDisplayName + '\')">',
+                    '<div class="team-card-gradient"></div>',
+                    '<div class="team-card-content">',
+                        editButton ? '<div class="team-card-header-edit">' + editButton + '</div>' : '',
+                        '<h3 class="team-card-name">' + team.name + '</h3>',
+                        '<div class="team-card-meta">',
+                            '<span class="team-card-season">' + team.season + '</span>',
+                        '</div>',
+                    '</div>',
+                    '<div class="team-card-arrow">',
+                        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>',
+                    '</div>',
+                '</div>'
+                );
+            }
+            
+            html.push('</div>');
+        }
+        
+        container.innerHTML = html.join('');
+    }
+    
+    const renderPlayerList = () => {
+        const listEl = document.getElementById('player-list');
+        if (players.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">No players yet</div>';
+            return;
+        }
+        
+        const owner = isOwner();
+        const html = [];
+        for (var i = 0; i < players.length; i++) {
+            var player = players[i];
+            var editButton = '';
+            if (owner) {
+                editButton = '<button class="edit-btn" onclick="showEditPlayerModal(\'' + player.id + '\')" title="Edit Player">&#9998;</button>';
+            }
+            html.push(
+                '<div class="list-item">',
+                    '<span onclick="showPlayerDetail(\'' + player.id + '\')">' + player.name + '</span>',
+                    editButton,
+                '</div>'
+            );
+        }
+        listEl.innerHTML = html.join('');
+    }
+
+    const renderGameList = () => {
+        const listEl = document.getElementById('game-list');
+        console.log('[renderGameList] listEl found:', !!listEl, 'games length:', games.length);
+        
+        if (games.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">No games yet</div>';
+            return;
+        }
+        
+        // Use cached HTML if available and games haven't changed
+        var gamesHash = games.length + ':' + (games[0] ? games[0].id : '');
+        if (window._cachedGameListHTML && window._cachedGameListHash === gamesHash) {
+            listEl.innerHTML = window._cachedGameListHTML;
+            return;
+        }
+        
+        // Sort once
+        games.sort(function(a, b) { return (b.round || 0) - (a.round || 0); });
+        
+        // Pre-calculate and cache all data
+        const owner = isOwner();
+        const html = [];
+        
+        for (var i = 0, len = games.length; i < len; i++) {
+            var game = games[i];
+            
+            // Use cached formatted data if available
+            if (!game._cachedDisplay || game._displayStale) {
+                var scores = getGameTotalScores(game);
+                var displayDate = "No Date";
+                
+                if (game.date) {
+                    // Use cached date if available
+                    if (!game._cachedDate) {
+                        try {
+                            var parts = game.date.split('-');
+                            var gameDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                            game._cachedDate = gameDate.toLocaleDateString(undefined, {
+                                year: 'numeric', month: 'short', day: 'numeric'
+                            });
+                        } catch (e) {
+                            game._cachedDate = "No Date";
+                        }
+                    }
+                    displayDate = game._cachedDate;
+                }
+                
+                var isBye = game.status === 'bye';
+                var status = game.status || 'normal';
+                var statusBadge = '';
+                if (status !== 'normal' && !isBye) {
+                    statusBadge = '<span class="game-status-badge">' + status.replace('_', ' ').toUpperCase() + '</span>';
+                }
+                
+                // Cache the display data
+                game._cachedDisplay = {
+                    scores: scores,
+                    displayDate: displayDate,
+                    isBye: isBye,
+                    statusBadge: statusBadge
+                };
+                game._displayStale = false;
+            }
+            
+            var data = game._cachedDisplay;
+            
+            var gameRowContent = '';
+            if (!data.isBye) {
+                gameRowContent = 
+                    '<div class="game-row-details">' +
+                        '<span class="game-row-date">' + data.displayDate + '</span>' +
+                        '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
+                    '</div>' +
+                    '<div class="game-row-score">' +
+                        '<span class="score-us">' + data.scores.ourScore + '</span>' +
+                        '<span class="score-separator">-</span>' +
+                        '<span class="score-them">' + data.scores.opponentScore + '</span>' +
+                        data.statusBadge +
+                    '</div>';
+            } else {
+                gameRowContent = 
+                    '<div class="game-row-details">' +
+                        '<span class="game-row-date">' + data.displayDate + '</span>' +
+                        '<span class="game-row-opponent">BYE</span>' +
+                    '</div>' +
+                    '<div class="game-row-score">' +
+                        '<span class="bye-badge">BYE</span>' +
+                    '</div>';
+            }
+            
+            var editButton = '';
+            if (owner) {
+                editButton = '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>';
+            }
+            
+            html.push(
+                '<div class="list-item game-row" onclick="showGameDetail(\'' + game.id + '\')">' +
+                    '<div class="game-row-header">' +
+                        '<span class="game-round">Round ' + (game.round || '?') + '</span>' +
+                        editButton +
+                    '</div>' +
+                    gameRowContent +
+                '</div>'
+            );
+        }
+        
+        var finalHtml = html.join('');
+        listEl.innerHTML = finalHtml;
+        
+        // Cache the rendered HTML
+        window._cachedGameListHTML = finalHtml;
+        window._cachedGameListHash = gamesHash;
+        
+        console.log('[renderGameList] Rendered', games.length, 'games, HTML length:', finalHtml.length);
+    };
+
+    // === REPLACED LEADERBOARD RENDER WITH NEW HUB ===
+    
+    /**
+     * Renders the complete Offensive Analysis Hub, including both Leaderboard tables
+     * and the Pairs Analysis.
+     */
+    const renderOffensiveHub = () => {
+        // Top-level hub tabs are now 'singles' and 'pairs'
+        var tab = 'singles';
+        try {
+            var storedTab = null;
+            try { storedTab = localStorage.getItem('offenseHubTab'); } catch (e) { storedTab = null; }
+            if (storedTab === 'pairs') tab = 'pairs';
+            else tab = 'singles';
+            // Migrate legacy stored values (total/avg) into singles sort if present
+            try {
+                if (!window.appState) window.appState = {};
+                if (!window.appState.insights) window.appState.insights = {};
+                var legacy = storedTab;
+                if (legacy === 'avg') window.appState.insights.sortSingle = 'avg';
+                else if (legacy === 'total') window.appState.insights.sortSingle = 'impact';
+            } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+
+        // Read persisted 'show all' preference for singles
+        try {
+            if (!window.appState) window.appState = {};
+            if (!window.appState.insights) window.appState.insights = {};
+            var storedSingles = null;
+            try { storedSingles = localStorage.getItem('offenseShowAll_singles'); } catch (e) { storedSingles = null; }
+            if (storedSingles !== null) window.appState.insights.showAllSingles = (storedSingles === 'true');
+        } catch (e) { /* ignore */ }
+
+        // --- Render Singles list based on selected sub-sort ---
+        try {
+            // update single sort tab active state
+            try {
+                var sImpact = document.getElementById('sort-single-impact');
+                var sAvg = document.getElementById('sort-single-avg');
+                var sQtrs = document.getElementById('sort-single-qtrs');
+                var cur = (window.appState && window.appState.insights && window.appState.insights.sortSingle) || 'impact';
+                if (sImpact) sImpact.classList.toggle('active', cur === 'impact');
+                if (sAvg) sAvg.classList.toggle('active', cur === 'avg');
+                if (sQtrs) sQtrs.classList.toggle('active', cur === 'quarters');
+            } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+        try {
+            var singleContainer = document.getElementById('leaderboard-list-total');
+            var perQContainer = document.getElementById('leaderboard-list-per-qtr');
+            if (singleContainer) {
+                var sortMode = (window.appState && window.appState.insights && window.appState.insights.sortSingle) || 'impact';
+                var singles = [];
+                if (sortMode === 'impact' || sortMode === 'quarters') {
+                    // Use total leaderboard as base and enrich with quarters/avg where possible
+                    var totalBase = (calculatedLeaderboardTotal || []).slice();
+                    var perQ = calculatedLeaderboardPerQtr || [];
+                    var perMap = {};
+                    perQ.forEach(function(p){ perMap[p.name] = p; });
+                    // If quarters mode, sort by matching per-qtr quarters data
+                    if (sortMode === 'quarters') {
+                        singles = totalBase.map(function(p){
+                            var meta = perMap[p.name] || { avg: 0, quarters: 0 };
+                            return { name: p.name, goals: p.goals || 0, avg: meta.avg || 0, quarters: meta.quarters || 0 };
+                        }).sort(function(a,b){ return b.quarters - a.quarters; });
+                    } else {
+                        // impact: sort by total goals but still show avg and quarters when available
+                        singles = totalBase.map(function(p){
+                            var meta = perMap[p.name] || { avg: 0, quarters: 0 };
+                            return { name: p.name, goals: p.goals || 0, avg: meta.avg || 0, quarters: meta.quarters || 0 };
+                        }).sort(function(a,b){ return b.goals - a.goals; });
+                    }
+                } else if (sortMode === 'avg') {
+                    var perQ = (calculatedLeaderboardPerQtr || []).slice();
+                    try { console.debug('renderOffensiveHub: avg mode — perQ length', perQ.length); } catch (e) {}
+                    // Efficiency mode: show only players with >=3 quarters
+                    // Note: `calculateLeaderboard_PerQuarter` returns objects with `goals`, `quarters`, and `avg` properties
+                    singles = perQ.filter(function(p){ return p.quarters >= 3; }).map(function(p){ return { name: p.name, goals: p.goals || 0, avg: p.avg || 0, quarters: p.quarters || 0 }; }).sort(function(a,b){ return b.avg - a.avg; });
+                    try { console.debug('renderOffensiveHub: avg samples', singles.slice(0,3)); } catch (e) {}
+                }
+
+                if (!singles || singles.length === 0) {
+                    singleContainer.innerHTML = '<div class="empty-state">No player data available for this view.</div>';
+                    if (perQContainer) perQContainer.innerHTML = '';
+                } else {
+                    var showAll = !!(window.appState && window.appState.insights && window.appState.insights.showAllSingles);
+                    var toRender = showAll ? singles : singles.slice(0, 3);
+                    var trophies = ['&#127942;', '&#129352;', '&#129353;'];
+                    // prepend a compact header; label the score column depending on the selected sort mode
+                    var scoreLabel = 'Goals / Qtr';
+                    if (sortMode === 'impact') scoreLabel = 'Total Goals';
+                    else if (sortMode === 'quarters') scoreLabel = 'Total Qtrs';
+                    var headerHTML = '<div class="leaderboard-headers" role="presentation"><div class="col-rank">#</div><div class="col-player">Player</div><div class="col-score">' + scoreLabel + '</div></div>';
+                    var html = toRender.map(function(item, idx){
+                        var mainScore = (sortMode === 'avg') ? item.avg.toFixed(1) : ((sortMode === 'quarters') ? item.quarters : item.goals);
+                        // small note shows totals/quarters (avg displayed as main score in header context)
+                        var subMain = '';
+                        var subBracket = '';
+                        if (sortMode === 'avg') {
+                            subMain = (item.goals || 0) + ' Total Goals';
+                            subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                        } else if (sortMode === 'quarters') {
+                            subMain = (item.goals || 0) + ' Total Goals';
+                            subBracket = '(' + (item.avg?item.avg.toFixed(1):'0') + ' Goals/Qtr)';
+                        } else {
+                            subMain = (item.avg?item.avg.toFixed(1):'0') + ' Goals/Qtr';
+                            subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                        }
+
+                        // accessible label per row
+                        var ariaLabel = (idx + 1) + '. ' + item.name + '. ';
+                        if (sortMode === 'avg') ariaLabel += (item.avg ? item.avg.toFixed(1) : '0') + ' goals per quarter, ' + (item.goals || 0) + ' total goals in ' + (item.quarters || 0) + ' quarters.';
+                        else if (sortMode === 'quarters') ariaLabel += (item.quarters || 0) + ' quarters, ' + (item.goals || 0) + ' total goals.';
+                        else ariaLabel += (item.goals || 0) + ' total goals.';
+
+                        return '<div class="leaderboard-item" role="listitem" aria-label="' + ariaLabel + '" onclick="showPlayerGoalsDetail(\'' + item.name + '\')"; style="cursor: pointer;">' +
+                            '<span class="leaderboard-rank">' + (idx + 1) + '</span>' +
+                            '<span class="leaderboard-name">' + item.name + '</span>' +
+                            '<div class="leaderboard-goals"><div class="score">' + mainScore + '</div><span class="leaderboard-subtext">' + subMain + '</span><span class="leaderboard-subbracket">' + subBracket + '</span></div>' +
+                        '</div>';
+                    }).join('');
+                    html = headerHTML + html;
+
+                    if (singles.length > 3) {
+                        var btnText = showAll ? 'Show Top 3' : ('Show All (' + singles.length + ' total)');
+                        html += '<button onclick="toggleSinglesShowAll()" style="width:100%;margin-top:10px;" class="cancel-btn">' + btnText + '</button>';
+                    }
+                    singleContainer.innerHTML = html;
+                    if (perQContainer) perQContainer.innerHTML = '';
+                }
+            }
+        } catch (e) { /* ignore rendering singles errors */ }
+
+        // --- Render pairs analysis ---
+        renderInsightsOffense();
+
+        // Toggle tab visibility so only the selected hub panel is visible
+        try {
+            var elSingles = document.getElementById('offense-tab-singles');
+            var elPairs = document.getElementById('offense-tab-pairs');
+            if (elSingles) elSingles.style.display = (tab === 'singles') ? 'block' : 'none';
+            if (elPairs) elPairs.style.display = (tab === 'pairs') ? 'block' : 'none';
+
+            // update tab button active state and ARIA attributes
+            try {
+                var btnSingles = document.getElementById('offense-hub-tab-singles');
+                var btnPairs = document.getElementById('offense-hub-tab-pairs');
+                safeToggleClass('offense-hub-tab-singles', 'active', tab === 'singles');
+                safeToggleClass('offense-hub-tab-pairs', 'active', tab === 'pairs');
+                if (btnSingles) { btnSingles.setAttribute('aria-selected', tab === 'singles' ? 'true' : 'false'); btnSingles.tabIndex = tab === 'singles' ? 0 : -1; }
+                if (btnPairs) { btnPairs.setAttribute('aria-selected', tab === 'pairs' ? 'true' : 'false'); btnPairs.tabIndex = tab === 'pairs' ? 0 : -1; }
+            } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+
+        // Title is now managed by navigation system
+           // Announce update for screen reader users (polite)
+           try { if (window.announce && typeof window.announce === 'function') window.announce('Offensive leaders updated'); } catch (e) { /* ignore */ }
+    }
+
+    // Set which tab to show inside the Offensive Hub and re-render
+    function setOffenseHubTab(tab) {
+        try {
+            if (!window.appState) window.appState = {};
+            if (!window.appState.insights) window.appState.insights = {};
+            window.appState.insights.offenseHubTab = tab;
+                try { localStorage.setItem('offenseHubTab', tab); } catch (e) { /* ignore */ }
+                renderOffensiveHub();
+                // update ARIA on tab buttons (ensure reflect immediately)
+                try {
+                    var btnSingles = document.getElementById('offense-hub-tab-singles');
+                    var btnPairs = document.getElementById('offense-hub-tab-pairs');
+                    if (btnSingles) { btnSingles.setAttribute('aria-selected', tab === 'singles' ? 'true' : 'false'); btnSingles.tabIndex = tab === 'singles' ? 0 : -1; }
+                    if (btnPairs) { btnPairs.setAttribute('aria-selected', tab === 'pairs' ? 'true' : 'false'); btnPairs.tabIndex = tab === 'pairs' ? 0 : -1; }
+                } catch (e) { /* ignore */ }
+            // small timeout to ensure visible and then scroll focus
+            setTimeout(function(){
+                try {
+                    var focusId = (tab === 'pairs') ? 'insights-offense-combos' : ((window.appState && window.appState.insights && window.appState.insights.sortSingle === 'avg') ? 'leaderboard-list-per-qtr' : 'leaderboard-list-total');
+                    var el = document.getElementById(focusId);
+                    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (e) {}
+            }, 120);
+        } catch (e) { console.warn('setOffenseHubTab error', e); }
+    }
+    
+    const renderPlayerDetail = () => {
+        const player = players.find(p => p.id === appState.playerDetail.id);
+        if (!player) return;
+        
+        document.getElementById('player-detail-name').textContent = player.name;
+        
+        let gamesPlayed = 0;
+        let totalGoals = 0;
+        const positionCounts = {};
+        
+        const playerStats = calculatedPlayerTable.find(p => p.id === appState.playerDetail.id);
+
+        if (playerStats) {
+            gamesPlayed = playerStats.gamesPlayed;
+            const allPos = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK', 'Off'];
+            allPos.forEach(function(pos) {
+                if (playerStats[pos] > 0) {
+                    positionCounts[pos] = playerStats[pos];
+                }
+            });
+        }
+        
+        const playerGoals = calculatedLeaderboardTotal.find(p => p.name === player.name);
+        totalGoals = playerGoals ? playerGoals.goals : 0;
+        
+        
+        document.getElementById('player-detail-games').textContent = gamesPlayed;
+        document.getElementById('player-detail-goals').textContent = totalGoals;
+        
+        const posContainer = document.getElementById('player-detail-positions');
+        
+        const sortedPositions = Object.keys(positionCounts).map(function(pos) {
+            return { pos: pos, count: positionCounts[pos] };
+        }).sort(function(a, b) { return b.count - a.count; });
+        
+        if (sortedPositions.length === 0) {
+            posContainer.innerHTML = '<div class="empty-state">No position data recorded.</div>';
+            return;
+        }
+        
+        posContainer.innerHTML = sortedPositions.map(function(item) {
+             return (
+            '<div class="position-summary-item">' +
+                '<strong>' + item.pos + '</strong>' +
+                '<span class="count">' + item.count + '</span>' +
+            '</div>'
+            );
+        }).join('');
+    }
+    
+    // --- MODIFIED: Ladder Snapshot Rendering ---
+    const renderInsightsSnapshot = () => {
+        const snapshot = externalLadderInsights;
+        const internalStats = calculatedSeasonStats;
+        const container = document.getElementById('external-ladder-snapshot');
+        
+        // Use the formatOrdinalRank helper
+        const rankDisplay = formatOrdinalRank(snapshot.rank);
+        
+        container.innerHTML = 
+            // YOUR TEAM RANK AND RECORD
+            '<div class="insight-summary-card">' +
+                '<div class="card-label">Your Current Rank</div>' +
+                '<div class="card-value-main" style="font-size: 2em; color: var(--ok-color);">' + rankDisplay + '</div>' +
+                '<div class="card-value-sub">Points: ' + snapshot.points + '</div>' +
+            '</div>' +
+            // INTERNAL TEAM RECORD
+             '<div class="insight-summary-card">' +
+                '<div class="card-label">Internal Team Record</div>' +
+                '<div class="card-value-main" style="font-size: 2em; color: var(--primary-color);">' + internalStats.teamRecord + '</div>' +
+                '<div class="card-value-sub">Total Games: ' + internalStats.gameCount + '</div>' +
+            '</div>' +
+            // DIVISION LEADER
+            '<div class="insight-summary-card">' +
+                '<div class="card-label">Division Leader</div>' +
+                '<div class="card-value-main">' + snapshot.topTeam + '</div>' +
+                '<div class="card-value-sub">Percentage: ' + snapshot.topPct + '</div>' +
+            '</div>';
+    }
+    // --- END MODIFIED: Ladder Snapshot Rendering ---
+
+    // HELPER FUNCTIONS FOR TEAM PERFORMANCE METRICS
+    function calculateRecentForm(numGames) {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (pastGames.length === 0) return '';
+        
+        // Sort by date (most recent first)
+        pastGames.sort(function(a, b) {
+            return new Date(b.date) - new Date(a.date);
+        });
+        
+        var recentGames = pastGames.slice(0, numGames);
+        var formString = recentGames.map(function(game) {
+            var scores = getGameTotalScores(game);
+            if (scores.ourScore > scores.opponentScore) return 'W';
+            if (scores.ourScore < scores.opponentScore) return 'L';
+            return 'D';
+        }).join('-');
+        
+        return formString;
+    }
+
+    function calculateHighestScore() {
+        var highestScore = 0;
+        games.forEach(function(game) {
+            if (game.status === 'normal' && isGameInPast(game)) {
+                var scores = getGameTotalScores(game);
+                if (scores.ourScore > highestScore) {
+                    highestScore = scores.ourScore;
+                }
+            }
+        });
+        return highestScore;
+    }
+
+    function calculateCleanSheets() {
+        var cleanSheets = 0;
+        games.forEach(function(game) {
+            if (game.status === 'normal' && isGameInPast(game)) {
+                var scores = getGameTotalScores(game);
+                if (scores.opponentScore === 0) {
+                    cleanSheets++;
+                }
+            }
+        });
+        return cleanSheets;
+    }
+
+    // FLIP CARD INTERACTION FUNCTIONS
+    window.flipPerfCard = function(container) {
+        var isFlipped = container.classList.contains('flipped');
+        var grid = container.closest('.perf-metrics-grid');
+        
+        if (!isFlipped) {
+            // Close any other flipped cards first
+            var allCards = document.querySelectorAll('.perf-flip-container.flipped');
+            allCards.forEach(function(card) {
+                if (card !== container) {
+                    card.classList.remove('flipped');
+                }
+            });
+            
+            // Get the card's current position
+            var rect = container.getBoundingClientRect();
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            
+            // Set initial position to match current location
+            container.style.top = (rect.top + scrollTop) + 'px';
+            container.style.left = (rect.left + scrollLeft) + 'px';
+            container.style.width = rect.width + 'px';
+            
+            // Flip this card and show backdrop
+            container.classList.add('flipped');
+            if (grid) grid.classList.add('has-flipped');
+            
+            // Animate to center after a brief delay
+            setTimeout(function() {
+                var viewportHeight = window.innerHeight;
+                var viewportWidth = window.innerWidth;
+                var cardWidth = Math.min(viewportWidth * 0.85, 380);
+                
+                container.style.top = (viewportHeight / 2) + 'px';
+                container.style.left = (viewportWidth / 2) + 'px';
+                container.style.transform = 'translate(-50%, -50%)';
+                container.style.width = cardWidth + 'px';
+            }, 50);
+            
+            populateCardDetail(container);
+        } else {
+            // Flipping back to front
+            container.classList.remove('flipped');
+            container.style.top = '';
+            container.style.left = '';
+            container.style.transform = '';
+            container.style.width = '';
+            if (grid) grid.classList.remove('has-flipped');
+        }
+    };
+
+    // Add keyboard support for accessibility
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.perf-flip-container').forEach(function(card) {
+            card.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    flipPerfCard(card);
+                }
+            });
+        });
+        
+        // Click backdrop to close flipped card
+        document.addEventListener('click', function(e) {
+            var grid = document.querySelector('.perf-metrics-grid.has-flipped');
+            if (grid && !e.target.closest('.perf-flip-container')) {
+                var flippedCard = grid.querySelector('.perf-flip-container.flipped');
+                if (flippedCard) {
+                    flipPerfCard(flippedCard);
+                }
+            }
+        });
+    });
+
+    // Populate detail content based on card type
+    function populateCardDetail(container) {
+        var detailDiv = container.querySelector('.perf-detail-content');
+        if (!detailDiv || detailDiv.dataset.populated === 'true') return;
+        
+        var detailId = detailDiv.id;
+        var html = '';
+        
+        switch(detailId) {
+            case 'perf-record-detail':
+                html = getRecordDetail();
+                break;
+            case 'perf-winrate-detail':
+                html = getWinRateDetail();
+                break;
+            case 'perf-goaldiff-detail':
+                html = getGoalDiffDetail();
+                break;
+            case 'perf-form-detail':
+                html = getFormDetail();
+                break;
+            case 'perf-goalsfor-detail':
+                html = getGoalsForDetail();
+                break;
+            case 'perf-goalsagainst-detail':
+                html = getGoalsAgainstDetail();
+                break;
+            case 'perf-avgfor-detail':
+                html = getAvgForDetail();
+                break;
+            case 'perf-avgagainst-detail':
+                html = getAvgAgainstDetail();
+                break;
+            case 'perf-bestqtr-detail':
+                html = getBestQuarterDetail();
+                break;
+            case 'perf-worstqtr-detail':
+                html = getWorstQuarterDetail();
+                break;
+            case 'perf-highscore-detail':
+                html = getHighScoreDetail();
+                break;
+            case 'perf-cleansheets-detail':
+                html = getCleanSheetsDetail();
+                break;
+            case 'perf-topscorer-detail':
+                html = getTopScorerDetail();
+                break;
+            case 'perf-topdefender-detail':
+                html = getTopDefenderDetail();
+                break;
+            case 'perf-quarterbreakdown-detail':
+                html = getQuarterBreakdownDetail();
+                break;
+            default:
+                html = '<div class="perf-detail-empty">No detail available</div>';
+        }
+        
+        detailDiv.innerHTML = html;
+        detailDiv.dataset.populated = 'true';
+    }
+
+    // Detail content generators
+    function getRecordDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        }).sort(function(a, b) {
+            return new Date(b.date) - new Date(a.date);
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var html = [];
+        var recentGames = pastGames.slice(0, Math.min(8, pastGames.length));
+        
+        for (var i = 0, len = recentGames.length; i < len; i++) {
+            var game = recentGames[i];
+            var scores = getGameTotalScores(game);
+            var result = scores.ourScore > scores.opponentScore ? 'W' : (scores.ourScore < scores.opponentScore ? 'L' : 'D');
+            var resultClass = result === 'W' ? 'positive' : (result === 'L' ? 'negative' : '');
+            
+            html.push(
+                '<div class="perf-detail-row">',
+                '<span class="' + resultClass + '" style="font-weight: bold;">' + result + '</span>',
+                '<span>' + game.opponent + '</span>',
+                '<span>' + scores.ourScore + '-' + scores.opponentScore + '</span>',
+                '</div>'
+            );
+        }
+        
+        return html.join('');
+    }
+
+    function getWinRateDetail() {
+        if (!calculatedSeasonStats) {
+            return '<div class="perf-detail-empty">Stats not available</div>';
+        }
+        
+        var wins = calculatedSeasonStats.wins;
+        var losses = calculatedSeasonStats.losses;
+        var draws = calculatedSeasonStats.draws;
+        var total = wins + losses + draws;
+        
+        if (total === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var winPct = ((wins / total) * 100).toFixed(1);
+        var lossPct = ((losses / total) * 100).toFixed(1);
+        var drawPct = ((draws / total) * 100).toFixed(1);
+        
+        var html = '<div class="perf-detail-mini-grid">';
+        html += '<div class="perf-detail-mini-card positive">';
+        html += '<div style="font-size: 18px; font-weight: bold;">' + wins + '</div>';
+        html += '<div style="font-size: 11px; opacity: 0.8;">Wins (' + winPct + '%)</div>';
+        html += '</div>';
+        html += '<div class="perf-detail-mini-card negative">';
+        html += '<div style="font-size: 18px; font-weight: bold;">' + losses + '</div>';
+        html += '<div style="font-size: 11px; opacity: 0.8;">Losses (' + lossPct + '%)</div>';
+        html += '</div>';
+        html += '<div class="perf-detail-mini-card" style="grid-column: 1 / -1;">';
+        html += '<div style="font-size: 18px; font-weight: bold;">' + draws + '</div>';
+        html += '<div style="font-size: 11px; opacity: 0.8;">Draws (' + drawPct + '%)</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getGoalDiffDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        }).sort(function(a, b) {
+            return new Date(b.date) - new Date(a.date);
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var html = '';
+        var recentGames = pastGames.slice(0, Math.min(6, pastGames.length));
+        
+        recentGames.forEach(function(game) {
+            var scores = getGameTotalScores(game);
+            var diff = scores.ourScore - scores.opponentScore;
+            var diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
+            var diffStr = diff > 0 ? '+' + diff : diff.toString();
+            
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span class="' + diffClass + '" style="font-weight: bold;">' + diffStr + '</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getFormDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        }).sort(function(a, b) {
+            return new Date(b.date) - new Date(a.date);
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var html = '';
+        var recentGames = pastGames.slice(0, Math.min(5, pastGames.length));
+        
+        recentGames.forEach(function(game) {
+            var scores = getGameTotalScores(game);
+            var result = scores.ourScore > scores.opponentScore ? 'W' : (scores.ourScore < scores.opponentScore ? 'L' : 'D');
+            var resultClass = result === 'W' ? 'positive' : (result === 'L' ? 'negative' : '');
+            
+            html += '<div class="perf-detail-row">';
+            html += '<span class="' + resultClass + '" style="font-weight: bold; width: 20px;">' + result + '</span>';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span style="font-size: 11px;">' + scores.ourScore + '-' + scores.opponentScore + '</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getGoalsForDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        // Calculate quarter totals
+        var quarters = [0, 0, 0, 0];
+        pastGames.forEach(function(game) {
+            if (game.goalsByQuarter) {
+                for (var i = 0; i < 4; i++) {
+                    quarters[i] += (game.goalsByQuarter[i] || 0);
+                }
+            }
+        });
+        
+        var total = quarters.reduce(function(a, b) { return a + b; }, 0);
+        
+        var html = '<div class="perf-detail-mini-grid">';
+        for (var i = 0; i < 4; i++) {
+            html += '<div class="perf-detail-mini-card">';
+            html += '<div style="font-size: 18px; font-weight: bold;">' + quarters[i] + '</div>';
+            html += '<div style="font-size: 11px; opacity: 0.8;">Q' + (i+1) + ' (' + (total > 0 ? ((quarters[i]/total)*100).toFixed(0) : '0') + '%)</div>';
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getGoalsAgainstDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        // Calculate quarter totals
+        var quarters = [0, 0, 0, 0];
+        pastGames.forEach(function(game) {
+            if (game.opponentGoalsByQuarter) {
+                for (var i = 0; i < 4; i++) {
+                    quarters[i] += (game.opponentGoalsByQuarter[i] || 0);
+                }
+            }
+        });
+        
+        var total = quarters.reduce(function(a, b) { return a + b; }, 0);
+        
+        var html = '<div class="perf-detail-mini-grid">';
+        for (var i = 0; i < 4; i++) {
+            html += '<div class="perf-detail-mini-card">';
+            html += '<div style="font-size: 18px; font-weight: bold;">' + quarters[i] + '</div>';
+            html += '<div style="font-size: 11px; opacity: 0.8;">Q' + (i+1) + ' (' + (total > 0 ? ((quarters[i]/total)*100).toFixed(0) : '0') + '%)</div>';
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getAvgForDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var gamesWithScores = pastGames.map(function(game) {
+            return {
+                opponent: game.opponent,
+                score: getGameTotalScores(game).ourScore
+            };
+        }).sort(function(a, b) { return b.score - a.score; });
+        
+        var highest = gamesWithScores.slice(0, 3);
+        var lowest = gamesWithScores.slice(-3).reverse();
+        
+        var html = '<div style="margin-bottom: 8px; font-size: 11px; font-weight: bold; opacity: 0.7;">Highest</div>';
+        highest.forEach(function(game) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span class="positive" style="font-weight: bold;">' + game.score + '</span>';
+            html += '</div>';
+        });
+        
+        html += '<div style="margin: 8px 0 8px 0; font-size: 11px; font-weight: bold; opacity: 0.7;">Lowest</div>';
+        lowest.forEach(function(game) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span>' + game.score + '</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getAvgAgainstDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var gamesWithScores = pastGames.map(function(game) {
+            return {
+                opponent: game.opponent,
+                score: getGameTotalScores(game).opponentScore
+            };
+        }).sort(function(a, b) { return a.score - b.score; });
+        
+        var best = gamesWithScores.slice(0, 3);
+        var worst = gamesWithScores.slice(-3).reverse();
+        
+        var html = '<div style="margin-bottom: 8px; font-size: 11px; font-weight: bold; opacity: 0.7;">Best Defense</div>';
+        best.forEach(function(game) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span class="positive" style="font-weight: bold;">' + game.score + '</span>';
+            html += '</div>';
+        });
+        
+        html += '<div style="margin: 8px 0 8px 0; font-size: 11px; font-weight: bold; opacity: 0.7;">Worst Defense</div>';
+        worst.forEach(function(game) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span class="negative" style="font-weight: bold;">' + game.score + '</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getBestQuarterDetail() {
+        if (!calculatedSeasonStats || !calculatedSeasonStats.quarterDiffs) {
+            return '<div class="perf-detail-empty">Stats not available</div>';
+        }
+        
+        var quarterDiffs = calculatedSeasonStats.quarterDiffs;
+        var maxDiff = Math.max(...quarterDiffs);
+        var qtrNum = quarterDiffs.indexOf(maxDiff) + 1;
+        var games = calculatedSeasonStats.normalGameCount || 0;
+        
+        // Parse the bestQuarter string if needed
+        var bestQtrText = calculatedSeasonStats.bestQuarter || '';
+        
+        var html = '<div style="text-align: center; padding: 20px 10px;">';
+        html += '<div style="font-size: 48px; font-weight: bold; color: var(--success-color); margin-bottom: 10px;">Q' + qtrNum + '</div>';
+        html += '<div style="font-size: 14px; opacity: 0.8; margin-bottom: 8px;">Goal Differential: ' + maxDiff + '</div>';
+        html += '<div style="font-size: 12px; opacity: 0.6;">' + bestQtrText + '</div>';
+        html += '<div style="margin-top: 12px; font-size: 11px; opacity: 0.5;">' + games + ' game' + (games !== 1 ? 's' : '') + ' played</div>';
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getWorstQuarterDetail() {
+        if (!calculatedSeasonStats || !calculatedSeasonStats.quarterDiffs) {
+            return '<div class="perf-detail-empty">Stats not available</div>';
+        }
+        
+        var quarterDiffs = calculatedSeasonStats.quarterDiffs;
+        var minDiff = Math.min(...quarterDiffs);
+        var qtrNum = quarterDiffs.indexOf(minDiff) + 1;
+        var games = calculatedSeasonStats.normalGameCount || 0;
+        
+        // Parse the worstQuarter string if needed
+        var worstQtrText = calculatedSeasonStats.worstQuarter || '';
+        
+        var html = '<div style="text-align: center; padding: 20px 10px;">';
+        html += '<div style="font-size: 48px; font-weight: bold; color: var(--error-color); margin-bottom: 10px;">Q' + qtrNum + '</div>';
+        html += '<div style="font-size: 14px; opacity: 0.8; margin-bottom: 8px;">Goal Differential: ' + minDiff + '</div>';
+        html += '<div style="font-size: 12px; opacity: 0.6;">' + worstQtrText + '</div>';
+        html += '<div style="margin-top: 12px; font-size: 11px; opacity: 0.5;">' + games + ' game' + (games !== 1 ? 's' : '') + ' played</div>';
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getHighScoreDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var highestScore = 0;
+        var highScoreGame = null;
+        
+        pastGames.forEach(function(game) {
+            var scores = getGameTotalScores(game);
+            if (scores.ourScore > highestScore) {
+                highestScore = scores.ourScore;
+                highScoreGame = game;
+            }
+        });
+        
+        if (!highScoreGame) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var scores = getGameTotalScores(highScoreGame);
+        var result = scores.ourScore > scores.opponentScore ? 'W' : (scores.ourScore < scores.opponentScore ? 'L' : 'D');
+        
+        var html = '<div style="text-align: center; margin-bottom: 8px;">';
+        html += '<div style="font-size: 11px; opacity: 0.7;">vs ' + highScoreGame.opponent + '</div>';
+        html += '<div style="font-size: 24px; font-weight: bold; margin: 4px 0;" class="positive">' + highestScore + '-' + scores.opponentScore + '</div>';
+        html += '<div style="font-size: 11px; opacity: 0.7;">Result: ' + result + '</div>';
+        html += '</div>';
+        
+        html += '<div class="perf-detail-mini-grid">';
+        for (var i = 0; i < 4; i++) {
+            html += '<div class="perf-detail-mini-card">';
+            html += '<div style="font-size: 14px; font-weight: bold;">' + highScoreGame.goalsByQuarter[i] + '</div>';
+            html += '<div style="font-size: 10px; opacity: 0.8;">Q' + (i+1) + '</div>';
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        return html;
+    }
+
+    function getCleanSheetsDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        var cleanSheetGames = [];
+        pastGames.forEach(function(game) {
+            var scores = getGameTotalScores(game);
+            if (scores.opponentScore === 0) {
+                cleanSheetGames.push({
+                    opponent: game.opponent,
+                    score: scores.ourScore
+                });
+            }
+        });
+        
+        if (cleanSheetGames.length === 0) {
+            return '<div class="perf-detail-empty">No clean sheets yet</div>';
+        }
+        
+        var html = '';
+        cleanSheetGames.forEach(function(game) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + game.opponent + '</span>';
+            html += '<span class="positive" style="font-weight: bold;">' + game.score + '-0</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getTopScorerDetail() {
+        if (!calculatedLeaderboardTotal || calculatedLeaderboardTotal.length === 0) {
+            return '<div class="perf-detail-empty">No scoring data available</div>';
+        }
+        
+        var topScorer = calculatedLeaderboardTotal[0];
+        var html = '<div class="perf-detail-row" style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">';
+        html += '<span>' + topScorer.name + '</span>';
+        html += '<span class="positive">' + topScorer.goals + ' goals</span>';
+        html += '</div>';
+        
+        // Show next 4 top scorers
+        var topScorers = calculatedLeaderboardTotal.slice(1, 5);
+        topScorers.forEach(function(scorer, index) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + (index + 2) + '. ' + scorer.name + '</span>';
+            html += '<span>' + scorer.goals + ' goals</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getTopDefenderDetail() {
+        if (!calculatedSeasonStats || !calculatedSeasonStats.allDefenders || calculatedSeasonStats.allDefenders.length === 0) {
+            return '<div class="perf-detail-empty">No defensive data available</div>';
+        }
+        
+        var topDefender = calculatedSeasonStats.allDefenders[0];
+        var html = '<div class="perf-detail-row" style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">';
+        html += '<span>' + topDefender.name + '</span>';
+        html += '<span class="positive">' + topDefender.avg.toFixed(1) + ' GA/Q</span>';
+        html += '</div>';
+        
+        // Show next 4 top defenders
+        var topDefenders = calculatedSeasonStats.allDefenders.slice(1, 5);
+        topDefenders.forEach(function(defender, index) {
+            html += '<div class="perf-detail-row">';
+            html += '<span>' + (index + 2) + '. ' + defender.name + '</span>';
+            html += '<span>' + defender.avg.toFixed(1) + ' GA/Q</span>';
+            html += '</div>';
+        });
+        
+        return html;
+    }
+
+    function getQuarterBreakdownDetail() {
+        var pastGames = games.filter(function(g) { 
+            return g.status === 'normal' && isGameInPast(g); 
+        });
+        
+        if (!pastGames || pastGames.length === 0) {
+            return '<div class="perf-detail-empty">No games played yet</div>';
+        }
+        
+        // Calculate quarter totals from games
+        var quarterTotals = {
+            for: [0, 0, 0, 0],
+            against: [0, 0, 0, 0]
+        };
+        
+        pastGames.forEach(function(game) {
+            if (game.quarters && game.quarters.length === 4) {
+                game.quarters.forEach(function(quarter, i) {
+                    var ourGoals = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                    var opponentGoals = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                    quarterTotals.for[i] += ourGoals;
+                    quarterTotals.against[i] += opponentGoals;
+                });
+            }
+        });
+        
+        var html = '<div class="perf-detail-mini-grid">';
+        
+        for (var i = 0; i < 4; i++) {
+            var goalsFor = quarterTotals.for[i];
+            var goalsAgainst = quarterTotals.against[i];
+            var diff = goalsFor - goalsAgainst;
+            var diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
+            var diffStr = diff > 0 ? '+' + diff : diff.toString();
+            
+            html += '<div class="perf-detail-mini-card">';
+            html += '<div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">Q' + (i + 1) + '</div>';
+            html += '<div style="font-size: 16px; font-weight: bold;">' + goalsFor + '-' + goalsAgainst + '</div>';
+            html += '<div style="font-size: 12px; margin-top: 2px;" class="' + diffClass + '">' + diffStr + '</div>';
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        return html;
+    }
+
+    // NEW DASHBOARD RENDER FUNCTIONS
+    const renderNewInsightsDashboard = () => {
+        // Wait for bulk preload before rendering
+        // Only render into dashboards that are in currently visible views
+        let dashboard = null;
+        try {
+            const teamPerfView = document.getElementById('insights-team-performance-view');
+            if (teamPerfView && !teamPerfView.classList.contains('hidden')) {
+                dashboard = teamPerfView.querySelector('.insights-dashboard');
+            }
+        } catch (e) { /* ignore */ }
+        if (!dashboard) {
+            // Find dashboard in any visible view
+            dashboard = document.querySelector('.view:not(.hidden) .insights-dashboard');
+        }
+        if (!dashboard) {
+            // No visible dashboard found, don't render
+            return;
+        }
+        // Ensure dashboard is visible within its view
+        if (dashboard.classList.contains('hidden')) {
+            dashboard.classList.remove('hidden');
+        }
+        // Defensive: ensure display is not none
+        dashboard.style.display = '';
+        // Show loading spinner if team data or stats are not yet loaded
+        if (!window.allTeamData || !(window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID)) {
+            if (dashboard) {
+                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
+                    <div class="spinner" style="margin-bottom: 20px;"></div>
+                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Loading team data...</h2>
+                </div>`;
+            }
+            return; // No timeout, wait for data to be ready
+        }
+        var teamID = window.appState.currentTeam.teamID;
+        var teamData = window.allTeamData[teamID];
+        if (!teamData) {
+            console.log('[renderNewInsightsDashboard] ERROR: No teamData found for teamID:', teamID, 'available teams:', Object.keys(window.allTeamData));
+            if (dashboard) {
+                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
+                    <div class="spinner" style="margin-bottom: 20px;"></div>
+                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Loading team data...</h2>
+                </div>`;
+            }
+            return; // No timeout
+        }
+        window.games = teamData.games || [];
+        window.players = teamData.players || [];
+        // Only set calculatedSeasonStats if not already set (e.g., from team selection calculation)
+        if (!window.calculatedSeasonStats) {
+            window.calculatedSeasonStats = teamData.stats || null;
+        }
+        
+        // Debug: Log stats availability
+        console.log('[renderNewInsightsDashboard] Stats check - teamData.stats exists:', !!teamData.stats, 'calculatedSeasonStats keys:', window.calculatedSeasonStats ? Object.keys(window.calculatedSeasonStats).length : 0);
+        
+        // Show spinner if stats are not yet calculated
+        if (!window.calculatedSeasonStats) {
+            if (dashboard) {
+                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
+                    <div class="spinner" style="margin-bottom: 20px;"></div>
+                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Calculating stats...</h2>
+                </div>`;
+            }
+            return; // No timeout, wait for stats calculation
+        }
+        // Only show 'No Game Data Yet' if stats are loaded and gameCount is zero
+        if (!window.calculatedSeasonStats.gameCount || window.calculatedSeasonStats.gameCount === 0) {
+            showEmptyInsightsState();
+            return;
+        }
+        try {
+            renderNewInsightsDashboardContent();
+        } catch (renderErr) {
+            console.error("Error rendering dashboard content:", renderErr);
+            showEmptyInsightsState();
+        }
+    };
+
+    // Manual refresh function with animation
+    const refreshInsightsDashboard = () => {
+        var refreshBtn = document.getElementById('refresh-insights-btn');
+        if (refreshBtn) {
+            // Add spin animation
+            refreshBtn.style.transform = 'rotate(360deg)';
+            refreshBtn.style.transition = 'transform 0.5s ease-in-out';
+            setTimeout(function() {
+                refreshBtn.style.transform = '';
+            }, 500);
+        }
+        
+        // Clear any auto-retry interval
+        if (insightsRetryInterval) {
+            clearInterval(insightsRetryInterval);
+            insightsRetryInterval = null;
+        }
+        
+        console.log("Manual refresh triggered - games:", games ? games.length : 0);
+        // Force recalculation
+        statsCalculated = false;
+        calculatedSeasonStats = null;
+        renderNewInsightsDashboard();
+    };
+    
+    window.renderNewInsightsDashboard = renderNewInsightsDashboard;
+    
+    const renderNewInsightsDashboardContent = () => {
+        const stats = window.calculatedSeasonStats || calculatedSeasonStats;
+        console.log("renderNewInsightsDashboardContent - stats:", stats ? Object.keys(stats).length + " keys" : "null/undefined");
+
+        // Helper: populate small snapshot cards in `index.html` if present
+        function populateTestSnapshotCards(s) {
+            if (!s) return;
+            try {
+                var map = {
+                    'test-offense-goals': (s.goalsFor != null) ? s.goalsFor : '--',
+                    'test-defense-goals': (s.goalsAgainst != null) ? s.goalsAgainst : '--',
+                    'test-player-count': (s.playerSpotlights ? s.playerSpotlights.length : 0),
+                    'test-team-wins': (s.wins != null ? s.wins : 0) + '/' + (s.gameCount != null ? s.gameCount : 0)
+                };
+                Object.keys(map).forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.textContent = map[id];
+                });
+            } catch (e) {
+                console.warn('populateTestSnapshotCards error', e);
+            }
+        }
+        
+        if (!stats.gameCount || stats.gameCount === 0) {
+            showEmptyInsightsState();
+            return;
+        }
+
+        // Team Performance Overview
+        var statsEl = document.getElementById('insights-season-stats');
+        if (statsEl) {
+            statsEl.textContent = `${stats.teamSeason} • ${stats.gameCount} Games Played`;
+        }
+
+        // Core Performance Metrics
+        const winRate = stats.normalGameCount > 0 ? Math.round((stats.wins / stats.normalGameCount) * 100) : 0;
+        const goalDiff = stats.goalsFor - stats.goalsAgainst;
+        const avgGoalsFor = stats.normalGameCount > 0 ? (stats.goalsFor / stats.normalGameCount).toFixed(1) : '0.0';
+        const avgGoalsAgainst = stats.normalGameCount > 0 ? (stats.goalsAgainst / stats.normalGameCount).toFixed(1) : '0.0';
+
+        // Populate Record (W-L-D)
+        var perfRecord = document.getElementById('perf-record');
+        if (perfRecord) {
+            perfRecord.textContent = `${stats.wins}-${stats.losses}-${stats.draws}`;
+        }
+
+        // Populate Win Rate
+        var perfWinRate = document.getElementById('perf-win-rate');
+        if (perfWinRate) {
+            perfWinRate.textContent = `${winRate}%`;
+        }
+
+        // Populate Goal Difference
+        var perfGoalDiff = document.getElementById('perf-goal-diff');
+        if (perfGoalDiff) {
+            perfGoalDiff.textContent = goalDiff >= 0 ? `+${goalDiff}` : `${goalDiff}`;
+            perfGoalDiff.style.color = goalDiff > 0 ? 'var(--success-color)' : goalDiff < 0 ? 'var(--error-color)' : 'var(--primary-color)';
+        }
+
+        // Calculate and Populate Form (Last 5 games)
+        var perfForm = document.getElementById('perf-form');
+        if (perfForm) {
+            var formString = calculateRecentForm(5);
+            perfForm.textContent = formString || '\u2014';
+        }
+
+        // Populate Average Goals For/Against
+        var perfAvgFor = document.getElementById('perf-avg-for');
+        if (perfAvgFor) {
+            perfAvgFor.textContent = avgGoalsFor;
+        }
+
+        var perfAvgAgainst = document.getElementById('perf-avg-against');
+        if (perfAvgAgainst) {
+            perfAvgAgainst.textContent = avgGoalsAgainst;
+        }
+
+        // Quarter Analysis - Best Quarter
+        const maxDiff = Math.max(...stats.quarterDiffs);
+        const bestQuarterIndex = stats.quarterDiffs.indexOf(maxDiff);
+        
+        var perfBestQtr = document.getElementById('perf-best-qtr');
+        if (perfBestQtr) {
+            perfBestQtr.textContent = `Q${bestQuarterIndex + 1}`;
+        }
+
+        // Calculate Top Defender (lowest avg goals against, min 3 quarters in GD/GK)
+        var topDefender = null;
+        if (stats.allDefenders && stats.allDefenders.length > 0) {
+            // Filter for defenders with at least 3 quarters
+            var qualifiedDefenders = stats.allDefenders.filter(function(d) { return d.quarters >= 3; });
+            if (qualifiedDefenders.length > 0) {
+                // Find defender with lowest average goals against
+                topDefender = qualifiedDefenders.reduce(function(best, current) {
+                    return current.avg < best.avg ? current : best;
+                });
+            }
+        }
+        
+        var perfCleanSheets = document.getElementById('perf-clean-sheets');
+        if (perfCleanSheets) {
+            perfCleanSheets.textContent = topDefender ? topDefender.name : '—';
+        }
+
+        // Calculate and Populate Average Goals For Singles
+        var aveGoalsForSingles = 0;
+        var singlesScoringCount = 0;
+        if (calculatedLeaderboardPerQtr) {
+            const qualifiedSingles = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3);
+            if (qualifiedSingles.length > 0) {
+                const totalAvg = qualifiedSingles.reduce((sum, p) => sum + p.avg, 0);
+                aveGoalsForSingles = totalAvg / qualifiedSingles.length;
+                singlesScoringCount = qualifiedSingles.length;
+            }
+        }
+        var perfAveGoalsForSingles = document.getElementById('perf-ave-goals-for-singles');
+        if (perfAveGoalsForSingles) {
+            perfAveGoalsForSingles.textContent = aveGoalsForSingles > 0 ? aveGoalsForSingles.toFixed(1) : '—';
+        }
+
+        // Calculate and Populate Average Goals Against Singles
+        var aveGoalsAgainstSingles = 0;
+        var singlesDefensiveCount = 0;
+        if (stats.allDefenders) {
+            const qualifiedDefenders = stats.allDefenders.filter(p => p.quarters >= 3);
+            if (qualifiedDefenders.length > 0) {
+                const totalAvg = qualifiedDefenders.reduce((sum, p) => sum + p.avg, 0);
+                aveGoalsAgainstSingles = totalAvg / qualifiedDefenders.length;
+                singlesDefensiveCount = qualifiedDefenders.length;
+            }
+        }
+        var perfAveGoalsAgainstSingles = document.getElementById('perf-ave-goals-against-singles');
+        if (perfAveGoalsAgainstSingles) {
+            perfAveGoalsAgainstSingles.textContent = aveGoalsAgainstSingles > 0 ? aveGoalsAgainstSingles.toFixed(1) : '—';
+        }
+
+        // Calculate and Populate Average Goals For Pairs
+        var aveGoalsForPairs = 0;
+        var pairsScoringCount = 0;
+        if (stats.allOffenseCombos) {
+            const qualifiedPairs = stats.allOffenseCombos.filter(p => p.quarters >= 3);
+            if (qualifiedPairs.length > 0) {
+                const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
+                aveGoalsForPairs = totalAvg / qualifiedPairs.length;
+                pairsScoringCount = qualifiedPairs.length;
+            }
+        }
+        var perfAveGoalsForPairs = document.getElementById('perf-ave-goals-for-pairs');
+        if (perfAveGoalsForPairs) {
+            perfAveGoalsForPairs.textContent = aveGoalsForPairs > 0 ? aveGoalsForPairs.toFixed(1) : '—';
+        }
+
+        // Calculate and Populate Average Goals Against Pairs
+        var aveGoalsAgainstPairs = 0;
+        var pairsDefensiveCount = 0;
+        if (stats.allDefenseCombos) {
+            const qualifiedPairs = stats.allDefenseCombos.filter(p => p.quarters >= 3);
+            if (qualifiedPairs.length > 0) {
+                const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
+                aveGoalsAgainstPairs = totalAvg / qualifiedPairs.length;
+                pairsDefensiveCount = qualifiedPairs.length;
+            }
+        }
+        var perfAveGoalsAgainstPairs = document.getElementById('perf-ave-goals-against-pairs');
+        if (perfAveGoalsAgainstPairs) {
+            perfAveGoalsAgainstPairs.textContent = aveGoalsAgainstPairs > 0 ? aveGoalsAgainstPairs.toFixed(1) : '—';
+        }
+
+        // Populate detail sections for the average cards
+        var detailForSingles = document.getElementById('perf-ave-goals-for-singles-detail');
+        if (detailForSingles) {
+            if (singlesScoringCount > 0) {
+                const topScorer = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3).sort((a, b) => b.goals - a.goals)[0];
+                detailForSingles.innerHTML = `Based on ${singlesScoringCount} players with 3+ quarters<br>Top scorer: ${topScorer ? topScorer.name + ' (' + topScorer.goals + ' goals)' : 'N/A'}`;
+            } else {
+                detailForSingles.innerHTML = 'No players with 3+ quarters';
+            }
+        }
+
+        var detailAgainstSingles = document.getElementById('perf-ave-goals-against-singles-detail');
+        if (detailAgainstSingles) {
+            if (singlesDefensiveCount > 0) {
+                const topDefender = stats.allDefenders.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
+                detailAgainstSingles.innerHTML = `Based on ${singlesDefensiveCount} defenders with 3+ quarters<br>Best defender: ${topDefender ? topDefender.name + ' (' + topDefender.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
+            } else {
+                detailAgainstSingles.innerHTML = 'No defenders with 3+ quarters';
+            }
+        }
+
+        var detailForPairs = document.getElementById('perf-ave-goals-for-pairs-detail');
+        if (detailForPairs) {
+            if (pairsScoringCount > 0) {
+                const topPair = stats.allOffenseCombos.filter(p => p.quarters >= 3).sort((a, b) => b.total - a.total)[0];
+                detailForPairs.innerHTML = `Based on ${pairsScoringCount} pairs with 3+ quarters<br>Top pair: ${topPair ? topPair.name + ' (' + topPair.total + ' goals)' : 'N/A'}`;
+            } else {
+                detailForPairs.innerHTML = 'No pairs with 3+ quarters';
+            }
+        }
+
+        var detailAgainstPairs = document.getElementById('perf-ave-goals-against-pairs-detail');
+        if (detailAgainstPairs) {
+            if (pairsDefensiveCount > 0) {
+                const topPair = stats.allDefenseCombos.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
+                detailAgainstPairs.innerHTML = `Based on ${pairsDefensiveCount} pairs with 3+ quarters<br>Best pair: ${topPair ? topPair.name + ' (' + topPair.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
+            } else {
+                detailAgainstPairs.innerHTML = 'No defensive pairs with 3+ quarters';
+            }
+        }
+
+        // Quarter Flow Visualization
+        renderQuarterFlow(stats);
+
+        // Offensive Leaders
+        renderOffensiveLeaders(stats);
+
+        // Defensive Leaders
+        renderDefensiveLeaders(stats);
+
+        // Player Impact
+        updatePlayerImpactCards();
+        
+        // Additional Stats
+        renderAdditionalStats(stats);
+        
+        // Update accordion summaries
+        updateAccordionSummaries(stats);
+        
+        // Restore accordion states from localStorage
+        restoreInsightsAccordionStates();
+    };
+    
+    const updateAccordionSummaries = (stats) => {
+        // Quarter Performance summary
+        safeSetText('summary-best-qtr', stats.bestQuarter || '—');
+        safeSetText('summary-worst-qtr', stats.worstQuarter || '—');
+        
+        // Offensive summary
+        var topScorer = calculatedLeaderboardTotal && calculatedLeaderboardTotal[0];
+        if (topScorer) {
+            safeSetText('summary-top-scorer', topScorer.name);
+        }
+        var topPair = (stats.allOffenseCombos || []).slice().sort((a, b) => b.total - a.total)[0];
+        if (topPair) {
+            safeSetText('summary-top-pair', topPair.name);
+        }
+        
+        // Defense summary  
+        var topDefender = stats.allDefenders && stats.allDefenders[0];
+        if (topDefender) {
+            safeSetText('summary-top-defender', topDefender.name);
+        }
+        var avgGA = stats.normalGameCount > 0 ? (stats.goalsAgainst / stats.normalGameCount).toFixed(1) : '0.0';
+        safeSetText('summary-avg-ga', avgGA);
+    };
+
+    const renderQuarterFlow = (stats) => {
+        const quarterFlow = document.getElementById('quarter-flow-viz');
+        if (!quarterFlow) return; // Element doesn't exist in current view
+        
+        quarterFlow.innerHTML = '';
+        
+        if (stats.quarterDiffs && stats.quarterDiffs.length === 4) {
+            stats.quarterDiffs.forEach((diff, index) => {
+                const quarterCard = document.createElement('div');
+                let quarterClass = 'quarter-card';
+                
+                if (diff > 3) quarterClass += ' strong';
+                else if (diff < -3) quarterClass += ' weak';
+                
+                quarterCard.className = quarterClass;
+                quarterCard.innerHTML = `
+                    <div class="quarter-label">Q${index + 1}</div>
+                    <div class="quarter-value">${diff > 0 ? '+' : ''}${diff}</div>
+                `;
+                quarterFlow.appendChild(quarterCard);
+            });
+        }
+    };
+
+    const renderOffensiveLeaders = (stats) => {
+        // Defensive: ensure stats object provided
+        if (!stats) {
+            try {
+                safeSetText('card-single-total-initials', '--');
+                safeSetText('card-single-total-name', '—');
+                safeSetText('card-single-total-stats', 'No data');
+                safeSetText('card-single-avg-initials', '--');
+                safeSetText('card-single-avg-name', '—');
+                safeSetText('card-single-avg-stats', 'No data');
+                safeSetText('card-pair-total-initials', '--');
+                safeSetText('card-pair-total-name', '—');
+                safeSetText('card-pair-total-stats', 'No data');
+                safeSetText('card-pair-avg-initials', '--');
+                safeSetText('card-pair-avg-name', '—');
+                safeSetText('card-pair-avg-stats', 'No data');
+                var eff = document.getElementById('efficient-scorer-avg'); if (eff) eff.textContent = '0.0';
+                var combos = document.getElementById('total-combinations'); if (combos) combos.textContent = '0';
+            } catch (e) { /* ignore */ }
+            try { if (window.announce && typeof window.announce === 'function') window.announce('Offensive data not available'); } catch (e) {}
+            return;
+        }
+
+        // Top single by total goals
+        const topScorer = calculatedLeaderboardTotal && calculatedLeaderboardTotal[0];
+        // Top single by goals per quarter (min 3 quarters)
+        const perQ = calculatedLeaderboardPerQtr || [];
+        const topSingleByAvg = perQ.find(p => p.quarters >= 3) || null;
+
+        if (topScorer) {
+            // populate single-total card (include sample counts)
+            safeSetText('card-single-total-initials', getInitials(topScorer.name));
+            safeSetText('card-single-total-name', topScorer.name);
+            const scorerPerQ = perQ.find(p => p.name === topScorer.name) || { goals: topScorer.goals || 0, quarters: 0, avg: 0 };
+            safeSetText('card-single-total-stats', `${(topScorer.goals||0)} Goals • ${scorerPerQ.avg.toFixed(1)}/Qtr • ${scorerPerQ.quarters} Qtrs`);
+            // Dim card when sample is low (visual cue)
+            safeToggleClass('card-single-total', 'low-sample', (scorerPerQ.quarters || 0) < 5);
+
+            // Back-compat: fill the older IDs if present
+            safeSetText('top-scorer-initials', getInitials(topScorer.name));
+            safeSetText('top-scorer-name', topScorer.name);
+            safeSetText('top-scorer-stats', `${(topScorer.goals||0)} Goals • ${scorerPerQ.avg.toFixed(1)}/Qtr • ${scorerPerQ.quarters} Qtrs`);
+        }
+        
+        // Top Offensive Pair
+        // Top offensive pair: require min 3 quarters
+        const reliablePairs = (stats.allOffenseCombos || []).filter(p => p.quarters >= 3);
+        const topPairByAvg = reliablePairs.slice().sort((a, b) => b.avg - a.avg)[0] || null;
+        // Also consider top pair by total goals (for completeness)
+        const topPairByTotal = (stats.allOffenseCombos || []).slice().sort((a, b) => b.total - a.total)[0] || null;
+
+        // Populate pair cards: total and avg
+        if (topPairByTotal) {
+            safeSetText('card-pair-total-initials', getPairInitials(topPairByTotal.name));
+            safeSetText('card-pair-total-name', topPairByTotal.name);
+            safeSetText('card-pair-total-stats', `${(topPairByTotal.total||0)} Goals • ${topPairByTotal.avg.toFixed(1)} Goals/Qtr • ${topPairByTotal.quarters} Qtrs`);
+            // back-compat
+            safeSetText('top-pair-initials', getPairInitials(topPairByTotal.name));
+            safeSetText('top-pair-names', topPairByTotal.name);
+            safeSetText('top-pair-stats', `${(topPairByTotal.total||0)} Goals • ${topPairByTotal.avg.toFixed(1)} Goals/Qtr • ${topPairByTotal.quarters} Qtrs`);
+            safeToggleClass('card-pair-total', 'low-sample', (topPairByTotal.quarters || 0) < 5);
+        }
+
+        if (topPairByAvg) {
+            safeSetText('card-pair-avg-initials', getPairInitials(topPairByAvg.name));
+            safeSetText('card-pair-avg-name', topPairByAvg.name);
+            safeSetText('card-pair-avg-stats', `${topPairByAvg.avg.toFixed(1)} Goals/Qtr • ${topPairByAvg.quarters} Qtrs`);
+            safeToggleClass('card-pair-avg', 'low-sample', (topPairByAvg.quarters || 0) < 5);
+        } else if (!topPairByAvg && topPairByTotal) {
+            // no avg-qualified pair, show the total pair also in avg slot
+            safeSetText('card-pair-avg-initials', getPairInitials(topPairByTotal.name));
+            safeSetText('card-pair-avg-name', topPairByTotal.name);
+            safeSetText('card-pair-avg-stats', `${(topPairByTotal.total||0)} Goals • ${topPairByTotal.quarters} Qtrs`);
+            safeToggleClass('card-pair-avg', 'low-sample', (topPairByTotal.quarters || 0) < 5);
+        }
+
+        // Populate single-avg card (most efficient single)
+        if (topSingleByAvg) {
+            safeSetText('card-single-avg-initials', getInitials(topSingleByAvg.name));
+            safeSetText('card-single-avg-name', topSingleByAvg.name);
+            safeSetText('card-single-avg-stats', `${topSingleByAvg.avg.toFixed(1)} Goals/Qtr • ${topSingleByAvg.quarters} Qtrs`);
+            safeToggleClass('card-single-avg', 'low-sample', (topSingleByAvg.quarters || 0) < 5);
+        } else {
+            // fallback: if no qualified single, show top scorer's per-qtr if exists
+            const fallback = perQ.find(p => p.name === (topScorer && topScorer.name));
+            if (fallback) {
+                safeSetText('card-single-avg-initials', getInitials(fallback.name));
+                safeSetText('card-single-avg-name', fallback.name);
+                safeSetText('card-single-avg-stats', `${fallback.avg.toFixed(1)} Goals/Qtr • ${fallback.quarters} Qtrs`);
+                safeToggleClass('card-single-avg', 'low-sample', (fallback.quarters || 0) < 5);
+            }
+        }
+
+        // Safe element updates
+        var effScorer = document.getElementById('efficient-scorer-avg');
+        if (effScorer) {
+            effScorer.textContent = ((topSingleByAvg && topSingleByAvg.avg) || (topPairByAvg && topPairByAvg.avg) || (topPairByTotal && topPairByTotal.avg) || 0).toFixed(1);
+        }
+        var totalCombos = document.getElementById('total-combinations');
+        if (totalCombos && stats.allOffenseCombos) {
+            totalCombos.textContent = stats.allOffenseCombos.length;
+        }
+    };
+
+    const renderDefensiveLeaders = (stats) => {
+        // Defensive: guard missing stats
+        if (!stats || !stats.allDefenders) return;
+
+        // Top Defender (most efficient GA/Q — lower is better)
+        const reliableDefenders = (stats.allDefenders || []).filter(p => p.quarters >= 3);
+        const topDefender = (reliableDefenders.slice().sort((a, b) => a.avg - b.avg)[0]) || null;
+        if (topDefender) {
+            // primary IDs used elsewhere
+            var tdInit = document.getElementById('top-defender-initials'); if (tdInit) tdInit.textContent = getInitials(topDefender.name);
+            var tdName = document.getElementById('top-defender-name'); if (tdName) tdName.textContent = topDefender.name;
+            var tdStats = document.getElementById('top-defender-stats'); if (tdStats) tdStats.textContent = `${topDefender.avg.toFixed(1)} GA/Q • ${topDefender.quarters} Quarters`;
+
+            // mirror into defensive-card style IDs so layout matches Offensive Leaders
+            var cInit = document.getElementById('card-def-single-avg-initials'); if (cInit) cInit.textContent = getInitials(topDefender.name);
+            var cName = document.getElementById('card-def-single-avg-name'); if (cName) cName.textContent = topDefender.name;
+            var cStats = document.getElementById('card-def-single-avg-stats'); if (cStats) cStats.textContent = `${topDefender.avg.toFixed(1)} GA/Q • ${topDefender.quarters} Qtrs`;
+            // keep visual low-sample hint via class toggles
+            try { safeToggleClass('card-def-single-avg', 'low-sample', (topDefender.quarters || 0) < 5); } catch (e) {}
+        }
+
+        // Top Defensive Pair
+        const reliableDPairs = (stats.allDefenseCombos || []).filter(p => p.quarters >= 3);
+        const topDPair = (reliableDPairs.slice().sort((a, b) => a.avg - b.avg)[0]) || null;
+        const topDPairByTotal = (stats.allDefenseCombos || []).slice().sort((a, b) => b.total - a.total)[0] || null;
+        if (topDPair) {
+            var pdInit = document.getElementById('top-dpair-initials'); if (pdInit) pdInit.textContent = getPairInitials(topDPair.name);
+            var pdNames = document.getElementById('top-dpair-names'); if (pdNames) pdNames.textContent = topDPair.name;
+            var pdStats = document.getElementById('top-dpair-stats'); if (pdStats) pdStats.textContent = `${topDPair.avg.toFixed(1)} GA/Q • ${topDPair.quarters} Quarters`;
+
+            // mirror into defensive pair cards
+            var cpi = document.getElementById('card-def-pair-avg-initials'); if (cpi) cpi.textContent = getPairInitials(topDPair.name);
+            var cpn = document.getElementById('card-def-pair-avg-name'); if (cpn) cpn.textContent = topDPair.name;
+            var cps = document.getElementById('card-def-pair-avg-stats'); if (cps) cps.textContent = `${topDPair.avg.toFixed(1)} GA/Q • ${topDPair.quarters} Qtrs`;
+            try { safeToggleClass('card-def-pair-avg', 'low-sample', (topDPair.quarters || 0) < 5); } catch (e) {}
+        } else if (!topDPair && topDPairByTotal) {
+            // fallback to the pair-by-total if no avg-qualified pair
+            var pdInit = document.getElementById('top-dpair-initials'); if (pdInit) pdInit.textContent = getPairInitials(topDPairByTotal.name);
+            var pdNames = document.getElementById('top-dpair-names'); if (pdNames) pdNames.textContent = topDPairByTotal.name;
+            var pdStats = document.getElementById('top-dpair-stats'); if (pdStats) pdStats.textContent = `${(topDPairByTotal.total||0)} Goals • ${topDPairByTotal.quarters} Qtrs`;
+
+            var cpi = document.getElementById('card-def-pair-avg-initials'); if (cpi) cpi.textContent = getPairInitials(topDPairByTotal.name);
+            var cpn = document.getElementById('card-def-pair-avg-name'); if (cpn) cpn.textContent = topDPairByTotal.name;
+            var cps = document.getElementById('card-def-pair-avg-stats'); if (cps) cps.textContent = `${(topDPairByTotal.total||0)} Goals • ${topDPairByTotal.quarters} Qtrs`;
+            try { safeToggleClass('card-def-pair-avg', 'low-sample', (topDPairByTotal.quarters || 0) < 5); } catch (e) {}
+        }
+        
+        // Defensive Stats
+        const totalDefensiveQuarters = stats.allDefenders.reduce((sum, defender) => sum + defender.quarters, 0);
+        const avgGoalsAgainst = stats.normalGameCount > 0 ? (stats.goalsAgainst / stats.normalGameCount).toFixed(1) : '0';
+        
+        var avgGaEl = document.getElementById('avg-ga');
+        if (avgGaEl) avgGaEl.textContent = avgGoalsAgainst;
+        
+        var defQtrEl = document.getElementById('defensive-quarters');
+        if (defQtrEl) defQtrEl.textContent = totalDefensiveQuarters;
+    };
+
+    const updatePlayerImpactCards = () => {
+        const plusMinusStats = calculatedPlayerPlusMinus;
+        const keyPositions = ["GS", "GA", "C", "GK"];
+        
+        keyPositions.forEach(pos => {
+            let topPlayer = null;
+            let topScore = -Infinity;
+            
+            plusMinusStats.forEach(player => {
+                const posData = player[pos];
+                if (posData && posData.qtrs >= 3) {
+                    const avg = posData.total / posData.qtrs;
+                    if (avg > topScore) {
+                        topScore = avg;
+                        topPlayer = player;
+                    }
+                }
+            });
+            
+            const elementId = `impact-${pos.toLowerCase()}`;
+            const playerElementId = `impact-${pos.toLowerCase()}-player`;
+            
+            var impactEl = document.getElementById(elementId);
+            var playerEl = document.getElementById(playerElementId);
+            
+            if (topPlayer) {
+                if (impactEl) {
+                    impactEl.textContent = topScore > 0 ? `+${topScore.toFixed(1)}` : topScore.toFixed(1);
+                    impactEl.className = `stat-value-primary ${topScore > 0 ? 'trend-up' : topScore < 0 ? 'trend-down' : 'trend-neutral'}`;
+                }
+                if (playerEl) playerEl.textContent = topPlayer.name;
+            } else {
+                if (impactEl) {
+                    impactEl.textContent = '0.0';
+                    impactEl.className = 'stat-value-primary trend-neutral';
+                }
+                if (playerEl) playerEl.textContent = 'No data';
+            }
+        });
+    };
+
+    const renderAdditionalStats = (stats) => {
+        // Add any additional stats calculations here
+        const totalQuarters = stats.normalGameCount * 4;
+        var defQtrEl = document.getElementById('defensive-quarters');
+        if (defQtrEl) defQtrEl.textContent = totalQuarters;
+    };
+
+    // Global retry interval tracker
+    var insightsRetryInterval = null;
+
+    const showEmptyInsightsState = (message) => {
+    const dashboard = document.querySelector('.insights-dashboard');
+        if (!dashboard) return; // View not visible
+        
+        dashboard.innerHTML = `
+            <div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 4em; margin-bottom: 20px;">📊</div>
+                <h2 style="color: var(--secondary-text); margin-bottom: 10px;">No Game Data Yet</h2>
+                <p style="color: var(--secondary-text); margin-bottom: 30px;">
+                    Start tracking games to see your team's insights and performance analytics.
+                </p>
+                <button onclick="showView('fixture-view')" style="padding: 12px 24px;">
+                    Go to Fixture
+                </button>
+            </div>
+        `;
+        
+        // Clear any existing retry interval
+        if (insightsRetryInterval) {
+            clearInterval(insightsRetryInterval);
+            insightsRetryInterval = null;
+        }
+        
+        // Auto-retry when data loads from server (check every 1 second for up to 5 seconds)
+        var retryCount = 0;
+        insightsRetryInterval = setInterval(function() {
+            retryCount++;
+            var insightsView = document.getElementById('insights-view');
+            var isInsightsVisible = insightsView && !insightsView.classList.contains('hidden');
+            
+            if (games && games.length > 0 && isInsightsVisible) {
+                clearInterval(insightsRetryInterval);
+                insightsRetryInterval = null;
+                console.log('Games data loaded, re-rendering insights');
+                renderNewInsightsDashboard();
+            } else if (retryCount >= 5 || !isInsightsVisible) {
+                // Stop trying if: timeout OR user switched views
+                clearInterval(insightsRetryInterval);
+                insightsRetryInterval = null;
+            }
+        }, 1000);
+    };
+
+    // Helper functions
+    function getInitials(name) {
+        if (!name) return '??';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    }
+
+    function getPairInitials(pairName) {
+        if (!pairName) return '??+??';
+        return pairName.split(' & ').map(name => getInitials(name)).join('+');
+    }
+
+    // Update the main insights render function to use the new dashboard
+    // Main render function for the main insights view
+    const renderInsights = () => {
+        renderNewInsightsDashboard();
+    };
+
+    // Render function for the test insights view
+    const renderInsightsTest = () => {
+        // Modern, mobile-optimized test insights dashboard
+        const container = document.querySelector('#insights-test-view .insights-dashboard');
+        const stats = calculatedSeasonStats;
+        if (!stats || !stats.gameCount || stats.gameCount === 0) {
+            container.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align:center;padding:40px 20px;">
+                <div style="font-size:4em;margin-bottom:20px;">📱</div>
+                <h2 style="color:var(--secondary-text);margin-bottom:10px;">No Game Data Yet</h2>
+                <p style="color:var(--secondary-text);margin-bottom:30px;">Play some games to see your team's mobile insights!</p>
+                <button onclick=\"showView('fixture-view')\" style=\"padding:12px 24px;\">Go to Fixture</button>
+            </div>`;
+            return;
+        }
+
+        // Header: Team, season, record
+        container.innerHTML = `
+        <section class="mobile-insights-header">
+            <div class="team-title-row">
+                <span class="icon" style="font-size:1.5em;">🏆</span>
+                <span class="team-title">${stats.teamName || ''}</span>
+                <span class="season-label">${stats.teamSeason || ''}</span>
+            </div>
+            <div class="team-record-row">
+                <span class="record-pill">${stats.teamRecord}</span>
+                <span class="record-label">W-L-D</span>
+            </div>
+        </section>
+
+        <section class="mobile-key-stats-row">
+            <div class="key-stat-card"><span class="icon">🥇</span><div class="stat-main">${Math.round((stats.wins / (stats.normalGameCount||1)) * 100)}%</div><div class="stat-label">Win Rate</div></div>
+            <div class="key-stat-card"><span class="icon">📈</span><div class="stat-main">${stats.bestQuarter}</div><div class="stat-label">Best Qtr</div></div>
+            <div class="key-stat-card"><span class="icon">⚡️</span><div class="stat-main">${stats.superlatives.topGun ? stats.superlatives.topGun.value : 0}</div><div class="stat-label">Top Gun</div></div>
+            <div class="key-stat-card"><span class="icon">➕</span><div class="stat-main">${stats.goalsFor - stats.goalsAgainst}</div><div class="stat-label">Goal Diff</div></div>
+        </section>
+
+        <section class="mobile-quarter-flow">
+            <h3 class="section-title"><span class="icon">🕓</span> Quarters</h3>
+            <div class="quarter-cards-row">
+                ${stats.quarterDiffs.map((diff,i) => `<div class="quarter-card-mobile ${diff>3?'strong':diff<-3?'weak':''}"><div class="quarter-label">Q${i+1}</div><div class="quarter-value">${diff>0?'+':''}${diff}</div></div>`).join('')}
+            </div>
+        </section>
+
+        <section class="mobile-offense-section">
+            <h3 class="section-title"><span class="icon">🔥</span> Offense</h3>
+            <div class="offense-cards-row">
+                <div class="offense-card"><span class="icon">🎯</span><div class="stat-main">${stats.superlatives.topGun ? stats.superlatives.topGun.name : '—'}</div><div class="stat-label">Top Scorer</div></div>
+                <div class="offense-card"><span class="icon">🤝</span><div class="stat-main">${stats.allOffenseCombos[0] ? stats.allOffenseCombos[0].name : '—'}</div><div class="stat-label">Top Pair</div></div>
+                <div class="offense-card"><span class="icon">📊</span><div class="stat-main">${stats.allOffenseCombos.length}</div><div class="stat-label">Combos</div></div>
+            </div>
+        </section>
+
+        <section class="mobile-defense-section">
+            <h3 class="section-title"><span class="icon">🛡️</span> Defense</h3>
+            <div class="defense-cards-row">
+                <div class="defense-card"><span class="icon">🧱</span><div class="stat-main">${stats.superlatives.ironWoman ? stats.superlatives.ironWoman.name : '—'}</div><div class="stat-label">Iron Woman</div></div>
+                <div class="defense-card"><span class="icon">🔒</span><div class="stat-main">${stats.allDefenseCombos[0] ? stats.allDefenseCombos[0].name : '—'}</div><div class="stat-label">Top D Pair</div></div>
+                <div class="defense-card"><span class="icon">🚫</span><div class="stat-main">${stats.goalsAgainst}</div><div class="stat-label">Goals Against</div></div>
+            </div>
+        </section>
+
+        <section class="mobile-spotlights-section">
+            <h3 class="section-title"><span class="icon">🌟</span> Player Spotlights</h3>
+            <div class="spotlights-scroll-row">
+                ${['topGun','ironWoman','swissArmyKnife','leader'].map(key => stats.superlatives[key] ? `<div class="spotlight-card"><span class="icon">${key==='topGun'?'⚡️':key==='ironWoman'?'🧱':key==='swissArmyKnife'?'🛠️':'👑'}</span><div class="stat-main">${stats.superlatives[key].name}</div><div class="stat-label">${key.replace(/([A-Z])/g,' $1')}</div><div class="stat-value">${stats.superlatives[key].value}</div></div>` : '').join('')}
+            </div>
+        </section>
+
+        <section class="mobile-player-table-section">
+            <h3 class="section-title"><span class="icon">👥</span> Players</h3>
+            <div class="player-table-scroll">
+                <table class="mobile-player-table">
+                    <thead><tr><th>Player</th><th>GP</th><th>Goals</th><th>Versatility</th></tr></thead>
+                    <tbody>
+                        ${stats.playerSpotlights.map(p => `<tr><td>${p.name}</td><td>${p.gamesPlayed}</td><td>${p.totalGoals}</td><td>${p.topPositions.map(tp=>tp.pos).join(', ')}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mobile-footer-section">
+            <button class="main-app-btn" onclick="showView('insights-view')">Try in Main App</button>
+            <a href="mailto:feedback@example.com" class="feedback-link">Send Feedback</a>
+        </section>
+        `;
+        // Populate small snapshot cards in-case the static test cards exist
+        try { populateTestSnapshotCards(stats); } catch (e) { /* ignore */ }
+
+        // Optional debug overlay for test view (toggle by setting window.DEBUG_TEST_INSIGHTS = true)
+        if (window.DEBUG_TEST_INSIGHTS) {
+            try {
+                // remove previous overlays
+                var existing = document.querySelectorAll('.test-debug-overlay');
+                existing.forEach(function(n){ n.remove(); });
+
+                var dbg = document.createElement('div');
+                dbg.className = 'test-debug-overlay';
+                dbg.style = 'position:fixed;left:8px;right:8px;bottom:72px;max-height:40vh;overflow:auto;padding:10px;background:rgba(0,0,0,0.78);color:#fff;border-radius:8px;font-size:12px;z-index:9999;';
+                var pre = document.createElement('pre');
+                pre.style = 'white-space:pre-wrap;word-break:break-word;margin:0;font-size:11px;line-height:1.2;';
+                pre.textContent = JSON.stringify(stats, null, 2);
+                dbg.appendChild(pre);
+                document.body.appendChild(dbg);
+            } catch (e) {
+                console.warn('Could not create debug overlay', e);
+            }
+        }
+        // Add minimal mobile styles if not present
+        if (!document.getElementById('mobile-insights-styles')) {
+            const style = document.createElement('style');
+            style.id = 'mobile-insights-styles';
+            style.innerHTML = `
+                .mobile-insights-header { padding: 12px 0 0 0; text-align: center; }
+                .team-title-row { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.2em; font-weight: 700; }
+                .season-label { font-size: 0.9em; color: #888; }
+                .team-record-row { margin-top: 2px; }
+                .record-pill { background: #222; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 1em; margin-right: 6px; }
+                .record-label { color: #888; font-size: 0.9em; }
+                .mobile-key-stats-row { display: flex; justify-content: space-between; gap: 4px; margin: 12px 0; }
+                .key-stat-card { flex: 1; background: #f7f7fa; border-radius: 10px; padding: 8px 0; text-align: center; font-size: 1em; box-shadow: 0 1px 4px #0001; }
+                .key-stat-card .icon { font-size: 1.2em; }
+                .key-stat-card .stat-main { font-size: 1.1em; font-weight: 700; }
+                .key-stat-card .stat-label { font-size: 0.8em; color: #888; }
+                .mobile-quarter-flow { margin: 10px 0; }
+                .quarter-cards-row { display: flex; gap: 6px; justify-content: center; }
+                .quarter-card-mobile { background: #e9f7ef; border-radius: 8px; padding: 8px 10px; min-width: 48px; text-align: center; font-size: 1em; }
+                .quarter-card-mobile.strong { background: #d1f2eb; color: #145a32; font-weight: 700; }
+                .quarter-card-mobile.weak { background: #f9ebea; color: #922b21; font-weight: 700; }
+                .quarter-label { font-size: 0.8em; color: #888; }
+                .quarter-value { font-size: 1.1em; font-weight: 700; }
+                .mobile-offense-section, .mobile-defense-section, .mobile-spotlights-section, .mobile-player-table-section { margin: 10px 0; }
+                .section-title { font-size: 1.1em; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+                .offense-cards-row, .defense-cards-row { display: flex; gap: 6px; }
+                .offense-card, .defense-card { flex: 1; background: #fff3e0; border-radius: 10px; padding: 8px 0; text-align: center; font-size: 1em; box-shadow: 0 1px 4px #0001; }
+                .defense-card { background: #e3f2fd; }
+                .offense-card .icon, .defense-card .icon { font-size: 1.2em; }
+                .offense-card .stat-main, .defense-card .stat-main { font-size: 1.1em; font-weight: 700; }
+                .offense-card .stat-label, .defense-card .stat-label { font-size: 0.8em; color: #888; }
+                .spotlights-scroll-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+                .spotlight-card { min-width: 110px; background: #f8f9fa; border-radius: 10px; padding: 8px; text-align: center; box-shadow: 0 1px 4px #0001; }
+                .spotlight-card .icon { font-size: 1.3em; }
+                .spotlight-card .stat-main { font-size: 1em; font-weight: 700; }
+                .spotlight-card .stat-label { font-size: 0.8em; color: #888; }
+                .spotlight-card .stat-value { font-size: 1.1em; font-weight: 700; color: #222; }
+                .player-table-scroll { overflow-x: auto; }
+                .mobile-player-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+                .mobile-player-table th, .mobile-player-table td { padding: 4px 8px; border-bottom: 1px solid #eee; text-align: left; }
+                .mobile-player-table th { background: #f1f1f1; color: #333; }
+                .mobile-footer-section { margin: 18px 0 8px 0; text-align: center; }
+                .main-app-btn { background: #222; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 1em; font-weight: 600; margin-bottom: 8px; }
+                .feedback-link { display: block; color: #888; font-size: 0.95em; margin-top: 4px; text-decoration: underline; }
+            `;
+            document.head.appendChild(style);
+        }
+    };
+
+    const renderInsightsTeamRecord = () => {
+        const container = document.getElementById('insights-team-record-table');
+        
+        const playedGames = games.filter(function(g) { return g.status !== 'bye'; });
+        playedGames.sort(function(a,b) { return a.round - b.round; }); 
+        
+        if (playedGames.length === 0) {
+            container.innerHTML = '<div class="empty-state">No game results recorded yet.</div>';
+            return;
+        }
+
+        const html = playedGames.map(function(game) {
+            let resultChar = '';
+            let resultClass = '';
+            let score = '-';
+
+            if (game.status === 'normal') {
+                const scores = getGameTotalScores(game);
+                score = scores.ourScore + ' - ' + scores.opponentScore;
+                if (scores.ourScore > scores.opponentScore) {
+                    resultChar = 'W';
+                    resultClass = 'status-ok';
+                } else if (scores.ourScore < scores.opponentScore) {
+                    resultChar = 'L';
+                    resultClass = 'status-error';
+                } else {
+                    resultChar = 'D';
+                }
+            } else if (game.status === 'forfeit_opp') {
+                resultChar = 'W';
+                resultClass = 'status-ok';
+                score = 'Forfeit';
+            } else if (game.status === 'forfeit_us') {
+                resultChar = 'L';
+                resultClass = 'status-error';
+                score = 'Forfeit';
+            } else {
+                resultChar = 'D';
+                score = game.status.charAt(0).toUpperCase() + game.status.slice(1);
+            }
+
+            return '<div class="leaderboard-item">' +
+                '<span class="leaderboard-rank ' + resultClass + '">' + resultChar + '</span>' +
+                '<span class="leaderboard-name">Rnd ' + game.round + ': vs ' + game.opponent + '</span>' +
+                '<div class="leaderboard-goals" style="text-align:right; font-weight: 600;">' +
+                    '<span>' + score + '</span>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        
+        container.innerHTML = html;
+    }
+
+
+    const renderInsightsPlayerStats = () => {
+        const stats = calculatedSeasonStats;
+        
+        if (!stats) {
+            // Show empty state for all sections
+            const sections = ['player-scoring-stats', 'pairs-scoring-stats', 'player-defensive-stats', 'pairs-defensive-stats'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<div class="empty-state">No data available</div>';
+            });
+            return;
+        }
+
+        // 1. Single Players - Total Goals & Goal Average (>3 quarters)
+        const playerScoringStats = document.getElementById('player-scoring-stats');
+        if (playerScoringStats) {
+            const perQData = (calculatedLeaderboardPerQtr || []).filter(p => p.quarters >= 3);
+            perQData.sort((a, b) => b.goals - a.goals); // Sort by total goals
+            
+            if (perQData.length === 0) {
+                playerScoringStats.innerHTML = '<div class="empty-state">No players with 3+ quarters</div>';
+            } else {
+                let html = '<div class="leaderboard-headers stats-headers"><div class="col-rank">#</div><div class="col-player">Player</div><div class="col-score">Total Goals</div><div class="col-score">Goals/Qtr</div></div>';
+                html += perQData.slice(0, 10).map((player, index) => {
+                    return `<div class="leaderboard-item stats-item">
+                        <span class="leaderboard-rank">${index + 1}</span>
+                        <span class="leaderboard-name">${player.name}</span>
+                        <div class="leaderboard-goals">
+                            <div class="score">${player.goals}</div>
+                            <span class="leaderboard-subtext">${player.avg.toFixed(1)} avg</span>
+                        </div>
+                        <div class="leaderboard-goals">
+                            <div class="score">${player.avg.toFixed(1)}</div>
+                            <span class="leaderboard-subtext">(${player.quarters} qtrs)</span>
+                        </div>
+                    </div>`;
+                }).join('');
+                playerScoringStats.innerHTML = html;
+            }
+        }
+
+        // 2. GS&GA Pairs - Total Goals & Goal Average (>3 quarters)
+        const pairsScoringStats = document.getElementById('pairs-scoring-stats');
+        if (pairsScoringStats) {
+            const pairsData = (stats.allOffenseCombos || []).filter(p => p.quarters >= 3);
+            pairsData.sort((a, b) => b.total - a.total); // Sort by total goals
+            
+            if (pairsData.length === 0) {
+                pairsScoringStats.innerHTML = '<div class="empty-state">No pairs with 3+ quarters</div>';
+            } else {
+                let html = '<div class="leaderboard-headers stats-headers"><div class="col-rank">#</div><div class="col-player">Pair</div><div class="col-score">Total Goals</div><div class="col-score">Goals/Qtr</div></div>';
+                html += pairsData.slice(0, 10).map((pair, index) => {
+                    return `<div class="leaderboard-item stats-item">
+                        <span class="leaderboard-rank">${index + 1}</span>
+                        <span class="leaderboard-name">${pair.name}</span>
+                        <div class="leaderboard-goals">
+                            <div class="score">${pair.total}</div>
+                            <span class="leaderboard-subtext">${pair.avg.toFixed(1)} avg</span>
+                        </div>
+                        <div class="leaderboard-goals">
+                            <div class="score">${pair.avg.toFixed(1)}</div>
+                            <span class="leaderboard-subtext">(${pair.quarters} qtrs)</span>
+                        </div>
+                    </div>`;
+                }).join('');
+                pairsScoringStats.innerHTML = html;
+            }
+        }
+
+        // 3. Single Players - Goals Against Average (>3 quarters)
+        const playerDefensiveStats = document.getElementById('player-defensive-stats');
+        if (playerDefensiveStats) {
+            const defendersData = (stats.allDefenders || []).filter(p => p.quarters >= 3);
+            defendersData.sort((a, b) => a.avg - b.avg); // Sort by lowest goals against average (best defense)
+            
+            if (defendersData.length === 0) {
+                playerDefensiveStats.innerHTML = '<div class="empty-state">No defenders with 3+ quarters</div>';
+            } else {
+                let html = '<div class="leaderboard-headers stats-headers"><div class="col-rank">#</div><div class="col-player">Player</div><div class="col-score">GA/Qtr</div><div class="col-score">Total GA</div></div>';
+                html += defendersData.slice(0, 10).map((player, index) => {
+                    return `<div class="leaderboard-item stats-item">
+                        <span class="leaderboard-rank">${index + 1}</span>
+                        <span class="leaderboard-name">${player.name}</span>
+                        <div class="leaderboard-goals">
+                            <div class="score">${player.avg.toFixed(1)}</div>
+                            <span class="leaderboard-subtext">per quarter</span>
+                        </div>
+                        <div class="leaderboard-goals">
+                            <div class="score">${player.total}</div>
+                            <span class="leaderboard-subtext">(${player.quarters} qtrs)</span>
+                        </div>
+                    </div>`;
+                }).join('');
+                playerDefensiveStats.innerHTML = html;
+            }
+        }
+
+        // 4. GD&GK Pairs - Goals Against Average (>3 quarters)
+        const pairsDefensiveStats = document.getElementById('pairs-defensive-stats');
+        if (pairsDefensiveStats) {
+            const defensePairsData = (stats.allDefenseCombos || []).filter(p => p.quarters >= 3);
+            defensePairsData.sort((a, b) => a.avg - b.avg); // Sort by lowest goals against average (best defense)
+            
+            if (defensePairsData.length === 0) {
+                pairsDefensiveStats.innerHTML = '<div class="empty-state">No defensive pairs with 3+ quarters</div>';
+            } else {
+                let html = '<div class="leaderboard-headers stats-headers"><div class="col-rank">#</div><div class="col-player">Pair</div><div class="col-score">GA/Qtr</div><div class="col-score">Total GA</div></div>';
+                html += defensePairsData.slice(0, 10).map((pair, index) => {
+                    return `<div class="leaderboard-item stats-item">
+                        <span class="leaderboard-rank">${index + 1}</span>
+                        <span class="leaderboard-name">${pair.name}</span>
+                        <div class="leaderboard-goals">
+                            <div class="score">${pair.avg.toFixed(1)}</div>
+                            <span class="leaderboard-subtext">per quarter</span>
+                        </div>
+                        <div class="leaderboard-goals">
+                            <div class="score">${pair.total}</div>
+                            <span class="leaderboard-subtext">(${pair.quarters} qtrs)</span>
+                        </div>
+                    </div>`;
+                }).join('');
+                pairsDefensiveStats.innerHTML = html;
+            }
+        }
+    }
+
+    // Render Offensive Leaders flip-card view
+    const renderInsightsOffensiveLeaders = () => {
+        const stats = calculatedSeasonStats;
+        
+        if (!stats) {
+            // Show empty state for all cards
+            ['offense-top-scorer', 'offense-top-pair', 'offense-efficient-scorer'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+            return;
+        }
+
+        // Top Scorer
+        const topScorer = calculatedLeaderboardTotal && calculatedLeaderboardTotal[0];
+        const topScorerEl = document.getElementById('offense-top-scorer');
+        if (topScorerEl) {
+            topScorerEl.textContent = topScorer ? topScorer.name : '—';
+        }
+
+        // Top Scoring Pair
+        const topPair = (stats.allOffenseCombos || []).slice().sort((a, b) => b.total - a.total)[0];
+        const topPairEl = document.getElementById('offense-top-pair');
+        if (topPairEl) {
+            topPairEl.textContent = topPair ? topPair.name : '—';
+        }
+
+        // Most Efficient Scorer
+        const efficientScorer = calculatedLeaderboardPerQtr && calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3).sort((a, b) => b.avg - a.avg)[0];
+        const efficientEl = document.getElementById('offense-efficient-scorer');
+        if (efficientEl) {
+            efficientEl.textContent = efficientScorer ? efficientScorer.name : '—';
+        }
+
+        // Populate card details with defensive checks
+        function fmt(n, d) {
+            return (typeof n === 'number' && isFinite(n)) ? n.toFixed(d || 1) : '—';
+        }
+
+        const topScorerDetail = document.getElementById('offense-topscorer-detail');
+        if (topScorerDetail) {
+            if (topScorer) {
+                const goals = (typeof topScorer.goals === 'number' || typeof topScorer.goals === 'string') ? topScorer.goals : '—';
+                const avg = (topScorer && typeof topScorer.avg === 'number') ? fmt(topScorer.avg, 1) : '—';
+                topScorerDetail.innerHTML = `${goals} total goals scored<br>${avg} goals per quarter`;
+            } else {
+                topScorerDetail.innerHTML = 'No top scorer data';
+            }
+        }
+
+        const topPairDetail = document.getElementById('offense-toppair-detail');
+        if (topPairDetail) {
+            if (topPair) {
+                const total = typeof topPair.total === 'number' || typeof topPair.total === 'string' ? topPair.total : '—';
+                const avg = (topPair && typeof topPair.avg === 'number') ? fmt(topPair.avg, 1) : '—';
+                const quarters = typeof topPair.quarters === 'number' ? topPair.quarters : '—';
+                topPairDetail.innerHTML = `${total} total goals scored<br>${avg} goals per quarter<br>${quarters} quarters played`;
+            } else {
+                topPairDetail.innerHTML = 'No pair data';
+            }
+        }
+
+        const efficientDetail = document.getElementById('offense-efficient-detail');
+        if (efficientDetail) {
+            if (efficientScorer) {
+                const avg = (typeof efficientScorer.avg === 'number') ? fmt(efficientScorer.avg, 1) : '—';
+                const goals = (typeof efficientScorer.goals === 'number' || typeof efficientScorer.goals === 'string') ? efficientScorer.goals : '—';
+                const quarters = typeof efficientScorer.quarters === 'number' ? efficientScorer.quarters : '—';
+                efficientDetail.innerHTML = `${avg} goals per quarter<br>${goals} total goals<br>${quarters} quarters played`;
+            } else {
+                efficientDetail.innerHTML = 'No efficient scorer data';
+            }
+        }
+    };
+    
+    window.renderInsightsOffensiveLeaders = renderInsightsOffensiveLeaders;
+
+    // Render Defensive Wall flip-card view
+    const renderInsightsDefensiveWall = () => {
+        const stats = calculatedSeasonStats;
+        
+        if (!stats) {
+            // Show empty state for all cards
+            ['defense-top-defender', 'defense-top-pair', 'defense-clean-sheets'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+            return;
+        }
+
+        // Top Defender
+        const topDefender = stats.allDefenders && stats.allDefenders[0];
+        const topDefenderEl = document.getElementById('defense-top-defender');
+        if (topDefenderEl) {
+            topDefenderEl.textContent = topDefender ? topDefender.name : '—';
+        }
+
+        // Top Defensive Pair
+        const topPair = (stats.allDefenseCombos || []).slice().sort((a, b) => a.avg - b.avg)[0];
+        const topPairEl = document.getElementById('defense-top-pair');
+        if (topPairEl) {
+            topPairEl.textContent = topPair ? topPair.name : '—';
+        }
+
+        // Clean Sheet Leader (defender with most clean sheets)
+        const cleanSheetLeader = stats.allDefenders && stats.allDefenders
+            .filter(d => d.cleanSheets > 0)
+            .sort((a, b) => b.cleanSheets - a.cleanSheets)[0];
+        const cleanSheetsEl = document.getElementById('defense-clean-sheets');
+        if (cleanSheetsEl) {
+            cleanSheetsEl.textContent = cleanSheetLeader ? cleanSheetLeader.name : '—';
+        }
+
+        // Populate card details
+        const topDefenderDetail = document.getElementById('defense-topdefender-detail');
+        if (topDefenderDetail && topDefender) {
+            topDefenderDetail.innerHTML = `${topDefender.avg.toFixed(1)} goals against per quarter<br>${topDefender.total} total goals against<br>${topDefender.quarters} quarters played`;
+        }
+
+        const topPairDetail = document.getElementById('defense-toppair-detail');
+        if (topPairDetail && topPair) {
+            topPairDetail.innerHTML = `${topPair.avg.toFixed(1)} goals against per quarter<br>${topPair.total} total goals against<br>${topPair.quarters} quarters played`;
+        }
+
+        const cleanSheetsDetail = document.getElementById('defense-cleansheets-detail');
+        if (cleanSheetsDetail && cleanSheetLeader) {
+            cleanSheetsDetail.innerHTML = `${cleanSheetLeader.cleanSheets} clean sheets<br>${cleanSheetLeader.avg.toFixed(1)} goals against per quarter<br>${cleanSheetLeader.quarters} quarters played`;
+        }
+    };
+    
+    window.renderInsightsDefensiveWall = renderInsightsDefensiveWall;
+
+    // Render Player Analysis view
+    const renderInsightsPlayerAnalysis = () => {
+        const stats = calculatedSeasonStats;
+        
+        if (!stats) {
+            // Show empty state for superlatives
+            ['top-gun-name', 'iron-woman-name', 'swiss-army-name', 'leader-name'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '—';
+            });
+            ['top-gun-detail', 'iron-woman-detail', 'swiss-army-detail', 'leader-detail'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = 'No data available';
+            });
+            return;
+        }
+
+        // Populate Superlatives
+        const superlatives = stats.superlatives || {};
+
+        // Top Gun
+        const topGunEl = document.getElementById('top-gun-name');
+        const topGunDetailEl = document.getElementById('top-gun-detail');
+        if (topGunEl && superlatives.topGun) {
+            topGunEl.textContent = superlatives.topGun.name;
+            topGunDetailEl.textContent = `${superlatives.topGun.value} goals scored`;
+        } else {
+            topGunEl.textContent = '—';
+            topGunDetailEl.textContent = 'No scoring data';
+        }
+
+        // Iron Woman
+        const ironWomanEl = document.getElementById('iron-woman-name');
+        const ironWomanDetailEl = document.getElementById('iron-woman-detail');
+        if (ironWomanEl && superlatives.ironWoman) {
+            ironWomanEl.textContent = superlatives.ironWoman.name;
+            ironWomanDetailEl.textContent = `${superlatives.ironWoman.value} quarters played`;
+        } else {
+            ironWomanEl.textContent = '—';
+            ironWomanDetailEl.textContent = 'No quarter data';
+        }
+
+        // Swiss Army Knife
+        const swissArmyEl = document.getElementById('swiss-army-name');
+        const swissArmyDetailEl = document.getElementById('swiss-army-detail');
+        if (swissArmyEl && superlatives.swissArmyKnife) {
+            swissArmyEl.textContent = superlatives.swissArmyKnife.name;
+            swissArmyDetailEl.textContent = `${superlatives.swissArmyKnife.value} positions played`;
+        } else {
+            swissArmyEl.textContent = '—';
+            swissArmyDetailEl.textContent = 'No versatility data';
+        }
+
+        // Team Leader
+        const leaderEl = document.getElementById('leader-name');
+        const leaderDetailEl = document.getElementById('leader-detail');
+        if (leaderEl && superlatives.leader) {
+            leaderEl.textContent = superlatives.leader.name;
+            leaderDetailEl.textContent = `${superlatives.leader.value} captaincies`;
+        } else {
+            leaderEl.textContent = '—';
+            leaderDetailEl.textContent = 'No captaincy data';
+        }
+
+        // Populate Player Performance Table
+        renderPlayerAnalysisTable('goals'); // Default sort by goals
+    };
+
+    // Helper function to render player analysis table with different sorts
+    const renderPlayerAnalysisTable = (sortBy) => {
+        const stats = calculatedSeasonStats;
+        if (!stats || !stats.playerSpotlights) return;
+
+        let sortedPlayers = [...stats.playerSpotlights];
+
+        switch (sortBy) {
+            case 'goals':
+                sortedPlayers.sort((a, b) => b.totalGoals - a.totalGoals);
+                break;
+            case 'quarters':
+                sortedPlayers.sort((a, b) => b.totalQuarters - a.totalQuarters);
+                break;
+            case 'versatility':
+                sortedPlayers.sort((a, b) => b.versatility - a.versatility);
+                break;
+            case 'games':
+                sortedPlayers.sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+                break;
+            default:
+                sortedPlayers.sort((a, b) => b.totalGoals - a.totalGoals);
+        }
+
+        const table = document.getElementById('insights-player-analysis-table');
+        if (!table) return;
+
+        let html = `
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Games</th>
+                    <th>Goals</th>
+                    <th>Versatility</th>
+                    <th>Top Positions</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        sortedPlayers.forEach(player => {
+            const topPositions = player.topPositions ? player.topPositions.map(p => `${p.pos} (${p.count})`).join(', ') : '—';
+            html += `
+                <tr>
+                    <td>${player.name}</td>
+                    <td>${player.gamesPlayed}</td>
+                    <td>${player.totalGoals}</td>
+                    <td>${player.versatility || 0}</td>
+                    <td>${topPositions}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        table.innerHTML = html;
+    };
+
+    // Function to set player analysis sort
+    window.setPlayerAnalysisSort = (sortBy) => {
+        // Update active tab
+        ['sort-analysis-goals', 'sort-analysis-quarters', 'sort-analysis-versatility', 'sort-analysis-games'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('active', id === `sort-analysis-${sortBy}`);
+        });
+
+        // Re-render table with new sort
+        renderPlayerAnalysisTable(sortBy);
+    };
+
+    window.renderInsightsPlayerAnalysis = renderInsightsPlayerAnalysis;
+
+    // NOTE: This function is now only used for the pairs analysis section inside the Offensive Hub
+    const renderInsightsOffense = () => {
+        const stats = calculatedSeasonStats;
+        // Defensive: if stats not yet calculated, avoid accessing nested properties
+        if (!stats) {
+            try {
+                var offenseContainerFallback = document.getElementById('insights-offense-combos');
+                if (offenseContainerFallback) offenseContainerFallback.innerHTML = '<div class="empty-state">No offensive data available.</div>';
+            } catch (e) { /* ignore */ }
+            try { if (window.announce && typeof window.announce === 'function') window.announce('No offensive data available'); } catch (e) {}
+            return;
+        }
+        document.getElementById('sort-offense-impact').classList.toggle('active', appState.insights.sortOffense === 'impact');
+        document.getElementById('sort-offense-avg').classList.toggle('active', appState.insights.sortOffense === 'avg');
+        document.getElementById('sort-offense-qtrs').classList.toggle('active', appState.insights.sortOffense === 'quarters');
+        
+        const subtitle = document.getElementById('insights-offense-subtitle');
+        if (appState.insights.sortOffense === 'avg') {
+            subtitle.style.display = 'block';
+        } else {
+            subtitle.style.display = 'none';
+        }
+
+        const sortedOffenseCombos = stats.allOffenseCombos.slice();
+        
+        if (appState.insights.sortOffense === 'quarters') {
+            sortedOffenseCombos.sort(function(a, b) {
+                if (b.quarters !== a.quarters) {
+                    return b.quarters - a.quarters; 
+                }
+                return b.total - a.total; 
+            });
+        } else if (appState.insights.sortOffense === 'avg') {
+            const filtered = sortedOffenseCombos.filter(function(p) { return p.quarters >= 3; });
+            filtered.sort(function(a, b) { return b.avg - a.avg; });
+            sortedOffenseCombos = filtered;
+        } else {
+            sortedOffenseCombos.sort(function(a, b) {
+                if (b.total !== a.total) { return b.total - a.total; }
+                return b.avg - a.avg;
+            });
+        }
+
+        const offenseContainer = document.getElementById('insights-offense-combos');
+        if (sortedOffenseCombos.length === 0) {
+            const emptyMsg = (appState.insights.sortOffense === 'avg') ? 
+                'No combinations found with 3+ quarters.' : 
+                'No offensive pair data yet.';
+            offenseContainer.innerHTML = '<div class="empty-state">' + emptyMsg + '</div>';
+            // announce empty state politely
+            try { if (window.announce && typeof window.announce === 'function') window.announce(emptyMsg); } catch (e) {}
+        } else {
+            const combosToRender = appState.insights.showAllOffense ? sortedOffenseCombos : sortedOffenseCombos.slice(0, 3);
+
+            // dynamic header label based on selected sort (mirror Singles)
+            var scoreLabel = 'Goals / Qtr';
+            if (appState.insights.sortOffense === 'impact') scoreLabel = 'Total Goals';
+            else if (appState.insights.sortOffense === 'quarters') scoreLabel = 'Total Qtrs';
+            var headerHTML = '<div class="leaderboard-headers" role="presentation"><div class="col-rank">#</div><div class="col-player">Pair</div><div class="col-score">' + scoreLabel + '</div></div>';
+
+            var offenseHTML = combosToRender.map(function(item, index) {
+                var mainScore = (appState.insights.sortOffense === 'avg') ? (item.avg ? item.avg.toFixed(1) : '0.0') : ((appState.insights.sortOffense === 'quarters') ? (item.quarters || 0) : (item.total || 0));
+                var subMain = '';
+                var subBracket = '';
+                var pairKey = item.name; // Use item.name which contains the pair string
+                if (appState.insights.sortOffense === 'avg') {
+                    subMain = (item.total || 0) + ' Total Goals';
+                    subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                } else if (appState.insights.sortOffense === 'quarters') {
+                    subMain = (item.total || 0) + ' Total Goals';
+                    subBracket = '(' + (item.avg?item.avg.toFixed(1):'0') + ' Goals/Qtr)';
+                } else {
+                    subMain = (item.avg?item.avg.toFixed(1):'0') + ' Goals/Qtr';
+                    subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                }
+
+                // accessible label for screen readers
+                var ariaLabel = (index + 1) + '. ' + item.name + '. ';
+                if (appState.insights.sortOffense === 'avg') ariaLabel += (item.avg ? item.avg.toFixed(1) : '0') + ' goals per quarter, ' + (item.total || 0) + ' total goals in ' + (item.quarters || 0) + ' quarters.';
+                else if (appState.insights.sortOffense === 'quarters') ariaLabel += (item.quarters || 0) + ' quarters, ' + (item.total || 0) + ' total goals.';
+                else ariaLabel += (item.total || 0) + ' total goals.';
+
+                return '<div class="leaderboard-item" role="listitem" aria-label="' + ariaLabel + '" onclick="showPairGoalsDetail(\'' + pairKey.replace(/'/g, "\\'") + '\')" style="cursor: pointer;">' +
+                    '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+                    '<span class="leaderboard-name">' + item.name + '</span>' +
+                    '<div class="leaderboard-goals"><div class="score">' + mainScore + '</div><span class="leaderboard-subtext">' + subMain + '</span><span class="leaderboard-subbracket">' + subBracket + '</span></div>' +
+                '</div>';
+            }).join('');
+
+            if (sortedOffenseCombos.length > 3) {
+                const buttonText = appState.insights.showAllOffense ? 'Show Top 3' : 'Show All (' + sortedOffenseCombos.length + ' total)';
+                offenseHTML += '<button onclick="toggleInsightsOffense()" style="width: 100%; margin-top: 10px;" class="cancel-btn">' + buttonText + '</button>';
+            }
+
+            offenseContainer.innerHTML = headerHTML + offenseHTML;
+            // Announce pairs update (assertive preferred)
+            try { if (window.announceAssertive && typeof window.announceAssertive === 'function') window.announceAssertive('Offensive pairs updated'); else if (window.announce) window.announce('Offensive pairs updated'); } catch (e) {}
+        }
+    }
+
+    const renderInsightsDefense = () => {
+        const stats = calculatedSeasonStats;
+        // Defensive: ensure stats object available before accessing nested properties
+        if (!stats) {
+            try {
+                // clear/hide defensive UI elements to a safe fallback
+                safeSetText('top-defender-initials', '--');
+                safeSetText('top-defender-name', '—');
+                safeSetText('top-defender-stats', 'No data');
+                safeSetText('top-dpair-initials', '--');
+                safeSetText('top-dpair-names', '—');
+                safeSetText('top-dpair-stats', 'No data');
+                var defContainer = document.getElementById('insights-defense-combos'); if (defContainer) defContainer.innerHTML = '<div class="empty-state">No defensive data available.</div>';
+            } catch (e) { /* ignore */ }
+            try { if (window.announce && typeof window.announce === 'function') window.announce('Defensive data not available'); } catch (e) {}
+            return;
+        }
+        document.getElementById('sort-defense-impact').classList.toggle('active', appState.insights.sortDefense === 'impact');
+        document.getElementById('sort-defense-avg').classList.toggle('active', appState.insights.sortDefense === 'avg');
+        document.getElementById('sort-defense-qtrs').classList.toggle('active', appState.insights.sortDefense === 'quarters');
+        
+        const subtitle = document.getElementById('insights-defense-subtitle');
+        if (appState.insights.sortDefense === 'avg') {
+            subtitle.style.display = 'block';
+        } else {
+            subtitle.style.display = 'none';
+        }
+
+        if (!stats.allDefenseCombos || stats.allDefenseCombos.length === 0) {
+            const defenseContainer = document.getElementById('insights-defense-combos');
+            if (defenseContainer) defenseContainer.innerHTML = '<div class="empty-state">No defensive pair data yet.</div>';
+            return;
+        }
+
+        let sortedDefenseCombos = stats.allDefenseCombos.slice();
+        
+        if (appState.insights.sortDefense === 'quarters') {
+            sortedDefenseCombos.sort(function(a, b) {
+                if (b.quarters !== a.quarters) {
+                    return b.quarters - a.quarters; 
+                }
+                return a.total - b.total; 
+            });
+        } else if (appState.insights.sortDefense === 'avg') {
+            const filtered = sortedDefenseCombos.filter(function(p) { return p.quarters >= 3; });
+            filtered.sort(function(a, b) { return a.avg - b.avg; });
+            sortedDefenseCombos = filtered;
+        } else {
+            sortedDefenseCombos.sort(function(a, b) {
+                if (a.total !== b.total) { return a.total - b.total; }
+                return a.avg - b.avg;
+            });
+        }
+
+        const defenseContainer = document.getElementById('insights-defense-combos');
+        if (sortedDefenseCombos.length === 0) {
+            const emptyMsg = (appState.insights.sortDefense === 'avg') ? 
+                'No combinations found with 3+ quarters.' : 
+                'No defensive pair data yet.';
+            defenseContainer.innerHTML = '<div class="empty-state">' + emptyMsg + '</div>';
+        } else {
+            const combosToRender = appState.insights.showAllDefense ? sortedDefenseCombos : sortedDefenseCombos.slice(0, 3);
+            let defenseHTML = combosToRender.map(function(item, index) {
+                let mainScore, subText;
+                if (appState.insights.sortDefense === 'avg') {
+                    mainScore = item.avg.toFixed(1);
+                    subText = item.total + ' Total GA (' + item.quarters + ' Qtrs)';
+                } else if (appState.insights.sortDefense === 'quarters') {
+                    mainScore = item.quarters;
+                    subText = item.total + ' Total GA (' + item.avg.toFixed(1) + ' Goals Against/Qtr)';
+                } else { 
+                    mainScore = item.total;
+                    subText = item.avg.toFixed(1) + ' Goals Against/Qtr (' + item.quarters + ' Qtrs)';
+                }
+
+                return '<div class="leaderboard-item">' +
+                    '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+                    '<span class="leaderboard-name">' + item.name + '</span>' +
+                    '<div class="leaderboard-goals">' +
+                        '<div class="score">' + mainScore + '</div>' + 
+                        '<span>' + subText + '</span>' + 
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            if (sortedDefenseCombos.length > 3) {
+                const buttonText = appState.insights.showAllDefense ? 'Show Top 3' : 'Show All (' + sortedDefenseCombos.length + ' total)';
+                defenseHTML += '<button onclick="toggleInsightsDefense()" style="width: 100%; margin-top: 10px;" class="cancel-btn">' + buttonText + '</button>';
+            }
+            defenseContainer.innerHTML = defenseHTML;
+        }
+    }
+
+    const renderInsightsDefenders = () => {
+        const stats = calculatedSeasonStats;
+        document.getElementById('sort-defenders-impact').classList.toggle('active', appState.insights.sortDefenders === 'impact');
+        document.getElementById('sort-defenders-avg').classList.toggle('active', appState.insights.sortDefenders === 'avg');
+        document.getElementById('sort-defenders-qtrs').classList.toggle('active', appState.insights.sortDefenders === 'quarters');
+        
+        const subtitle = document.getElementById('insights-defenders-subtitle');
+        if (appState.insights.sortDefenders === 'avg') {
+            subtitle.style.display = 'block';
+        } else {
+            subtitle.style.display = 'none';
+        }
+        
+        if (!stats.allDefenders || stats.allDefenders.length === 0) {
+            const defenderContainer = document.getElementById('insights-top-defenders');
+            if (defenderContainer) defenderContainer.innerHTML = '<div class="empty-state">No defender data yet.</div>';
+            return;
+        }
+        
+        let sortedDefenders = stats.allDefenders.slice();
+
+        if (appState.insights.sortDefenders === 'quarters') {
+            sortedDefenders.sort(function(a, b) {
+                if (b.quarters !== a.quarters) {
+                    return b.quarters - a.quarters; 
+                }
+                return a.total - b.total; 
+            });
+        } else if (appState.insights.sortDefenders === 'avg') {
+            const filtered = sortedDefenders.filter(function(p) { return p.quarters >= 3; });
+            filtered.sort(function(a, b) { return a.avg - b.avg; });
+            sortedDefenders = filtered;
+        } else {
+            sortedDefenders.sort(function(a, b) {
+                if (a.total !== b.total) { return a.total - b.total; }
+                return a.avg - b.avg;
+            });
+        }
+
+        const defenderContainer = document.getElementById('insights-top-defenders');
+        if (sortedDefenders.length === 0) {
+            const emptyMsg = (appState.insights.sortDefenders === 'avg') ? 
+                'No players found with 3+ quarters.' : 
+                'No defender data yet.';
+            if (defenderContainer) defenderContainer.innerHTML = '<div class="empty-state">' + emptyMsg + '</div>';
+            try { if (window.announce && typeof window.announce === 'function') window.announce(emptyMsg); } catch (e) {}
+        } else {
+            const combosToRender = appState.insights.showAllDefenders ? sortedDefenders : sortedDefenders.slice(0, 3);
+
+            // dynamic header label based on selected sort
+            var scoreLabel = 'Goals / Qtr';
+            if (appState.insights.sortDefenders === 'impact') scoreLabel = 'Total Goals';
+            else if (appState.insights.sortDefenders === 'quarters') scoreLabel = 'Total Qtrs';
+            var headerHTML = '<div class="leaderboard-headers" role="presentation"><div class="col-rank">#</div><div class="col-player">Player</div><div class="col-score">' + scoreLabel + '</div></div>';
+
+            var defenderHTML = combosToRender.map(function(item, index) {
+                var mainScore = (appState.insights.sortDefenders === 'avg') ? (item.avg ? item.avg.toFixed(1) : '0.0') : ((appState.insights.sortDefenders === 'quarters') ? (item.quarters || 0) : (item.total || 0));
+                var subMain = '';
+                var subBracket = '';
+                if (appState.insights.sortDefenders === 'avg') {
+                    subMain = (item.total || 0) + ' Total GA';
+                    subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                } else if (appState.insights.sortDefenders === 'quarters') {
+                    subMain = (item.total || 0) + ' Total GA';
+                    subBracket = '(' + (item.avg?item.avg.toFixed(1):'0') + ' GA/Qtr)';
+                } else {
+                    subMain = (item.avg?item.avg.toFixed(1):'0') + ' GA/Qtr';
+                    subBracket = '(' + (item.quarters || 0) + ' Qtrs)';
+                }
+
+                // accessible label for screen readers
+                var ariaLabel = (index + 1) + '. ' + item.name + '. ';
+                if (appState.insights.sortDefenders === 'avg') ariaLabel += (item.avg ? item.avg.toFixed(1) : '0') + ' goals against per quarter, ' + (item.total || 0) + ' total goals against in ' + (item.quarters || 0) + ' quarters.';
+                else if (appState.insights.sortDefenders === 'quarters') ariaLabel += (item.quarters || 0) + ' quarters, ' + (item.total || 0) + ' total goals against.';
+                else ariaLabel += (item.total || 0) + ' total goals against.';
+
+                return '<div class="leaderboard-item" role="listitem" aria-label="' + ariaLabel + '">' +
+                    '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+                    '<span class="leaderboard-name">' + item.name + '</span>' +
+                    '<div class="leaderboard-goals"><div class="score">' + mainScore + '</div><span class="leaderboard-subtext">' + subMain + '</span><span class="leaderboard-subbracket">' + subBracket + '</span></div>' +
+                '</div>';
+            }).join('');
+
+            if (sortedDefenders.length > 3) {
+                const buttonText = appState.insights.showAllDefenders ? 'Show Top 3' : 'Show All (' + sortedDefenders.length + ' total)';
+                defenderHTML += '<button onclick="toggleInsightsDefenders()" style="width: 100%; margin-top: 10px;" class="cancel-btn">' + buttonText + '</button>';
+            }
+
+            if (defenderContainer) {
+                defenderContainer.innerHTML = headerHTML + defenderHTML;
+            }
+        }
+    }
+
+    function renderInsightsPlayerPlusMinus() {
+        const container = document.getElementById('insights-player-plusminus-table');
+        const stats = calculatedPlayerPlusMinus;
+        const sortKey = appState.insights.sortPlusMinus || 'total';
+        
+        // Update sort tab buttons
+        document.getElementById('sort-pm-total').classList.toggle('active', sortKey === 'total');
+        document.getElementById('sort-pm-avg').classList.toggle('active', sortKey === 'avg');
+        document.getElementById('sort-pm-qtrs').classList.toggle('active', sortKey === 'quarters');
+        
+        // Show/hide subtitle based on sort
+        const subtitle = document.getElementById('insights-pm-subtitle');
+        if (subtitle) {
+            if (sortKey === 'avg') {
+                subtitle.classList.remove('hidden');
+            } else {
+                subtitle.classList.add('hidden');
+            }
+        }
+        
+        const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+        
+        // Build table header
+        let tableHTML = 
+            '<thead>' +
+                '<tr>' +
+                    '<th>Player</th>';
+        
+        for (let i = 0; i < positions.length; i++) {
+            tableHTML += '<th>' + positions[i] + '</th>';
+        }
+        
+        tableHTML += '</tr>' +
+            '</thead>' +
+            '<tbody>';
+        
+        if (stats.length === 0) {
+            tableHTML += '<tr><td colspan="8" class="empty-state">No +/- data yet.</td></tr>';
+        } else {
+            // Sort players based on selected sort key
+            let sortedStats = stats.slice();
+            
+            if (sortKey === 'quarters') {
+                // Sort by total quarters played across all positions
+                sortedStats.sort(function(a, b) {
+                    let aTotal = 0;
+                    let bTotal = 0;
+                    for (let i = 0; i < positions.length; i++) {
+                        const pos = positions[i];
+                        aTotal += (a[pos] && a[pos].qtrs) ? a[pos].qtrs : 0;
+                        bTotal += (b[pos] && b[pos].qtrs) ? b[pos].qtrs : 0;
+                    }
+                    return bTotal - aTotal;
+                });
+            } else if (sortKey === 'avg') {
+                // Sort by best average (min 3 qtrs in any position)
+                sortedStats.sort(function(a, b) {
+                    let aBest = -Infinity;
+                    let bBest = -Infinity;
+                    
+                    for (let i = 0; i < positions.length; i++) {
+                        const pos = positions[i];
+                        const aPosData = a[pos];
+                        const bPosData = b[pos];
+                        
+                        if (aPosData && aPosData.qtrs >= 3) {
+                            const aAvg = aPosData.total / aPosData.qtrs;
+                            if (aAvg > aBest) aBest = aAvg;
+                        }
+                        
+                        if (bPosData && bPosData.qtrs >= 3) {
+                            const bAvg = bPosData.total / bPosData.qtrs;
+                            if (bAvg > bBest) bBest = bAvg;
+                        }
+                    }
+                    
+                    return bBest - aBest;
+                });
+            } else {
+                // Sort by total +/- across all positions
+                sortedStats.sort(function(a, b) {
+                    let aTotal = 0;
+                    let bTotal = 0;
+                    for (let i = 0; i < positions.length; i++) {
+                        const pos = positions[i];
+                        aTotal += (a[pos] && a[pos].total) ? a[pos].total : 0;
+                        bTotal += (b[pos] && b[pos].total) ? b[pos].total : 0;
+                    }
+                    return bTotal - aTotal;
+                });
+            }
+            
+            // Render rows
+            for (let p = 0; p < sortedStats.length; p++) {
+                const player = sortedStats[p];
+                let rowHTML = '<tr><td>' + player.name + '</td>';
+                
+                for (let i = 0; i < positions.length; i++) {
+                    const pos = positions[i];
+                    const posData = player[pos];
+                    let cellContent = '';
+                    let cellClass = '';
+                    
+                    if (!posData || posData.qtrs === 0) {
+                        cellContent = '—';
+                        cellClass = 'zero-stat';
+                    } else if (sortKey === 'avg') {
+                        const avg = posData.total / posData.qtrs;
+                        cellContent = (avg >= 0 ? '+' : '') + avg.toFixed(1);
+                        cellClass = avg > 0 ? 'trend-up' : avg < 0 ? 'trend-down' : 'trend-neutral';
+                    } else if (sortKey === 'quarters') {
+                        cellContent = posData.qtrs.toString();
+                    } else {
+                        cellContent = (posData.total >= 0 ? '+' : '') + posData.total;
+                        cellClass = posData.total > 0 ? 'trend-up' : posData.total < 0 ? 'trend-down' : 'trend-neutral';
+                    }
+                    
+                    rowHTML += '<td class="' + cellClass + '">' + cellContent + '</td>';
+                }
+                
+                rowHTML += '</tr>';
+                tableHTML += rowHTML;
+            }
+        }
+        
+        tableHTML += '</tbody>';
+        container.innerHTML = tableHTML;
+    }
+
+    const renderDifficultyRatings = () => {
+        const container = document.getElementById('admin-dr-table');
+        const ladder = netballLadderData; 
+
+        if (!ladder || ladder.length === 0 || ladder.error) {
+            container.innerHTML = '<div class="empty-state">Load external ladder data first to calculate ratings.</div>';
+            return;
+        }
+
+        // Sort by calculated Difficulty Score (descending)
+        ladder.sort(function(a, b) {
+            return (b.difficultyRatingScore || 0) - (a.difficultyRatingScore || 0);
+        });
+
+        let tableHTML = 
+            '<thead>' +
+                '<tr>' +
+                    '<th>#</th>' +
+                    '<th style="text-align:left;">Team Name</th>' +
+                    '<th>DR Score (Max 100)</th>' +
+                    '<th>Ladder %</th>' +
+                '</tr>' +
+            '</thead>' +
+            '<tbody>';
+        
+        tableHTML += ladder.map(function(team, index) {
+            // Highlight teams with a high DR
+            const drScore = team.difficultyRatingScore || 0;
+            const drClass = drScore >= 80 ? 'status-error' : drScore >= 60 ? 'status-ok' : '';
+
+            return '<tr>' +
+                '<td>' + (index + 1) + '</td>' +
+                '<td style="text-align:left;">' + (team.name || 'Unknown') + '</td>' +
+                '<td class="' + drClass + '"><strong>' + drScore + '</strong></td>' +
+                '<td>' + (team.goalAverage ? parseFloat(team.goalAverage).toFixed(2) : '0.00') + '</td>' +
+            '</tr>';
+        }).join('');
+        
+        tableHTML += '</tbody>';
+        container.innerHTML = tableHTML;
+    }
+
+    const renderNetballLadder = () => {
+        const container = document.getElementById('netball-ladder-table');
+        const ladder = netballLadderData; 
+
+        if (!ladder || ladder.length === 0 || ladder.error) {
+            const errorMsg = ladder.error ? 'Error fetching ladder data: ' + ladder.error : 'Loading external ladder data... (Check token in Admin Settings)';
+            container.innerHTML = '<thead><tr><th>RK</th><th>Team</th><th>...</th></tr></thead>' + 
+                                  '<tbody><tr><td colspan="10" class="empty-state">' + errorMsg + '</td></tr></tbody>';
+            if (!ladder || !ladder.error) {
+                loadNetballLadder(); 
+            }
+            return;
+        }
+
+        let tableHTML = 
+            '<thead>' +
+                '<tr>' +
+                    '<th>RK</th>' +
+                    '<th style="text-align:left;">Team</th>' +
+                    '<th>P</th>' +
+                    '<th>W</th>' +
+                    '<th>L</th>' +
+                    '<th>D</th>' +
+                    '<th>F</th>' +
+                    '<th>A</th>' +
+                    '<th>%</th>' +
+                    '<th>PTS</th>' +
+                '</tr>' +
+            '</thead>' +
+            '<tbody>';
+        
+        tableHTML += ladder.map(function(team) {
+            return '<tr>' +
+                '<td>' + team.rk + '</td>' +
+                '<td style="text-align:left;">' + team.name + '</td>' +
+                '<td>' + team.P + '</td>' +
+                '<td>' + team.W + '</td>' +
+                '<td>' + team.L + '</td>' +
+                '<td>' + team.D + '</td>' +
+                '<td>' + team.F + '</td>' +
+                '<td>' + team.A + '</td>' +
+                '<td>' + parseFloat(team.goalAverage).toFixed(2) + '</td>' + 
+                '<td>' + team.PTS + '</td>' +
+            '</tr>';
+        }).join('');
+        
+        tableHTML += '</tbody>';
+        container.innerHTML = tableHTML;
+    }
+
+    const renderNetballResults = () => {
+        const container = document.getElementById('netball-results-container');
+        const results = netballMatchResults; 
+        
+        if (!results || (Array.isArray(results) && results.length === 0) || (results && results.error)) {
+            let message = 'No match data available. ';
+            
+            if (results && results.error) {
+                message = 'Error loading match data: ' + results.error;
+            } else if (!results) {
+                message = 'Loading match data...';
+            } else {
+                message = 'No cached match results found. Click the refresh button to fetch latest data.';
+            }
+            
+            container.innerHTML = '<div class="empty-state">' + message + '</div>';
+            return;
+        }
+        
+        // Filter controls - simplified without win/loss counts
+        const filterControls = '<div class="results-controls">' +
+            '<div class="results-summary">' +
+                '<h4 style="margin: 0; color: var(--text-color);">Division Fixtures</h4>' +
+                '<span style="color: var(--secondary-text); font-size: 0.9em;">' + results.length + ' rounds</span>' +
+            '</div>' +
+            '<button class="text-btn" onclick="toggleAllRounds()">' +
+                '<span id="expand-collapse-icon">▼</span> Collapse All' +
+            '</button>' +
+        '</div>';
+        
+        const html = results.map(function(round, index) {
+            if (!round || !round.matches || round.matches.length === 0) {
+                return '<section class="card round-card" data-round="' + index + '">' +
+                    '<div class="round-header" onclick="toggleRound(' + index + ')">' +
+                        '<div class="round-title-group">' +
+                            '<span class="collapse-icon" id="icon-' + index + '">▼</span>' +
+                            '<h3 class="card-title">' + (round ? round.name : 'Unknown Round') + '</h3>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="round-content" id="round-' + index + '">' +
+                        '<div class="empty-state">No match data recorded for this round yet.</div>' +
+                    '</div>' +
+                '</section>';
+            }
+            
+            const roundMatches = round.matches.map(function(match) {
+                const score1 = (match && match.team1Score) || 0;
+                const score2 = (match && match.team2Score) || 0;
+                const scoreDisplay = (match && match.matchStatus === 'ENDED') ? score1 + ' - ' + score2 : 'TBC';
+                const team1Name = (match && match.team1 && match.team1.name) || 'Unknown Team';
+                const team2Name = (match && match.team2 && match.team2.name) || 'Unknown Team';
+                
+                // Determine result for styling (only for visual emphasis)
+                let resultClass = '';
+                if (match && match.team1ResultId === 1) {
+                    resultClass = 'status-win';
+                } else if (match && match.team2ResultId === 1) {
+                    resultClass = 'status-loss';
+                } else if (match && match.team1ResultId === 3) {
+                    resultClass = 'status-draw';
+                } else if (match && match.matchSubstatusRefId === 7) { 
+                    resultClass = 'status-cancelled';
+                }
+                
+                // Build venue/court info
+                let venueInfo = '';
+                if (match && match.venueCourt) {
+                    const courtName = match.venueCourt.name || '';
+                    const venueShort = match.venueCourt.venue ? match.venueCourt.venue.shortName : '';
+                    
+                    if (venueShort && courtName) {
+                        venueInfo = venueShort + ' - ' + courtName;
+                    } else if (courtName) {
+                        venueInfo = courtName;
+                    } else if (venueShort) {
+                        venueInfo = venueShort;
+                    }
+                }
+                
+                // Add match date and time if available
+                let dateTimeInfo = '';
+                if (match && match.startTime) {
+                    const date = new Date(match.startTime);
+                    const dateStr = date.toLocaleDateString('en-AU', { weekday: 'short', month: 'short', day: 'numeric' });
+                    const timeStr = date.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    dateTimeInfo = dateStr + ' · ' + timeStr;
+                }
+
+                return '<div class="match-item ' + resultClass + '">' +
+                    '<div class="match-details">' +
+                        '<div class="match-teams">' + team1Name + ' vs ' + team2Name + '</div>' +
+                        '<div class="match-meta">' +
+                            (venueInfo ? '<span class="match-venue">📍 ' + venueInfo + '</span>' : '') +
+                            (dateTimeInfo ? '<span class="match-date">' + dateTimeInfo + '</span>' : '') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="match-score-group">' +
+                        '<div class="match-score">' + scoreDisplay + '</div>' + 
+                    '</div>' +
+                '</div>';
+            }).join('');
+            
+            return '<section class="card round-card" data-round="' + index + '">' +
+                  '<div class="round-header" onclick="toggleRound(' + index + ')">' +
+                      '<div class="round-title-group">' +
+                          '<span class="collapse-icon" id="icon-' + index + '">▼</span>' +
+                          '<h3 class="card-title">' + round.name + '</h3>' +
+                          '<span class="match-count">' + round.matches.length + ' matches</span>' +
+                      '</div>' +
+                  '</div>' +
+                  '<div class="round-content" id="round-' + index + '">' +
+                      roundMatches +
+                  '</div>' +
+                  '</section>';
+
+        }).join('');
+        
+        container.innerHTML = filterControls + html;
+    }
+    
+    // Toggle individual round
+    function toggleRound(index) {
+        const content = document.getElementById('round-' + index);
+        const icon = document.getElementById('icon-' + index);
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            icon.textContent = '▼';
+        } else {
+            content.style.display = 'none';
+            icon.textContent = '▶';
+        }
+    }
+    
+    // Toggle all rounds
+    function toggleAllRounds() {
+        const rounds = document.querySelectorAll('.round-content');
+        const icons = document.querySelectorAll('.collapse-icon');
+        const toggleBtn = document.querySelector('.results-controls .text-btn');
+        const toggleIcon = document.getElementById('expand-collapse-icon');
+        
+        const allCollapsed = Array.from(rounds).every(r => r.style.display === 'none');
+        
+        rounds.forEach(function(round) {
+            round.style.display = allCollapsed ? 'block' : 'none';
+        });
+        
+        icons.forEach(function(icon) {
+            icon.textContent = allCollapsed ? '▼' : '▶';
+        });
+        
+        toggleIcon.textContent = allCollapsed ? '▼' : '▶';
+        toggleBtn.childNodes[1].textContent = allCollapsed ? ' Collapse All' : ' Expand All';
+    }
+
+    // === GAME DETAIL RENDER FUNCTIONS ===
+    
+    const renderGameAvailability = () => {
+        const game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) {
+            console.error('renderGameAvailability: No game found for currentGameId:', currentGameId);
+            return;
+        }
+        
+        const container = document.getElementById('game-availability-list');
+        if (!container) {
+            console.error('renderGameAvailability: Container not found');
+            return;
+        }
+        
+        console.log('renderGameAvailability: game =', game);
+        console.log('renderGameAvailability: players =', players);
+        
+        let captainOptions = '<option value="">Select Captain...</option>';
+        const availablePlayers = players.filter(function(p) { return game.availablePlayerIDs.indexOf(p.id) !== -1; });
+        
+        captainOptions += availablePlayers.map(function(p) {
+            return '<option value="' + p.id + '" ' + (game.captainPlayerID === p.id ? 'selected' : '') + '>' + p.name + '</option>';
+        }).join('');
+        
+        var html = players.map(function(player) {
+            const isChecked = game.availablePlayerIDs.indexOf(player.id) !== -1;
+            return (
+            '<div class="checkbox-group">' +
+                '<input type="checkbox" id="avail_' + game.id + '_' + player.id + '"  ' +
+                       'onchange="updatePlayerAvailability(\'' + player.id + '\', this.checked)"  ' +
+                       (isChecked ? 'checked' : '') + '>' +
+                '<label for="avail_' + game.id + '_' + player.id + '">' + player.name + '</label>' +
+            '</div>'
+            );
+        }).join('');
+        
+        console.log('renderGameAvailability: Generated HTML:', html);
+        container.innerHTML = html;
+        
+        container.innerHTML += 
+            '<div class="availability-footer">' +
+                '<label for="game-captain-select" style="font-weight: 600; margin-bottom: 8px;">Game Captain</label>' +
+                '<select id="game-captain-select" onchange="updateGameCaptain(this.value)">' +
+                    captainOptions +
+                '</select>' +
+            '</div>';
+    }
+    
+    const renderGameDetailLineup = () => {
+        const game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        const table = document.getElementById('position-grid-table');
+        
+        let tableHTML = '<thead><tr><th>Player</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th></tr></thead><tbody>';
+        
+        const availablePlayers = players.filter(function(p) { return game.availablePlayerIDs.indexOf(p.id) !== -1; });
+        
+        if (availablePlayers.length === 0) {
+            tableHTML += '<tr><td colspan="5" class="empty-state">No players marked as available.</td></tr>';
+        }
+        
+        tableHTML += availablePlayers.map(function(player) {
+            let quarterCells = '';
+            for (let qIndex = 0; qIndex < 4; qIndex++) {
+                const quarterPositions = game.quarters[qIndex].positions;
+                
+                let currentPos = "";
+                for (let pos in quarterPositions) {
+                    if (quarterPositions.hasOwnProperty(pos)) {
+                        if (quarterPositions[pos] === player.name) {
+                            currentPos = pos;
+                            break;
+                        }
+                    }
+                }
+                if (currentPos.startsWith("Off_")) {
+                    currentPos = "Off";
+                }
+                
+                const safePlayerName = player.name.replace(/'/g, "\\'");
+                const selectHTML = 
+                    '<select onchange="updatePlayerPosition(\'' + game.id + '\', ' + qIndex + ', \'' + safePlayerName + '\', this.value)">' +
+                        '<option value="" ' + (currentPos === "" ? 'selected' : '') + '>---</option>' +
+                        '<option value="Off" ' + (currentPos === 'Off' ? 'selected' : '') + '>Off</option>' +
+                        '<option disabled>-----</option>' +
+                        POSITIONS.map(function(p) {  
+                            return '<option value="' + p + '" ' + (currentPos === p ? 'selected' : '') + '>' + p + '</option>';
+                        }).join('') +
+                    '</select>';
+                quarterCells += '<td>' + selectHTML + '</td>';
+            }
+            return '<tr><td>' + player.name + '</td>' + quarterCells + '</tr>';
+        }).join('');
+        
+        tableHTML += '</tbody>';
+        table.innerHTML = tableHTML;
+        
+        renderLineupStatus();
+    }
+    
+    const renderGameDetailScoring = () => {
+        const game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        const steppersContainer = document.getElementById('goals-grid-container');
+        let steppersHTML = '';
+        for (let qIndex = 0; qIndex < 4; qIndex++) {
+            const quarter = game.quarters[qIndex];
+            const qOurScore = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+            const qOppScore = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+            steppersHTML += 
+                '<div class="goals-quarter-card">' +
+                    '<h4>Quarter ' + (qIndex + 1) + '</h4>' +
+                    '<div class="quarter-total-score">' +
+                        '<span class="score">' + qOurScore + '</span>' +
+                        '<span>-</span>' +
+                        '<span class="score">' + qOppScore + '</span>' +
+                    '</div>' +
+                    '<div class="stepper">' +
+                        '<span>Our GS</span>' +
+                        '<div>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'ourGsGoals\', -1)">-</button>' +
+                            '<span class="score">' + (quarter.ourGsGoals || 0) + '</span>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'ourGsGoals\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="stepper">' +
+                        '<span>Our GA</span>' +
+                        '<div>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'ourGaGoals\', -1)">-</button>' +
+                            '<span class="score">' + (quarter.ourGaGoals || 0) + '</span>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'ourGaGoals\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<hr class="stepper-divider">' +
+                    '<div class="stepper">' +
+                        '<span>Opp. GS</span>' +
+                        '<div>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'opponentGsGoals\', -1)">-</button>' +
+                            '<span class="score">' + (quarter.opponentGsGoals || 0) + '</span>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'opponentGsGoals\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="stepper">' +
+                        '<span>Opp. GA</span>' +
+                        '<div>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'opponentGaGoals\', -1)">-</button>' +
+                            '<span class="score">' + (quarter.opponentGaGoals || 0) + '</span>' +
+                            '<button class="stepper-btn" onclick="updateQuarterValue(\'' + game.id + '\', ' + qIndex + ', \'opponentGaGoals\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+        steppersContainer.innerHTML = steppersHTML;
+    }
+    
+    const renderGameShareLineup = (containerId, validationId) => {
+        const game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        const container = document.getElementById(containerId);
+        
+        const teamName = appState.currentTeam.name.split(' - ')[0];  
+        const opponent = game.opponent;
+        let displayDate = "No Date";
+        if (game.date) {
+            try {
+                const parts = game.date.split('-');
+                const gameDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                displayDate = gameDate.toLocaleDateString(undefined, {
+                    month: 'short', day: 'numeric', year: 'numeric'
+                });
+            } catch (e) {}
+        }
+        
+        let captainName = "Not Set";
+        if (game.captainPlayerID) {
+            const captain = arrayFind(players, function(p) { return p.id === game.captainPlayerID; });
+            if (captain) captainName = captain.name;
+        }
+        
+        const availablePlayers = players.filter(function(p) { return game.availablePlayerIDs.indexOf(p.id) !== -1; });
+        let tableRows = '';
+        availablePlayers.forEach(function(player) {
+            let row = '<tr><td>' + player.name + '</td>';
+            for (let qIndex = 0; qIndex < 4; qIndex++) {
+                
+                let pos = "---";
+                const quarterPositions = game.quarters[qIndex].positions;
+                for (let p in quarterPositions) {
+                    if (quarterPositions.hasOwnProperty(p)) {
+                        if (quarterPositions[p] === player.name) {
+                            pos = p;
+                            break;
+                        }
+                    }
+                }
+                if (pos.startsWith("Off_")) {
+                    pos = "Off";
+                }
+                
+                row += '<td>' + pos + '</td>';
+            }
+            row += '</tr>';
+            tableRows += row;
+        });
+        
+        container.innerHTML = 
+            '<div class="share-header">' +
+                '<div class="share-header-left">' +
+                    '<div>Game: ' + (game.round || '?') + '</div>' +
+                    '<div>' + teamName + ' VS ' + opponent + '</div>' +
+                    '<div>Captain: ' + captainName + '</div>' +
+                '</div>' +
+                '<div class="share-header-right">' +
+                    '<div>' + displayDate + '</div>' +
+                    (game.time ? '<div>Time: ' + game.time + '</div>' : '') +
+                    (game.court ? '<div>Court: ' + game.court + '</div>' : '') +
+                '</div>' +
+            '</div>' +
+            '<table class="share-lineup-table">' +
+                '<thead>' +
+                    '<tr><th>Name</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th></tr>' +
+                '</thead>' +
+                '<tbody>' +
+                    tableRows +
+                '</tbody>' +
+            '</table>';
+        
+        renderShareValidation(validationId);
+    }
+
+    const renderLineupStatus = () => {
+        const errors = validateGameLineup();
+        const container = document.getElementById('lineup-status-card');
+        let html = '<ul>';
+        let hasErrors = false;
+        
+        if (errors.quarters.length > 0) {
+            hasErrors = true;
+            errors.quarters.forEach(function(qErr) {
+                const q = qErr.q + 1;
+                if (qErr.missing.length > 0) {
+                    html += '<li><span class="status-error">Q' + q + ' Missing:</span> ' + qErr.missing.join(', ') + '</li>';
+                }
+                if (qErr.unassigned.length > 0) {
+                    html += '<li><span class="status-error">Q' + q + ' Unassigned:</span> ' + qErr.unassigned.join(', ') + '</li>';
+                }
+            });
+        }
+        
+        if (!hasErrors) {
+            html += '<li><span class="status-ok">✅ All positions and players assigned.</span></li>';
+        }
+        
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+    
+    const renderShareValidation = (containerId) => {
+        const errors = validateGameLineup();
+        const container = document.getElementById(containerId);
+        let html = '<ul>';
+        let hasErrors = false;
+
+        if (errors.captain) {
+            hasErrors = true;
+            html += '<li><span class="status-error">Captain not set</span></li>';
+        }
+        
+        if (errors.quarters.length > 0) {
+            hasErrors = true;
+            errors.quarters.forEach(function(qErr) {
+                const q = qErr.q + 1;
+                if (qErr.missing.length > 0) {
+                    html += '<li><span class="status-error">Q' + q + ' Missing:</span> ' + qErr.missing.join(', ') + '</li>';
+                }
+                if (qErr.unassigned.length > 0) {
+                    html += '<li><span class="status-error">Q' + q + ' Unassigned:</span> ' + qErr.unassigned.join(', ') + '</li>';
+                }
+            });
+        }
+        
+        if (!hasErrors) {
+            html = '<span class="status-ok">✅ Lineup Complete - Ready to Share!</span>';
+        } else {
+            html = '<h4><span class="status-error">⚠️ Lineup Incomplete!</span></h4>' + html + '</ul>';
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    const renderSeasonSummary = (stats) => {
+        const container = document.getElementById('season-summary-slides');
+        if (!container) return; // Element doesn't exist in current view
+        
+        container.innerHTML = '';  
+        
+        const slidesHTML = [];
+        
+        slidesHTML.push(
+            '<div class="summary-slide active-slide">' +
+                '<h1>' + stats.teamName + '</h1>' +
+                '<h2>' + stats.teamSeason + ' Summary!</h2>' +
+                '<p style="font-size: 1.2em; margin-top: 40px;">&#127881;</p>' +
+            '</div>'
+        );
+        
+        if (stats.gameCount > 0) {
+            slidesHTML.push(
+                '<div class="summary-slide">' +
+                    '<h2>What a Season!</h2>' +
+                    '<div class="stat-value-large">' + stats.teamRecord + '</div>' +
+                    '<div class="stat-label-large">Wins - Losses - Draws</div>' +
+                '</div>'
+            );
+        
+            if (stats.normalGameCount > 0) {
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<h2>On Fire!</h2>' +
+                        '<div class="stat-value-large">' + stats.goalsFor + '</div>' +
+                        '<div class="stat-label-large">Total Goals For</div>' +
+                        '<h2 style="margin-top: 30px;">Best Quarter: ' + stats.bestQuarter + '</h2>' +
+                    '</div>'
+                );
+            }
+            
+            if (stats.superlatives.topGun) {
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<div class="stat-label-large">The \'Top Gun\' Award</div>' +
+                        '<h1>' + stats.superlatives.topGun.name + '</h1>' +
+                        '<div class="stat-value-large">' + stats.superlatives.topGun.value + '</div>' +
+                        '<div class="stat-label-large">Total Goals Scored</div>' +
+                    '</div>'
+                );
+            }
+            if (stats.superlatives.ironWoman) {
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<div class="stat-label-large">The \'Iron Woman\' Award</div>' +
+                        '<h1>' + stats.superlatives.ironWoman.name + '</h1>' +
+                        '<div class="stat-value-large">' + stats.superlatives.ironWoman.value + '</div>' +
+                        '<div class="stat-label-large">Qtrs Played</div>' +
+                    '</div>'
+                );
+            }
+            if (stats.superlatives.swissArmyKnife) {
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<div class="stat-label-large">The \'Swiss Army Knife\'</div>' +
+                        '<h1>' + stats.superlatives.swissArmyKnife.name + '</h1>' +
+                        '<div class="stat-value-large">' + stats.superlatives.swissArmyKnife.value + '</div>' +
+                        '<div class="stat-label-large">Different Positions Played</div>' +
+                    '</div>'
+                );
+            }
+            if (stats.superlatives.leader && stats.superlatives.leader.value > 0) {
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<div class="stat-label-large">The \'Leader\' Award</div>' +
+                        '<h1>' + stats.superlatives.leader.name + '</h1>' +
+                        '<div class="stat-value-large">' + stats.superlatives.leader.value + '</div>' +
+                        '<div class="stat-label-large">Games as Captain</div>' +
+                    '</div>'
+                );
+            }
+            
+            slidesHTML.push(
+                '<div class="summary-slide">' +
+                    '<h1>Team Spotlight</h1>' +
+                    '<h2>Everyone played their part!</h2>' +
+                '</div>'
+            );
+            
+            stats.playerSpotlights.forEach(function(player) {
+                let goalsHTML = '';
+                if (player.totalGoals > 0) {
+                    goalsHTML = '<li>&#127936; ' + player.totalGoals + ' Total Goals</li>';
+                }
+                
+                const posHTML = player.topPositions.map(function(p, i) { return '<li>' + (i+1) + '. ' + p.pos + ' (' + p.count + ' Qtrs)</li>'; }).join('');
+                if(player.topPositions.length === 0) {
+                    posHTML = '<li>No position data recorded</li>';
+                }
+
+                slidesHTML.push(
+                    '<div class="summary-slide">' +
+                        '<h1>' + player.name + '</h1>' +
+                        '<ul class="player-spotlight-stats">' +
+                            '<li>&#128099; ' + player.gamesPlayed + ' Games Played</li>' +
+                            goalsHTML +
+                            '<li><strong>Top Positions:</strong></li>' +
+                            posHTML +
+                        '</ul>' +
+                    '</div>'
+                );
+            });
+        }
+        
+         slidesHTML.push(
+            '<div class="summary-slide">' +
+                '<h1>Well Done!</h1>' +
+                '<h2 style="margin-top: 20px;">&#127942;</h2>' +
+            '</div>'
+        );
+        
+        container.innerHTML = slidesHTML.join('');
+        totalSummarySlides = slidesHTML.length;
+        currentSummarySlide = 0;
+        updateSummaryNav();
+    }
+
+    // === PLAYER GOALS DETAIL VIEW ===
+    function formatGameDate(dateStr) {
+        if (!dateStr) return "No Date";
+        try {
+            var parts = dateStr.split('-');
+            var gameDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            return gameDate.toLocaleDateString(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric'
+            });
+        } catch (e) {
+            return "No Date";
+        }
+    }
+
+    window.showPlayerGoalsDetail = function(playerName) {
+        console.log('showPlayerGoalsDetail called with:', playerName);
+        if (!window.appState) window.appState = {};
+        appState.playerGoalsDetail = { playerName: playerName };
+        console.log('Set appState.playerGoalsDetail:', appState.playerGoalsDetail);
+        showView('player-goals-detail-view');
+        // Explicitly call render after view is shown
+        renderPlayerGoalsDetail();
+    }
+
+    window.renderPlayerGoalsDetail = function() {
+        console.log('renderPlayerGoalsDetail called');
+        console.log('appState:', appState);
+        console.log('appState.playerGoalsDetail:', appState ? appState.playerGoalsDetail : 'no appState');
+        
+        if (!appState.playerGoalsDetail || !appState.playerGoalsDetail.playerName) {
+            console.warn('No player name in appState, redirecting to hub');
+            showView('insights-offense-hub-view');
+            return;
+        }
+        
+        var playerName = appState.playerGoalsDetail.playerName;
+        console.log('Rendering player goals for:', playerName);
+        console.log('Total games in system:', games.length);
+        
+        document.getElementById('player-goals-detail-title').textContent = playerName + ' - Goal Details';
+        
+        var gameDetails = [];
+        games.forEach(function(game, gameIdx) {
+            console.log('Checking game', gameIdx, ':', game.opponent, 'isPast:', isGameInPast(game));
+            if (!isGameInPast(game)) return;
+            
+            var gameGoals = 0;
+            var quarterBreakdown = [0, 0, 0, 0];
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var gsPlayer = quarter.positions["GS"];
+                var gaPlayer = quarter.positions["GA"];
+                console.log('  Q' + (qIdx+1) + ' - GS:', gsPlayer, 'GA:', gaPlayer);
+                var goals = 0;
+                
+                if (gsPlayer === playerName) {
+                    goals = quarter.ourGsGoals || 0;
+                    console.log('    Player scored as GS:', goals);
+                } else if (gaPlayer === playerName) {
+                    goals = quarter.ourGaGoals || 0;
+                    console.log('    Player scored as GA:', goals);
+                }
+                
+                gameGoals += goals;
+                quarterBreakdown[qIdx] = goals;
+            });
+            
+            console.log('  Total goals in game:', gameGoals);
+            if (gameGoals > 0) {
+                gameDetails.push({
+                    game: game,
+                    totalGoals: gameGoals,
+                    quarters: quarterBreakdown
+                });
+            }
+        });
+        
+        console.log('Found', gameDetails.length, 'games with goals for', playerName);
+        
+        if (gameDetails.length === 0) {
+            document.getElementById('player-goals-detail-content').innerHTML = '<div class="perf-detail-empty">No goals scored yet</div>';
+            return;
+        }
+        
+        var html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+        gameDetails.forEach(function(detail, idx) {
+            var game = detail.game;
+            var scores = getGameTotalScores(game);
+            var result = (scores.ourScore > scores.opponentScore) ? 'W' : (scores.ourScore < scores.opponentScore) ? 'L' : 'D';
+            var resultClass = result === 'W' ? 'result-win' : (result === 'L' ? 'result-loss' : 'result-draw');
+            
+            html += '<div class="perf-flip-container" onclick="flipGameCard(this, ' + idx + ')" style="cursor: pointer; outline: none;" tabindex="0" role="button" aria-label="Click to see quarter breakdown">';
+            html += '<div class="perf-flip-card">';
+            
+            // Front
+            html += '<div class="perf-card-front">';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+            html += '<div style="flex: 1;">';
+            html += '<div style="font-weight: 600; font-size: 0.9rem;">' + game.opponent + '</div>';
+            html += '<div style="font-size: 0.75rem; opacity: 0.7; margin-top: 2px;">' + formatGameDate(game.date) + '</div>';
+            html += '</div>';
+            html += '<div style="display: flex; align-items: center; gap: 12px;">';
+            html += '<span class="' + resultClass + '" style="font-weight: bold; width: 20px;">' + result + '</span>';
+            html += '<div style="text-align: right;">';
+            html += '<div style="font-size: 1.4rem; font-weight: 700; color: var(--primary-color);">' + detail.totalGoals + '</div>';
+            html += '<div style="font-size: 0.7rem; opacity: 0.6;">goals</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div style="font-size: 0.65rem; opacity: 0.5; margin-top: 6px; text-align: center;">Tap for quarters ↻</div>';
+            html += '</div>';
+            
+            // Back
+            html += '<div class="perf-card-back">';
+            html += '<div id="player-game-detail-' + idx + '" class="perf-detail-content"></div>';
+            html += '</div>';
+            
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        
+        document.getElementById('player-goals-detail-content').innerHTML = html;
+        
+        // Store game details for flip card population
+        if (!window.appState) window.appState = {};
+        appState.playerGameDetails = gameDetails;
+    }
+
+    window.flipGameCard = function(container, gameIdx) {
+        var isFlipped = container.classList.contains('flipped');
+        
+        // Close all other flipped cards
+        document.querySelectorAll('.perf-flip-container.flipped').forEach(function(el) {
+            if (el !== container) {
+                el.classList.remove('flipped');
+            }
+        });
+        
+        // Remove backdrop if exists
+        var existingBackdrop = document.querySelector('.perf-metrics-grid.has-flipped');
+        if (existingBackdrop) existingBackdrop.classList.remove('has-flipped');
+        
+        if (isFlipped) {
+            // Close this card
+            container.classList.remove('flipped');
+            container.style.position = '';
+            container.style.top = '';
+            container.style.left = '';
+            container.style.transform = '';
+            container.style.width = '';
+        } else {
+            // Populate quarter details if not already populated
+            var detailDiv = document.getElementById('player-game-detail-' + gameIdx);
+            if (detailDiv && !detailDiv.hasAttribute('data-populated')) {
+                console.log('Populating player game detail for index:', gameIdx);
+                console.log('appState.playerGameDetails:', appState.playerGameDetails);
+                
+                if (!appState.playerGameDetails || !appState.playerGameDetails[gameIdx]) {
+                    console.error('No game details found for index:', gameIdx);
+                    detailDiv.innerHTML = '<div class="perf-detail-empty">Error loading game details</div>';
+                    detailDiv.setAttribute('data-populated', 'true');
+                    return;
+                }
+                
+                var detail = appState.playerGameDetails[gameIdx];
+                console.log('Detail for game', gameIdx, ':', detail);
+                console.log('Quarter breakdown:', detail.quarters);
+                var game = detail.game;
+                var scores = getGameTotalScores(game);
+                var result = (scores.ourScore > scores.opponentScore) ? 'W' : (scores.ourScore < scores.opponentScore) ? 'L' : 'D';
+                var resultClass = result === 'W' ? 'result-win' : (result === 'L' ? 'result-loss' : 'result-draw');
+                
+                var html = '';
+                // Game header
+                html += '<div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + game.opponent + '</div>';
+                html += '<span class="' + resultClass + '" style="font-weight: bold; font-size: 1.1rem; padding: 4px 8px; border-radius: 6px;">' + result + '</span>';
+                html += '</div>';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; opacity: 0.8;">';
+                html += '<div>' + formatGameDate(game.date) + '</div>';
+                html += '<div>' + scores.ourScore + ' - ' + scores.opponentScore + '</div>';
+                html += '</div>';
+                html += '</div>';
+                
+                // Quarter breakdown
+                html += '<div class="perf-detail-title" style="margin-bottom: 12px;">Quarter Breakdown</div>';
+                html += '<div class="perf-detail-mini-grid">';
+                for (var i = 0; i < 4; i++) {
+                    var qtrGoals = detail.quarters && detail.quarters[i] !== undefined ? detail.quarters[i] : 0;
+                    console.log('Q' + (i+1) + ' goals:', qtrGoals);
+                    html += '<div class="perf-detail-mini-card">';
+                    html += '<div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">' + qtrGoals + '</div>';
+                    html += '<div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">Q' + (i+1) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+                
+                console.log('Setting HTML:', html);
+                detailDiv.innerHTML = html;
+                detailDiv.setAttribute('data-populated', 'true');
+            }
+            
+            // Get current position
+            var rect = container.getBoundingClientRect();
+            
+            // Set initial position
+            container.style.position = 'fixed';
+            container.style.top = rect.top + 'px';
+            container.style.left = rect.left + 'px';
+            container.style.width = rect.width + 'px';
+            
+            // Flip it
+            container.classList.add('flipped');
+            
+            // Animate to center after a brief delay
+            setTimeout(function() {
+                var centerX = (window.innerWidth / 2) - (parseInt(getComputedStyle(container).width) / 2);
+                var centerY = (window.innerHeight / 2) - (container.offsetHeight / 2);
+                container.style.top = centerY + 'px';
+                container.style.left = centerX + 'px';
+            }, 50);
+        }
+    }
+
+    // === PAIR GOALS DETAIL VIEW ===
+    window.showPairGoalsDetail = function(pairKey) {
+        if (!window.appState) window.appState = {};
+        appState.pairGoalsDetail = { pairKey: pairKey };
+        showView('pair-goals-detail-view');
+        // Explicitly call render after view is shown
+        renderPairGoalsDetail();
+    }
+
+    window.renderPairGoalsDetail = function() {
+        if (!appState.pairGoalsDetail || !appState.pairGoalsDetail.pairKey) {
+            showView('insights-offense-hub-view');
+            return;
+        }
+        
+        var pairKey = appState.pairGoalsDetail.pairKey;
+        var pairNames = pairKey.split(' / ');
+        document.getElementById('pair-goals-detail-title').textContent = pairKey + ' - Goal Details';
+        
+        var gameDetails = [];
+        games.forEach(function(game) {
+            if (!isGameInPast(game)) return;
+            
+            var gameGoals = 0;
+            var quarterBreakdown = [0, 0, 0, 0];
+            var quartersPlayed = 0;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var gsPlayer = quarter.positions["GS"];
+                var gaPlayer = quarter.positions["GA"];
+                
+                // Check if this quarter had this specific pair
+                var isPair = false;
+                if (pairNames.length === 2) {
+                    isPair = (gsPlayer === pairNames[0] && gaPlayer === pairNames[1]) || 
+                             (gsPlayer === pairNames[1] && gaPlayer === pairNames[0]);
+                }
+                
+                if (isPair) {
+                    var goals = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                    gameGoals += goals;
+                    quarterBreakdown[qIdx] = goals;
+                    quartersPlayed++;
+                }
+            });
+            
+            if (gameGoals > 0) {
+                gameDetails.push({
+                    game: game,
+                    totalGoals: gameGoals,
+                    quarters: quarterBreakdown,
+                    quartersPlayed: quartersPlayed
+                });
+            }
+        });
+        
+        if (gameDetails.length === 0) {
+            document.getElementById('pair-goals-detail-content').innerHTML = '<div class="perf-detail-empty">No goals scored together yet</div>';
+            return;
+        }
+        
+        var html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+        gameDetails.forEach(function(detail, idx) {
+            var game = detail.game;
+            var scores = getGameTotalScores(game);
+            var result = (scores.ourScore > scores.opponentScore) ? 'W' : (scores.ourScore < scores.opponentScore) ? 'L' : 'D';
+            var resultClass = result === 'W' ? 'result-win' : (result === 'L' ? 'result-loss' : 'result-draw');
+            var avg = detail.quartersPlayed > 0 ? (detail.totalGoals / detail.quartersPlayed).toFixed(1) : '0.0';
+            
+            html += '<div class="perf-flip-container" onclick="flipPairGameCard(this, ' + idx + ')" style="cursor: pointer; outline: none;" tabindex="0" role="button" aria-label="Click to see quarter breakdown">';
+            html += '<div class="perf-flip-card">';
+            
+            // Front
+            html += '<div class="perf-card-front">';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+            html += '<div style="flex: 1;">';
+            html += '<div style="font-weight: 600; font-size: 0.9rem;">' + game.opponent + '</div>';
+            html += '<div style="font-size: 0.75rem; opacity: 0.7; margin-top: 2px;">' + formatGameDate(game.date) + ' • ' + detail.quartersPlayed + ' Qtrs</div>';
+            html += '</div>';
+            html += '<div style="display: flex; align-items: center; gap: 12px;">';
+            html += '<span class="' + resultClass + '" style="font-weight: bold; width: 20px;">' + result + '</span>';
+            html += '<div style="text-align: right;">';
+            html += '<div style="font-size: 1.4rem; font-weight: 700; color: var(--primary-color);">' + detail.totalGoals + '</div>';
+            html += '<div style="font-size: 0.7rem; opacity: 0.6;">' + avg + '/Q</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div style="font-size: 0.65rem; opacity: 0.5; margin-top: 6px; text-align: center;">Tap for quarters ↻</div>';
+            html += '</div>';
+            
+            // Back
+            html += '<div class="perf-card-back">';
+            html += '<div id="pair-game-detail-' + idx + '" class="perf-detail-content"></div>';
+            html += '</div>';
+            
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        
+        document.getElementById('pair-goals-detail-content').innerHTML = html;
+        
+        // Store game details for flip card population
+        if (!window.appState) window.appState = {};
+        appState.pairGameDetails = gameDetails;
+    }
+
+    window.flipPairGameCard = function(container, gameIdx) {
+        var isFlipped = container.classList.contains('flipped');
+        
+        // Close all other flipped cards
+        document.querySelectorAll('.perf-flip-container.flipped').forEach(function(el) {
+            if (el !== container) {
+                el.classList.remove('flipped');
+            }
+        });
+        
+        if (isFlipped) {
+            // Close this card
+            container.classList.remove('flipped');
+            container.style.position = '';
+            container.style.top = '';
+            container.style.left = '';
+            container.style.transform = '';
+            container.style.width = '';
+        } else {
+            // Populate quarter details if not already populated
+            var detailDiv = document.getElementById('pair-game-detail-' + gameIdx);
+            if (detailDiv && !detailDiv.hasAttribute('data-populated')) {
+                var detail = appState.pairGameDetails[gameIdx];
+                var game = detail.game;
+                var scores = getGameTotalScores(game);
+                var result = (scores.ourScore > scores.opponentScore) ? 'W' : (scores.ourScore < scores.opponentScore) ? 'L' : 'D';
+                var resultClass = result === 'W' ? 'result-win' : (result === 'L' ? 'result-loss' : 'result-draw');
+                var avg = detail.quartersPlayed > 0 ? (detail.totalGoals / detail.quartersPlayed).toFixed(1) : '0.0';
+                
+                var html = '';
+                // Game header
+                html += '<div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + game.opponent + '</div>';
+                html += '<span class="' + resultClass + '" style="font-weight: bold; font-size: 1.1rem; padding: 4px 8px; border-radius: 6px;">' + result + '</span>';
+                html += '</div>';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; opacity: 0.8;">';
+                html += '<div>' + formatGameDate(game.date) + ' • ' + detail.quartersPlayed + ' Qtrs</div>';
+                html += '<div>' + scores.ourScore + ' - ' + scores.opponentScore + ' • ' + avg + '/Q</div>';
+                html += '</div>';
+                html += '</div>';
+                
+                // Quarter breakdown
+                html += '<div class="perf-detail-title" style="margin-bottom: 12px;">Quarter Breakdown</div>';
+                html += '<div class="perf-detail-mini-grid">';
+                for (var i = 0; i < 4; i++) {
+                    html += '<div class="perf-detail-mini-card">';
+                    html += '<div style="font-size: 24px; font-weight: bold; color: var(--primary-color);">' + detail.quarters[i] + '</div>';
+                    html += '<div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">Q' + (i+1) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+                detailDiv.innerHTML = html;
+                detailDiv.setAttribute('data-populated', 'true');
+            }
+            
+            // Get current position
+            var rect = container.getBoundingClientRect();
+            
+            // Set initial position
+            container.style.position = 'fixed';
+            container.style.top = rect.top + 'px';
+            container.style.left = rect.left + 'px';
+            container.style.width = rect.width + 'px';
+            
+            // Flip it
+            container.classList.add('flipped');
+            
+            // Animate to center after a brief delay
+            setTimeout(function() {
+                var centerX = (window.innerWidth / 2) - (parseInt(getComputedStyle(container).width) / 2);
+                var centerY = (window.innerHeight / 2) - (container.offsetHeight / 2);
+                container.style.top = centerY + 'px';
+                container.style.left = centerX + 'px';
+            }, 50);
+        }
+    }
+</script>

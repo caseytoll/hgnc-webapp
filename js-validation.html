@@ -1,0 +1,162 @@
+<script>
+/**
+ * Runtime validation functions for HGNC WebApp
+ * These can be called from browser console during development/testing
+ */
+
+window.AppValidator = {
+    /**
+     * Check if all critical DOM elements exist
+     */
+    checkCriticalElements: function() {
+        const criticalElements = [
+            'insights-view',
+            'insights-team-performance-view',
+            'insights-offensive-leaders-view',
+            'insights-defensive-wall-view',
+            'insights-player-analysis-view',
+            'app-tab-nav',
+            'loading-overlay'
+        ];
+
+        let missing = [];
+        criticalElements.forEach(id => {
+            if (!document.getElementById(id)) {
+                missing.push('#' + id);
+            }
+        });
+
+        if (missing.length > 0) {
+            console.error('❌ Missing critical elements:', missing);
+            return false;
+        } else {
+            console.log('✅ All critical elements present');
+            return true;
+        }
+    },
+
+    /**
+     * Check if all required functions are defined
+     */
+    checkCriticalFunctions: function() {
+        const requiredFunctions = [
+            'showView',
+            'renderNewInsightsDashboard',
+            'renderInsightsOffensiveLeaders',
+            'renderInsightsDefensiveWall',
+            'renderInsightsPlayerAnalysis',
+            'updateAllStatsAndRender'
+        ];
+
+        let missing = [];
+        requiredFunctions.forEach(funcName => {
+            const func = window[funcName];
+            if (typeof func !== 'function') {
+                missing.push(funcName);
+            }
+        });
+
+        if (missing.length > 0) {
+            console.error('❌ Missing critical functions:', missing);
+            return false;
+        } else {
+            console.log('✅ All critical functions defined');
+            return true;
+        }
+    },
+
+    /**
+     * Test navigation to insights views
+     */
+    testInsightsNavigation: function() {
+        console.log('🧪 Testing insights navigation...');
+
+        const views = [
+            'insights-team-performance-view',
+            'insights-offensive-leaders-view',
+            'insights-defensive-wall-view',
+            'insights-player-analysis-view'
+        ];
+
+        views.forEach(viewId => {
+            try {
+                // Check if view element exists
+                const view = document.getElementById(viewId);
+                if (!view) {
+                    console.error(`❌ View ${viewId} not found`);
+                    return;
+                }
+
+                // Check if view has dashboard container
+                const dashboard = view.querySelector('.insights-dashboard');
+                if (!dashboard) {
+                    console.error(`❌ View ${viewId} missing .insights-dashboard`);
+                    return;
+                }
+
+                console.log(`✅ View ${viewId} structure OK`);
+            } catch (e) {
+                console.error(`❌ Error testing ${viewId}:`, e);
+            }
+        });
+    },
+
+    /**
+     * Check data availability for rendering
+     */
+    checkDataAvailability: function() {
+        console.log('📊 Checking data availability...');
+
+        const checks = [
+            { name: 'appState', value: window.appState },
+            { name: 'currentTeam', value: window.appState?.currentTeam },
+            { name: 'allTeamData', value: window.allTeamData },
+            { name: 'calculatedSeasonStats', value: window.calculatedSeasonStats },
+            { name: 'players', value: window.players },
+            { name: 'games', value: window.games }
+        ];
+
+        checks.forEach(check => {
+            if (check.value) {
+                console.log(`✅ ${check.name}: available`);
+            } else {
+                console.warn(`⚠️  ${check.name}: not available`);
+            }
+        });
+    },
+
+    /**
+     * Run all validation checks
+     */
+    runAllChecks: function() {
+        console.log('🚀 Running all validation checks...');
+        console.log('=====================================');
+
+        let allPassed = true;
+
+        allPassed &= this.checkCriticalElements();
+        allPassed &= this.checkCriticalFunctions();
+        this.testInsightsNavigation();
+        this.checkDataAvailability();
+
+        console.log('=====================================');
+        if (allPassed) {
+            console.log('🎉 All critical checks passed!');
+        } else {
+            console.error('❌ Some critical checks failed!');
+        }
+
+        return allPassed;
+    }
+};
+
+// Auto-run basic checks on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Delay to allow scripts to load
+    setTimeout(function() {
+        console.log('🔍 Running automatic validation checks...');
+        window.AppValidator.checkCriticalElements();
+        window.AppValidator.checkCriticalFunctions();
+    }, 1000);
+});
+</script>

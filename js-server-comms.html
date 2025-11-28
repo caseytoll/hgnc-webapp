@@ -1,0 +1,625 @@
+<script>
+    // === PERSISTENCE (Google Sheets) ===
+    
+    function saveCurrentTeamData() {
+        if (!appState.currentTeam.sheetName) return;
+        var teamData = { players: players, games: games };
+        var teamDataJSON = JSON.stringify(teamData);
+        
+        // Include stats if available
+        var statsDataJSON = null;
+        if (window.calculatedSeasonStats && Object.keys(window.calculatedSeasonStats).length > 0) {
+            statsDataJSON = JSON.stringify(window.calculatedSeasonStats);
+        }
+        
+        // Save to localStorage
+        try { localStorage.setItem(appState.currentTeam.sheetName, JSON.stringify(teamData)); } catch(e) { console.warn('localStorage save failed', e); }
+        
+        // Mark stats as stale since data changed
+        markStatsStale();
+        
+        console.log("Syncing data for " + appState.currentTeam.sheetName + "...");
+        google.script.run
+            .withSuccessHandler(onSaveSuccess)
+            .withFailureHandler(onSaveFailed)
+            .saveTeamData(appState.currentTeam.sheetName, teamDataJSON, statsDataJSON);
+    }
+
+    function onSaveSuccess(response) { console.log("Sync success."); }
+    function onSaveFailed(error) {
+        console.error("Sync Failed:", error);
+        showCustomAlert("Sync Failed", "Could not sync with Google. Your changes are saved on this device for now.", "error");
+        setLoading(false); 
+    }
+
+    // --- *** OPTIMIZED: onDataLoadFailed *** ---
+    function onDataLoadFailed(error) {
+        // This function is now only for server failures.
+        console.error("Failed to load data from server:", error);
+        
+        if (error && error.includes && error.includes("429")) {
+            showCustomAlert("Rate Limited", 
+                "NetballConnect API is temporarily unavailable due to too many requests. Please wait a few minutes and try again. Using cached data for now.", 
+                "error");
+        } else {
+            showCustomAlert("Connection Error", 
+                "Could not sync with Google Sheets. The data shown may be out of date. Please check your internet connection.", 
+                "error");
+        }
+        setLoading(false); 
+    }
+
+    function loadMasterTeamList() {
+        console.log("Loading master team list...");
+        setLoading(true, "Loading teams...");
+        google.script.run
+            .withSuccessHandler(onTeamListLoaded)
+            .withFailureHandler(onDataLoadFailed)
+            .loadMasterTeamList();
+    }
+
+    function onTeamListLoaded(teams) {
+        try {
+            console.log("onTeamListLoaded - Received teams:", teams);
+            if (teams.error) {
+                console.error("onTeamListLoaded - Error in teams response:", teams.error);
+                onDataLoadFailed(teams.error);
+                return;
+            }
+            
+            // Validate data shape
+            if (!Array.isArray(teams)) {
+                console.error("onTeamListLoaded - Teams is not an array:", teams);
+                onDataLoadFailed("Invalid teams data format");
+                return;
+            }
+            
+            // --- ULTIMATE FIX: Deep clone the master team list immediately ---
+            masterTeamList = JSON.parse(JSON.stringify(teams));
+            console.log("onTeamListLoaded - Cloned masterTeamList with", masterTeamList.length, "teams");
+            // --- End Fix ---
+            
+            console.log("onTeamListLoaded - Updated masterTeamList");
+            
+            renderTeamSelector();
+            setLoading(false);
+        } catch (e) {
+            console.error("onTeamListLoaded - Unexpected error:", e);
+            onDataLoadFailed("Unexpected error loading teams");
+        }
+    }
+
+    // --- *** MODIFIED: handleSelectTeam to load fresh data from server *** ---
+    function handleSelectTeam(teamID, sheetName, teamDisplayName) {
+        setLoading(true, "Loading " + teamDisplayName + "...");
+        
+        // Get full team object from master list to include API URLs
+        var fullTeam = arrayFind(masterTeamList, function(t) { return t.teamID === teamID; });
+        if (fullTeam) {
+            appState.currentTeam = {
+                teamID: fullTeam.teamID,
+                sheetName: fullTeam.sheetName,
+                name: teamDisplayName,
+                ladderName: fullTeam.ladderName,
+                ladderApi: fullTeam.ladderApi,
+                resultsApi: fullTeam.resultsApi
+            };
+        } else {
+            // Fallback to minimal data
+            appState.currentTeam.sheetName = sheetName;
+            appState.currentTeam.name = teamDisplayName;
+        }
+        
+        // Load cached netball data (doesn't affect team loading)
+        loadCachedNetballLadderNoApi(); 
+        loadCachedMatchResultsNoApi();
+
+        // Always load fresh data from server to ensure stats are up to date
+        console.log("Loading fresh team data and stats from server...");
+        google.script.run
+            .withSuccessHandler(function(data) {
+                if (data.error) {
+                    console.error('Error loading team data:', data.error);
+                    // Try to load from cache as fallback
+                    loadFromCacheAndShowView();
+                    return;
+                }
+                
+                // Update team data
+                if (data.teamData) {
+                    try {
+                        var teamData = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+                        players = teamData.players || [];
+                        games = teamData.games || [];
+                        console.log('[handleSelectTeam] Loaded team data from server:', games.length, 'games,', players.length, 'players');
+                        
+                        // Update allTeamData
+                        if (!window.allTeamData) window.allTeamData = {};
+                        window.allTeamData[window.appState.currentTeam.teamID] = {
+                            team: fullTeam,
+                            games: games,
+                            players: players,
+                            stats: null // Will be set below
+                        };
+                    } catch (e) {
+                        console.error('Error parsing team data:', e);
+                    }
+                }
+                
+                // Update global stats
+                if (data.statsData) {
+                    try {
+                        window.calculatedSeasonStats = JSON.parse(data.statsData);
+                        statsCalculated = true;
+                        console.log('[handleSelectTeam] Loaded stats from server:', Object.keys(window.calculatedSeasonStats).length, 'categories');
+                        console.log('[handleSelectTeam] Stats gameCount:', window.calculatedSeasonStats.gameCount);
+                        
+                        // Update allTeamData with stats
+                        if (window.allTeamData && window.allTeamData[window.appState.currentTeam.teamID]) {
+                            window.allTeamData[window.appState.currentTeam.teamID].stats = window.calculatedSeasonStats;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing server stats:', e);
+                        window.calculatedSeasonStats = null;
+                        statsCalculated = false;
+                    }
+                } else {
+                    console.log('[handleSelectTeam] No stats data returned from server');
+                    window.calculatedSeasonStats = null;
+                    statsCalculated = false;
+                    
+                    // Calculate stats if we have games data
+                    if (games && games.length > 0) {
+                        console.log('[handleSelectTeam] Calculating stats from loaded games data...');
+                        updateAllStats();
+                        statsCalculated = true;
+                        console.log('[handleSelectTeam] Stats calculated, calculatedSeasonStats:', window.calculatedSeasonStats);
+                        console.log('[handleSelectTeam] Stats calculated, gameCount:', window.calculatedSeasonStats ? window.calculatedSeasonStats.gameCount : 'null');
+                        
+                        // Update allTeamData with stats
+                        if (window.allTeamData && window.allTeamData[window.appState.currentTeam.teamID]) {
+                            window.allTeamData[window.appState.currentTeam.teamID].stats = window.calculatedSeasonStats;
+                        }
+                        
+                        // Save the calculated stats
+                        saveCurrentTeamData();
+                    }
+                }
+                
+                // Show the view now that fresh data is loaded
+                showView('fixture-view'); 
+                setLoading(false);
+            })
+            .withFailureHandler(function(error) {
+                console.error('Failed to load fresh data from server:', error);
+                // Fallback to cache
+                loadFromCacheAndShowView();
+            })
+            .loadTeamData(appState.currentTeam.sheetName);
+    }
+    
+    // Fallback function to load from cache if server fails
+    function loadFromCacheAndShowView() {
+        console.log('Loading from cache as fallback...');
+        
+        // Load from localStorage
+        try {
+            var cachedRaw = localStorage.getItem(appState.currentTeam.sheetName);
+            if (cachedRaw) {
+                var cachedParsed = JSON.parse(cachedRaw);
+                var teamData = cachedParsed.data;
+                if (teamData) {
+                    players = teamData.players || [];
+                    games = teamData.games || [];
+                    console.log('📂 Loaded cached team data:', games.length, 'games,', players.length, 'players');
+                    
+                    // Update allTeamData
+                    if (!window.allTeamData) window.allTeamData = {};
+                    window.allTeamData[window.appState.currentTeam.teamID] = {
+                        team: arrayFind(masterTeamList, function(t) { return t.teamID === window.appState.currentTeam.teamID; }),
+                        games: games,
+                        players: players,
+                        stats: null
+                    };
+                }
+            }
+        } catch (e) {
+            console.error('Error loading from cache:', e);
+            players = [];
+            games = [];
+        }
+        
+        // Load cached stats
+        loadCachedStatsFromDB().then(function() {
+            showView('fixture-view'); 
+            setLoading(false);
+        }).catch(function() {
+            showView('fixture-view'); 
+            setLoading(false);
+        });
+    }
+    
+    // --- *** OPTIMIZED: onTeamDataLoaded *** ---
+    function onTeamDataLoaded(data) {
+        if (data.error) {
+            onDataLoadFailed(data.error);
+            return;
+        }
+
+        // --- 1. COMPARE NEW DATA WITH LOCAL DATA ---
+        var serverData = data.teamData || '{"players":[],"games":[]}';
+        var serverStatsData = data.statsData;
+        
+        // Handle case where serverData might already be parsed object
+        var serverTeamData;
+        if (typeof serverData === 'string') {
+            try {
+                serverTeamData = JSON.parse(serverData);
+            } catch (e) {
+                console.warn('[onTeamDataLoaded] JSON parse failed, using fallback:', e);
+                serverTeamData = {"players":[],"games":[]};
+            }
+        } else if (typeof serverData === 'object') {
+            serverTeamData = serverData;
+        } else {
+            serverTeamData = {"players":[],"games":[]};
+        }
+        
+        console.log('[onTeamDataLoaded] serverData:', serverData);
+        console.log('[onTeamDataLoaded] serverTeamData:', serverTeamData);
+        console.log('[onTeamDataLoaded] serverStatsData:', serverStatsData);
+        
+        var localTeamData = (function(){ try { var v = localStorage.getItem(appState.currentTeam.sheetName); var parsed = v ? JSON.parse(v) : null; return parsed && parsed.data ? parsed.data : parsed; } catch(e){ return null; } })();
+        // Fast comparison: check if data exists and lengths match first
+        var isDataDifferent = !localTeamData;
+        
+        var serverPlayers = serverTeamData.players || [];
+        var serverGames = serverTeamData.games || [];
+        
+        console.log('[onTeamDataLoaded] serverGames:', serverGames, 'serverPlayers:', serverPlayers);
+        
+        if (!isDataDifferent) {
+            var localPlayers = localTeamData.players || [];
+            var localGames = localTeamData.games || [];
+            
+            // Quick length check before expensive stringify
+            if (localPlayers.length !== serverPlayers.length || 
+                localGames.length !== serverGames.length) {
+                isDataDifferent = true;
+            } else {
+                // Only do deep comparison if lengths match
+                isDataDifferent = JSON.stringify(localTeamData) !== JSON.stringify(serverTeamData);
+            }
+        }
+        
+        if (isDataDifferent && (serverGames.length > 0 || serverPlayers.length > 0)) {
+            // --- 2. SAVE NEW DATA ---
+            var cacheData = {data: serverTeamData, timestamp: Date.now()};
+            try { localStorage.setItem(appState.currentTeam.sheetName, JSON.stringify(cacheData)); } catch(e){ console.warn('localStorage save failed', e); }
+            players = serverTeamData.players || [];
+            games = serverTeamData.games || [];
+            
+            // Load stats from server if available
+            if (serverStatsData) {
+                try {
+                    var parsedStats = JSON.parse(serverStatsData);
+                    window.calculatedSeasonStats = parsedStats;
+                    statsCalculated = true;
+                    console.log('[onTeamDataLoaded] Loaded stats from server:', Object.keys(parsedStats).length, 'stat categories');
+                    
+                    // Update localStorage cache for stats
+                    var statsCache = {
+                        stats: parsedStats,
+                        gamesHash: generateGamesHash(),
+                        playersHash: generatePlayersHash(),
+                        timestamp: Date.now()
+                    };
+                    try {
+                        localStorage.setItem('insights_' + appState.currentTeam.teamID, JSON.stringify({cache: statsCache}));
+                        console.log('[onTeamDataLoaded] Updated localStorage stats cache');
+                    } catch (e) {
+                        console.warn('[onTeamDataLoaded] Failed to update localStorage stats cache:', e);
+                    }
+                } catch (e) {
+                    console.warn('[onTeamDataLoaded] Failed to parse server stats:', e);
+                }
+            }
+            
+            // Update allTeamData
+            if (window.allTeamData && window.appState.currentTeam.teamID) {
+                window.allTeamData[window.appState.currentTeam.teamID] = {
+                    team: window.masterTeamList.find(t => t.teamID === window.appState.currentTeam.teamID) || {},
+                    games: games,
+                    players: players,
+                    stats: window.calculatedSeasonStats || null
+                };
+            }
+            
+            // --- 3. RE-RENDER THE CURRENT VIEW ---
+            updateAllStatsAndRender();
+        } else if (isDataDifferent) {
+            console.log('Server returned empty data, keeping cached data');
+        }
+    }
+    
+    function handleCreateTeam() {
+        if (!isOwner()) return; // Read-only mode: prevent creation
+        var year = (cachedElements.forms?.editTeamYear || document.getElementById('edit-team-year')).value;
+        var season = (cachedElements.forms?.editTeamSeason || document.getElementById('edit-team-season')).value;
+        var name = (cachedElements.forms?.editTeamName || document.getElementById('edit-team-name')).value;
+        var ladderName = (cachedElements.forms?.editTeamLadderName || document.getElementById('edit-team-ladder-name')).value;
+        var ladderApi = (cachedElements.forms?.editTeamLadderApi || document.getElementById('edit-team-ladder-api')).value.trim();
+        var resultsApi = (cachedElements.forms?.editTeamResultsApi || document.getElementById('edit-team-results-api')).value.trim();
+        
+        if (!year || !season || !name) {
+            showCustomAlert("Input Error", "Please fill in Year, Season, and Team Name.", "error");
+            return;
+        }
+        setLoading(true, "Creating team...");
+        google.script.run
+            .withSuccessHandler(onTeamListLoaded)  
+            .withFailureHandler(onDataLoadFailed)
+            .createNewTeam(year, season, name, ladderName, ladderApi, resultsApi);
+        hideModal('edit-team-modal');
+    }
+    
+    function handleUpdateTeam() {
+        if (!isOwner()) return; // Read-only mode: prevent updates
+        if (!appState.editing.team) return;
+        
+        var year = (cachedElements.forms?.editTeamYear || document.getElementById('edit-team-year')).value;
+        var season = (cachedElements.forms?.editTeamSeason || document.getElementById('edit-team-season')).value;
+        var name = (cachedElements.forms?.editTeamName || document.getElementById('edit-team-name')).value;
+        var ladderName = (cachedElements.forms?.editTeamLadderName || document.getElementById('edit-team-ladder-name')).value;
+        var ladderApi = (cachedElements.forms?.editTeamLadderApi || document.getElementById('edit-team-ladder-api')).value.trim();
+        var resultsApi = (cachedElements.forms?.editTeamResultsApi || document.getElementById('edit-team-results-api')).value.trim();
+        
+        if (!year || !season || !name) {
+            showCustomAlert("Input Error", "Please fill in Year, Season, and Team Name.", "error");
+            return;
+        }
+        
+        setLoading(true, "Updating team...");
+        google.script.run
+            .withSuccessHandler(onTeamListLoaded) 
+            .withFailureHandler(onDataLoadFailed)
+            .updateTeam(appState.editing.team.teamID, year, season, name, ladderName, ladderApi, resultsApi);
+            
+        hideModal('edit-team-modal');
+    }
+    
+    function executeDeleteTeam() {
+        if (!isOwner()) return; // Read-only mode: prevent deletion
+        if (!appState.editing.team) return;
+        var teamID = appState.editing.team.teamID;
+        var sheetName = appState.editing.team.sheetName;
+        var displayName = appState.editing.team.displayName;
+        
+        showCustomConfirm(
+            "Confirm Team Deletion",
+            "Are you sure you want to permanently delete the team **" + displayName + "**? This action cannot be undone and will delete all associated data.",
+            function() { // On Confirm
+                setLoading(true, "Deleting team...");
+                google.script.run
+                    .withSuccessHandler(onTeamListLoaded)  
+                    .withFailureHandler(onDataLoadFailed)
+                    .deleteTeam(teamID, sheetName);
+                hideModal('edit-team-modal');
+            },
+            function() { // On Cancel
+                //
+            }
+        );
+    }
+
+    // === EXTERNAL DATA FUNCTIONS (UPDATED FOR MANUAL REFRESH ONLY) ===
+
+    /**
+     * Loads Netball Ladder from Google Sheets Archive WITHOUT API calls
+     */
+    function loadCachedNetballLadderNoApi() {
+        console.log("Loading cached NetballConnect ladder data (no API)...");
+        google.script.run
+            .withSuccessHandler(onNetballLadderLoaded)
+            .withFailureHandler(function(error) {
+                console.log("No cached ladder data available. Use manual refresh to fetch from API.");
+                netballLadderData = [];
+                renderNetballLadder();
+            })
+            .loadArchivedLadderData();
+    }
+
+    /**
+     * Loads Match Results from cached properties (includes venue data)
+     */
+    function loadCachedMatchResultsNoApi() {
+        console.log("Loading cached NetballConnect match results (no API)...");
+        google.script.run
+            .withSuccessHandler(onMatchResultsLoaded)
+            .withFailureHandler(function(error) {
+                console.log("No cached match results available. Use manual refresh to fetch from API.");
+                netballMatchResults = [];
+                renderNetballResults();
+            })
+            .getCachedMatchResults();
+    }
+
+    /**
+     * Loads Netball Ladder from the Google Sheet Archive (Primary Load - no API)
+     * Kept for backward compatibility
+     */
+    function loadCachedNetballLadder() {
+        loadCachedNetballLadderNoApi();
+    }
+
+    /**
+     * Loads Match Results from the Google Sheet Archive (Primary Load - no API)
+     * Kept for backward compatibility
+     */
+    function loadCachedMatchResults() {
+        loadCachedMatchResultsNoApi();
+    }
+
+    /**
+     * Pulls the latest Netball Ladder from the external API (Manual Refresh Only)
+     */
+    function loadNetballLadderApi() {
+        console.log("Fetching FRESH ladder data from API...");
+        setLoading(true, "Refreshing external ladder...");
+        
+        // Check if current team has custom API URLs
+        var currentTeam = appState.currentTeam;
+        if (currentTeam && currentTeam.ladderApi) {
+            console.log("Using custom ladder API:", currentTeam.ladderApi);
+            // Detect if it's MyGameDay based on URL
+            if (currentTeam.ladderApi.indexOf('mygameday.app') > -1) {
+                google.script.run
+                    .withSuccessHandler(onNetballLadderLoaded)
+                    .withFailureHandler(onDataLoadFailed) 
+                    .fetchMyGameDayLadder(currentTeam.ladderApi);
+            } else {
+                // Assume it's a NetballConnect-style API
+                google.script.run
+                    .withSuccessHandler(onNetballLadderLoaded)
+                    .withFailureHandler(onDataLoadFailed) 
+                    .getLadderData(); 
+            }
+        } else {
+            // Use default NetballConnect API
+            google.script.run
+                .withSuccessHandler(onNetballLadderLoaded)
+                .withFailureHandler(onDataLoadFailed) 
+                .getLadderData(); 
+        }
+    }
+
+    function onNetballLadderLoaded(ladder) {
+        if (ladder.error) {
+            console.error("NetballConnect API Failed:", ladder.error);
+            netballLadderData = [];
+            
+            var statusEl = document.getElementById('admin-token-status');
+            if (statusEl) {
+                statusEl.textContent = 'ERROR: API Failed! Token may be expired.';
+                statusEl.style.color = 'var(--danger-color)';
+            }
+        } else {
+            console.log("NetballConnect ladder loaded.");
+            
+            // --- ULTIMATE FIX: DEEP CLONE to guarantee mutability (resolves read-only error) ---
+            netballLadderData = JSON.parse(JSON.stringify(ladder)); 
+            // --- END FIX ---
+            
+            extractExternalLadderInsights(); 
+            
+            // Re-render the relevant views
+            renderNetballLadder();
+            renderDifficultyRatings(); 
+            renderInsights();
+        }
+        setLoading(false);
+    }
+
+    /**
+     * Pulls the latest Match Results from the external API (Manual Refresh Only)
+     */
+    function loadMatchResultsApi() {
+        console.log("Fetching FRESH match results from API...");
+        setLoading(true, "Refreshing match results...");
+        
+        // Check if current team has custom API URLs
+        var currentTeam = appState.currentTeam;
+        if (currentTeam && currentTeam.resultsApi) {
+            console.log("Using custom results API:", currentTeam.resultsApi);
+            // Detect if it's MyGameDay based on URL
+            if (currentTeam.resultsApi.indexOf('mygameday.app') > -1) {
+                google.script.run
+                    .withSuccessHandler(onMatchResultsLoaded)
+                    .withFailureHandler(onDataLoadFailed)
+                    .fetchMyGameDayResults(currentTeam.resultsApi);
+            } else {
+                // Assume it's a NetballConnect-style API
+                google.script.run
+                    .withSuccessHandler(onMatchResultsLoaded)
+                    .withFailureHandler(onDataLoadFailed)
+                    .getMatchResults();
+            }
+        } else {
+            // Use default NetballConnect API
+            google.script.run
+                .withSuccessHandler(onMatchResultsLoaded)
+                .withFailureHandler(onDataLoadFailed)
+                .getMatchResults();
+        }
+    }
+
+    function onMatchResultsLoaded(results) {
+        console.log("Match Results RAW response:", results);
+        console.log("Type of results:", typeof results);
+        
+        try {
+            // FIX: Better handling of the response with try-catch
+            if (results && typeof results === 'object') {
+                if (results.error) {
+                    console.error("Match Results API Failed:", results.error);
+                    netballMatchResults = [];
+                } else if (Array.isArray(results)) {
+                    console.log("Match Results: Successfully loaded", results.length, "rounds from cache");
+                    netballMatchResults = results; // No need for deep clone if data is clean
+                    console.log("First round sample:", results[0]);
+                } else {
+                    console.log("Match Results: Unexpected response format", results);
+                    netballMatchResults = [];
+                }
+            } else {
+                console.log("Match Results: No data returned or null response");
+                netballMatchResults = [];
+            }
+        } catch (e) {
+            console.error("Error processing match results:", e);
+            netballMatchResults = [];
+        }
+        
+        // Always re-render the results if the user is currently on the netball ladder view
+        const activeView = document.querySelector('.view:not(.hidden)');
+        if (activeView && activeView.id === 'netball-ladder-view') {
+            console.log("Re-rendering netball results in ladder view");
+            renderNetballResults();
+        }
+        
+        setLoading(false);
+    }
+
+    // === ADMIN/TOKEN MANAGEMENT FUNCTIONS ===
+
+    function loadAuthTokenForAdmin() {
+        google.script.run
+            .withSuccessHandler(function(token) {
+                document.getElementById('admin-auth-token').value = token;
+                document.getElementById('admin-token-status').textContent = token ? 'Loaded (Token Length: ' + token.length + ')' : 'MISSING';
+            })
+            .withFailureHandler(onDataLoadFailed)
+            .loadAuthToken();
+    }
+
+    function saveNewAuthToken() {
+        var newToken = document.getElementById('admin-auth-token').value.trim();
+        setLoading(true, "Saving new token...");
+        google.script.run
+            .withSuccessHandler(function(res) {
+                setLoading(false);
+                if (res === "OK") {
+                    document.getElementById('admin-token-status').textContent = 'Saved Successfully!';
+                    document.getElementById('admin-token-status').style.color = 'var(--ok-color)';
+                    // After saving token, immediately attempt a fresh API pull (which will save to archive)
+                    loadNetballLadderApi(); 
+                } else {
+                    document.getElementById('admin-token-status').textContent = 'Save Failed!';
+                    document.getElementById('admin-token-status').style.color = 'var(--danger-color)';
+                    console.error("Save failed:", res);
+                }
+            })
+            .withFailureHandler(onDataLoadFailed)
+            .saveAuthToken(newToken);
+    }
+</script>
