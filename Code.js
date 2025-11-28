@@ -77,7 +77,7 @@ function doGet(e) {
     console.log('DEBUG: Player analysis icon loaded, length:', template.playerAnalysisIconDataUrl ? template.playerAnalysisIconDataUrl.length : 'null');
 
     // Cache buster - update this to force client refresh
-    template.appVersion = '618';
+    template.appVersion = '619';
     console.log('DEBUG: App version set to:', template.appVersion);
 
     console.log('DEBUG: Evaluating template...');

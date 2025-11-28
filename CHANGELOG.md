@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [Unreleased]
+- Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
+
+## v619 — 2025-11-28
+- UI: Align Team Manager heading to the left on teams page
+
+
 ## v618 — 2025-11-28
 - v617 - Fixed spreadsheet access for webapps
 
