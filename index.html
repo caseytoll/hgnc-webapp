@@ -363,7 +363,7 @@
         
         if (cards.length > 0) {
           console.log('DEBUG: Icon background images ->');
-          cards.forEach((card, i) => {
+            cards.forEach((card, i) => {
             const style = card.getAttribute('style') || '';
             const title = card.querySelector('.insights-menu-card-title')?.textContent || 'Unknown';
             console.log(`Card ${i+1} (${title}):`);
@@ -382,8 +382,18 @@
             }
             
             // Check computed style
-            const computedBg = window.getComputedStyle(card).backgroundImage;
+              const computedBg = window.getComputedStyle(card).backgroundImage;
             console.log(`  Computed background: ${computedBg ? computedBg.substring(0, 50) + '...' : 'NONE'}`);
+            // If computed background references a CDN asset, try fetching it and log the HTTP status
+            try {
+              const urlMatch = computedBg && computedBg.match(/url\(['\"]?([^'\"\)]+)['\"]?\)/);
+              const url = urlMatch ? urlMatch[1] : null;
+              if (url && url.includes('cdn.jsdelivr.net')) {
+                fetch(url, {method: 'HEAD', mode: 'cors'})
+                  .then(resp => console.log(`  CDN fetch status for ${url}: ${resp.status}`))
+                  .catch(err => console.warn('  CDN fetch failed:', err));
+              }
+            } catch (e) {}
           });
         } else {
           console.log('DEBUG: No insights cards found - are you on the stats page?');
