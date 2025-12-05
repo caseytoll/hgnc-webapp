@@ -190,15 +190,15 @@
 
     // Ensure insights dashboard cards have valid images (fallback to local assets when necessary)
     // CDN tag is set to @master by default but can be changed with scripts/pin-cdn.sh
-    const CDN_TAG = '@2e5d2da';
+    const CDN_TAG = '@b00670a';
     const CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
     function ensureInsightsCardImages() {
         try {
             const ICON_MAP = {
-                'Team Performance': CDN_BASE + 'team-performance-icon-source.jpeg',
-                'Offensive Leaders': CDN_BASE + 'Offensive-Leaders-Icon.jpeg',
-                'Defensive Wall': CDN_BASE + 'Defensive-Wall-Icon.jpeg',
-                'Player Analysis': CDN_BASE + 'player-analysis-icon.webp, ' + CDN_BASE + 'player-analysis-icon-small.png'
+                'Team Performance': [CDN_BASE + 'team-performance-icon-source.jpeg'],
+                'Offensive Leaders': [CDN_BASE + 'Offensive-Leaders-Icon.jpeg'],
+                'Defensive Wall': [CDN_BASE + 'Defensive-Wall-Icon.jpeg'],
+                'Player Analysis': [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png']
             };
 
             const cards = document.querySelectorAll('.insights-menu-card');
@@ -207,8 +207,11 @@
                 const computedBg = window.getComputedStyle(card).backgroundImage || '';
                 // If the computed background points to Apps Script assets or is empty, replace it
                 if (!computedBg || computedBg === 'none' || computedBg.includes('script.googleusercontent.com') || (computedBg.includes('data:image') && computedBg.length < 80)) {
-                    const url = ICON_MAP[title] || '/assets/player-analysis-icon.webp';
-                    card.style.setProperty('background-image', `url('${url}')`, 'important');
+                        const fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];
+                        const urlList = (ICON_MAP[title] && Array.isArray(ICON_MAP[title]) ? ICON_MAP[title] : fallback);
+                        // Build CSS multi-background: url(a), url(b)
+                        const bg = urlList.map(u => `url('${u}')`).join(', ');
+                        card.style.setProperty('background-image', bg, 'important');
                 }
             });
         } catch (e) {
