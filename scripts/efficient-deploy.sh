@@ -56,10 +56,35 @@ if [ $DRY_RUN -eq 1 ]; then
   echo "Dry run - not pushing. Run without --dry-run to push." && popd >/dev/null && exit 0
 fi
 
-# Backup original .clasp.json
+# Backup original .clasp.json if present
 CLASP_FILE=.clasp.json
 BACKUP_CLASP="${CLASP_FILE}.bak"
-cp "$CLASP_FILE" "$BACKUP_CLASP"
+if [ -f "$CLASP_FILE" ]; then
+  cp "$CLASP_FILE" "$BACKUP_CLASP"
+else
+  if [ -n "${CLASP_SCRIPT_ID:-}" ]; then
+    echo "No .clasp.json found - creating a temporary .clasp.json using CLASP_SCRIPT_ID from environment"
+    python - <<PY
+import json
+doc={
+  "scriptId":"${CLASP_SCRIPT_ID}",
+  "rootDir":"",
+  "projectId":"",
+  "scriptExtensions":[".js",".gs"],
+  "htmlExtensions":[".html"],
+  "jsonExtensions":[".json"],
+  "filePushOrder":[]
+}
+open('$CLASP_FILE','w').write(json.dumps(doc, indent=2))
+PY
+    cp "$CLASP_FILE" "$BACKUP_CLASP"
+  else
+    echo "ERROR: .clasp.json not found and CLASP_SCRIPT_ID env not provided. Please create .clasp.json or set CLASP_SCRIPT_ID." >&2
+    rm -f "$TMPFILE"
+    popd >/dev/null
+    exit 1
+  fi
+fi
 
 echo "→ Writing temporary filePushOrder to $CLASP_FILE"
 python - <<PY
