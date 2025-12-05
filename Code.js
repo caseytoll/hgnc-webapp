@@ -200,10 +200,13 @@ function getPlayerAnalysisIconDataUrl() {
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
     Logger.log('Player analysis icon file content does not start with data:image');
-    return '#';
+    // Provide a sensible fallback to the local asset path so the client can use a static file
+    // This is a relative path served by the static site (when hosted) and is a no-op on Apps Script.
+    // Having a concrete URL here avoids returning '#' which confuses client logic.
+    return '/assets/player-analysis-icon-small.png';
   } catch (e) {
     Logger.log('Player analysis icon load error: ' + e.toString());
-    return '#';
+    return '/assets/player-analysis-icon-small.png';
   }
 }
 

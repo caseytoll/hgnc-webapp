@@ -187,4 +187,37 @@
             
         }, 100); // Small delay to ensure DOM is ready
     });
+
+    // Ensure insights dashboard cards have valid images (fallback to local assets when necessary)
+    function ensureInsightsCardImages() {
+        try {
+            const ICON_MAP = {
+                'Team Performance': '/assets/team-performance-icon-source.jpeg',
+                'Offensive Leaders': '/assets/Offensive-Leaders-Icon.jpeg',
+                'Defensive Wall': '/assets/Defensive-Wall-Icon.jpeg',
+                'Player Analysis': '/assets/player-analysis-icon.webp'
+            };
+
+            const cards = document.querySelectorAll('.insights-menu-card');
+            cards.forEach(card => {
+                const title = card.querySelector('.insights-menu-card-title')?.textContent?.trim() || '';
+                const computedBg = window.getComputedStyle(card).backgroundImage || '';
+                // If the computed background points to Apps Script assets or is empty, replace it
+                if (!computedBg || computedBg === 'none' || computedBg.includes('script.googleusercontent.com') || (computedBg.includes('data:image') && computedBg.length < 80)) {
+                    const url = ICON_MAP[title] || '/assets/player-analysis-icon.webp';
+                    card.style.setProperty('background-image', `url('${url}')`, 'important');
+                }
+            });
+        } catch (e) {
+            console.warn('ensureInsightsCardImages: error', e);
+        }
+    }
+
+    // Run a few times to ensure late-rendered elements are handled
+    document.addEventListener('DOMContentLoaded', function() {
+        ensureInsightsCardImages();
+        // Retry a couple times in case the cards render later
+        setTimeout(ensureInsightsCardImages, 1000);
+        setTimeout(ensureInsightsCardImages, 2500);
+    });
 </script>
