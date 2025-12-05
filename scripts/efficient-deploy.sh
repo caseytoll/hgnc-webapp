@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Efficient deploy script for Google Apps Script via clasp
+# Only pushes changed files to Apps Script to avoid accidental deletions
+# Usage: ./scripts/efficient-deploy.sh "Description of changes" [--dry-run]
+
+DRY_RUN=0
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 \"Description of changes\" [--dry-run]"
+  exit 1
+fi
+
+DESCRIPTION="$1"
+if [ "${2:-}" = "--dry-run" ]; then
+  DRY_RUN=1
+fi
+
+DEPLOYMENT_ID="AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug"
+
+pushd "$(git rev-parse --show-toplevel)" >/dev/null
+echo "💡 Efficient deploy: building file list to push..."
+
+# Always include core files
+INCLUDE_FILES=(appsscript.json Code.js index.html styles.html)
+
+# Collect changed files against origin/master
+CHANGED=$(git diff --name-only origin/master...HEAD || true)
+
+for f in $CHANGED; do
+  # Include only files that should be pushed to Apps Script
+  case "$f" in
+    *.html|*.js|appsscript.json|*.json)
+      # Exclude test files and scripts
+      if [[ "$f" =~ ^scripts/ || "$f" =~ ^tests/ || "$f" =~ ^assets/ ]]; then
+        continue
+      fi
+      INCLUDE_FILES+=("$f")
+      ;;
+    *)
+      ;;
+  esac
+done
+
+TMPFILE=$(mktemp)
+for f in "${INCLUDE_FILES[@]}"; do
+  echo "$f" >> "$TMPFILE"
+done
+# Preserve order and uniqueness (awk works even on macOS)
+awk '!seen[$0]++' "$TMPFILE" > "${TMPFILE}.uniq"
+mv "${TMPFILE}.uniq" "$TMPFILE"
+
+echo "Files selected for push:" && cat "$TMPFILE"
+
+if [ $DRY_RUN -eq 1 ]; then
+  echo "Dry run - not pushing. Run without --dry-run to push." && popd >/dev/null && exit 0
+fi
+
+# Backup original .clasp.json if present
+CLASP_FILE=.clasp.json
+BACKUP_CLASP="${CLASP_FILE}.bak"
+if [ -f "$CLASP_FILE" ]; then
+  cp "$CLASP_FILE" "$BACKUP_CLASP"
+else
+  if [ -n "${CLASP_SCRIPT_ID:-}" ]; then
+    echo "No .clasp.json found - creating a temporary .clasp.json using CLASP_SCRIPT_ID from environment"
+    SCRIPT_ID="${CLASP_SCRIPT_ID}"
+    # Create a minimal .clasp.json file with a placeholder filePushOrder (will update below)
+    cat > "$CLASP_FILE" <<EOF
+{
+  "scriptId": "${SCRIPT_ID}",
+  "rootDir": "",
+  "projectId": "",
+  "scriptExtensions": [".js", ".gs"],
+  "htmlExtensions": [".html"],
+  "jsonExtensions": [".json"],
+  "filePushOrder": []
+}
+EOF
+    cp "$CLASP_FILE" "$BACKUP_CLASP"
+  else
+    echo "ERROR: .clasp.json not found and CLASP_SCRIPT_ID env not provided. Please create .clasp.json or set CLASP_SCRIPT_ID." >&2
+    rm -f "$TMPFILE"
+    popd >/dev/null
+    exit 1
+  fi
+fi
+
+echo "→ Writing temporary .clasp.json with filePushOrder"
+# If we backed up an existing .clasp.json, extract its scriptId; otherwise use CLASP_SCRIPT_ID
+if [ -f "$BACKUP_CLASP" ]; then
+  SCRIPT_ID=$(grep -oE '"scriptId":\s*"[A-Za-z0-9_\-]+"' "$BACKUP_CLASP" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' )
+fi
+if [ -z "$SCRIPT_ID" ]; then
+  SCRIPT_ID="${CLASP_SCRIPT_ID:-}"
+fi
+{
+  echo "{"
+  echo "  \"scriptId\": \"$SCRIPT_ID\"," 
+  echo "  \"rootDir\": \"\"," 
+  echo "  \"projectId\": \"\"," 
+  echo "  \"scriptExtensions\": [\".js\", \".gs\"],"
+  echo "  \"htmlExtensions\": [\".html\"],"
+  echo "  \"jsonExtensions\": [\".json\"],"
+  echo "  \"filePushOrder\": ["
+  FIRST=1
+  while IFS= read -r line; do
+    if [ -n "${line}" ]; then
+      if [ "$FIRST" -eq 1 ]; then
+        printf "    \"%s\"\n" "$line"
+        FIRST=0
+      else
+        printf "    ,\"%s\"\n" "$line"
+      fi
+    fi
+  done < "$TMPFILE"
+  echo "  ]"
+  echo "}"
+} > "$CLASP_FILE"
+echo "  Updated .clasp.json with filePushOrder entries: $(wc -l < "$TMPFILE")"
+
+# Run clasp push, version, and deploy
+echo "→ Pushing to Apps Script (clasp)..."
+START_TIME=$(date +%s)
+clasp push --force
+END_TIME=$(date +%s)
+echo "  Push duration: $((END_TIME-START_TIME))s"
+
+echo "→ Creating version..."
+VERSION_OUTPUT=$(clasp version "$DESCRIPTION")
+VERSION_NUMBER=$(echo "$VERSION_OUTPUT" | grep -oE '[0-9]+' | head -1 || true)
+if [ -z "$VERSION_NUMBER" ]; then
+  echo "ERROR: Could not extract version number from: $VERSION_OUTPUT" >&2
+  cp "$BACKUP_CLASP" "$CLASP_FILE" && rm "$BACKUP_CLASP" && exit 1
+fi
+echo "  Created version: $VERSION_NUMBER"
+
+echo "→ Deploying version $VERSION_NUMBER..."
+clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID"
+
+# Restore .clasp.json
+mv "$BACKUP_CLASP" "$CLASP_FILE"
+rm -f "$TMPFILE"
+
+echo "✅ Efficient deployment complete: version $VERSION_NUMBER"
+popd >/dev/null
+
+exit 0
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Efficient Deploy Script - Temporarily moves large directories to speed up clasp push
+# Follows development principles: uses stable deployment ID, assumes version/changelog updated
+# Usage: ./scripts/efficient-deploy.sh "v620 - description"
+
+DEPLOYMENT_ID="AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug"
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 \"v{X} - Description of changes\""
+  echo "Make sure to update Code.js appVersion and CHANGELOG.md first!"
+  exit 1
+fi
+
+DESCRIPTION="$1"
+# Support a dry-run mode: pass a second arg '--dry-run' or set DRY_RUN=1
+DRY_RUN=0
+if [ "$#" -ge 2 ]; then
+  if [ "$2" = "--dry-run" ] || [ "$2" = "--dry" ]; then
+    DRY_RUN=1
+  fi
+fi
+if [ "${DRY_RUN}" = "1" ]; then
+  echo "→ DRY RUN enabled: clasp push/deploy will be skipped."
+fi
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Efficient Deploy: $DESCRIPTION"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Run pre-deployment checks
+echo "→ Running pre-deployment validation..."
+if ! ./scripts/pre-deploy-check.sh; then
+  echo "❌ Pre-deployment checks failed. Aborting."
+  exit 1
+fi
+echo "  Validation passed."
+
+# Temporarily move large directories to speed up push
+echo "→ Temporarily moving node_modules, src, and tests to speed up push..."
+TEMP_DIR="../temp_deploy_$(date +%s)"
+mkdir -p "$TEMP_DIR"
+if [ -d "node_modules" ]; then
+  mv node_modules "$TEMP_DIR/"
+fi
+if [ -d "src" ]; then
+  mv src "$TEMP_DIR/"
+fi
+if [ -d "tests" ]; then
+  mv tests "$TEMP_DIR/"
+fi
+
+# Push files
+if [ "${DRY_RUN}" = "1" ]; then
+  echo "→ DRY RUN: would push files to Apps Script (excluding large dirs)..."
+  PUSH_DURATION=0
+else
+  echo "→ Pushing files to Apps Script (excluding large dirs)..."
+  START_TIME=$(date +%s)
+  clasp push
+  END_TIME=$(date +%s)
+  PUSH_DURATION=$((END_TIME - START_TIME))
+  echo "  Push completed in ${PUSH_DURATION}s"
+fi
+
+# Deploy
+if [ "${DRY_RUN}" = "1" ]; then
+  echo "→ DRY RUN: would deploy to production (skipping clasp): description: $DESCRIPTION"
+  DEPLOY_DURATION=0
+else
+  echo "→ Deploying to production..."
+  DEPLOY_START=$(date +%s)
+  clasp deploy -i "$DEPLOYMENT_ID" -d "$DESCRIPTION"
+  DEPLOY_END=$(date +%s)
+  DEPLOY_DURATION=$((DEPLOY_END - DEPLOY_START))
+  echo "  Deploy completed in ${DEPLOY_DURATION}s"
+fi
+
+# Move directories back
+echo "→ Restoring directories..."
+if [ -d "$TEMP_DIR/node_modules" ]; then
+  mv "$TEMP_DIR/node_modules" .
+fi
+if [ -d "$TEMP_DIR/src" ]; then
+  mv "$TEMP_DIR/src" .
+fi
+if [ -d "$TEMP_DIR/tests" ]; then
+  mv "$TEMP_DIR/tests" .
+fi
+rmdir "$TEMP_DIR" 2>/dev/null || true
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Deployment successful!"
+echo "   Description: $DESCRIPTION"
+echo "   Deployment ID: $DEPLOYMENT_ID"
+echo "   Push time: ${PUSH_DURATION}s"
+echo "   Deploy time: ${DEPLOY_DURATION}s"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

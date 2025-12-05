@@ -1917,6 +1917,11 @@
     line-height: 1.3;
 }
 
+/* Fallback: Use local optimized WebP for the player analysis card to avoid 404s from legacy script assets */
+.insights-menu-card[onclick*="insights-player-analysis-view"] {
+  background-image: url('https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon.webp') !important;
+}
+
 /* Player Analysis Superlatives */
 .superlatives-grid {
     display: grid;
