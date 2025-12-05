@@ -3,6 +3,12 @@
 ## [Unreleased]
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
+## v730 — 2025-12-05
+- Deploy: Efficient deployment to Google Apps Script (clasp) using filePushOrder to push only changed files
+- Fix: Ensure Insights dashboard cards display icons even when deployed with missing script-hosted assets; added runtime fallback `ensureInsightsCardImages()` and CSS fallback for player-analysis
+- Add: Optimized player analysis assets (WebP, 2x WebP & small PNG), updated `Code.js` to provide server fallback when inline data URIs missing
+- Add: `scripts/efficient-deploy.sh` and `scripts/deploy_and_test.sh` for safer deploys and quick runtime sanity checks
+
 ## v619 — 2025-11-28
 - UI: Align Team Manager heading to the left on teams page
 
