@@ -203,6 +203,11 @@ function getPlayerAnalysisIconDataUrl() {
   try {
     var content = HtmlService.createHtmlOutputFromFile('player-analysis-icon-code').getContent();
     var trimmed = content.trim();
+    // Prefer CDN fallback if the server-stored asset is an inline SVG placeholder
+    if (trimmed.indexOf('data:image/svg') === 0) {
+      Logger.log('Player analysis icon file contains an inline SVG - using CDN fallback');
+      return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');
+    }
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
