@@ -3,6 +3,12 @@
 ## [Unreleased]
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
+## v741 — 2025-12-05
+- Style: Improve Ladder and related tables by adding responsive wrappers, improved spacing, and numeric column alignment
+- Style: Highlight top 3 ladder rows with medal tint backgrounds
+- Add: Accessibility improvements: captions and role attributes on dynamic tables
+- Add: Generic table CSS for consistent table styling across the app
+
 ## v730 — 2025-12-05
 - Deploy: Efficient deployment to Google Apps Script (clasp) using filePushOrder to push only changed files
 - Fix: Ensure Insights dashboard cards display icons even when deployed with missing script-hosted assets; added runtime fallback `ensureInsightsCardImages()` and CSS fallback for player-analysis
