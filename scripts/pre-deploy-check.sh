@@ -65,6 +65,45 @@ else
     report_error "showView function not found"
 fi
 
+    # Warn if debug smoke logger console logs exist in index.html for production
+smoke_logs=$(grep -n "SMOKE:" "$WORKSPACE_DIR/index.html" || true)
+if [ -n "$smoke_logs" ]; then
+    report_warning "Found SMOKE debug logs in index.html. These are gated behind window.DEBUG in the repo and are ok, but consider removing them for production: \n$smoke_logs"
+else
+    report_success "No SMOKE debug logs found in index.html"
+fi
+
+echo ""
+echo "🔍 Efficiency checks:"
+
+# Detect any script.googleusercontent.com references in tracked files
+legacy_refs=$(git grep -n "script.googleusercontent.com" || true)
+if [ -n "$legacy_refs" ]; then
+    report_warning "Found legacy script.googleusercontent.com references:\n$legacy_refs"
+else
+    report_success "No script.googleusercontent.com references found."
+fi
+
+# Check for large inline data:image URIs (warn if > 100k chars)
+echo "→ Checking for large inline data:image URIs in HTML files (>100k chars)..."
+LARGE_LIMIT=100000
+for f in $(git ls-files '*.html' || true); do
+    # Extract lines that contain data:image
+    while IFS= read -r line; do
+        # Get base64 length if data:image found
+        # Remove everything before 'data:image' and count characters
+        data=$(echo "$line" | sed -n "s/.*\(data:image[^']*\).*/\1/p")
+        if [ -n "$data" ]; then
+            len=$(echo "$data" | awk '{print length($0)}')
+            if [ "$len" -gt $LARGE_LIMIT ]; then
+                report_warning "Large inline data:image found ($len chars) in $f"
+            fi
+        fi
+    done < <(grep -n "data:image" "$f" || true)
+done
+
+report_success "Efficiency checks completed"
+
 if grep -q "const renderNewInsightsDashboard" "$WORKSPACE_DIR/js-render.html"; then
     report_success "renderNewInsightsDashboard function defined"
 else
@@ -227,7 +266,15 @@ else
 fi
 
 echo ""
-echo "📊 Validation Summary"
+echo "� CDN pinning check"
+# Warn if any jsDelivr references still use @master - recommend to pin to a tag or commit
+master_refs=$(git grep -n "cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master" | grep -v "scripts/pre-deploy-check.sh" || true)
+if [ -n "$master_refs" ]; then
+    report_warning "Found jsDelivr CDN references using @master; pin to a tag or commit for immutability:\n$master_refs"
+else
+    report_success "CDN references appear pinned (no @master references)"
+fi
+echo "�📊 Validation Summary"
 echo "===================="
 
 if [ $ERRORS_FOUND -eq 0 ]; then

@@ -100,7 +100,8 @@ function doGet(e) {
  * CDN base for assets hosted on jsDelivr (published from the repository's master branch).
  * Change `@master` to a specific tag or commit SHA for immutable deploys.
  */
-var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/';
+var CDN_TAG = '@master';
+var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
 
 /**
  * A helper function to include the content of other HTML files

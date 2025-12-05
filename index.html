@@ -324,6 +324,8 @@
   "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?> }
   </script>
   <script>
+    // Keep debug off by default; set window.DEBUG = true in the console to enable.
+    window.DEBUG = window.DEBUG || false;
     // Parse server-injected JSON and expose as JS globals (defensive)
     (function(){
       try {
@@ -342,65 +344,7 @@
       }
     })();
   </script>
-  <!-- Smoke-test logger to verify server-injected values after load -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      try {
-        console.log('SMOKE: server values ->', {
-          USER_EMAIL: window._USER_EMAIL,
-          OWNER_EMAIL: window._OWNER_EMAIL,
-          TEST_INSIGHTS_ENABLED: window.TEST_INSIGHTS_ENABLED
-        });
-        
-        // Debug icon background images immediately
-        if (typeof ensureInsightsCardImages === 'function') {
-          // Run the runtime fallback immediately for older deployments
-          try { ensureInsightsCardImages(); } catch(e) { console.warn('ensureInsightsCardImages error', e); }
-        }
-        console.log('DEBUG: Checking for insights cards...');
-        const cards = document.querySelectorAll('.insights-menu-card');
-        console.log(`Found ${cards.length} insights cards`);
-        
-        if (cards.length > 0) {
-          console.log('DEBUG: Icon background images ->');
-            cards.forEach((card, i) => {
-            const style = card.getAttribute('style') || '';
-            const title = card.querySelector('.insights-menu-card-title')?.textContent || 'Unknown';
-            console.log(`Card ${i+1} (${title}):`);
-            if (style.includes('background-image')) {
-              const urlMatch = style.match(/url\('([^']*)'\)/);
-              if (urlMatch) {
-                const url = urlMatch[1];
-                console.log(`  URL type: ${url.split(',')[0]}`);
-                console.log(`  URL length: ${url.length} chars`);
-                console.log(`  URL preview: ${url.substring(0, 100)}...`);
-              } else {
-                console.log('  No URL found in style');
-              }
-            } else {
-              console.log('  No background-image in style');
-            }
-            
-            // Check computed style
-              const computedBg = window.getComputedStyle(card).backgroundImage;
-            console.log(`  Computed background: ${computedBg ? computedBg.substring(0, 50) + '...' : 'NONE'}`);
-            // If computed background references a CDN asset, try fetching it and log the HTTP status
-            try {
-              const urlMatch = computedBg && computedBg.match(/url\(['\"]?([^'\"\)]+)['\"]?\)/);
-              const url = urlMatch ? urlMatch[1] : null;
-              if (url && url.includes('cdn.jsdelivr.net')) {
-                fetch(url, {method: 'HEAD', mode: 'cors'})
-                  .then(resp => console.log(`  CDN fetch status for ${url}: ${resp.status}`))
-                  .catch(err => console.warn('  CDN fetch failed:', err));
-              }
-            } catch (e) {}
-          });
-        } else {
-          console.log('DEBUG: No insights cards found - are you on the stats page?');
-        }
-      } catch (e) { console.warn('SMOKE logger failed', e); }
-    });
-  </script>
+  <!-- Legacy dev smoke logger removed. The runtime fallback is executed in js-startup.js -->
 
   <script>
 
