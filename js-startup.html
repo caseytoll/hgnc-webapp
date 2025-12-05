@@ -189,13 +189,16 @@
     });
 
     // Ensure insights dashboard cards have valid images (fallback to local assets when necessary)
+    // CDN tag is set to @master by default but can be changed with scripts/pin-cdn.sh
+    const CDN_TAG = '@master';
+    const CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
     function ensureInsightsCardImages() {
         try {
             const ICON_MAP = {
-                'Team Performance': 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/team-performance-icon-source.jpeg',
-                'Offensive Leaders': 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/Offensive-Leaders-Icon.jpeg',
-                'Defensive Wall': 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/Defensive-Wall-Icon.jpeg',
-                'Player Analysis': 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon.webp, https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon-small.png'
+                'Team Performance': CDN_BASE + 'team-performance-icon-source.jpeg',
+                'Offensive Leaders': CDN_BASE + 'Offensive-Leaders-Icon.jpeg',
+                'Defensive Wall': CDN_BASE + 'Defensive-Wall-Icon.jpeg',
+                'Player Analysis': CDN_BASE + 'player-analysis-icon.webp, ' + CDN_BASE + 'player-analysis-icon-small.png'
             };
 
             const cards = document.querySelectorAll('.insights-menu-card');

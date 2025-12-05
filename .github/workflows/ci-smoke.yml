@@ -1,0 +1,46 @@
+name: CI Smoke & Runtime Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  pre-deploy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm ci
+      - name: Run pre-deploy checks
+        run: npm test
+
+  runtime-smoke-check:
+    runs-on: ubuntu-latest
+    needs: pre-deploy-check
+    if: ${{ secrets.DEPLOYMENT_URL != '' }}
+    env:
+      APP_URL: ${{ secrets.DEPLOYMENT_URL }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+        shell: bash
+      - name: Run runtime smoke test
+        env:
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: node scripts/runtime-check.js

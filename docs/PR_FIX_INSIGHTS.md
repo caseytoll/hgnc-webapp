@@ -11,6 +11,7 @@ This PR contains the following changes:
 
 Note:
 - This PR applies CDN fallbacks using jsDelivr `@master`. For more cache stability and immutability, consider using a pinned tag or commit SHA instead of `@master`.
+- To help pin CDN references, the repo includes `scripts/pin-cdn.sh` which replaces `@master` with the tag/commit you supply and updates files that reference the CDN. After running it, commit and push the updated references.
 - If you'd like me to merge this PR automatically once CI passes, reply here and I will proceed with merge + deploy.
 
 How to test locally

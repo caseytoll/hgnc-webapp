@@ -10,7 +10,8 @@
     "lint": "./scripts/run_html_lint.sh"
   },
   "devDependencies": {
-    "@google/clasp": "^2.4.2"
+    "@google/clasp": "^2.4.2",
+    "puppeteer-core": "^24.32.0"
   },
   "repository": {
     "type": "git",
