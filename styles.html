@@ -1919,7 +1919,8 @@
 
 /* Fallback: Use local optimized WebP for the player analysis card to avoid 404s from legacy script assets */
 .insights-menu-card[onclick*="insights-player-analysis-view"] {
-  background-image: url('https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon.webp') !important;
+  /* Use WebP as primary, PNG as fallback to improve browser compatibility and avoid 404s */
+  background-image: url('https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon.webp'), url('https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/player-analysis-icon-small.png') !important;
 }
 
 /* Player Analysis Superlatives */

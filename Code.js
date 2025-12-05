@@ -205,11 +205,11 @@ function getPlayerAnalysisIconDataUrl() {
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
-  Logger.log('Player analysis icon file content does not start with data:image. Using CDN fallback');
-  return CDN_BASE + 'player-analysis-icon.webp';
+  Logger.log('Player analysis icon file content does not start with data:image. Using CDN fallback (webp, png)');
+  return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');
   } catch (e) {
-  Logger.log('Player analysis icon load error: ' + e.toString() + ' - using CDN fallback');
-  return CDN_BASE + 'player-analysis-icon.webp';
+  Logger.log('Player analysis icon load error: ' + e.toString() + ' - using CDN fallback (webp, png)');
+  return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');
   }
 }
 
