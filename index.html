@@ -321,7 +321,8 @@
       "ownerEmail": <?!= JSON.stringify(ownerEmail || '') ?>,
       "showTestInsights": <?!= JSON.stringify(!!showTestInsights) ?>,
   "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?>,
-  "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?> }
+  "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?>,
+  "playerAnalysisIconDataUrl": <?!= JSON.stringify(playerAnalysisIconDataUrl || '#') ?> }
   </script>
   <script>
     // Keep debug off by default; set window.DEBUG = true in the console to enable.
@@ -561,7 +562,7 @@
           </div>
 
           <!-- Player Analysis Button -->
-          <div class="insights-menu-card" onclick="showView('insights-player-analysis-view')" tabindex="0" role="button" aria-label="View player analysis" style="background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxzdHlsZT4ucHtmaWxsOiM2QjRDQTk7fS5ie2ZpbGw6bm9uZTtzdHJva2U6IzZCNEM5QTtzdHJva2Utd2lkdGg6MjtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7fTwvc3R5bGU+PC9kZWZzPgo8Y2lyY2xlIGNsYXNzPSJwIiBjeD0iMzIiIGN5PSIyMCIgcj0iMTAiLz4KPGRpcmNsZSBjbGFzcz0iYiIgY3g9IjMyIiBjeT0iMzUiIHI9IjEwIi8+Cjx0ZXh0IHg9IjMyIiB5PSI1NSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSIgZm9udC1zaXplPSI4IiBmaWxsPSIjNkI0QzlBIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QPC90ZXh0Pgo8L3N2Zz4K');">
+          <div class="insights-menu-card" data-pa-icon="<?!= playerAnalysisIconDataUrl || '#' ?>" onclick="showView('insights-player-analysis-view')" tabindex="0" role="button" aria-label="View player analysis">
             <div class="insights-menu-card-content">
               <h3 class="insights-menu-card-title">Player Analysis</h3>
             </div>

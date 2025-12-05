@@ -201,10 +201,19 @@
                 'Player Analysis': [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png']
             };
 
-            const cards = document.querySelectorAll('.insights-menu-card');
+                const cards = document.querySelectorAll('.insights-menu-card');
             cards.forEach(card => {
                 const title = card.querySelector('.insights-menu-card-title')?.textContent?.trim() || '';
                 const computedBg = window.getComputedStyle(card).backgroundImage || '';
+                // If server injected a data attr, prefer it (handles CDN or data URI values)
+                const injected = card.getAttribute('data-pa-icon');
+                if (injected && injected !== '#' && injected.length > 0) {
+                    // injected may be a single url or comma-separated list of urls
+                    const urlList = injected.split(',').map(u => u.trim());
+                    const bgVal = urlList.map(u => `url('${u.replace(/(^"|"$)/g, "") }')`).join(', ');
+                    card.style.setProperty('background-image', bgVal, 'important');
+                    return;
+                }
                 // If the computed background points to Apps Script assets or is empty, replace it
                 if (!computedBg || computedBg === 'none' || computedBg.includes('script.googleusercontent.com') || (computedBg.includes('data:image') && computedBg.length < 80)) {
                         const fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];
