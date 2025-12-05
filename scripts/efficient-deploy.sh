@@ -64,19 +64,19 @@ if [ -f "$CLASP_FILE" ]; then
 else
   if [ -n "${CLASP_SCRIPT_ID:-}" ]; then
     echo "No .clasp.json found - creating a temporary .clasp.json using CLASP_SCRIPT_ID from environment"
-    python - <<PY
-import json
-doc={
-  "scriptId":"${CLASP_SCRIPT_ID}",
-  "rootDir":"",
-  "projectId":"",
-  "scriptExtensions":[".js",".gs"],
-  "htmlExtensions":[".html"],
-  "jsonExtensions":[".json"],
-  "filePushOrder":[]
+    SCRIPT_ID="${CLASP_SCRIPT_ID}"
+    # Create a minimal .clasp.json file with a placeholder filePushOrder (will update below)
+    cat > "$CLASP_FILE" <<EOF
+{
+  "scriptId": "${SCRIPT_ID}",
+  "rootDir": "",
+  "projectId": "",
+  "scriptExtensions": [".js", ".gs"],
+  "htmlExtensions": [".html"],
+  "jsonExtensions": [".json"],
+  "filePushOrder": []
 }
-open('$CLASP_FILE','w').write(json.dumps(doc, indent=2))
-PY
+EOF
     cp "$CLASP_FILE" "$BACKUP_CLASP"
   else
     echo "ERROR: .clasp.json not found and CLASP_SCRIPT_ID env not provided. Please create .clasp.json or set CLASP_SCRIPT_ID." >&2
@@ -86,23 +86,38 @@ PY
   fi
 fi
 
-echo "→ Writing temporary filePushOrder to $CLASP_FILE"
-python - <<PY
-import json, sys
-f=open('$CLASP_FILE','r')
-doc=json.load(f)
-f.close()
-try:
-  with open('$TMPFILE','r') as fh:
-    files=[l.strip() for l in fh if l.strip()]
-except Exception as e:
-  print('Error reading tmp file list:', e)
-  sys.exit(1)
-doc['filePushOrder']=files
-with open('$CLASP_FILE','w') as fh:
-  json.dump(doc, fh, indent=2)
-print('Updated .clasp.json with filePushOrder of length', len(files))
-PY
+echo "→ Writing temporary .clasp.json with filePushOrder"
+# If we backed up an existing .clasp.json, extract its scriptId; otherwise use CLASP_SCRIPT_ID
+if [ -f "$BACKUP_CLASP" ]; then
+  SCRIPT_ID=$(grep -oE '"scriptId":\s*"[A-Za-z0-9_\-]+"' "$BACKUP_CLASP" | head -1 | sed -E 's/.*"([^"]+)".*/\1/' )
+fi
+if [ -z "$SCRIPT_ID" ]; then
+  SCRIPT_ID="${CLASP_SCRIPT_ID:-}"
+fi
+{
+  echo "{"
+  echo "  \"scriptId\": \"$SCRIPT_ID\"," 
+  echo "  \"rootDir\": \"\"," 
+  echo "  \"projectId\": \"\"," 
+  echo "  \"scriptExtensions\": [\".js\", \".gs\"],"
+  echo "  \"htmlExtensions\": [\".html\"],"
+  echo "  \"jsonExtensions\": [\".json\"],"
+  echo "  \"filePushOrder\": ["
+  FIRST=1
+  while IFS= read -r line; do
+    if [ -n "${line}" ]; then
+      if [ "$FIRST" -eq 1 ]; then
+        printf "    \"%s\"\n" "$line"
+        FIRST=0
+      else
+        printf "    ,\"%s\"\n" "$line"
+      fi
+    fi
+  done < "$TMPFILE"
+  echo "  ]"
+  echo "}"
+} > "$CLASP_FILE"
+echo "  Updated .clasp.json with filePushOrder entries: $(wc -l < "$TMPFILE")"
 
 # Run clasp push, version, and deploy
 echo "→ Pushing to Apps Script (clasp)..."

@@ -1,0 +1,11 @@
+team-performance-icon-code.html
+team-performance-icon-code.html
+
+# Large PNG assets - not pushed to Apps Script since we host icons via CDN
+# We switched to CDN-hosted images (jsDelivr) for the insights icons; keep local assets as repo references but do not push as Apps Script files
+
+# Ignore developer scripts and local test assets which are not part of the Apps Script project
+scripts/**
+node_modules/**
+tests/**
+temp_deploy*/
