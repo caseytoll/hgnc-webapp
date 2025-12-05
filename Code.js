@@ -97,6 +97,12 @@ function doGet(e) {
 }
 
 /**
+ * CDN base for assets hosted on jsDelivr (published from the repository's master branch).
+ * Change `@master` to a specific tag or commit SHA for immutable deploys.
+ */
+var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/assets/';
+
+/**
  * A helper function to include the content of other HTML files
  */
 function include(filename) {
@@ -145,11 +151,11 @@ function getTeamPerformanceIconDataUrl() {
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
-    Logger.log('Team performance icon file content does not start with data:image. First 100 chars: ' + trimmed.substring(0, 100));
-    return '#';
+  Logger.log('Team performance icon file content does not start with data:image. Using CDN fallback');
+  return CDN_BASE + 'team-performance-icon-source.jpeg';
   } catch (e) {
-    Logger.log('Team performance icon load error: ' + e.toString());
-    return '#';
+  Logger.log('Team performance icon load error: ' + e.toString() + ' - using CDN fallback');
+  return CDN_BASE + 'team-performance-icon-source.jpeg';
   }
 }
 
@@ -163,11 +169,11 @@ function getOffensiveLeadersIconDataUrl() {
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
-    Logger.log('Offensive leaders icon file content does not start with data:image');
-    return '#';
+  Logger.log('Offensive leaders icon file content does not start with data:image. Using CDN fallback');
+  return CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
   } catch (e) {
-    Logger.log('Offensive leaders icon load error: ' + e.toString());
-    return '#';
+  Logger.log('Offensive leaders icon load error: ' + e.toString() + ' - using CDN fallback');
+  return CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
   }
 }
 
@@ -181,11 +187,11 @@ function getDefensiveWallIconDataUrl() {
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
-    Logger.log('Defensive wall icon file content does not start with data:image');
-    return '#';
+  Logger.log('Defensive wall icon file content does not start with data:image. Using CDN fallback');
+  return CDN_BASE + 'Defensive-Wall-Icon.jpeg';
   } catch (e) {
-    Logger.log('Defensive wall icon load error: ' + e.toString());
-    return '#';
+  Logger.log('Defensive wall icon load error: ' + e.toString() + ' - using CDN fallback');
+  return CDN_BASE + 'Defensive-Wall-Icon.jpeg';
   }
 }
 
@@ -199,14 +205,11 @@ function getPlayerAnalysisIconDataUrl() {
     if (trimmed.indexOf('data:image') === 0) return trimmed;
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) return match[0];
-    Logger.log('Player analysis icon file content does not start with data:image');
-    // Provide a sensible fallback to the local asset path so the client can use a static file
-    // This is a relative path served by the static site (when hosted) and is a no-op on Apps Script.
-    // Having a concrete URL here avoids returning '#' which confuses client logic.
-    return '/assets/player-analysis-icon-small.png';
+  Logger.log('Player analysis icon file content does not start with data:image. Using CDN fallback');
+  return CDN_BASE + 'player-analysis-icon.webp';
   } catch (e) {
-    Logger.log('Player analysis icon load error: ' + e.toString());
-    return '/assets/player-analysis-icon-small.png';
+  Logger.log('Player analysis icon load error: ' + e.toString() + ' - using CDN fallback');
+  return CDN_BASE + 'player-analysis-icon.webp';
   }
 }
 

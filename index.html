@@ -353,6 +353,10 @@
         });
         
         // Debug icon background images immediately
+        if (typeof ensureInsightsCardImages === 'function') {
+          // Run the runtime fallback immediately for older deployments
+          try { ensureInsightsCardImages(); } catch(e) { console.warn('ensureInsightsCardImages error', e); }
+        }
         console.log('DEBUG: Checking for insights cards...');
         const cards = document.querySelectorAll('.insights-menu-card');
         console.log(`Found ${cards.length} insights cards`);
