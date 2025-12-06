@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load shared configuration (DEPLOYMENT_ID, APP_URL_PUBLIC)
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/config.sh"
+
 # Efficient deploy script for Google Apps Script via clasp
 # Only pushes changed files to Apps Script to avoid accidental deletions
-# Usage: ./scripts/efficient-deploy.sh "Description of changes" [--dry-run]
+# Usage: ./scripts/efficient-deploy.sh "Description of changes" [--dry-run] [--skip-smoke] [--ensure-anonymous] [--allow-dirty]
 
 DRY_RUN=0
 ENSURE_ANON=0
+ALLOW_DIRTY=0
 # Run smoke test by default; use --skip-smoke to disable
 SMOKE_TEST=1
 if [ "$#" -lt 1 ]; then
@@ -18,17 +24,33 @@ DESCRIPTION="$1"
 if [ "${2:-}" = "--dry-run" ]; then
   DRY_RUN=1
 fi
-if [ "${4:-}" = "--skip-smoke" ] || [ "${3:-}" = "--skip-smoke" ] || [ "${2:-}" = "--skip-smoke" ]; then
+if [[ " ${*:2} " == *" --skip-smoke "* ]]; then
   SMOKE_TEST=0
 fi
-if [ "${3:-}" = "--ensure-anonymous" ] || [ "${2:-}" = "--ensure-anonymous" ]; then
+if [[ " ${*:2} " == *" --ensure-anonymous "* ]]; then
   ENSURE_ANON=1
 fi
-
-DEPLOYMENT_ID="AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug"
+if [[ " ${*:2} " == *" --allow-dirty "* ]]; then
+  ALLOW_DIRTY=1
+fi
 
 pushd "$(git rev-parse --show-toplevel)" >/dev/null
 echo "💡 Efficient deploy: building file list to push..."
+
+# Guard: require clean working tree unless explicitly allowed
+if [ "$ALLOW_DIRTY" -ne 1 ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "❌ Working tree is dirty. Commit/stash or re-run with --allow-dirty." >&2
+    popd >/dev/null
+    exit 1
+  fi
+fi
+
+# Guard: ensure node_modules exists when tests will run
+if [ "$SMOKE_TEST" -eq 1 ] && [ ! -d "node_modules" ]; then
+  echo "⚠️  node_modules not found. Installing dev dependencies (npm ci)..."
+  npm ci --silent
+fi
 
 # Always include core files
 INCLUDE_FILES=(appsscript.json Code.js index.html styles.html)

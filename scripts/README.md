@@ -1,8 +1,9 @@
 # Scripts Quick Reference
 
 ## Deploy
-- `./scripts/efficient-deploy.sh "<description>"` — canonical deploy; pushes changed files, versions, deploys, runs runtime + extended smoke + integration; flags: `--skip-smoke`, `--dry-run`, `--ensure-anonymous`.
+- `./scripts/efficient-deploy.sh "<description>"` — canonical deploy; pushes changed files, versions, deploys, runs runtime + extended smoke + integration; flags: `--skip-smoke`, `--dry-run`, `--ensure-anonymous`, `--allow-dirty` (override clean-tree guard).
 - `npm run deploy -- "<description>"` — npm alias for efficient-deploy.
+- Config: `scripts/config.sh` (env-first) sets `DEPLOYMENT_ID` and `APP_URL_PUBLIC`; override via environment when needed.
 
 ## Validation
 - `./scripts/pre-deploy-check.sh [--fix-docs]` — full static validation; `--fix-docs` auto-moves misplaced docs.
