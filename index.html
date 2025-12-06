@@ -546,8 +546,9 @@
             } catch (e) { /* defensive: ignore DOM errors */ }
           };
           setIfNotPresent('.insights-menu-card[data-team-icon]', 'data-team-icon', "<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>");
-          setIfNotPresent('.insights-menu-card[data-offensive-icon]', 'data-offensive-icon', "<?!= offensiveLeadersIconDataUrl || '/assets/offensive-leaders-icon.png' ?>");
-          setIfNotPresent('.insights-menu-card[data-defensive-icon]', 'data-defensive-icon', "<?!= defensiveWallIconDataUrl || '/assets/defensive-wall-icon.png' ?>");
+          // Use canonical asset filenames (case-sensitive) to avoid broken fallbacks to missing PNGs
+          setIfNotPresent('.insights-menu-card[data-offensive-icon]', 'data-offensive-icon', "<?!= offensiveLeadersIconDataUrl || '/assets/Offensive-Leaders-Icon.jpeg' ?>");
+          setIfNotPresent('.insights-menu-card[data-defensive-icon]', 'data-defensive-icon', "<?!= defensiveWallIconDataUrl || '/assets/Defensive-Wall-Icon.jpeg' ?>");
           setIfNotPresent('.insights-menu-card[aria-label="View player analysis"]', 'data-pa-icon', "<?!= playerAnalysisIconDataUrl || '/assets/player-analysis-icon.webp' ?>");
         })();
       </script>

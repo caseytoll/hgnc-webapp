@@ -66,61 +66,80 @@
             document.getElementById('add-player-button').onclick = addPlayer;
             document.getElementById('add-game-button').onclick = addOrUpdateGame;
             
-            // --- *** MODIFIED: Show all admin buttons if user is owner *** ---
+            // --- *** Modified: Show all admin buttons if user is owner but extract into named function *** ---
             console.log('🔑 App Version: v365.52 | User is owner:', isOwner());
-            var readOnlyBanner = document.getElementById('read-only-banner');
-            if (isOwner()) {
-                // Hide read-only banner for owners
-                if (readOnlyBanner) {
-                    readOnlyBanner.classList.add('hidden');
-                }
-                
-                // Show "Create New Team" button
-                var addTeamButton = document.getElementById('show-add-team-modal');
-                if (addTeamButton) {
-                    addTeamButton.classList.remove('hidden');
-                    addTeamButton.onclick = showAddTeamModal;
-                }
+            
+            function applyOwnerModeUI() {
+                try {
+                    var readOnlyBanner = document.getElementById('read-only-banner');
+                    if (isOwner()) {
+                        // Hide read-only banner for owners
+                        if (readOnlyBanner) {
+                            readOnlyBanner.classList.add('hidden');
+                        }
 
-                // Show "Toggle Edit Mode" button (teams) so owners can edit
-                var toggleEditButton = document.getElementById('toggle-edit-mode');
-                if (toggleEditButton) {
-                    toggleEditButton.classList.remove('hidden');
-                    // Wire to toggle function if not already wired in HTML
-                    toggleEditButton.onclick = toggleTeamEditMode;
-                    // Ensure label reflects current mode state
-                    toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit';
-                }
-                
-                // Show "Add Player" button
-                var addPlayerButton = document.getElementById('show-add-player-modal');
-                if (addPlayerButton) {
-                    addPlayerButton.classList.remove('hidden');
-                    addPlayerButton.onclick = function() { showModal('add-player-modal'); };
-                }
-                
-                // Show "Add Game" button
-                var addGameButton = document.getElementById('show-add-game-modal');
-                if (addGameButton) {
-                    addGameButton.classList.remove('hidden');
-                    addGameButton.onclick = showAddGameModal;
-                }
-                
-                // Show and set up Admin button in Insights view
-                var adminButton = document.getElementById('show-admin-view-btn');
-                if (adminButton) {
-                    adminButton.classList.remove('hidden');
-                    adminButton.onclick = function() {
-                        showView('admin-view');
-                    };
-                }
-                
-                // Set up Admin save button
-                var saveTokenButton = document.getElementById('admin-save-token-btn');
-                if (saveTokenButton) {
-                    saveTokenButton.onclick = saveNewAuthToken;
+                        // Show "Create New Team" button
+                        var addTeamButton = document.getElementById('show-add-team-modal');
+                        if (addTeamButton) {
+                            addTeamButton.classList.remove('hidden');
+                            addTeamButton.onclick = showAddTeamModal;
+                        }
+
+                        // Show "Toggle Edit Mode" button (teams) so owners can edit
+                        var toggleEditButton = document.getElementById('toggle-edit-mode');
+                        if (toggleEditButton) {
+                            toggleEditButton.classList.remove('hidden');
+                            // Wire to toggle function if not already wired in HTML
+                            toggleEditButton.onclick = toggleTeamEditMode;
+                            // Ensure label reflects current mode state
+                            toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit';
+                        }
+
+                        // Show "Add Player" button
+                        var addPlayerButton = document.getElementById('show-add-player-modal');
+                        if (addPlayerButton) {
+                            addPlayerButton.classList.remove('hidden');
+                            addPlayerButton.onclick = function() { showModal('add-player-modal'); };
+                        }
+
+                        // Show "Add Game" button
+                        var addGameButton = document.getElementById('show-add-game-modal');
+                        if (addGameButton) {
+                            addGameButton.classList.remove('hidden');
+                            addGameButton.onclick = showAddGameModal;
+                        }
+
+                        // Show and set up Admin button in Insights view
+                        var adminButton = document.getElementById('show-admin-view-btn');
+                        if (adminButton) {
+                            adminButton.classList.remove('hidden');
+                            adminButton.onclick = function() {
+                                showView('admin-view');
+                            };
+                        }
+
+                        // Set up Admin save button
+                        var saveTokenButton = document.getElementById('admin-save-token-btn');
+                        if (saveTokenButton) {
+                            // ensure it's wired to call server-side function
+                            saveTokenButton.onclick = function() { saveTokenFromAdmin(); };
+                        }
+                    } else {
+                        // Non-owner: ensure admin UI is hidden
+                        if (readOnlyBanner) readOnlyBanner.classList.remove('hidden');
+                        var selectors = ['show-add-team-modal', 'toggle-edit-mode', 'show-add-player-modal', 'show-add-game-modal', 'show-admin-view-btn'];
+                        selectors.forEach(function(id){ var el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+                    }
+                } catch (e) {
+                    console.warn('applyOwnerModeUI error:', e);
                 }
             }
+
+            // Expose to global so the runtime-check harness can re-apply owner UI as needed
+            try { window.applyOwnerModeUI = applyOwnerModeUI; } catch (e) { console.warn('Failed to export applyOwnerModeUI', e); }
+
+            // Execute now to apply state
+            try { applyOwnerModeUI(); } catch(e) { /* ignore errors here */ }
             // --- *** END MODIFICATION *** ---
             
             // Set up share modal button (only if element exists)

@@ -132,6 +132,10 @@
                         players = teamData.players || [];
                         games = teamData.games || [];
                         console.log('[handleSelectTeam] Loaded team data from server:', games.length, 'games,', players.length, 'players');
+                        // Re-render list immediately so UI reflects the data change
+                        try { renderPlayerList(); } catch(e) { /* ignore if view not loaded */ }
+                        // Re-apply owner-mode UI to ensure add-player is visible if the current user is the owner
+                        try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
                         
                         // Update allTeamData
                         if (!window.allTeamData) window.allTeamData = {};

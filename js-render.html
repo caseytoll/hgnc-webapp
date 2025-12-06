@@ -121,12 +121,20 @@
     
     const renderPlayerList = () => {
         const listEl = document.getElementById('player-list');
+        const owner = isOwner();
+        // Ensure add-player button is visible for owners even when there are no players yet
+        try {
+            const addPlayerBtn = document.getElementById('show-add-player-modal');
+            if (addPlayerBtn) {
+                if (owner) addPlayerBtn.classList.remove('hidden');
+                else addPlayerBtn.classList.add('hidden');
+            }
+        } catch (e) { /* ignore UI errors */ }
+
         if (players.length === 0) {
             listEl.innerHTML = '<div class="empty-state">No players yet</div>';
             return;
         }
-        
-        const owner = isOwner();
         const html = [];
         for (var i = 0; i < players.length; i++) {
             var player = players[i];
@@ -142,17 +150,7 @@
             );
         }
         listEl.innerHTML = html.join('');
-        // Ensure add-player button is visible for owners when player list is rendered
-        try {
-            const addPlayerBtn = document.getElementById('show-add-player-modal');
-            if (addPlayerBtn) {
-                if (isOwner()) {
-                    addPlayerBtn.classList.remove('hidden');
-                } else {
-                    addPlayerBtn.classList.add('hidden');
-                }
-            }
-        } catch (e) { /* ignore UI errors */ }
+        // Note: add-player button visibility handled prior to early return to support owners with empty rosters
     }
 
     const renderGameList = () => {

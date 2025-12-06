@@ -49,30 +49,32 @@ const puppeteer = require('puppeteer-core');
 
     await page.goto(APP_URL, {waitUntil: 'networkidle2'});
 
-    // If OWNER_EMAIL is set, re-run owner UI setup and reveal owner-only elements (best-effort)
+    // If OWNER_EMAIL is set, run owner overrides and re-apply owner UI inside each document frame
     if (OWNER_EMAIL) {
       try {
-        await page.evaluate((owner) => {
-          try { window._USER_EMAIL = owner; } catch(e) {}
-          try { window._OWNER_EMAIL = owner; } catch(e) {}
-          try { currentUserEmail = owner; } catch(e) {}
-          try { ownerEmail = owner; } catch(e) {}
-          // Re-run ownership UI wiring similar to `js-startup` owner block
+        const frames = page.frames();
+        for (const f of frames) {
           try {
-            var readOnlyBanner = document.getElementById('read-only-banner');
-            if (readOnlyBanner) readOnlyBanner.classList.add('hidden');
-            var addTeamButton = document.getElementById('show-add-team-modal');
-            if (addTeamButton) { addTeamButton.classList.remove('hidden'); addTeamButton.onclick = showAddTeamModal; }
-            var toggleEditButton = document.getElementById('toggle-edit-mode');
-            if (toggleEditButton) { toggleEditButton.classList.remove('hidden'); toggleEditButton.onclick = toggleTeamEditMode; toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit'; }
-            var addPlayerButton = document.getElementById('show-add-player-modal');
-            if (addPlayerButton) { addPlayerButton.classList.remove('hidden'); addPlayerButton.onclick = function() { showModal('add-player-modal'); }; }
-            var addGameButton = document.getElementById('show-add-game-modal');
-            if (addGameButton) { addGameButton.classList.remove('hidden'); addGameButton.onclick = showAddGameModal; }
-          } catch(e) { /* ignore UI wiring errors */ }
-        }, OWNER_EMAIL);
-        // Give the page a bit of time to re-render owner-only elements
-        await page.waitForTimeout(600);
+            await f.evaluate((owner) => {
+              try { window._USER_EMAIL = owner; } catch(e) {}
+              try { window._OWNER_EMAIL = owner; } catch(e) {}
+              try { currentUserEmail = owner; } catch(e) {}
+              try { ownerEmail = owner; } catch(e) {}
+              // Re-run owner UI wiring using exposed helper if available
+              try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) {}
+              // Duplicate the wiring as a fallback for frames which don't export applyOwnerModeUI
+              try { var readOnlyBanner = document.getElementById('read-only-banner'); if (readOnlyBanner) readOnlyBanner.classList.add('hidden'); } catch(e) {}
+              try { var addTeamButton = document.getElementById('show-add-team-modal'); if (addTeamButton) { addTeamButton.classList.remove('hidden'); addTeamButton.onclick = showAddTeamModal; } } catch(e) {}
+              try { var toggleEditButton = document.getElementById('toggle-edit-mode'); if (toggleEditButton) { toggleEditButton.classList.remove('hidden'); toggleEditButton.onclick = toggleTeamEditMode; toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit'; } } catch(e) {}
+              try { var addPlayerButton = document.getElementById('show-add-player-modal'); if (addPlayerButton) { addPlayerButton.classList.remove('hidden'); addPlayerButton.onclick = function() { showModal('add-player-modal'); }; } } catch(e) {}
+              try { var addGameButton = document.getElementById('show-add-game-modal'); if (addGameButton) { addGameButton.classList.remove('hidden'); addGameButton.onclick = showAddGameModal; } } catch(e) {}
+            }, OWNER_EMAIL);
+          } catch(e) {
+            // Not all frames will include our app; ignore any evaluation errors
+          }
+        }
+        // Allow re-rendering and wiring in frames
+        await page.waitForTimeout(800);
       } catch (e) { /* ignore */ }
     }
 
@@ -321,12 +323,18 @@ const puppeteer = require('puppeteer-core');
     // Owner-mode players check: ensure add-player button is visible and player list present
     try {
       if (OWNER_EMAIL) {
-        const playersCtx = targetFrame || page;
+        // Iterate over frames to find one that includes team list / player list
+        const framesList = page.frames();
+        let playersCtx = null;
+        for (const f of framesList) {
+          try {
+            const hasTeamCard = await f.evaluate(() => !!document.querySelector('.team-card'));
+            if (hasTeamCard) { playersCtx = f; break; }
+          } catch(e) { /* ignore cross-origin frames */ }
+        }
+        if (!playersCtx) playersCtx = page;
         // Ensure a team is selected first - click the first team card if available
-        await playersCtx.evaluate(() => {
-          const firstTeam = document.querySelector('.team-card');
-          if (firstTeam) firstTeam.click();
-        });
+        try { await playersCtx.evaluate(() => { const firstTeam = document.querySelector('.team-card'); if (firstTeam) firstTeam.click(); }); } catch(e) { /* ignore */ }
         // Wait until players list is populated or timeout (3s)
         let waited = 0;
         const maxWait = 3000;

@@ -631,8 +631,18 @@
     }
 
     // --- User and Environment Constants ---
+    // Use dynamic getters instead of one-time snapshot variables so runtime overrides are respected
     var currentUserEmail = _USER_EMAIL || "";
     var ownerEmail = _OWNER_EMAIL || "";
+
+    function getCurrentUserEmail() {
+        // Prefer explicitly set window value, fall back to module var for older code
+        return (window._USER_EMAIL || currentUserEmail || '').toLowerCase();
+    }
+
+    function getOwnerEmail() {
+        return (window._OWNER_EMAIL || ownerEmail || '').toLowerCase();
+    }
 
     // --- Legacy global variables for compatibility ---
     var currentGameId = null;
@@ -760,10 +770,10 @@
     }
 
     function isOwner() {
-        if (!currentUserEmail || !ownerEmail) {
-            return false;
-        }
-        return currentUserEmail === ownerEmail;
+        const cu = getCurrentUserEmail();
+        const oe = getOwnerEmail();
+        if (!cu || !oe) return false;
+        return cu === oe;
     }
     
     function arrayFind(arr, predicate) {
