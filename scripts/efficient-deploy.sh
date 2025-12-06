@@ -100,7 +100,7 @@ else
     cat > "$CLASP_FILE" <<EOF
 {
   "scriptId": "${SCRIPT_ID}",
-  "rootDir": "",
+  "rootDir": ".",
   "projectId": "",
   "scriptExtensions": [".js", ".gs"],
   "htmlExtensions": [".html"],
@@ -128,7 +128,7 @@ fi
 {
   echo "{"
   echo "  \"scriptId\": \"$SCRIPT_ID\"," 
-  echo "  \"rootDir\": \"\"," 
+  echo "  \"rootDir\": \".\"," 
   echo "  \"projectId\": \"\"," 
   echo "  \"scriptExtensions\": [\".js\", \".gs\"],"
   echo "  \"htmlExtensions\": [\".html\"],"
