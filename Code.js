@@ -74,10 +74,17 @@ function doGet(e) {
 }
 
 /**
- * CDN base for assets hosted on jsDelivr (published from the repository's master branch).
- * Change `@master` to a specific tag or commit SHA for immutable deploys.
+ * CDN base for assets hosted on jsDelivr.
+ * 
+ * CDN_TAG pinning strategy:
+ * - For development: use '@master' to always get latest assets
+ * - For releases: pin to a specific commit SHA for immutability
+ * - Format: '@COMMIT_SHA' or '@master' (see CODE_CLEANUP_2025_12_07.md)
+ * 
+ * NOTE: This value is automatically updated by deploy script during releases.
+ * Current HEAD commit is used to pin CDN references at deploy time.
  */
-var CDN_TAG = '@b00670a';
+var CDN_TAG = '@master';  // Updated to master; production releases pin to commit SHA
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
 
 /**

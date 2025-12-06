@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer-core');
+const { navigateWithRetry, clickWithRetry, formatErrorMessage } = require('./test-utils');
 
 (async () => {
   try {
@@ -47,7 +48,7 @@ const puppeteer = require('puppeteer-core');
       }
     });
 
-    await page.goto(APP_URL, {waitUntil: 'networkidle2'});
+    await navigateWithRetry(page, APP_URL);
 
     // If OWNER_EMAIL is set, run owner overrides and re-apply owner UI inside each document frame
     if (OWNER_EMAIL) {
@@ -510,7 +511,7 @@ const puppeteer = require('puppeteer-core');
     console.log('Ladder view appears to render correctly.');
     process.exit(0);
   } catch (e) {
-    console.error('Error running runtime-check:', e);
+    console.error(formatErrorMessage(e));
     process.exit(1);
   }
 })();

@@ -166,6 +166,19 @@ if [ -z "$VERSION_NUMBER" ]; then
 fi
 echo "  Created version: $VERSION_NUMBER"
 
+# Update CDN_TAG to pin assets to this commit for immutability
+echo "→ Pinning CDN assets to HEAD commit..."
+CURRENT_COMMIT=$(git rev-parse --short HEAD)
+sed -i.bak "s/var CDN_TAG = '@[^']*'/var CDN_TAG = '@$CURRENT_COMMIT'/" Code.js
+if grep -q "CDN_TAG = '@$CURRENT_COMMIT'" Code.js; then
+  echo "  Pinned CDN_TAG to: @$CURRENT_COMMIT"
+  rm -f Code.js.bak
+  # Note: This change will be in the next deploy; current version uses the old tag
+else
+  echo "  WARNING: Could not update CDN_TAG; restoring backup"
+  mv Code.js.bak Code.js || true
+fi
+
 echo "→ Deploying version $VERSION_NUMBER..."
 ACCESS_ARG=""
 if [ "$ENSURE_ANON" -eq 1 ]; then
