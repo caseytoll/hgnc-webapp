@@ -241,10 +241,17 @@
                     // injected may be a single url or comma-separated list of urls
                     const urlList = injected.split(',').map(u => u.trim());
                     const ensureDataUrl = function(u) {
-                        if (!u) return u;
+                        if (!u) return null;
                         u = u.replace(/(^"|"$)/g, '');
-                        // Already a full data: URL or absolute URL
-                        if (u.indexOf('data:') === 0 || u.indexOf('http') === 0 || u.startsWith('/')) return u;
+                        // Already a full data: URL or absolute URL - validate data: payload exists
+                        if (u.indexOf('data:') === 0) {
+                            const commaIdx = u.indexOf(',');
+                            if (commaIdx === -1) return null; // malformed
+                            const payload = u.slice(commaIdx + 1).trim();
+                            if (!payload) return null; // no payload
+                            return u;
+                        }
+                        if (u.indexOf('http') === 0 || u.startsWith('/')) return u;
                         // Heuristics for common base64 starting sequences
                         if (/^\/9j\//.test(u)) return 'data:image/jpeg;base64,' + u;
                         if (/^PHN2Zy/i.test(u)) return 'data:image/svg+xml;base64,' + u;
@@ -252,7 +259,9 @@
                         if (/^[A-Za-z0-9\+/=\s]+$/.test(u)) return 'data:image/svg+xml;base64,' + u;
                         return u;
                     };
-                    const bgVal = urlList.map(u => `url('${ensureDataUrl(u)}')`).join(', ');
+                    const sanitized = urlList.map(u => ensureDataUrl(u)).filter(Boolean);
+                    if (!sanitized || sanitized.length === 0) return;
+                    const bgVal = sanitized.map(u => `url('${u}')`).join(', ');
                     card.style.setProperty('background-image', bgVal, 'important');
                     return;
                 }

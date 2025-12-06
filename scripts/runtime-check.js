@@ -316,6 +316,41 @@ const puppeteer = require('puppeteer-core');
     } catch (e) {
       console.warn('Team edit UI check failed (non-critical):', e);
     }
+
+    // Owner-mode players check: ensure add-player button is visible and player list present
+    try {
+      if (OWNER_EMAIL) {
+        const playersCtx = targetFrame || page;
+        // Ensure a team is selected first - click the first team card if available
+        await playersCtx.evaluate(() => {
+          const firstTeam = document.querySelector('.team-card');
+          if (firstTeam) firstTeam.click();
+        });
+        await page.waitForTimeout(500);
+        // Show players view
+        await playersCtx.evaluate(() => showView('players-view'));
+        await page.waitForTimeout(500);
+        const addPlayerVisible = await playersCtx.evaluate(() => {
+          const btn = document.getElementById('show-add-player-modal');
+          if (!btn) return {exists: false};
+          const visible = !(btn.classList.contains('hidden'));
+          return {exists: true, visible};
+        });
+        console.log('Owner-mode: add player button status:', addPlayerVisible);
+        if (!addPlayerVisible.exists || !addPlayerVisible.visible) {
+          console.error('Owner-mode: add player button missing or hidden');
+          // Continue, not fatal
+        }
+        // Check player list has items
+        const playerCount = await playersCtx.evaluate(() => (document.querySelectorAll('#player-list .list-item').length || 0));
+        console.log('Owner-mode: player list count:', playerCount);
+        if (playerCount === 0) {
+          console.warn('Owner-mode: player list empty - verify team selection or server data');
+        }
+      }
+    } catch (e) {
+      console.warn('Owner-mode players check failed:', e);
+    }
     const ladderBtn = targetFrame ? await targetFrame.$('#show-netball-ladder-tab') : await page.$('#show-netball-ladder-tab');
     let ladderOk = false;
     if (ladderBtn) {
