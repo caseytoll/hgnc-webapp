@@ -106,8 +106,11 @@
             };
         } else {
             // Fallback to minimal data
-            appState.currentTeam.sheetName = sheetName;
-            appState.currentTeam.name = teamDisplayName;
+            appState.currentTeam = {
+                teamID: teamID,
+                sheetName: sheetName,
+                name: teamDisplayName
+            };
         }
         
         // Load cached netball data (doesn't affect team loading)

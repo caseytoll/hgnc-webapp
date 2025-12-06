@@ -322,6 +322,8 @@
       "showTestInsights": <?!= JSON.stringify(!!showTestInsights) ?>,
   "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?>,
   "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?>,
+  "offensiveLeadersIconDataUrl": <?!= JSON.stringify(offensiveLeadersIconDataUrl || '#') ?>,
+  "defensiveWallIconDataUrl": <?!= JSON.stringify(defensiveWallIconDataUrl || '#') ?>,
   "playerAnalysisIconDataUrl": <?!= JSON.stringify(playerAnalysisIconDataUrl || '#') ?> }
   </script>
   <script>
@@ -337,6 +339,9 @@
         window.TEST_INSIGHTS_ENABLED = !!data.showTestInsights;
   window.LOGO_DATA_URL = data.logoDataUrl || '#';
   window.TEAM_PERFORMANCE_ICON_DATA_URL = data.teamPerformanceIconDataUrl || '#';
+  window.OFFENSIVE_LEADERS_ICON_DATA_URL = data.offensiveLeadersIconDataUrl || '#';
+  window.DEFENSIVE_WALL_ICON_DATA_URL = data.defensiveWallIconDataUrl || '#';
+  window.PLAYER_ANALYSIS_ICON_DATA_URL = data.playerAnalysisIconDataUrl || '#';
       } catch (e) {
         window._USER_EMAIL = window._USER_EMAIL || '';
         window._OWNER_EMAIL = window._OWNER_EMAIL || '';
@@ -536,23 +541,36 @@
       </style>
 
       <script>
-        // Set data-* attributes on the insights menu cards with server-injected fallback
-        // This avoids direct edits to inline base64 background-image attributes and provides
-        // a reliable client-side fallback for ensureInsightsCardImages() to pick up.
+        // Runtime icon injection handled by ensureInsightsCardImages() in js-startup.html
+        // This script ensures data-icon attributes are set with server-injected values as fallback
+        // The cards already have data-icon attributes from template rendering, but this provides
+        // a fallback mechanism in case template variables evaluate to empty or '#'
         (function () {
-          var setIfNotPresent = function (selector, attrName, value) {
-            try {
-              var node = document.querySelector(selector);
-              if (node && (!node.hasAttribute(attrName) || !node.getAttribute(attrName))) {
-                node.setAttribute(attrName, value);
-              }
-            } catch (e) { /* defensive: ignore DOM errors */ }
+          // Use globally-exposed icon data URLs (parsed from server-data JSON)
+          var iconUrls = {
+            'team-performance': window.TEAM_PERFORMANCE_ICON_DATA_URL,
+            'offensive-leaders': window.OFFENSIVE_LEADERS_ICON_DATA_URL,
+            'defensive-wall': window.DEFENSIVE_WALL_ICON_DATA_URL,
+            'player-analysis': window.PLAYER_ANALYSIS_ICON_DATA_URL
           };
-          setIfNotPresent('.insights-menu-card[data-team-icon]', 'data-team-icon', "<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>");
-          // Use canonical asset filenames (case-sensitive) to avoid broken fallbacks to missing PNGs
-          setIfNotPresent('.insights-menu-card[data-offensive-icon]', 'data-offensive-icon', "<?!= offensiveLeadersIconDataUrl || '/assets/Offensive-Leaders-Icon.jpeg' ?>");
-          setIfNotPresent('.insights-menu-card[data-defensive-icon]', 'data-defensive-icon', "<?!= defensiveWallIconDataUrl || '/assets/Defensive-Wall-Icon.jpeg' ?>");
-          setIfNotPresent('.insights-menu-card[aria-label="View player analysis"]', 'data-pa-icon', "<?!= playerAnalysisIconDataUrl || '/assets/player-analysis-icon.webp' ?>");
+          
+          var cards = document.querySelectorAll('.insights-menu-card');
+          cards.forEach(function(card) {
+            var onclick = card.getAttribute('onclick') || '';
+            var viewId = '';
+            if (onclick.indexOf('team-performance') !== -1) viewId = 'team-performance';
+            else if (onclick.indexOf('offensive-leaders') !== -1) viewId = 'offensive-leaders';
+            else if (onclick.indexOf('defensive-wall') !== -1) viewId = 'defensive-wall';
+            else if (onclick.indexOf('player-analysis') !== -1) viewId = 'player-analysis';
+            
+            if (viewId && iconUrls[viewId]) {
+              var currentIcon = card.getAttribute('data-icon');
+              // If attribute is missing, empty, or '#', set it from global URL
+              if (!currentIcon || currentIcon === '#' || currentIcon.trim() === '') {
+                card.setAttribute('data-icon', iconUrls[viewId]);
+              }
+            }
+          });
         })();
       </script>
       <!-- Refresh Button (outside dashboard container so it's always visible) -->
@@ -570,33 +588,37 @@
 
         <div class="insights-menu-grid">
           <!-- Team Performance Button (clean) -->
-          <div class="insights-menu-card" onclick="showView('insights-team-performance-view')" tabindex="0" role="button" aria-label="View team performance dashboard" data-team-icon="<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>">
+          <div class="insights-menu-card" onclick="showView('insights-team-performance-view')" tabindex="0" role="button" aria-label="View team performance dashboard" data-icon="<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>">
             <div class="insights-menu-card-content">
               <h3 class="insights-menu-card-title">Team Performance</h3>
             </div>
           </div>
 
           <!-- Offensive Leaders Button (clean) -->
-          <div class="insights-menu-card" onclick="showView('insights-offensive-leaders-view')" tabindex="0" role="button" aria-label="View offensive leaders" data-offensive-icon="<?!= offensiveLeadersIconDataUrl || '/assets/offensive-leaders-icon.png' ?>">
+          <div class="insights-menu-card" onclick="showView('insights-offensive-leaders-view')" tabindex="0" role="button" aria-label="View offensive leaders" data-icon="<?!= offensiveLeadersIconDataUrl || '/assets/Offensive-Leaders-Icon.jpeg' ?>">
             <div class="insights-menu-card-content">
               <h3 class="insights-menu-card-title">Offensive Leaders</h3>
             </div>
           </div>
 
           <!-- Defensive Wall Button (clean) -->
-          <div class="insights-menu-card" onclick="showView('insights-defensive-wall-view')" tabindex="0" role="button" aria-label="View defensive wall" data-defensive-icon="<?!= defensiveWallIconDataUrl || '/assets/defensive-wall-icon.png' ?>">
+          <div class="insights-menu-card" onclick="showView('insights-defensive-wall-view')" tabindex="0" role="button" aria-label="View defensive wall" data-icon="<?!= defensiveWallIconDataUrl || '/assets/Defensive-Wall-Icon.jpeg' ?>">
             <div class="insights-menu-card-content">
               <h3 class="insights-menu-card-title">Defensive Wall</h3>
             </div>
           </div>
 
           <!-- Player Analysis Button (clean) -->
-          <div class="insights-menu-card" onclick="showView('insights-player-analysis-view')" tabindex="0" role="button" aria-label="View player analysis" data-pa-icon="<?!= playerAnalysisIconDataUrl || '/assets/player-analysis-icon.webp' ?>">
+          <div class="insights-menu-card" onclick="showView('insights-player-analysis-view')" tabindex="0" role="button" aria-label="View player analysis" data-icon="<?!= playerAnalysisIconDataUrl || '/assets/player-analysis-icon.webp' ?>">
             <div class="insights-menu-card-content">
               <h3 class="insights-menu-card-title">Player Analysis</h3>
             </div>
           </div>
-<!-- TEAM PERFORMANCE DASHBOARD SUB-VIEW -->
+        </div><!-- End insights-menu-grid -->
+      </div><!-- End insights-menu -->
+    </div><!-- End insights-view -->
+
+    <!-- TEAM PERFORMANCE DASHBOARD SUB-VIEW -->
     <div id="insights-team-performance-view" class="view hidden">
       <div class="insights-dashboard">
         <!-- TEAM PERFORMANCE OVERVIEW -->

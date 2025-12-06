@@ -1219,68 +1219,35 @@
             if (teamPerfView && !teamPerfView.classList.contains('hidden')) {
                 dashboard = teamPerfView.querySelector('.insights-dashboard');
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { 
+            console.error('[renderNewInsightsDashboard] Error querying teamPerfView:', e);
+        }
         if (!dashboard) {
             // Find dashboard in any visible view
             dashboard = document.querySelector('.view:not(.hidden) .insights-dashboard');
         }
         if (!dashboard) {
-            // No visible dashboard found, don't render
+            // No visible dashboard found
+            console.warn('[renderNewInsightsDashboard] No visible dashboard found');
             return;
         }
         // Ensure dashboard is visible within its view
         if (dashboard.classList.contains('hidden')) {
             dashboard.classList.remove('hidden');
         }
-        // Defensive: ensure display is not none
-        dashboard.style.display = 'block';
-        // Show loading spinner if team data or stats are not yet loaded
-        if (!window.allTeamData || !(window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID)) {
-            if (dashboard) {
-                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
-                    <div class="spinner" style="margin-bottom: 20px;"></div>
-                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Loading team data...</h2>
-                </div>`;
-            }
-            return; // No timeout, wait for data to be ready
-        }
-        var teamID = window.appState.currentTeam.teamID;
-        var teamData = window.allTeamData[teamID];
-        if (!teamData) {
-            console.log('[renderNewInsightsDashboard] ERROR: No teamData found for teamID:', teamID, 'available teams:', Object.keys(window.allTeamData));
-            if (dashboard) {
-                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
-                    <div class="spinner" style="margin-bottom: 20px;"></div>
-                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Loading team data...</h2>
-                </div>`;
-            }
-            return; // No timeout
-        }
-        window.games = teamData.games || [];
-        window.players = teamData.players || [];
-        // Only set calculatedSeasonStats if not already set (e.g., from team selection calculation)
+        // Ensure display is not none
+        dashboard.style.setProperty('display', 'grid', 'important');
+        
+        // Use stats if available, otherwise return
         if (!window.calculatedSeasonStats) {
-            window.calculatedSeasonStats = teamData.stats || null;
+            return;
         }
         
-        // Debug: Log stats availability
-        console.log('[renderNewInsightsDashboard] Stats check - teamData.stats exists:', !!teamData.stats, 'calculatedSeasonStats keys:', window.calculatedSeasonStats ? Object.keys(window.calculatedSeasonStats).length : 0);
-        
-        // Show spinner if stats are not yet calculated
-        if (!window.calculatedSeasonStats) {
-            if (dashboard) {
-                dashboard.innerHTML = `<div class="dashboard-section dashboard-section-full" style="text-align: center; padding: 40px 20px;">
-                    <div class="spinner" style="margin-bottom: 20px;"></div>
-                    <h2 style="color: var(--secondary-text); margin-bottom: 10px;">Calculating stats...</h2>
-                </div>`;
-            }
-            return; // No timeout, wait for stats calculation
-        }
-        // Only show 'No Game Data Yet' if stats are loaded and gameCount is zero
         if (!window.calculatedSeasonStats.gameCount || window.calculatedSeasonStats.gameCount === 0) {
             showEmptyInsightsState();
             return;
         }
+        
         try {
             renderNewInsightsDashboardContent();
         } catch (renderErr) {
@@ -1344,6 +1311,9 @@
             return;
         }
 
+        // Get required elements for rendering
+        var dashboardContainer = document.querySelector('.insights-dashboard');
+        
         // Team Performance Overview
         var statsEl = document.getElementById('insights-season-stats');
         if (statsEl) {
@@ -1377,171 +1347,214 @@
 
         // Calculate and Populate Form (Last 5 games)
         var perfForm = document.getElementById('perf-form');
-        if (perfForm) {
-            var formString = calculateRecentForm(5);
-            perfForm.textContent = formString || '\u2014';
+        try {
+            if (perfForm) {
+                var formString = calculateRecentForm(5);
+                perfForm.textContent = formString || '\u2014';
+            }
+        } catch (e) {
+            console.error('[renderNewInsightsDashboardContent] Error in calculateRecentForm:', e);
         }
 
-        // Populate Average Goals For/Against
-        var perfAvgFor = document.getElementById('perf-avg-for');
-        if (perfAvgFor) {
-            perfAvgFor.textContent = avgGoalsFor;
+        try {
+            // Populate Average Goals For/Against
+            console.log('[renderNewInsightsDashboardContent] DEBUG: avgGoalsFor =', avgGoalsFor, 'avgGoalsAgainst =', avgGoalsAgainst);
+            var perfAvgFor = document.getElementById('perf-avg-for');
+            if (perfAvgFor) {
+                perfAvgFor.textContent = avgGoalsFor;
+            }
+
+            var perfAvgAgainst = document.getElementById('perf-avg-against');
+            if (perfAvgAgainst) {
+                perfAvgAgainst.textContent = avgGoalsAgainst;
+            }
+
+            // Quarter Analysis - Best Quarter
+            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.quarterDiffs =', stats.quarterDiffs);
+            const maxDiff = Math.max(...stats.quarterDiffs);
+            const bestQuarterIndex = stats.quarterDiffs.indexOf(maxDiff);
+            console.log('[renderNewInsightsDashboardContent] DEBUG: bestQuarterIndex =', bestQuarterIndex);
+            
+            var perfBestQtr = document.getElementById('perf-best-qtr');
+            if (perfBestQtr) {
+                perfBestQtr.textContent = `Q${bestQuarterIndex + 1}`;
+            }
+
+            // Calculate Top Defender (lowest avg goals against, min 3 quarters in GD/GK)
+            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allDefenders =', stats.allDefenders);
+            var topDefender = null;
+            if (stats.allDefenders && stats.allDefenders.length > 0) {
+                // Filter for defenders with at least 3 quarters
+                var qualifiedDefenders = stats.allDefenders.filter(function(d) { return d.quarters >= 3; });
+                if (qualifiedDefenders.length > 0) {
+                    // Find defender with lowest average goals against
+                    topDefender = qualifiedDefenders.reduce(function(best, current) {
+                        return current.avg < best.avg ? current : best;
+                    });
+                }
+            }
+            
+            var perfCleanSheets = document.getElementById('perf-clean-sheets');
+            if (perfCleanSheets) {
+                perfCleanSheets.textContent = topDefender ? topDefender.name : '—';
+            }
+        } catch (e) {
+            console.error('[renderNewInsightsDashboardContent] Error in avg goals/quarter sections:', e);
         }
 
-        var perfAvgAgainst = document.getElementById('perf-avg-against');
-        if (perfAvgAgainst) {
-            perfAvgAgainst.textContent = avgGoalsAgainst;
+        try {
+            // Calculate and Populate Average Goals For Singles
+            console.log('[renderNewInsightsDashboardContent] DEBUG: calculatedLeaderboardPerQtr =', calculatedLeaderboardPerQtr);
+            var aveGoalsForSingles = 0;
+            var singlesScoringCount = 0;
+            if (calculatedLeaderboardPerQtr) {
+                const qualifiedSingles = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3);
+                if (qualifiedSingles.length > 0) {
+                    const totalAvg = qualifiedSingles.reduce((sum, p) => sum + p.avg, 0);
+                    aveGoalsForSingles = totalAvg / qualifiedSingles.length;
+                    singlesScoringCount = qualifiedSingles.length;
+                }
+            }
+            var perfAveGoalsForSingles = document.getElementById('perf-ave-goals-for-singles');
+            if (perfAveGoalsForSingles) {
+                perfAveGoalsForSingles.textContent = aveGoalsForSingles > 0 ? aveGoalsForSingles.toFixed(1) : '—';
+            }
+
+            // Calculate and Populate Average Goals Against Singles
+            var aveGoalsAgainstSingles = 0;
+            var singlesDefensiveCount = 0;
+            if (stats.allDefenders) {
+                const qualifiedDefenders = stats.allDefenders.filter(p => p.quarters >= 3);
+                if (qualifiedDefenders.length > 0) {
+                    const totalAvg = qualifiedDefenders.reduce((sum, p) => sum + p.avg, 0);
+                    aveGoalsAgainstSingles = totalAvg / qualifiedDefenders.length;
+                    singlesDefensiveCount = qualifiedDefenders.length;
+                }
+            }
+            var perfAveGoalsAgainstSingles = document.getElementById('perf-ave-goals-against-singles');
+            if (perfAveGoalsAgainstSingles) {
+                perfAveGoalsAgainstSingles.textContent = aveGoalsAgainstSingles > 0 ? aveGoalsAgainstSingles.toFixed(1) : '—';
+            }
+
+            // Calculate and Populate Average Goals For Pairs
+            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allOffenseCombos =', stats.allOffenseCombos);
+            var aveGoalsForPairs = 0;
+            var pairsScoringCount = 0;
+            if (stats.allOffenseCombos) {
+                const qualifiedPairs = stats.allOffenseCombos.filter(p => p.quarters >= 3);
+                if (qualifiedPairs.length > 0) {
+                    const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
+                    aveGoalsForPairs = totalAvg / qualifiedPairs.length;
+                    pairsScoringCount = qualifiedPairs.length;
+                }
+            }
+            var perfAveGoalsForPairs = document.getElementById('perf-ave-goals-for-pairs');
+            if (perfAveGoalsForPairs) {
+                perfAveGoalsForPairs.textContent = aveGoalsForPairs > 0 ? aveGoalsForPairs.toFixed(1) : '—';
+            }
+
+            // Calculate and Populate Average Goals Against Pairs
+            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allDefenseCombos =', stats.allDefenseCombos);
+            var aveGoalsAgainstPairs = 0;
+            var pairsDefensiveCount = 0;
+            if (stats.allDefenseCombos) {
+                const qualifiedPairs = stats.allDefenseCombos.filter(p => p.quarters >= 3);
+                if (qualifiedPairs.length > 0) {
+                    const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
+                    aveGoalsAgainstPairs = totalAvg / qualifiedPairs.length;
+                    pairsDefensiveCount = qualifiedPairs.length;
+                }
+            }
+            var perfAveGoalsAgainstPairs = document.getElementById('perf-ave-goals-against-pairs');
+            if (perfAveGoalsAgainstPairs) {
+                perfAveGoalsAgainstPairs.textContent = aveGoalsAgainstPairs > 0 ? aveGoalsAgainstPairs.toFixed(1) : '—';
+            }
+        } catch (e) {
+            console.error('[renderNewInsightsDashboardContent] Error in singles/pairs calculations:', e);
         }
 
-        // Quarter Analysis - Best Quarter
-        const maxDiff = Math.max(...stats.quarterDiffs);
-        const bestQuarterIndex = stats.quarterDiffs.indexOf(maxDiff);
+
+        try {
+            // Populate detail sections for the average cards
+            console.log('[renderNewInsightsDashboardContent] About to populate detail sections');
+            var detailForSingles = document.getElementById('perf-ave-goals-for-singles-detail');
+            if (detailForSingles) {
+                if (singlesScoringCount > 0) {
+                    const topScorer = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3).sort((a, b) => b.goals - a.goals)[0];
+                    detailForSingles.innerHTML = `Based on ${singlesScoringCount} players with 3+ quarters<br>Top scorer: ${topScorer ? topScorer.name + ' (' + topScorer.goals + ' goals)' : 'N/A'}`;
+                } else {
+                    detailForSingles.innerHTML = 'No players with 3+ quarters';
+                }
+            }
+
+            var detailAgainstSingles = document.getElementById('perf-ave-goals-against-singles-detail');
+            if (detailAgainstSingles) {
+                if (singlesDefensiveCount > 0) {
+                    const topDefender = stats.allDefenders.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
+                    detailAgainstSingles.innerHTML = `Based on ${singlesDefensiveCount} defenders with 3+ quarters<br>Best defender: ${topDefender ? topDefender.name + ' (' + topDefender.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
+                } else {
+                    detailAgainstSingles.innerHTML = 'No defenders with 3+ quarters';
+                }
+            }
+
+            var detailForPairs = document.getElementById('perf-ave-goals-for-pairs-detail');
+            if (detailForPairs) {
+                if (pairsScoringCount > 0) {
+                    const topPair = stats.allOffenseCombos.filter(p => p.quarters >= 3).sort((a, b) => b.total - a.total)[0];
+                    detailForPairs.innerHTML = `Based on ${pairsScoringCount} pairs with 3+ quarters<br>Top pair: ${topPair ? topPair.name + ' (' + topPair.total + ' goals)' : 'N/A'}`;
+                } else {
+                    detailForPairs.innerHTML = 'No pairs with 3+ quarters';
+                }
+            }
+
+            var detailAgainstPairs = document.getElementById('perf-ave-goals-against-pairs-detail');
+            if (detailAgainstPairs) {
+                if (pairsDefensiveCount > 0) {
+                    const topPair = stats.allDefenseCombos.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
+                    detailAgainstPairs.innerHTML = `Based on ${pairsDefensiveCount} pairs with 3+ quarters<br>Best pair: ${topPair ? topPair.name + ' (' + topPair.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
+                } else {
+                    detailAgainstPairs.innerHTML = 'No defensive pairs with 3+ quarters';
+                }
+            }
+        } catch (e) {
+            console.error('[renderNewInsightsDashboardContent] Error in detail sections:', e);
+        }
+        try {
+            // Quarter Flow Visualization
+            renderQuarterFlow(stats);
+
+            // Offensive Leaders
+            renderOffensiveLeaders(stats);
+
+            // Defensive Leaders
+            renderDefensiveLeaders(stats);
+
+            // Player Impact
+            updatePlayerImpactCards();
+            
+            // Additional Stats
+            renderAdditionalStats(stats);
+            
+            // Update accordion summaries
+            updateAccordionSummaries(stats);
+        } catch (e) {
+            console.error('[renderNewInsightsDashboardContent] Error in main render functions:', e);
+        }
+
+        // Ensure view and main containers have proper height cascade
+        try {
+          var viewForFix = document.getElementById('insights-team-performance-view');
+          if (viewForFix && viewForFix.offsetHeight === 0) {
+            var dashboardForFix = document.querySelector('.insights-dashboard');
+            if (dashboardForFix && dashboardForFix.scrollHeight > 0) {
+              viewForFix.style.minHeight = dashboardForFix.scrollHeight + 'px';
+            }
+          }
+        } catch (e) {
+          // Silently ignore layout fixes - CSS should handle this
+        }
         
-        var perfBestQtr = document.getElementById('perf-best-qtr');
-        if (perfBestQtr) {
-            perfBestQtr.textContent = `Q${bestQuarterIndex + 1}`;
-        }
-
-        // Calculate Top Defender (lowest avg goals against, min 3 quarters in GD/GK)
-        var topDefender = null;
-        if (stats.allDefenders && stats.allDefenders.length > 0) {
-            // Filter for defenders with at least 3 quarters
-            var qualifiedDefenders = stats.allDefenders.filter(function(d) { return d.quarters >= 3; });
-            if (qualifiedDefenders.length > 0) {
-                // Find defender with lowest average goals against
-                topDefender = qualifiedDefenders.reduce(function(best, current) {
-                    return current.avg < best.avg ? current : best;
-                });
-            }
-        }
-        
-        var perfCleanSheets = document.getElementById('perf-clean-sheets');
-        if (perfCleanSheets) {
-            perfCleanSheets.textContent = topDefender ? topDefender.name : '—';
-        }
-
-        // Calculate and Populate Average Goals For Singles
-        var aveGoalsForSingles = 0;
-        var singlesScoringCount = 0;
-        if (calculatedLeaderboardPerQtr) {
-            const qualifiedSingles = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3);
-            if (qualifiedSingles.length > 0) {
-                const totalAvg = qualifiedSingles.reduce((sum, p) => sum + p.avg, 0);
-                aveGoalsForSingles = totalAvg / qualifiedSingles.length;
-                singlesScoringCount = qualifiedSingles.length;
-            }
-        }
-        var perfAveGoalsForSingles = document.getElementById('perf-ave-goals-for-singles');
-        if (perfAveGoalsForSingles) {
-            perfAveGoalsForSingles.textContent = aveGoalsForSingles > 0 ? aveGoalsForSingles.toFixed(1) : '—';
-        }
-
-        // Calculate and Populate Average Goals Against Singles
-        var aveGoalsAgainstSingles = 0;
-        var singlesDefensiveCount = 0;
-        if (stats.allDefenders) {
-            const qualifiedDefenders = stats.allDefenders.filter(p => p.quarters >= 3);
-            if (qualifiedDefenders.length > 0) {
-                const totalAvg = qualifiedDefenders.reduce((sum, p) => sum + p.avg, 0);
-                aveGoalsAgainstSingles = totalAvg / qualifiedDefenders.length;
-                singlesDefensiveCount = qualifiedDefenders.length;
-            }
-        }
-        var perfAveGoalsAgainstSingles = document.getElementById('perf-ave-goals-against-singles');
-        if (perfAveGoalsAgainstSingles) {
-            perfAveGoalsAgainstSingles.textContent = aveGoalsAgainstSingles > 0 ? aveGoalsAgainstSingles.toFixed(1) : '—';
-        }
-
-        // Calculate and Populate Average Goals For Pairs
-        var aveGoalsForPairs = 0;
-        var pairsScoringCount = 0;
-        if (stats.allOffenseCombos) {
-            const qualifiedPairs = stats.allOffenseCombos.filter(p => p.quarters >= 3);
-            if (qualifiedPairs.length > 0) {
-                const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
-                aveGoalsForPairs = totalAvg / qualifiedPairs.length;
-                pairsScoringCount = qualifiedPairs.length;
-            }
-        }
-        var perfAveGoalsForPairs = document.getElementById('perf-ave-goals-for-pairs');
-        if (perfAveGoalsForPairs) {
-            perfAveGoalsForPairs.textContent = aveGoalsForPairs > 0 ? aveGoalsForPairs.toFixed(1) : '—';
-        }
-
-        // Calculate and Populate Average Goals Against Pairs
-        var aveGoalsAgainstPairs = 0;
-        var pairsDefensiveCount = 0;
-        if (stats.allDefenseCombos) {
-            const qualifiedPairs = stats.allDefenseCombos.filter(p => p.quarters >= 3);
-            if (qualifiedPairs.length > 0) {
-                const totalAvg = qualifiedPairs.reduce((sum, p) => sum + p.avg, 0);
-                aveGoalsAgainstPairs = totalAvg / qualifiedPairs.length;
-                pairsDefensiveCount = qualifiedPairs.length;
-            }
-        }
-        var perfAveGoalsAgainstPairs = document.getElementById('perf-ave-goals-against-pairs');
-        if (perfAveGoalsAgainstPairs) {
-            perfAveGoalsAgainstPairs.textContent = aveGoalsAgainstPairs > 0 ? aveGoalsAgainstPairs.toFixed(1) : '—';
-        }
-
-        // Populate detail sections for the average cards
-        var detailForSingles = document.getElementById('perf-ave-goals-for-singles-detail');
-        if (detailForSingles) {
-            if (singlesScoringCount > 0) {
-                const topScorer = calculatedLeaderboardPerQtr.filter(p => p.quarters >= 3).sort((a, b) => b.goals - a.goals)[0];
-                detailForSingles.innerHTML = `Based on ${singlesScoringCount} players with 3+ quarters<br>Top scorer: ${topScorer ? topScorer.name + ' (' + topScorer.goals + ' goals)' : 'N/A'}`;
-            } else {
-                detailForSingles.innerHTML = 'No players with 3+ quarters';
-            }
-        }
-
-        var detailAgainstSingles = document.getElementById('perf-ave-goals-against-singles-detail');
-        if (detailAgainstSingles) {
-            if (singlesDefensiveCount > 0) {
-                const topDefender = stats.allDefenders.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
-                detailAgainstSingles.innerHTML = `Based on ${singlesDefensiveCount} defenders with 3+ quarters<br>Best defender: ${topDefender ? topDefender.name + ' (' + topDefender.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
-            } else {
-                detailAgainstSingles.innerHTML = 'No defenders with 3+ quarters';
-            }
-        }
-
-        var detailForPairs = document.getElementById('perf-ave-goals-for-pairs-detail');
-        if (detailForPairs) {
-            if (pairsScoringCount > 0) {
-                const topPair = stats.allOffenseCombos.filter(p => p.quarters >= 3).sort((a, b) => b.total - a.total)[0];
-                detailForPairs.innerHTML = `Based on ${pairsScoringCount} pairs with 3+ quarters<br>Top pair: ${topPair ? topPair.name + ' (' + topPair.total + ' goals)' : 'N/A'}`;
-            } else {
-                detailForPairs.innerHTML = 'No pairs with 3+ quarters';
-            }
-        }
-
-        var detailAgainstPairs = document.getElementById('perf-ave-goals-against-pairs-detail');
-        if (detailAgainstPairs) {
-            if (pairsDefensiveCount > 0) {
-                const topPair = stats.allDefenseCombos.filter(p => p.quarters >= 3).sort((a, b) => a.avg - b.avg)[0];
-                detailAgainstPairs.innerHTML = `Based on ${pairsDefensiveCount} pairs with 3+ quarters<br>Best pair: ${topPair ? topPair.name + ' (' + topPair.avg.toFixed(1) + ' GA/qtr)' : 'N/A'}`;
-            } else {
-                detailAgainstPairs.innerHTML = 'No defensive pairs with 3+ quarters';
-            }
-        }
-
-        // Quarter Flow Visualization
-        renderQuarterFlow(stats);
-
-        // Offensive Leaders
-        renderOffensiveLeaders(stats);
-
-        // Defensive Leaders
-        renderDefensiveLeaders(stats);
-
-        // Player Impact
-        updatePlayerImpactCards();
-        
-        // Additional Stats
-        renderAdditionalStats(stats);
-        
-        // Update accordion summaries
-        updateAccordionSummaries(stats);
+        console.log('[renderNewInsightsDashboardContent] Render complete');
         
         // Restore accordion states from localStorage
         restoreInsightsAccordionStates();
@@ -3185,6 +3198,7 @@
             return;
         }
         
+        console.log('renderGameAvailability: Container found, display:', container.style.display, 'computed:', window.getComputedStyle(container).display);
         console.log('renderGameAvailability: game =', game);
         console.log('renderGameAvailability: players =', players);
         
@@ -3209,6 +3223,7 @@
         
         console.log('renderGameAvailability: Generated HTML:', html);
         container.innerHTML = html;
+        console.log('renderGameAvailability: HTML set successfully, container innerHTML length:', container.innerHTML.length);
         
         container.innerHTML += 
             '<div class="availability-footer">' +

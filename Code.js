@@ -7,16 +7,12 @@ var SPREADSHEET_ID = '13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88';
 function getSpreadsheet() {
   try {
     // For webapps, prioritize opening by ID since there's no active spreadsheet context
-    console.log('DEBUG: Attempting to open spreadsheet by ID:', SPREADSHEET_ID);
     return SpreadsheetApp.openById(SPREADSHEET_ID);
   } catch (e) {
-    console.error('DEBUG: Could not open spreadsheet by ID:', e.toString());
     try {
       // Fallback to active spreadsheet (for container-bound scripts)
-      console.log('DEBUG: Falling back to active spreadsheet');
       return SpreadsheetApp.getActiveSpreadsheet();
     } catch (e2) {
-      console.error('DEBUG: Could not get active spreadsheet either:', e2.toString());
       throw new Error('Unable to access spreadsheet. Please check permissions and spreadsheet ID.');
     }
   }
@@ -24,16 +20,12 @@ function getSpreadsheet() {
 
 // This function serves your HTML file as the web page.
 function doGet(e) {
-  console.log('DEBUG: doGet called with params:', e);
   var template = HtmlService.createTemplateFromFile('index');
-  console.log('DEBUG: Template created from index.html');
 
   var userEmail = '';
   try {
     userEmail = Session.getActiveUser().getEmail();
-    console.log('DEBUG: User email retrieved:', userEmail);
   } catch (e) {
-    console.log('DEBUG: Error getting user email:', e.toString());
     userEmail = '';
   }
   template.userEmail = userEmail;
@@ -44,52 +36,36 @@ function doGet(e) {
   var testInsightsFlag = (props.getProperty('TEST_INSIGHTS_ENABLED') || 'false') === 'true';
   template.ownerEmail = ownerEmail;
   template.showTestInsights = testInsightsFlag;
-  console.log('DEBUG: Owner email:', ownerEmail, 'Test insights:', testInsightsFlag);
 
   // Log user access
   var timestamp = new Date().toISOString();
   var isOwner = userEmail === ownerEmail;
   Logger.log('ACCESS: ' + timestamp + ' | User: ' + (userEmail || 'Anonymous') + ' | Owner: ' + isOwner);
-  console.log('DEBUG: Access logged - User:', (userEmail || 'Anonymous'), 'Is Owner:', isOwner);
 
   try {
     // Load logo data URL once on server-side for use throughout the app
-    console.log('DEBUG: Loading logo data URL...');
     template.logoDataUrl = getLogoDataUrl();
-    console.log('DEBUG: Logo data URL loaded, length:', template.logoDataUrl ? template.logoDataUrl.length : 'null');
 
     // Load team performance icon data URL (centralised base64 asset)
-    console.log('DEBUG: Loading team performance icon...');
     template.teamPerformanceIconDataUrl = getTeamPerformanceIconDataUrl();
-    console.log('DEBUG: Team performance icon loaded, length:', template.teamPerformanceIconDataUrl ? template.teamPerformanceIconDataUrl.length : 'null');
 
     // Load additional icon data URLs
-    console.log('DEBUG: Loading offensive leaders icon...');
     template.offensiveLeadersIconDataUrl = getOffensiveLeadersIconDataUrl();
-    console.log('DEBUG: Offensive leaders icon loaded, length:', template.offensiveLeadersIconDataUrl ? template.offensiveLeadersIconDataUrl.length : 'null');
 
-    console.log('DEBUG: Loading defensive wall icon...');
     template.defensiveWallIconDataUrl = getDefensiveWallIconDataUrl();
-    console.log('DEBUG: Defensive wall icon loaded, length:', template.defensiveWallIconDataUrl ? template.defensiveWallIconDataUrl.length : 'null');
 
-    console.log('DEBUG: Loading player analysis icon...');
     template.playerAnalysisIconDataUrl = getPlayerAnalysisIconDataUrl();
-    console.log('DEBUG: Player analysis icon loaded, length:', template.playerAnalysisIconDataUrl ? template.playerAnalysisIconDataUrl.length : 'null');
 
     // Cache buster - update this to force client refresh
     // NOTE: bump this on each production deploy so that clients bust cached JS/CSS
     template.appVersion = '742';
-    console.log('DEBUG: App version set to:', template.appVersion);
 
-    console.log('DEBUG: Evaluating template...');
     var result = template.evaluate()
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    console.log('DEBUG: Template evaluated successfully');
 
     return result;
 
   } catch (error) {
-    console.error('DEBUG: Error in doGet:', error.toString());
     Logger.log('ERROR in doGet: ' + error.toString());
     // Return a simple error page
     return HtmlService.createHtmlOutput('<h1>Error</h1><p>' + error.toString() + '</p>')

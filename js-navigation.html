@@ -264,11 +264,17 @@
             document.getElementById('insights-defenders-view').classList.add('hidden');
             document.getElementById('insights-player-plusminus-view').classList.add('hidden');
             // Hide new sub-views
-            document.getElementById('insights-team-performance-view').classList.add('hidden');
-            document.getElementById('insights-offensive-leaders-view').classList.add('hidden');
-            document.getElementById('insights-defensive-wall-view').classList.add('hidden');
-            document.getElementById('insights-player-analysis-view').classList.add('hidden');
+            var tpvToHide = document.getElementById('insights-team-performance-view');
+            var olToHide = document.getElementById('insights-offensive-leaders-view');
+            var dwToHide = document.getElementById('insights-defensive-wall-view');
+            var paToHide = document.getElementById('insights-player-analysis-view');
+            if (tpvToHide) tpvToHide.classList.add('hidden');
+            if (olToHide) olToHide.classList.add('hidden');
+            if (dwToHide) dwToHide.classList.add('hidden');
+            if (paToHide) paToHide.classList.add('hidden');
         }
+        
+        console.log('[showView] All views hidden, now routing based on viewId:', viewId);
             
         // --- 3. Handle navigation bar visibility and active states ---
         if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view') { 
@@ -432,23 +438,64 @@
             } else {
                 showView('insights-view'); 
             }
-        } else if (viewId === 'insights-offensive-leaders-view') {
-            document.getElementById('insights-offensive-leaders-view').classList.remove('hidden');
-            renderInsightsOffensiveLeaders();
-        } else if (viewId === 'insights-player-analysis-view') {
-            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
-            // Ensure player analysis view renders its contents (handles empty states inside the renderer)
-            try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
-        } else if (viewId === 'insights-defensive-wall-view') {
-            document.getElementById('insights-defensive-wall-view').classList.remove('hidden');
-            renderInsightsDefensiveWall();
-        } else if (viewId === 'insights-team-performance-view') {
+        }
+        
+        // Handle specific view rendering AFTER hiding all views
+        if (viewId === 'insights-team-performance-view') {
+            // Check if team is selected
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            // Sub-views are now siblings, just show the sub-view
             document.getElementById('insights-team-performance-view').classList.remove('hidden');
             renderNewInsightsDashboard();
-        } else if (viewId === 'team-selector-view') {
+            return;
+        }
+        
+        if (viewId === 'team-selector-view') {
             document.getElementById('team-selector-view').classList.remove('hidden');
             renderTeamSelector();
         }
+        
+        // Handle other insights sub-views
+        if (viewId === 'insights-offensive-leaders-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            // Sub-views are now siblings, just show the sub-view
+            document.getElementById('insights-offensive-leaders-view').classList.remove('hidden');
+            renderInsightsOffensiveLeaders();
+            return;
+        }
+        
+        if (viewId === 'insights-defensive-wall-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            // Sub-views are now siblings, just show the sub-view
+            document.getElementById('insights-defensive-wall-view').classList.remove('hidden');
+            renderInsightsDefensiveWall();
+            return;
+        }
+        
+        if (viewId === 'insights-player-analysis-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            // Sub-views are now siblings, just show the sub-view
+            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
+            try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
+            return;
+        }
+
     }
     
     function showInsightsSubView(subViewId) {

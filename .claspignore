@@ -9,3 +9,6 @@ scripts/**
 node_modules/**
 tests/**
 temp_deploy*/
+
+# Ignore test files (Node.js scripts for local testing only)
+test-*.js

@@ -237,25 +237,32 @@
     const CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
     function ensureInsightsCardImages() {
         try {
+            // Use globally-exposed icon data URLs (from server-data JSON) as primary fallback
+            // Fall back to CDN URLs only if server injection completely failed
             const ICON_MAP = {
-                'Team Performance': [CDN_BASE + 'team-performance-icon-source.jpeg'],
-                'Offensive Leaders': [CDN_BASE + 'Offensive-Leaders-Icon.jpeg'],
-                'Defensive Wall': [CDN_BASE + 'Defensive-Wall-Icon.jpeg'],
-                'Player Analysis': [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png']
+                'Team Performance': [window.TEAM_PERFORMANCE_ICON_DATA_URL || CDN_BASE + 'team-performance-icon-source.jpeg'],
+                'Offensive Leaders': [window.OFFENSIVE_LEADERS_ICON_DATA_URL || CDN_BASE + 'Offensive-Leaders-Icon.jpeg'],
+                'Defensive Wall': [window.DEFENSIVE_WALL_ICON_DATA_URL || CDN_BASE + 'Defensive-Wall-Icon.jpeg'],
+                'Player Analysis': [window.PLAYER_ANALYSIS_ICON_DATA_URL || CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png']
             };
 
-                const cards = document.querySelectorAll('.insights-menu-card');
+            const cards = document.querySelectorAll('.insights-menu-card');
             cards.forEach(card => {
                 const title = card.querySelector('.insights-menu-card-title')?.textContent?.trim() || '';
                 const computedBg = window.getComputedStyle(card).backgroundImage || '';
-                // If server injected a data attr, prefer it (handles CDN or data URI values)
-                // Prefer any server-injected data-* attributes for an icon; check known possibilities
-                const attributeCandidates = ['data-pa-icon', 'data-team-icon', 'data-offensive-icon', 'data-defensive-icon'];
-                let injected = null;
-                for (let i = 0; i < attributeCandidates.length; i++) {
-                    const attr = attributeCandidates[i];
-                    if (card.hasAttribute(attr)) { injected = card.getAttribute(attr); break; }
+                
+                // All cards now use standardized 'data-icon' attribute (set by server or fallback script)
+                let injected = card.getAttribute('data-icon');
+                
+                // If the data-icon attribute contains '#' (failed server injection), use globally-exposed URL
+                if (!injected || injected === '#' || injected.trim() === '') {
+                    const globalUrl = ICON_MAP[title];
+                    if (globalUrl && globalUrl.length > 0 && globalUrl[0] !== '#') {
+                        injected = globalUrl.join(', ');
+                        card.setAttribute('data-icon', injected);
+                    }
                 }
+                
                 if (injected && injected !== '#' && injected.length > 0) {
                     // injected may be a single url or comma-separated list of urls
                     const urlList = injected.split(',').map(u => u.trim());
@@ -284,13 +291,14 @@
                     card.style.setProperty('background-image', bgVal, 'important');
                     return;
                 }
+                
                 // If the computed background points to Apps Script assets or is empty, replace it
                 if (!computedBg || computedBg === 'none' || computedBg.includes('script.googleusercontent.com') || (computedBg.includes('data:image') && computedBg.length < 80)) {
-                        const fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];
-                        const urlList = (ICON_MAP[title] && Array.isArray(ICON_MAP[title]) ? ICON_MAP[title] : fallback);
-                        // Build CSS multi-background: url(a), url(b)
-                        const bg = urlList.map(u => `url('${u}')`).join(', ');
-                        card.style.setProperty('background-image', bg, 'important');
+                    const fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];
+                    const urlList = (ICON_MAP[title] && Array.isArray(ICON_MAP[title]) ? ICON_MAP[title] : fallback);
+                    // Build CSS multi-background: url(a), url(b)
+                    const bg = urlList.map(u => `url('${u}')`).join(', ');
+                    card.style.setProperty('background-image', bg, 'important');
                 }
             });
         } catch (e) {
