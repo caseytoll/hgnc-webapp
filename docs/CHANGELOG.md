@@ -1,6 +1,38 @@
 # CHANGELOG
 
 ## [Unreleased]
+
+## v823 — 2025-12-07
+**Project Structure Refactor & Icon Optimization**
+- **Refactor**: Reorganized entire project structure following best practices
+  - Created `src/` directory with `includes/`, `icons/`, and `styles.html`
+  - Created `tests/` directory for test files and screenshots
+  - Moved all documentation to `docs/` folder
+  - Moved utility scripts to `scripts/` folder
+  - Updated `Code.js` include() function with path mapping for new structure
+  - Cleaned root directory to contain only essential Apps Script files
+- **Icons**: Converted all insight menu icons to WebP format with PNG fallbacks
+  - Team Performance, Offensive Leaders, and Defensive Wall icons now use WebP (60% smaller than JPEG)
+  - All 4 icons use consistent WebP+PNG fallback pattern for optimal performance
+  - Updated CDN URLs to commit 2481549 for new WebP assets
+- **Cleanup**: Removed 8 unused team-performance icon partial files
+- **Fix**: Renamed "base image code.html" to "base-image-code.html" (kebab-case)
+- **Config**: Enhanced .claspignore to exclude docs, infra, and config files
+
+## v819-820 — 2025-12-07
+**Icon Standardization & Display Fixes**
+- **Fix**: Resolved issue where Offensive Leaders and Defensive Wall icons were not displaying
+  - Root cause: Missing server injection of icon URLs in server-data JSON
+  - Added missing `offensiveLeadersIconDataUrl` and `defensiveWallIconDataUrl` to server data
+  - Standardized all 4 insight cards to use single `data-icon` attribute
+- **Enhancement**: Implemented robust 3-tier fallback system for icon loading
+  - Template rendering → Global variables → Runtime ICON_MAP
+  - All icons now have CDN fallbacks for reliability
+- **Documentation**: Created comprehensive ICON_IMAGES_STANDARDIZATION.md
+- v819: Initial fix with SVG fallbacks
+- v820: Updated to use actual CDN image assets
+
+## v767-818 — 2025-12-06
 - UI: Restore Players navigation button in bottom nav bar (between Schedule and Ladder)
 - Fix: Ensure insights sub-views (Team Performance, Offensive Leaders, etc.) render content after stats load by calling renderNewInsightsDashboard in handleSelectTeam
 - Fix: Ensure insights dashboard is visible by setting display to block in renderNewInsightsDashboard
