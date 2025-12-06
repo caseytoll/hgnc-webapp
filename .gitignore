@@ -4,3 +4,5 @@ node_modules
 # Archives used during release and dev testing; keep compressed zip but don't track changes
 archived_html_backups/
 archived_html_backups/index_html_backups.zip
+.DS_Store
+.clasp.json.bak
