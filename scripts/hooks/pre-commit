@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Pre-commit hook to detect and archive large HTML backups before committing
+# NOTE: To install locally, symlink this file into .git/hooks/pre-commit
+
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+HOOK_SCRIPT="$REPO_ROOT/scripts/zip-archives.sh"
+
+echo "Running pre-commit archive checks..."
+if [ -x "$HOOK_SCRIPT" ]; then
+  # Run in non-commit mode (zip but don't commit) first
+  "$HOOK_SCRIPT"
+fi
+
+exit 0

@@ -1,0 +1,38 @@
+name: Archive backups
+
+on:
+  push:
+    paths:
+      - 'index.html.*'
+      - 'archived_html_backups/**'
+  workflow_dispatch: {}
+
+jobs:
+  zip-archives:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run zip-archives script
+        run: |
+          chmod +x scripts/zip-archives.sh
+          # Run with commit to compress archives and stage changes
+          ./scripts/zip-archives.sh --commit
+
+      - name: Push archive commit if present
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git push origin HEAD:$(git rev-parse --abbrev-ref HEAD)
+            echo "Archive changes pushed"
+          else
+            echo "No archive changes to push"
+          fi
