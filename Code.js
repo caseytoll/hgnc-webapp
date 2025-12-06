@@ -1072,3 +1072,61 @@ function fetchMyGameDayResults(url) {
     return [];
   }
 }
+
+/**
+ * Clean up test data from the spreadsheet
+ * Called by test suites to remove TEST_* prefixed records
+ * 
+ * Usage: Call this function after test runs to clean up test data
+ * Example: cleanupTestData('TEST_CRUD_', 'Teams')
+ * 
+ * @param {string} prefix - The prefix to search for (e.g., 'TEST_CRUD_', 'TEST_')
+ * @param {string} sheetName - The sheet to clean up (e.g., 'Teams', 'Players', 'Games')
+ * @returns {object} Cleanup result with count of deleted rows
+ */
+function cleanupTestData(prefix, sheetName) {
+  _requireOwnerOrThrow();
+  
+  try {
+    if (!prefix || !sheetName) {
+      return { success: false, error: 'prefix and sheetName are required' };
+    }
+    
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      return { success: false, error: 'Sheet "' + sheetName + '" not found' };
+    }
+    
+    var range = sheet.getDataRange();
+    var values = range.getValues();
+    var rowsToDelete = [];
+    
+    // Find all rows that match the prefix (check first column typically)
+    for (var i = 1; i < values.length; i++) {
+      var firstColValue = String(values[i][0]);
+      if (firstColValue.indexOf(prefix) === 0) {
+        rowsToDelete.push(i + 1); // Google Sheets is 1-indexed
+      }
+    }
+    
+    // Delete rows in reverse order to avoid index shifting
+    for (var j = rowsToDelete.length - 1; j >= 0; j--) {
+      sheet.deleteRow(rowsToDelete[j]);
+    }
+    
+    var deletedCount = rowsToDelete.length;
+    Logger.log('Cleanup: Deleted ' + deletedCount + ' rows with prefix "' + prefix + '" from "' + sheetName + '"');
+    
+    return {
+      success: true,
+      deletedCount: deletedCount,
+      sheetName: sheetName,
+      prefix: prefix
+    };
+  } catch (e) {
+    Logger.log('Cleanup error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}

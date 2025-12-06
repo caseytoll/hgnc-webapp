@@ -83,7 +83,7 @@ const puppeteer = require('puppeteer-core');
               console.log('✅ Add team modal visible');
               
               // Fill team name
-              const teamName = `Test_Team_${Date.now()}`;
+              const teamName = `TEST_CRUD_Team_${Date.now()}`;
               const inputFilled = await frame.evaluate((name) => {
                 const input = document.getElementById('add-team-name');
                 if (input) {
@@ -180,7 +180,7 @@ const puppeteer = require('puppeteer-core');
                 console.log('✅ Add player modal visible');
                 
                 // Fill form
-                const playerName = `Player_${Date.now() % 10000}`;
+                const playerName = `TEST_CRUD_Player_${Date.now() % 10000}`;
                 const formFilled = await frame.evaluate((name) => {
                   const nameInput = document.getElementById('add-player-name');
                   const jerseyInput = document.getElementById('add-player-jersey');
@@ -436,6 +436,59 @@ const puppeteer = require('puppeteer-core');
       console.log(`⚠️  Data persistence test failed: ${e.message}\n`);
     }
 
+    // ========== TEST DATA CLEANUP ==========
+    console.log('═'.repeat(40));
+    console.log('🧹 Cleaning up test data (TEST_CRUD_*)...');
+    console.log('═'.repeat(40));
+    try {
+      const frames = page.frames();
+      let cleanupSuccess = false;
+      
+      for (const frame of frames) {
+        try {
+          // Find and delete all TEST_CRUD_ teams
+          const deletedTeams = await frame.evaluate(() => {
+            const teamCards = Array.from(document.querySelectorAll('.team-card'));
+            const testTeams = teamCards.filter(card => 
+              card.textContent?.includes('TEST_CRUD_Team_')
+            );
+            
+            let deleted = 0;
+            testTeams.forEach(teamCard => {
+              try {
+                // Look for delete button
+                const deleteBtn = teamCard.querySelector('[class*="delete"], [class*="remove"], button');
+                if (deleteBtn && deleteBtn.textContent.includes('Delete')) {
+                  deleteBtn.click();
+                  deleted++;
+                }
+              } catch(e) { /* ignore */ }
+            });
+            
+            return deleted;
+          });
+          
+          if (deletedTeams > 0) {
+            console.log(`✅ Cleaned up ${deletedTeams} test team(s)`);
+            cleanupSuccess = true;
+            await new Promise(r => setTimeout(r, 500));
+          } else {
+            console.log('ℹ️  No test teams found to clean up');
+          }
+          break;
+        } catch (e) {
+          console.log(`⚠️  Cleanup failed: ${e.message}`);
+        }
+      }
+      
+      if (!cleanupSuccess) {
+        console.log('ℹ️  Server-side cleanup may be required (via cleanupTestData())');
+      }
+      console.log();
+    } catch (e) {
+      console.log(`⚠️  Cleanup test failed: ${e.message}\n`);
+    }
+
     // ========== SUMMARY ==========
     console.log('═'.repeat(40));
     console.log('✅ CRUD operations test completed!\n');
@@ -444,7 +497,8 @@ const puppeteer = require('puppeteer-core');
     console.log('- Add player operation tested');
     console.log('- Edit team operation tested');
     console.log('- Form validation checked');
-    console.log('- Data persistence verified\n');
+    console.log('- Data persistence verified');
+    console.log('- Test data cleanup attempted\n');
 
     await browser.close();
     process.exit(0);
