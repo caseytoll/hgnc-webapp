@@ -6,6 +6,7 @@ set -euo pipefail
 # Usage: ./scripts/efficient-deploy.sh "Description of changes" [--dry-run]
 
 DRY_RUN=0
+ENSURE_ANON=0
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 \"Description of changes\" [--dry-run]"
   exit 1
@@ -14,6 +15,9 @@ fi
 DESCRIPTION="$1"
 if [ "${2:-}" = "--dry-run" ]; then
   DRY_RUN=1
+fi
+if [ "${3:-}" = "--ensure-anonymous" ] || [ "${2:-}" = "--ensure-anonymous" ]; then
+  ENSURE_ANON=1
 fi
 
 DEPLOYMENT_ID="AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug"
@@ -136,7 +140,12 @@ fi
 echo "  Created version: $VERSION_NUMBER"
 
 echo "→ Deploying version $VERSION_NUMBER..."
-clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID"
+ACCESS_ARG=""
+if [ "$ENSURE_ANON" -eq 1 ]; then
+  ACCESS_ARG="--access ANYONE_ANONYMOUS"
+  echo "→ Ensuring deployment access is ANYONE_ANONYMOUS"
+fi
+clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID" $ACCESS_ARG
 
 # Restore .clasp.json
 mv "$BACKUP_CLASP" "$CLASP_FILE"

@@ -296,3 +296,9 @@ else
     echo -e "${RED}🚫 $ERRORS_FOUND critical issues found. Please fix before deploying.${NC}"
     exit 1
 fi
+
+# Additional check: ensure appsscript.json 'webapp.access' is set to ANYONE_ANONYMOUS (recommended for public exec URL)
+manifest_access=$(grep -o '"access":\s*"[A-Z_]*"' "$WORKSPACE_DIR/appsscript.json" | sed -E 's/.*"([A-Z_]+)".*/\1/' || true)
+if [ "$manifest_access" != "ANYONE_ANONYMOUS" ]; then
+    report_warning "appsscript.json webapp.access is set to '$manifest_access' (expected: ANYONE_ANONYMOUS). This can cause the exec URL to require Google sign-in after push/deploy. To make it anonymous set webapp.access to ANYONE_ANONYMOUS in appsscript.json or pass --access ANYONE_ANONYMOUS to deployment."
+fi
