@@ -123,7 +123,20 @@ function canonicalizeIconContent(rawContent, fallback) {
  * A helper function to include the content of other HTML files
  */
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  // Map old filenames to new organized structure
+  var pathMap = {
+    'styles': 'src/styles',
+    'js-startup': 'src/includes/js-startup',
+    'js-helpers': 'src/includes/js-helpers',
+    'js-navigation': 'src/includes/js-navigation',
+    'js-server-comms': 'src/includes/js-server-comms',
+    'js-core-logic': 'src/includes/js-core-logic',
+    'js-render': 'src/includes/js-render',
+    'js-validation': 'src/includes/js-validation'
+  };
+  
+  var filePath = pathMap[filename] || filename;
+  return HtmlService.createHtmlOutputFromFile(filePath).getContent();
 }
 
 /**
@@ -163,7 +176,7 @@ function getLogoDataUrl() {
  */
 function getTeamPerformanceIconDataUrl() {
   try {
-    var content = HtmlService.createHtmlOutputFromFile('team-performance-icon-code').getContent();
+    var content = HtmlService.createHtmlOutputFromFile('src/icons/team-performance-icon-code').getContent();
     var trimmed = content.trim();
     var fallback = CDN_BASE + 'team-performance-icon-source.jpeg';
     return canonicalizeIconContent(trimmed, fallback);
@@ -178,7 +191,7 @@ function getTeamPerformanceIconDataUrl() {
  */
 function getOffensiveLeadersIconDataUrl() {
   try {
-    var content = HtmlService.createHtmlOutputFromFile('offensive-leaders-icon-code').getContent();
+    var content = HtmlService.createHtmlOutputFromFile('src/icons/offensive-leaders-icon-code').getContent();
     var trimmed = content.trim();
     var fallback = CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
     return canonicalizeIconContent(trimmed, fallback);
@@ -193,7 +206,7 @@ function getOffensiveLeadersIconDataUrl() {
  */
 function getDefensiveWallIconDataUrl() {
   try {
-    var content = HtmlService.createHtmlOutputFromFile('defensive-wall-icon-code').getContent();
+    var content = HtmlService.createHtmlOutputFromFile('src/icons/defensive-wall-icon-code').getContent();
     var trimmed = content.trim();
     var fallback = CDN_BASE + 'Defensive-Wall-Icon.jpeg';
     return canonicalizeIconContent(trimmed, fallback);
@@ -208,7 +221,7 @@ function getDefensiveWallIconDataUrl() {
  */
 function getPlayerAnalysisIconDataUrl() {
   try {
-    var content = HtmlService.createHtmlOutputFromFile('player-analysis-icon-code').getContent();
+    var content = HtmlService.createHtmlOutputFromFile('src/icons/player-analysis-icon-code').getContent();
     var trimmed = content.trim();
     // Prefer CDN fallback if the server-stored asset is an inline SVG placeholder
     var fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];

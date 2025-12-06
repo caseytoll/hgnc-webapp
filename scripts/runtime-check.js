@@ -473,7 +473,7 @@ const puppeteer = require('puppeteer-core');
 
     // Capture screenshots for regression/visual diffing
     try {
-      const screenshotDir = process.env.SCREENSHOT_DIR || './runtime-check-screenshots';
+      const screenshotDir = process.env.SCREENSHOT_DIR || './tests/screenshots/runtime-check';
       const fs = require('fs');
       if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
       // Re-open or reuse page to take screenshots if needed

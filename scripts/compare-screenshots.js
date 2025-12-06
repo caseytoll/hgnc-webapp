@@ -6,13 +6,13 @@ const PNG = require('pngjs').PNG;
 const pixelmatch = require('pixelmatch');
 
 const baselineDir = path.join(__dirname, '..', 'tests', 'baseline-screenshots');
-const newDir = path.join(__dirname, '..', 'runtime-check-screenshots');
+const newDir = path.join(__dirname, '..', 'tests', 'screenshots', 'runtime-check');
 const outDir = path.join(__dirname, '..', 'runtime-check-diffs');
 let issues = 0;
 
 if (!fs.existsSync(baselineDir)) {
   console.log('No baseline screenshots found at', baselineDir);
-  console.log('Place baseline screenshots in tests/baseline-screenshots with the same filenames as runtime-check-screenshots');
+  console.log('Place baseline screenshots in tests/baseline-screenshots with the same filenames as tests/screenshots/runtime-check');
   process.exit(0);
 }
 
