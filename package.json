@@ -14,7 +14,7 @@
   "devDependencies": {
     "@google/clasp": "^2.4.2",
     "puppeteer-core": "^24.32.0",
-    "pixelmatch": "^5.4.0",
+    "pixelmatch": "^5.3.0",
     "pngjs": "^7.0.0"
   },
   "dependencies": {
