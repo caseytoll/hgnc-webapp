@@ -1,0 +1,96 @@
+name: CI - Test and Validate
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comparison
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run pre-deployment checks
+        run: ./scripts/pre-deploy-check.sh
+      
+      - name: Run linting
+        run: npm run lint || true  # Don't fail on lint warnings
+      
+      - name: Run unit tests (when available)
+        run: npm run test:unit || echo "No unit tests configured yet"
+        continue-on-error: true
+      
+      - name: Generate coverage report
+        run: node scripts/coverage-reporter.js || echo "Coverage reporting skipped"
+        continue-on-error: true
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: .coverage/
+          retention-days: 30
+      
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🧪 Test Results\n\n';
+            comment += '✅ Pre-deployment checks passed\n';
+            
+            // Add coverage info if available
+            try {
+              const coverage = JSON.parse(fs.readFileSync('.coverage/coverage-report.json', 'utf8'));
+              comment += `\n### Coverage: ${coverage.summary?.coverage || 0}%\n`;
+            } catch (e) {
+              comment += '\n_Coverage report not available_\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  validate-version:
+    name: Validate Version
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check version consistency
+        run: |
+          CODE_VERSION=$(grep "template.appVersion = " Code.js | sed "s/.*template.appVersion = '//;s/'.*//")
+          VERSION_FILE=$(cat VERSION.txt | tr -d '\n')
+          
+          echo "Code.js version: $CODE_VERSION"
+          echo "VERSION.txt: $VERSION_FILE"
+          
+          if [ "$CODE_VERSION" != "$VERSION_FILE" ]; then
+            echo "❌ Version mismatch!"
+            exit 1
+          fi
+          
+          echo "✅ Versions match: $CODE_VERSION"

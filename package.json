@@ -8,22 +8,28 @@
     "deploy:efficient": "bash -c './scripts/efficient-deploy.sh \"$@\"' --",
     "ensure-access": "node ./scripts/ensure-deploy-access.js",
     "test": "./scripts/pre-deploy-check.sh",
+    "test:unit": "node tests/unit/core-logic.test.js && node tests/unit/validation.test.js",
+    "test:unit:watch": "nodemon --watch tests/unit --exec 'npm run test:unit'",
     "test:smoke": "node ./scripts/runtime-check.js",
     "test:extended": "node ./scripts/extended-smoke-test.js",
     "test:integration": "node ./scripts/integration-test.js",
     "test:screenshot-compare": "node ./scripts/compare-screenshots.js",
+    "test:all": "npm run test:unit && npm run test && npm run test:integration",
+    "coverage": "node ./scripts/coverage-reporter.js",
     "lint": "./scripts/run_html_lint.sh",
     "lint:shell": "command -v shellcheck >/dev/null 2>&1 && shellcheck scripts/*.sh scripts/hooks/* || { echo 'shellcheck not installed; skipping'; exit 0; }"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",
-    "puppeteer-core": "^24.32.0",
+    "jsdom": "^23.2.0",
+    "nodemon": "^3.1.11",
     "pixelmatch": "^5.3.0",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.32.0"
   },
   "dependencies": {
-    "googleapis": "^118.0.0",
-    "axios": "^1.5.0"
+    "axios": "^1.5.0",
+    "googleapis": "^118.0.0"
   },
   "repository": {
     "type": "git",

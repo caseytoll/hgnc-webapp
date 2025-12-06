@@ -1,0 +1,88 @@
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches: [master, main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      description:
+        description: 'Deployment description'
+        required: true
+        default: 'Manual deployment'
+
+jobs:
+  deploy:
+    name: Deploy to Apps Script
+    runs-on: ubuntu-latest
+    # Only deploy on master/main branch or tags
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run pre-deployment checks
+        run: ./scripts/pre-deploy-check.sh
+      
+      - name: Authenticate with Google Apps Script
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+        run: |
+          mkdir -p ~/.config/@google
+          echo "$CLASP_CREDENTIALS" > ~/.clasprc.json
+      
+      - name: Configure deployment
+        env:
+          CLASP_CONFIG: ${{ secrets.CLASP_CONFIG }}
+        run: |
+          if [ -n "$CLASP_CONFIG" ]; then
+            echo "$CLASP_CONFIG" > .clasp.json
+          fi
+      
+      - name: Deploy to Apps Script
+        env:
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          # Extract version from VERSION.txt
+          VERSION=$(cat VERSION.txt | tr -d '\n')
+          
+          # Determine description
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DESCRIPTION="${{ github.event.inputs.description }}"
+          else
+            DESCRIPTION="v${VERSION}: Auto-deploy from ${GITHUB_SHA:0:7}"
+          fi
+          
+          # Run deployment
+          ./scripts/efficient-deploy.sh "$DESCRIPTION" --skip-smoke --allow-dirty
+      
+      - name: Create deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $(cat VERSION.txt)" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${GITHUB_SHA:0:7}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${GITHUB_REF#refs/heads/}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
