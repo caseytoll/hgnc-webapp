@@ -29,6 +29,9 @@
     "type": "git",
     "url": "git+https://github.com/caseytoll/hgnc-webapp.git"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "keywords": [
     "google-apps-script",
     "netball",

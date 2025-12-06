@@ -17,6 +17,35 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Function to check version sync between Code.js and VERSION.txt
+check_version_sync() {
+    local code_version
+    local version_file_version
+    
+    # Extract appVersion from Code.js (macOS-compatible)
+    code_version=$(grep "template.appVersion = " "$WORKSPACE_DIR/Code.js" | sed "s/.*template.appVersion = '//;s/'.*//")
+    
+    # Extract version from VERSION.txt
+    version_file_version=$(cat "$WORKSPACE_DIR/VERSION.txt" 2>/dev/null | tr -d '\n' || echo "")
+    
+    if [ -z "$code_version" ]; then
+        report_error "Could not find appVersion in Code.js"
+        return
+    fi
+    
+    if [ -z "$version_file_version" ]; then
+        report_error "VERSION.txt is empty or missing"
+        return
+    fi
+    
+    if [ "$code_version" != "$version_file_version" ]; then
+        report_error "VERSION MISMATCH: Code.js appVersion ($code_version) != VERSION.txt ($version_file_version)"
+        return
+    fi
+    
+    echo -e "${GREEN}✓ Version sync OK (both $code_version)${NC}"
+}
+
 # Flags
 AUTO_FIX_DOCS=false
 
@@ -31,6 +60,10 @@ done
 if [ "$AUTO_FIX_DOCS" = true ]; then
     echo "🛠️  Auto-fix enabled: documentation files will be moved into expected folders when possible"
 fi
+
+# Run version check
+check_version_sync
+echo ""
 
 # Function to report errors
 report_error() {
