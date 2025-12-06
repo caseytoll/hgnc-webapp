@@ -188,6 +188,20 @@
         }, 100); // Small delay to ensure DOM is ready
     });
 
+    // Global error handler to surface view-level errors in a non-fatal way
+    window.addEventListener('error', function(e) {
+        try {
+            console.error('Unhandled JS error:', e.message || e);
+            var banner = document.getElementById('insights-player-analysis-error-banner');
+            if (banner) {
+                banner.textContent = 'An unexpected error occurred while rendering this view. Check console for details.';
+                banner.classList.remove('hidden');
+            }
+        } catch (err) {
+            // ignore errors in the handler
+        }
+    });
+
     // Ensure insights dashboard cards have valid images (fallback to local assets when necessary)
     // CDN tag is set to @master by default but can be changed with scripts/pin-cdn.sh
     const CDN_TAG = '@b00670a';
@@ -206,7 +220,13 @@
                 const title = card.querySelector('.insights-menu-card-title')?.textContent?.trim() || '';
                 const computedBg = window.getComputedStyle(card).backgroundImage || '';
                 // If server injected a data attr, prefer it (handles CDN or data URI values)
-                const injected = card.getAttribute('data-pa-icon');
+                // Prefer any server-injected data-* attributes for an icon; check known possibilities
+                const attributeCandidates = ['data-pa-icon', 'data-team-icon', 'data-offensive-icon', 'data-defensive-icon'];
+                let injected = null;
+                for (let i = 0; i < attributeCandidates.length; i++) {
+                    const attr = attributeCandidates[i];
+                    if (card.hasAttribute(attr)) { injected = card.getAttribute(attr); break; }
+                }
                 if (injected && injected !== '#' && injected.length > 0) {
                     // injected may be a single url or comma-separated list of urls
                     const urlList = injected.split(',').map(u => u.trim());

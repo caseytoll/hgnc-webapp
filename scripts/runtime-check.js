@@ -2,7 +2,8 @@ const puppeteer = require('puppeteer-core');
 
 (async () => {
   try {
-    const APP_URL = process.env.APP_URL || 'https://script.google.com/macros/s/AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug/exec';
+      const APP_URL = process.env.APP_URL || process.env.APP_URL_PUBLIC || 'https://script.google.com/macros/s/AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug/exec';
+      console.log('Using APP_URL for runtime-check:', APP_URL);
     const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
     const browser = await puppeteer.launch({
@@ -58,6 +59,34 @@ const puppeteer = require('puppeteer-core');
 
     console.log('Computed background:', result.computedBg);
     console.log('Network requests for player-analysis assets:', requests);
+
+    // Click the Player Analysis card, show the view and validate the player analysis table renders
+    const playerCardHandle = await page.evaluateHandle(() => {
+      const cards = Array.from(document.querySelectorAll('.insights-menu-card'));
+      return cards.find(c => (c.querySelector('.insights-menu-card-title') || {}).textContent === 'Player Analysis') || null;
+    });
+    const playerCard = playerCardHandle && (await playerCardHandle.asElement());
+    if (playerCard) {
+      await playerCard.click();
+      await page.waitForTimeout(1000);
+      const playerResult = await page.evaluate(() => {
+        const view = document.getElementById('insights-player-analysis-view');
+        if (!view || view.classList.contains('hidden')) return {error: 'Player Analysis view not visible'};
+        // Check for a table or empty-state fallback content
+        const table = document.getElementById('insights-player-analysis-table');
+        const tableHtml = table ? table.innerHTML : '';
+        const hasTable = tableHtml.includes('<thead') || tableHtml.includes('<tbody');
+        const hasEmptyState = tableHtml.toLowerCase().includes('no player') || tableHtml.toLowerCase().includes('no stats');
+        return {visible: true, hasTable, hasEmptyState};
+      });
+      console.log('Player Analysis view check:', playerResult);
+      if (!playerResult.visible || (!playerResult.hasTable && !playerResult.hasEmptyState)) {
+        console.error('Player Analysis view appears blank or missing table content');
+        process.exit(4);
+      }
+    } else {
+      console.warn('Player Analysis menu card not found to click');
+    }
 
     // Click the Ladder tab and validate the ladder table rendered correctly
     const ladderBtn = await page.$('#show-netball-ladder-tab');

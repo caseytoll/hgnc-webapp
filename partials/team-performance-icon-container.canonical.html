@@ -1,0 +1,24 @@
+<!-- team-performance-icon-container.canonical.html - Single canonical partial -->
+<div class="insights-menu-card"
+     onclick="showView('insights-team-performance-view')"
+     tabindex="0"
+     role="button"
+     aria-label="View team performance dashboard"
+     data-team-icon="<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>">
+  <div class="insights-menu-card-icon" aria-hidden="true">
+    <!-- Client will set background-image at runtime from data-team-icon; <img> is a fallback only -->
+    <noscript>
+      <img class="insights-menu-card-image" src="/assets/team-performance-icon.png" alt="Team Performance" />
+    </noscript>
+  </div>
+  <div class="insights-menu-card-content">
+    <h3 class="insights-menu-card-title">Team Performance</h3>
+  </div>
+</div>
+
+<!--
+  Canonical partial — KEEP ONLY ONE BLOCK
+  Use this file as the canonical source for the team performance icon container
+  - It's intentionally small and has a noscript fallback to avoid large inlined assets
+  - Do not inline base64 > 100KB in local files; prefer CDN or small inline SVGs (< 1KB)
+-->

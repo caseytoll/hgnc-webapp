@@ -20,9 +20,11 @@ Then run tests and commit the changes.
 
 We include a lightweight GitHub Actions workflow that runs pre-deploy checks and,
 optionally, a runtime smoke test. The runtime smoke test requires the secret
-`DEPLOYMENT_URL` to be set in the repository's secrets.
+`DEPLOYMENT_URL` (for private Apps Script deployments) or a `DEPLOYMENT_PUBLIC_URL`/`DEPLOYMENT_URL` pointing to a
+publicly accessible deployment for authenticated-less smoke tests.
 
 ```
-# Example: set DEPLOYMENT_URL to the Apps Script published webapp URL
+Example: set DEPLOYMENT_URL to the Apps Script published webapp URL
+# or set DEPLOYMENT_PUBLIC_URL to a public URL that is accessible by CI
 ```
 

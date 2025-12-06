@@ -2,14 +2,23 @@
 set -euo pipefail
 
 # Deploy the current branch using efficient deploy and run a few runtime checks against the deployed URL
-# Usage: ./scripts/deploy_and_test.sh "Description"
+# Usage: ./scripts/deploy_and_test.sh "Description" [public-deployment-url]
+# Optionally set DEPLOYMENT_PUBLIC_URL env var or pass as second argument to run a public runtime smoke test
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 \"Description of changes\""
+  echo "Optional: set DEPLOYMENT_PUBLIC_URL env var or pass as second arg to run public runtime checks."
   exit 1
 fi
 
 DESCRIPTION="$1"
+# Optional public deployment URL for runtime smoke tests; can be passed as second arg or via DEPLOYMENT_PUBLIC_URL
+DEPLOYMENT_PUBLIC_URL=""
+if [ "$#" -ge 2 ]; then
+  DEPLOYMENT_PUBLIC_URL="$2"
+elif [ -n "${DEPLOYMENT_PUBLIC_URL:-}" ]; then
+  DEPLOYMENT_PUBLIC_URL="$DEPLOYMENT_PUBLIC_URL"
+fi
 DEPLOYMENT_ID="AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug"
 
 echo "→ Deploying: $DESCRIPTION"
@@ -38,5 +47,16 @@ else
 fi
 
 echo "→ Simple runtime checks complete. If you want a full runtime smoke test (Puppeteer+axe), run CI or see scripts/runtime-smoke-test.js"
+
+if [ -n "${DEPLOYMENT_PUBLIC_URL:-}" ]; then
+  echo "→ Running runtime-check.js against public URL: $DEPLOYMENT_PUBLIC_URL"
+  APP_URL_PUBLIC="$DEPLOYMENT_PUBLIC_URL" node ./scripts/runtime-check.js || {
+    echo "Runtime check failed against public URL: $DEPLOYMENT_PUBLIC_URL" >&2
+    exit 3
+  }
+  echo "→ runtime-check.js completed successfully against public URL"
+else
+  echo "→ No public runtime URL provided; runtime smoke-check skipped. You can set DEPLOYMENT_PUBLIC_URL to run it."
+fi
 
 exit 0

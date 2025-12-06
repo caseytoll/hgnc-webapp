@@ -9,14 +9,15 @@ This PR contains the following changes:
 - Add `scripts/efficient-deploy.sh` and `scripts/deploy_and_test.sh` to perform efficient `clasp` deployments and basic runtime verification
 - Add a CHANGELOG entry `v730` for these changes
 
-Note:
-- This PR applies CDN fallbacks using jsDelivr `@master`. For more cache stability and immutability, consider using a pinned tag or commit SHA instead of `@master`.
+- Note:
+- This PR applies CDN fallbacks using jsDelivr. Pre-deploy checks now error on `@master` CDN references and require a pinned tag/commit SHA to avoid deployment-time 404s.
 - To help pin CDN references, the repo includes `scripts/pin-cdn.sh` which replaces `@master` with the tag/commit you supply and updates files that reference the CDN. After running it, commit and push the updated references.
 - If you'd like me to merge this PR automatically once CI passes, reply here and I will proceed with merge + deploy.
 
 How to test locally
 - Run `npm run lint` and `npm run test` to run local checks
 - To deploy quickly: `CLASP_SCRIPT_ID=... ./scripts/efficient-deploy.sh "Deploy: fix insights icons"`
-- Basic post-deploy check: `CLASP_SCRIPT_ID=... ./scripts/deploy_and_test.sh "Verify: insights icons"`
+- Basic post-deploy check (private apps): `CLASP_SCRIPT_ID=... ./scripts/deploy_and_test.sh "Verify: insights icons"`
+- Basic post-deploy check (public site or CI-accessible): `CLASP_SCRIPT_ID=... ./scripts/deploy_and_test.sh "Verify: insights icons" "https://my-public-deploy-domain/"` or set `DEPLOYMENT_PUBLIC_URL` environment variable.
 
 If you want me to merge + deploy automatically after CI passes, please confirm and I’ll merge and deploy the PR.

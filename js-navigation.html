@@ -379,9 +379,9 @@
                             window.calculatedSeasonStats = JSON.parse(data.statsData);
                             statsCalculated = true;
                             
-                            // Update allTeamData with stats
-                            if (window.allTeamData && window.allTeamData[window.appState.currentTeam.teamID]) {
-                                window.allTeamData[window.allTeamData[window.appState.currentTeam.teamID].stats] = window.calculatedSeasonStats;
+                            // Update allTeamData with stats for the current team
+                            if (window.allTeamData && window.appState.currentTeam && window.appState.currentTeam.teamID && window.allTeamData[window.appState.currentTeam.teamID]) {
+                                window.allTeamData[window.appState.currentTeam.teamID].stats = window.calculatedSeasonStats;
                             }
                         } catch (e) {
                             console.error('Error parsing server stats:', e);
@@ -420,6 +420,10 @@
         } else if (viewId === 'insights-offensive-leaders-view') {
             document.getElementById('insights-offensive-leaders-view').classList.remove('hidden');
             renderInsightsOffensiveLeaders();
+        } else if (viewId === 'insights-player-analysis-view') {
+            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
+            // Ensure player analysis view renders its contents (handles empty states inside the renderer)
+            try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
         } else if (viewId === 'insights-defensive-wall-view') {
             document.getElementById('insights-defensive-wall-view').classList.remove('hidden');
             renderInsightsDefensiveWall();
