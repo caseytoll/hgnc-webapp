@@ -75,6 +75,13 @@ const puppeteer = require('puppeteer-core');
         }
         // Allow re-rendering and wiring in frames
         await page.waitForTimeout(800);
+        // Debug: report owner state in each frame
+        for (const f of page.frames()) {
+          try {
+            const ownerState = await f.evaluate(() => ({ _USER_EMAIL: window._USER_EMAIL || null, _OWNER_EMAIL: window._OWNER_EMAIL || null, isOwnerVal: (typeof isOwner === 'function' ? !!isOwner() : null), hasApplyOwnerUI: !!(typeof applyOwnerModeUI === 'function')}));
+            console.log('FRAME OWNER DEBUG:', f.url(), ownerState);
+          } catch (e) { /* ignore */ }
+        }
       } catch (e) { /* ignore */ }
     }
 
@@ -371,8 +378,8 @@ const puppeteer = require('puppeteer-core');
           await new Promise(r => setTimeout(r, 250));
           waited += 250;
         }
-        // Show players view
-        await playersCtx.evaluate(() => showView('players-view'));
+        // Show players view (safe guard: some frames don't export showView)
+        try { await playersCtx.evaluate(() => { try { if (typeof showView === 'function') showView('players-view'); } catch(e){} }); } catch (e) { /* ignore if frame doesn't have showView */ }
         await new Promise(r => setTimeout(r, 500));
         const addPlayerVisible = await playersCtx.evaluate(() => {
           const btn = document.getElementById('show-add-player-modal');
