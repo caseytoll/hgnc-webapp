@@ -3,6 +3,12 @@
 ## [Unreleased]
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
+## v767 — 2025-12-06
+- Fix: Owner-mode UI determinism: ensure add-player button visible for owners across view switches
+- Fix: Call applyOwnerModeUI after showing players-view and fixture-view to guarantee owner buttons appear
+- Add: Owner-mode runtime checks in CI workflow on PRs and pushes
+- Add: applyOwnerModeUI call in runtime-check.js owner-mode test for extra reliability
+
 ## v742 — 2025-12-06
 - Fix: Show team edit toggle for owners (Team edit button not visible in some cases)
 - Fix: Ladder view: auto-fetch data when cache empty to avoid blank screens
