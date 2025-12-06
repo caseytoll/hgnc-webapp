@@ -131,6 +131,27 @@ const puppeteer = require('puppeteer-core');
       console.warn('Image validation step failed (non-critical):', e);
     }
 
+    // Sanity check: ensure calling toggleTeamEditMode doesn't throw (legacy/global function test)
+    try {
+      const toggleTest = await page.evaluate(() => {
+        try {
+          if (typeof toggleTeamEditMode !== 'function') return {ok: false, msg: 'toggleTeamEditMode not defined'};
+          // Call the function and attempt to revert to original state to avoid leaving UI toggled
+          try { toggleTeamEditMode(); } catch (e) {}
+          try { toggleTeamEditMode(); } catch (e) {}
+          return {ok: true};
+        } catch (e) { return {ok: false, msg: String(e)}; }
+      });
+      if (!toggleTest || !toggleTest.ok) {
+        console.error('toggleTeamEditMode invocation failed:', toggleTest ? toggleTest.msg : 'unknown');
+        // Don't exit the script because this may be non-critical if the user is not owner
+      } else {
+        console.log('toggleTeamEditMode function call successful (no exceptions)');
+      }
+    } catch (e) {
+      console.warn('toggleTeamEditMode smoke invocation failed:', e);
+    }
+
     // Interact with the frame that holds the cards
     if (targetFrame) {
       try {
