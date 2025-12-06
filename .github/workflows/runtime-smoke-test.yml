@@ -3,6 +3,8 @@ name: Runtime Smoke Test (Production exec)
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
   schedule:
     - cron: '0 1 * * *' # Run daily at 01:00 UTC
@@ -51,6 +53,15 @@ jobs:
           # Puppeteer executable path
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
           APP_URL_PUBLIC: ${{ env.APP_URL_PUBLIC }}
+        run: |
+          node ./scripts/runtime-check.js
+
+      - name: Run runtime-check smoke test (owner mode)
+        env:
+          # Puppeteer executable path
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+          APP_URL_PUBLIC: ${{ env.APP_URL_PUBLIC }}
+          OWNER_EMAIL: caseytoll78@gmail.com
         run: |
           node ./scripts/runtime-check.js
 

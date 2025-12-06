@@ -318,9 +318,11 @@
         if (viewId === 'players-view') {
             document.getElementById('players-view').classList.remove('hidden');
             renderPlayerList();
+            try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
         } else if (viewId === 'fixture-view') {
             document.getElementById('fixture-view').classList.remove('hidden');
             renderGameList();
+            try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
         } else if (viewId === 'insights-view') {
             // Show the menu, hide any sub-views and dashboard
             var dashboard = document.querySelector('.insights-dashboard');

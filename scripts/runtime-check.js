@@ -380,6 +380,8 @@ const puppeteer = require('puppeteer-core');
         }
         // Show players view (safe guard: some frames don't export showView)
         try { await playersCtx.evaluate(() => { try { if (typeof showView === 'function') showView('players-view'); } catch(e){} }); } catch (e) { /* ignore if frame doesn't have showView */ }
+        // Ensure owner UI is applied after view switch
+        try { await playersCtx.evaluate(() => { try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e){} }); } catch (e) { /* ignore */ }
         await new Promise(r => setTimeout(r, 500));
         const addPlayerVisible = await playersCtx.evaluate(() => {
           const btn = document.getElementById('show-add-player-modal');
