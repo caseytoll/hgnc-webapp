@@ -7,6 +7,8 @@ set -euo pipefail
 
 DRY_RUN=0
 ENSURE_ANON=0
+# Run smoke test by default; use --skip-smoke to disable
+SMOKE_TEST=1
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 \"Description of changes\" [--dry-run]"
   exit 1
@@ -15,6 +17,9 @@ fi
 DESCRIPTION="$1"
 if [ "${2:-}" = "--dry-run" ]; then
   DRY_RUN=1
+fi
+if [ "${4:-}" = "--skip-smoke" ] || [ "${3:-}" = "--skip-smoke" ] || [ "${2:-}" = "--skip-smoke" ]; then
+  SMOKE_TEST=0
 fi
 if [ "${3:-}" = "--ensure-anonymous" ] || [ "${2:-}" = "--ensure-anonymous" ]; then
   ENSURE_ANON=1
@@ -155,6 +160,25 @@ clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID" $
 # Restore .clasp.json
 mv "$BACKUP_CLASP" "$CLASP_FILE"
 rm -f "$TMPFILE"
+
+if [ "$SMOKE_TEST" -eq 1 ]; then
+  echo "→ Running smoke test against production exec URL"
+  # Default APP_URL_PUBLIC, allow override via environment
+  export APP_URL_PUBLIC="${APP_URL_PUBLIC:-https://script.google.com/macros/s/$DEPLOYMENT_ID/exec}"
+  # If we have GCP_SA_KEY available, ensure deploy access (optional), else rely on REST API or OIDC workflows
+  npm ci --silent || true
+  if [ -n "${CLASP_SCRIPT_ID:-}" ] || [ -n "$DEPLOYMENT_ID" ]; then
+    echo "→ Ensuring deploy access via script (best-effort)"
+    node ./scripts/ensure-deploy-access.js || echo "ensure-deploy-access: returned non-zero (warning)"
+  fi
+  npm ci --silent || true
+  node ./scripts/runtime-check.js; SM_OK=$?
+  if [ "$SM_OK" -ne 0 ]; then
+    echo "⚠️ Smoke test failed (exit $SM_OK)"
+    exit $SM_OK
+  fi
+  echo "✅ Smoke test passed against: $APP_URL_PUBLIC"
+fi
 
 echo "✅ Efficient deployment complete: version $VERSION_NUMBER"
 popd >/dev/null
