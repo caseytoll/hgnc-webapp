@@ -1,5 +1,7 @@
 name: CI Smoke & Runtime Tests
 
+# Note: Set DEPLOYMENT_URL as a repository/organization variable to enable runtime smoke and integration jobs.
+
 on:
   push:
     branches: [ master ]
