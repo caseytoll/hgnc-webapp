@@ -184,6 +184,16 @@ if [ "$SMOKE_TEST" -eq 1 ]; then
     exit $SM_OK
   fi
   echo "✅ Smoke test passed against: $APP_URL_PUBLIC"
+  
+  # Run extended smoke test for comprehensive coverage
+  echo ""
+  echo "→ Running extended smoke test (navigation, performance, accessibility, etc.)"
+  node ./scripts/extended-smoke-test.js; ESM_OK=$?
+  if [ "$ESM_OK" -eq 0 ]; then
+    echo "✅ Extended smoke test passed"
+  else
+    echo "⚠️ Extended smoke test failed (non-critical)"
+  fi
 fi
 
 echo "✅ Efficient deployment complete: version $VERSION_NUMBER"

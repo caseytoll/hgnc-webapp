@@ -7,28 +7,81 @@ This guide explains the improved testing and deployment workflow that helps catc
 
 ### 1. Pre-Deployment Validation (`./scripts/pre-deploy-check.sh`)
 Runs static analysis checks on your code before deployment:
+- ✅ Git status checks (detects uncommitted changes)
 - ✅ File structure validation
 - ✅ Function definition checks
-- ✅ HTML element existence
-- ✅ Navigation handler validation
-- ✅ Development principles compliance
-- ✅ Changelog and version validation
-- ✅ Basic syntax checking
+- ✅ JavaScript include verification (all 7 modules)
+- ✅ Server-side function validation (7 critical functions)
+- ✅ HTML structure tag balance checking
+- ✅ Version consistency (Code.js vs CHANGELOG)
+- ✅ .claspignore configuration validation
+- ✅ package.json and dependencies verification
+- ✅ Syntax checking (brace matching across all JS files)
 
 **Usage:**
 ```bash
 ./scripts/pre-deploy-check.sh
 ```
 
-### 2. Comprehensive Testing & Deployment (`./scripts/test-and-deploy.sh`)
-Combines validation, code quality checks, and deployment in one workflow.
+### 2. Basic Smoke Test (`./scripts/runtime-check.js`)
+Automated testing that runs after deployment to verify:
+- ✅ All 4 insight cards render correctly
+- ✅ Team Performance view renders with data
+- ✅ Player Analysis asset loading
+- ✅ Ladder view renders with proper structure
+- ✅ Team edit UI visibility and modal behavior
+- ✅ Owner-mode functionality (if enabled)
+- ✅ Image/asset validation (no broken base64)
+- ✅ Critical DOM elements presence
+
+**Auto-runs during:** `./scripts/efficient-deploy.sh`
+
+**Manual usage:**
+```bash
+node ./scripts/runtime-check.js
+```
+
+### 3. Extended Smoke Test (`./scripts/extended-smoke-test.js`)
+Comprehensive testing covering:
+- **Navigation**: Tests hash-based view routing (Team List, Players, Games, Ladder)
+- **Dark Mode**: Checks CSS variables and dark mode toggle support
+- **Persistence**: Validates localStorage, sessionStorage, IndexedDB availability
+- **Forms**: Counts form fields and validation attributes
+- **Accessibility**: ARIA labels, headings, buttons, images with alt text
+- **Performance**: Measures page load time and DOM ready time
+- **Critical Functions**: Verifies 6 core functions are available
+- **Cache Busting**: Validates version consistency for cache invalidation
+- **Error Handling**: Checks for error containers and appState object
+
+**Auto-runs during:** `./scripts/efficient-deploy.sh` (after basic smoke test)
+
+**Manual usage:**
+```bash
+node ./scripts/extended-smoke-test.js
+```
+
+**Output example:**
+```
+📍 TEST 1: Navigation Between Views ✅/⚠️/ℹ️
+🌙 TEST 2: Dark Mode Support ✅/⚠️/ℹ️
+💾 TEST 3: Data Persistence ✅/⚠️/ℹ️
+📝 TEST 4: Form Elements ✅/⚠️/ℹ️
+♿ TEST 5: Accessibility Basics ✅/⚠️/ℹ️
+⚡ TEST 6: Performance Metrics ✅/⚠️/ℹ️
+🔧 TEST 7: Critical Functions ✅/⚠️/ℹ️
+🔄 TEST 8: Cache Busting ✅/⚠️/ℹ️
+⚠️  TEST 9: Error Handling ✅/⚠️/ℹ️
+```
+
+### 4. Comprehensive Testing & Deployment (`./scripts/test-and-deploy.sh`)
+Combines pre-deployment validation, code quality checks, and deployment in one workflow.
 
 **Usage:**
 ```bash
 ./scripts/test-and-deploy.sh "Description of your changes"
 ```
 
-### 3. Runtime Validation (Browser Console)
+### 5. Runtime Validation (Browser Console)
 When testing in the browser, use these console commands:
 
 ```javascript
