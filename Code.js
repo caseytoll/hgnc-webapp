@@ -105,6 +105,45 @@ var CDN_TAG = '@b00670a';
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
 
 /**
+ * Normalize icon content returned from partials so client receives a reliable value.
+ * - If the file contains a data:image* prefix, return it.
+ * - If it contains a bare base64 payload that looks like an SVG (PHN2Zy) or JPG (/9j/), prefix accordingly.
+ * - If the input contains a comma-separated list of urls, return as-is after trimming.
+ * - If absent or malformed, return CDN fallback value(s).
+ */
+function canonicalizeIconContent(rawContent, fallback) {
+  try {
+    var trimmed = (rawContent || '').toString().trim();
+    if (!trimmed) return fallback instanceof Array ? fallback.join(', ') : String(fallback);
+
+    // If comma-separated list, handle multi backgrounds
+    if (trimmed.indexOf(',') !== -1) {
+      var parts = trimmed.split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+      var out = parts.map(function(u) { return canonicalizeIconContent(u, null); }).filter(Boolean);
+      if (out.length > 0) return out.join(', ');
+    }
+
+    // Already a proper data:image URL
+    if (trimmed.indexOf('data:image') === 0) return trimmed;
+    // A full http/https or absolute path should be returned as-is
+    if (trimmed.indexOf('http') === 0 || trimmed.startsWith('/')) return trimmed;
+
+    // Bare base64 heuristics
+    if (/^\/9j\//.test(trimmed)) return 'data:image/jpeg;base64,' + trimmed;
+    if (/^PHN2Zy/i.test(trimmed)) return 'data:image/svg+xml;base64,' + trimmed;
+    if (/^[A-Za-z0-9\+/=\s]+$/.test(trimmed)) {
+      // fallback to svg
+      return 'data:image/svg+xml;base64,' + trimmed.replace(/\s+/g, '');
+    }
+
+    // If nothing matches return CDN fallback
+    return fallback instanceof Array ? fallback.join(', ') : String(fallback);
+  } catch (e) {
+    return fallback instanceof Array ? fallback.join(', ') : String(fallback);
+  }
+}
+
+/**
  * A helper function to include the content of other HTML files
  */
 function include(filename) {
@@ -150,11 +189,8 @@ function getTeamPerformanceIconDataUrl() {
   try {
     var content = HtmlService.createHtmlOutputFromFile('team-performance-icon-code').getContent();
     var trimmed = content.trim();
-    if (trimmed.indexOf('data:image') === 0) return trimmed;
-    var match = trimmed.match(/data:image[^\s]*/);
-    if (match) return match[0];
-  Logger.log('Team performance icon file content does not start with data:image. Using CDN fallback');
-  return CDN_BASE + 'team-performance-icon-source.jpeg';
+    var fallback = CDN_BASE + 'team-performance-icon-source.jpeg';
+    return canonicalizeIconContent(trimmed, fallback);
   } catch (e) {
   Logger.log('Team performance icon load error: ' + e.toString() + ' - using CDN fallback');
   return CDN_BASE + 'team-performance-icon-source.jpeg';
@@ -168,11 +204,8 @@ function getOffensiveLeadersIconDataUrl() {
   try {
     var content = HtmlService.createHtmlOutputFromFile('offensive-leaders-icon-code').getContent();
     var trimmed = content.trim();
-    if (trimmed.indexOf('data:image') === 0) return trimmed;
-    var match = trimmed.match(/data:image[^\s]*/);
-    if (match) return match[0];
-  Logger.log('Offensive leaders icon file content does not start with data:image. Using CDN fallback');
-  return CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
+    var fallback = CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
+    return canonicalizeIconContent(trimmed, fallback);
   } catch (e) {
   Logger.log('Offensive leaders icon load error: ' + e.toString() + ' - using CDN fallback');
   return CDN_BASE + 'Offensive-Leaders-Icon.jpeg';
@@ -186,11 +219,8 @@ function getDefensiveWallIconDataUrl() {
   try {
     var content = HtmlService.createHtmlOutputFromFile('defensive-wall-icon-code').getContent();
     var trimmed = content.trim();
-    if (trimmed.indexOf('data:image') === 0) return trimmed;
-    var match = trimmed.match(/data:image[^\s]*/);
-    if (match) return match[0];
-  Logger.log('Defensive wall icon file content does not start with data:image. Using CDN fallback');
-  return CDN_BASE + 'Defensive-Wall-Icon.jpeg';
+    var fallback = CDN_BASE + 'Defensive-Wall-Icon.jpeg';
+    return canonicalizeIconContent(trimmed, fallback);
   } catch (e) {
   Logger.log('Defensive wall icon load error: ' + e.toString() + ' - using CDN fallback');
   return CDN_BASE + 'Defensive-Wall-Icon.jpeg';
@@ -205,15 +235,8 @@ function getPlayerAnalysisIconDataUrl() {
     var content = HtmlService.createHtmlOutputFromFile('player-analysis-icon-code').getContent();
     var trimmed = content.trim();
     // Prefer CDN fallback if the server-stored asset is an inline SVG placeholder
-    if (trimmed.indexOf('data:image/svg') === 0) {
-      Logger.log('Player analysis icon file contains an inline SVG - using CDN fallback');
-      return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');
-    }
-    if (trimmed.indexOf('data:image') === 0) return trimmed;
-    var match = trimmed.match(/data:image[^\s]*/);
-    if (match) return match[0];
-  Logger.log('Player analysis icon file content does not start with data:image. Using CDN fallback (webp, png)');
-  return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');
+    var fallback = [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'];
+    return canonicalizeIconContent(trimmed, fallback);
   } catch (e) {
   Logger.log('Player analysis icon load error: ' + e.toString() + ' - using CDN fallback (webp, png)');
   return [CDN_BASE + 'player-analysis-icon.webp', CDN_BASE + 'player-analysis-icon-small.png'].join(', ');

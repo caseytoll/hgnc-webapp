@@ -166,6 +166,33 @@ const puppeteer = require('puppeteer-core');
         console.error('Insights image/background issues found:', JSON.stringify(imageIssues, null, 2));
         process.exit(6);
       }
+      // Ensure computed backgrounds contain either a CDN or a data:image (allow multiple backgrounds)
+      const bgValidationIssues = await imageCheckCtx.evaluate(() => {
+        const cards = Array.from(document.querySelectorAll('.insights-menu-card')) || [];
+        const issues = [];
+        cards.forEach(c => {
+          const computed = window.getComputedStyle(c).backgroundImage || '';
+          if (!computed || computed === 'none') return; // treated separately
+          // Extract all url(...) values
+          const urlPattern = /url\(['"]?([^'\)"]+)['"]?\)/g;
+          let m;
+          while ((m = urlPattern.exec(computed)) !== null) {
+            const v = (m[1] || '').trim();
+            if (!v) continue;
+            // Accept data: URIs, CDN (jsdelivr), http(s) or local /assets/ paths
+            if (v.indexOf('data:image') === 0) continue;
+            if (v.indexOf('https://cdn.jsdelivr.net') === 0) continue;
+            if (v.indexOf('http://') === 0 || v.indexOf('https://') === 0) continue;
+            if (v.indexOf('/') === 0) continue;
+            issues.push({card: c.querySelector('.insights-menu-card-title')?.textContent, value: v});
+          }
+        });
+        return issues;
+      });
+      if (bgValidationIssues && bgValidationIssues.length > 0) {
+        console.error('Background image validation failed for insights cards:', JSON.stringify(bgValidationIssues, null, 2));
+        process.exit(7);
+      }
     } catch (e) {
       console.warn('Image validation step failed (non-critical):', e);
     }

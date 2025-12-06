@@ -119,6 +119,28 @@ else
     report_success "No PHN2Zy tokens found in HTML files"
 fi
 
+echo "\n→ Checking icon partials for valid content (data: or CDN or local /assets/)"
+icon_files=$(git ls-files "*icon-code.html" "player-analysis-icon-code.html" || true)
+for f in $icon_files; do
+    if [ -f "$WORKSPACE_DIR/$f" ]; then
+        content=$(cat "$WORKSPACE_DIR/$f")
+        if echo "$content" | grep -q "data:image"; then
+            report_success "$f: has data:image"
+            continue
+        fi
+        if echo "$content" | grep -q "https://cdn.jsdelivr.net" || echo "$content" | grep -q "https://" || echo "$content" | grep -q "http://"; then
+            report_success "$f: uses CDN/HTTP URLs"
+            continue
+        fi
+        if echo "$content" | grep -q "'/assets/" || echo "$content" | grep -q '"/assets/' || echo "$content" | grep -q "/assets/"; then
+            report_success "$f: uses local /assets/ path"
+            continue
+        fi
+        # If it reaches here, fail validation
+        report_error "$f: icon partial does not contain valid data:image, CDN URL, or local /assets/ path. Content should be one of the above to ensure cross-client rendering."
+    fi
+done
+
 # Check for url\('PHN2Zy' occurrences which may indicate a missing data: prefix
 url_bare_refs=$(git grep -n "url('PHN2Zy\|url(\"PHN2Zy" -- '*.html' || true)
 if [ -n "$url_bare_refs" ]; then
