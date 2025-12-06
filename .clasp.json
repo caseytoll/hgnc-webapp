@@ -5,5 +5,23 @@
   "scriptExtensions": [".js", ".gs"],
   "htmlExtensions": [".html"],
   "jsonExtensions": [".json"],
-  "filePushOrder": []
+  "filePushOrder": [
+    "appsscript.json"
+    ,"Code.js"
+    ,"index.html"
+    ,"styles.html"
+    ,"js-helpers.html"
+    ,"js-navigation.html"
+    ,"js-render.html"
+    ,"js-startup.html"
+    ,"package.json"
+    ,"partials/team-performance-icon-clean.html"
+    ,"partials/team-performance-icon-container-clean.html"
+    ,"partials/team-performance-icon-container-ref.html"
+    ,"partials/team-performance-icon-container.canonical.html"
+    ,"partials/team-performance-icon-container.html"
+    ,"partials/team-performance-icon-ref.html"
+    ,"partials/team-performance-icon.html"
+    ,"player-analysis-icon-code.html"
+  ]
 }
