@@ -285,6 +285,35 @@
     .leaderboard-subbracket { display:block; font-size: 0.78em; color: var(--secondary-text); margin-top: 4px; }
     .leaderboard-rank { justify-self: start; font-weight: 700; color: var(--secondary-text); }
   </style>
+  
+  <!-- Service Worker Registration for Offline Support -->
+  <script>
+    // Register service worker for offline support and caching
+    if ('serviceWorker' in navigator && 'caches' in window) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(function(registration) {
+            console.log('[PWA] Service Worker registered successfully:', registration.scope);
+            
+            // Check for updates periodically (every 60 seconds)
+            setInterval(function() {
+              registration.update();
+            }, 60000);
+            
+            // Listen for updates
+            registration.addEventListener('updatefound', function() {
+              const newWorker = registration.installing;
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[PWA] New service worker available, refresh to update');
+              }
+            });
+          })
+          .catch(function(error) {
+            console.warn('[PWA] Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
 </head>
 <body class="preload">
   <!-- Skip to main content link for keyboard navigation -->
