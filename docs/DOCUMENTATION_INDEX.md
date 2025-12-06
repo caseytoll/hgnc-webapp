@@ -212,7 +212,7 @@ You can debug anything and know project history
 3. Pre-deploy: `./scripts/pre-deploy-check.sh`
 4. Deploy (canonical): `./scripts/efficient-deploy.sh "<description>"`
     - Runs runtime + extended smoke + full integration suite
-    - Deprecated/disabled: `quick-deploy.sh`, `test-and-deploy.sh`, `deploy_and_test.sh`, `release.sh`
+    - Removed legacy wrappers: `quick-deploy.sh`, `test-and-deploy.sh`, `deploy_and_test.sh`, `release.sh`
 
 ### "Something is broken"
 1. POST_MORTEM_2025_12_06.md - Debugging approach

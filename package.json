@@ -4,15 +4,16 @@
   "description": "Google Apps Script web application for netball team management",
   "main": "Code.js",
   "scripts": {
-    "deploy": "bash -c './scripts/efficient-deploy.sh "$@"' --",
-    "deploy:efficient": "bash -c './scripts/efficient-deploy.sh "$@"' --",
+    "deploy": "bash -c './scripts/efficient-deploy.sh \"$@\"' --",
+    "deploy:efficient": "bash -c './scripts/efficient-deploy.sh \"$@\"' --",
     "ensure-access": "node ./scripts/ensure-deploy-access.js",
     "test": "./scripts/pre-deploy-check.sh",
     "test:smoke": "node ./scripts/runtime-check.js",
     "test:extended": "node ./scripts/extended-smoke-test.js",
     "test:integration": "node ./scripts/integration-test.js",
     "test:screenshot-compare": "node ./scripts/compare-screenshots.js",
-    "lint": "./scripts/run_html_lint.sh"
+    "lint": "./scripts/run_html_lint.sh",
+    "lint:shell": "command -v shellcheck >/dev/null 2>&1 && shellcheck scripts/*.sh scripts/hooks/* || { echo 'shellcheck not installed; skipping'; exit 0; }"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",

@@ -17,10 +17,10 @@
 
 ## Utilities
 - Assets/CDN: `pin-cdn.sh`, `add-asset.sh`, `audit-icons.js`.
-- Lint/HTML: `run_html_lint.sh`, `quick_html_checks.sh`.
+- Lint/HTML: `run_html_lint.sh`, `quick_html_checks.sh`; shell lint: `npm run lint:shell` (uses shellcheck if available).
 - Deployment access helper: `ensure-deploy-access.js`.
 - Archive/cleanup: `zip-archives.sh`, `remove_lone_r.sh`, `fix-insights-cards.py`.
 - Screenshots: `compare-screenshots.js`.
 
-## Deprecated (disabled)
-- `deploy_and_test.sh`, `test-and-deploy.sh`, `quick-deploy.sh`, `release.sh` → use `efficient-deploy.sh` instead.
+## Removed legacy wrappers
+- `deploy_and_test.sh`, `test-and-deploy.sh`, `quick-deploy.sh`, `release.sh` → removed; use `efficient-deploy.sh` instead.

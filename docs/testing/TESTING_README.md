@@ -270,11 +270,11 @@ AppValidator.checkDataAvailability()
 - **Navigation**: View structures are correct
 - **Data**: Required data objects are available
 
-## Deprecated Scripts
-- `scripts/quick-deploy.sh` (disabled) → use `scripts/efficient-deploy.sh`
-- `scripts/test-and-deploy.sh` (disabled) → use `scripts/efficient-deploy.sh`
-- `scripts/deploy_and_test.sh` (disabled) → use `scripts/efficient-deploy.sh`
-- `scripts/release.sh` (disabled) → manage releases via `CHANGELOG.md` + git tags and deploy with `efficient-deploy.sh`
+## Removed Legacy Scripts
+- `scripts/quick-deploy.sh` (removed) → use `scripts/efficient-deploy.sh`
+- `scripts/test-and-deploy.sh` (removed) → use `scripts/efficient-deploy.sh`
+- `scripts/deploy_and_test.sh` (removed) → use `scripts/efficient-deploy.sh`
+- `scripts/release.sh` (removed) → manage releases via `CHANGELOG.md` + git tags and deploy with `efficient-deploy.sh`
 
 ## Common Issues Caught
 
