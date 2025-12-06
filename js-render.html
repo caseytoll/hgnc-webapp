@@ -114,6 +114,10 @@
         
         container.innerHTML = html.join('');
     }
+    // Expose legacy name `renderTeamList` for compatibility with older code that used it
+    try { window.renderTeamList = renderTeamSelector; } catch(e) { /* ignore in strict DOM contexts */ }
+    // Also expose the modern named function on window explicitly for debugging
+    try { window.renderTeamSelector = renderTeamSelector; } catch(e) {}
     
     const renderPlayerList = () => {
         const listEl = document.getElementById('player-list');

@@ -246,7 +246,13 @@
             editBtn.textContent = isTeamEditMode ? 'Done' : 'Edit';
             editBtn.classList.toggle('active', isTeamEditMode);
         }
-        renderTeamList();
+        // Call the current render method for the team selector. Older code used `renderTeamList`.
+        if (typeof renderTeamSelector === 'function') {
+            renderTeamSelector();
+        } else if (typeof renderTeamList === 'function') {
+            // Backwards compatibility: if renderTeamList exists legacy code will still work
+            renderTeamList();
+        }
     }
     
     // Share current game in game detail view
