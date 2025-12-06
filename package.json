@@ -6,6 +6,7 @@
   "scripts": {
     "deploy": "./scripts/quick-deploy.sh",
     "deploy:efficient": "./scripts/efficient-deploy.sh",
+    "ensure-access": "node ./scripts/ensure-deploy-access.js",
     "test": "./scripts/pre-deploy-check.sh",
     "lint": "./scripts/run_html_lint.sh"
   },

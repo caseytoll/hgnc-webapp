@@ -1,0 +1,40 @@
+name: Ensure Anonymous Apps Script Deploy Access
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  ensure-anonymous-access:
+    name: Ensure deployment access is anyone-anonymous
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Ensure deployment access is anonymous
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          node ./scripts/ensure-deploy-access.js
+
+      - name: Ship a smoke-test run
+        env:
+          APP_URL_PUBLIC: https://script.google.com/macros/s/${{ secrets.DEPLOYMENT_ID }}/exec
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+          node ./scripts/runtime-check.js
