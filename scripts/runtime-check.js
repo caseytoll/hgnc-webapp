@@ -24,6 +24,16 @@ const puppeteer = require('puppeteer-core');
       try { localStorage.setItem('testInsightsEnabled_v2', 'true'); } catch(e) { /* ignore */ }
     });
 
+    // Optionally override user/owner email for owner-mode tests (set OWNER_EMAIL env to enable)
+    const OWNER_EMAIL = process.env.OWNER_EMAIL || '';
+    if (OWNER_EMAIL) {
+      await page.evaluateOnNewDocument((owner) => {
+        try { window._USER_EMAIL = owner; } catch(e) {}
+        try { window._OWNER_EMAIL = owner; } catch(e) {}
+      }, OWNER_EMAIL);
+      console.log('Owner override will be set for owner-mode testing:', OWNER_EMAIL);
+    }
+
     // Collect network fetches
     const requests = [];
     page.on('requestfinished', async (req) => {
@@ -38,6 +48,32 @@ const puppeteer = require('puppeteer-core');
     });
 
     await page.goto(APP_URL, {waitUntil: 'networkidle2'});
+
+    // If OWNER_EMAIL is set, re-run owner UI setup and reveal owner-only elements (best-effort)
+    if (OWNER_EMAIL) {
+      try {
+        await page.evaluate((owner) => {
+          try { window._USER_EMAIL = owner; } catch(e) {}
+          try { window._OWNER_EMAIL = owner; } catch(e) {}
+          try { currentUserEmail = owner; } catch(e) {}
+          // Re-run ownership UI wiring similar to `js-startup` owner block
+          try {
+            var readOnlyBanner = document.getElementById('read-only-banner');
+            if (readOnlyBanner) readOnlyBanner.classList.add('hidden');
+            var addTeamButton = document.getElementById('show-add-team-modal');
+            if (addTeamButton) { addTeamButton.classList.remove('hidden'); addTeamButton.onclick = showAddTeamModal; }
+            var toggleEditButton = document.getElementById('toggle-edit-mode');
+            if (toggleEditButton) { toggleEditButton.classList.remove('hidden'); toggleEditButton.onclick = toggleTeamEditMode; toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit'; }
+            var addPlayerButton = document.getElementById('show-add-player-modal');
+            if (addPlayerButton) { addPlayerButton.classList.remove('hidden'); addPlayerButton.onclick = function() { showModal('add-player-modal'); }; }
+            var addGameButton = document.getElementById('show-add-game-modal');
+            if (addGameButton) { addGameButton.classList.remove('hidden'); addGameButton.onclick = showAddGameModal; }
+          } catch(e) { /* ignore UI wiring errors */ }
+        }, OWNER_EMAIL);
+        // Give the page a bit of time to re-render owner-only elements
+        await page.waitForTimeout(600);
+      } catch (e) { /* ignore */ }
+    }
 
     // Click the Insights tab to ensure cards are visible and rendered
     const insightsBtn = await page.$('#show-insights-tab');
