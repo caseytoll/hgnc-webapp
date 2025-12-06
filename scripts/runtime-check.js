@@ -133,23 +133,29 @@ const puppeteer = require('puppeteer-core');
 
     // Sanity check: ensure calling toggleTeamEditMode doesn't throw (legacy/global function test)
     try {
-      const toggleTest = await page.evaluate(() => {
+      // Try calling toggleTeamEditMode in each frame to handle Apps-Script-injected frames
+      let toggleTestOk = false;
+      const framesList = page.frames();
+      for (const f of framesList) {
         try {
-          if (typeof toggleTeamEditMode !== 'function') return {ok: false, msg: 'toggleTeamEditMode not defined'};
-          // Call the function and attempt to revert to original state to avoid leaving UI toggled
-          try { toggleTeamEditMode(); } catch (e) {}
-          try { toggleTeamEditMode(); } catch (e) {}
-          return {ok: true};
-        } catch (e) { return {ok: false, msg: String(e)}; }
-      });
-      if (!toggleTest || !toggleTest.ok) {
-        console.error('toggleTeamEditMode invocation failed:', toggleTest ? toggleTest.msg : 'unknown');
-        // Don't exit the script because this may be non-critical if the user is not owner
+          const res = await f.evaluate(() => {
+            try {
+              if (typeof toggleTeamEditMode !== 'function') return {ok: false, msg: 'not defined'};
+              try { toggleTeamEditMode(); } catch (e) {}
+              try { toggleTeamEditMode(); } catch (e) {}
+              return {ok: true};
+            } catch (e) { return {ok: false, msg: String(e)}; }
+          });
+          if (res && res.ok) { toggleTestOk = true; break; }
+        } catch (e) { /* ignore frame evaluation errors */ }
+      }
+      if (!toggleTestOk) {
+        console.warn('toggleTeamEditMode invocation not available in any frame; owner-specific behaviour may not be present for this anonymous test user');
       } else {
-        console.log('toggleTeamEditMode function call successful (no exceptions)');
+        console.log('toggleTeamEditMode invocation succeeded in a frame (no exceptions)');
       }
     } catch (e) {
-      console.warn('toggleTeamEditMode smoke invocation failed:', e);
+      console.warn('toggleTeamEditMode smoke invocation failed (unexpected error):', e);
     }
 
     // Interact with the frame that holds the cards
