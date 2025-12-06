@@ -87,7 +87,7 @@ fi
 # Check for large inline data:image URIs (warn if > 100k chars)
 echo "→ Checking for large inline data:image URIs in HTML files (>100k chars)..."
 LARGE_LIMIT=100000
-for f in $(git ls-files '*.html' || true); do
+for f in $(git ls-files '*.html' | grep -v '^archived_html_backups/' || true); do
     # Extract lines that contain data:image
     while IFS= read -r line; do
         # Get base64 length if data:image found
@@ -96,13 +96,18 @@ for f in $(git ls-files '*.html' || true); do
         if [ -n "$data" ]; then
             len=$(echo "$data" | awk '{print length($0)}')
             if [ "$len" -gt $LARGE_LIMIT ]; then
-                report_warning "Large inline data:image found ($len chars) in $f"
+                report_error "Large inline data:image found ($len chars) in $f"
             fi
         fi
     done < <(grep -n "data:image" "$f" || true)
 done
 
 report_success "Efficiency checks completed"
+
+# Detect any inline SVG placeholders for player-analysis icon
+if grep -q "data:image/svg+xml" player-analysis-icon-code.html 2>/dev/null; then
+    report_warning "player-analysis-icon-code.html contains inline SVG. Consider using CDN/WebP asset fallback instead of inline SVG placeholders."
+fi
 
 if grep -q "const renderNewInsightsDashboard" "$WORKSPACE_DIR/js-render.html"; then
     report_success "renderNewInsightsDashboard function defined"
@@ -270,7 +275,7 @@ echo "� CDN pinning check"
 # Warn if any jsDelivr references still use @master - recommend to pin to a tag or commit
 master_refs=$(git grep -n "cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master" | grep -v "scripts/pre-deploy-check.sh" || true)
 if [ -n "$master_refs" ]; then
-    report_warning "Found jsDelivr CDN references using @master; pin to a tag or commit for immutability:\n$master_refs"
+    report_error "Found jsDelivr CDN references using @master; pin to a tag or commit for immutability:\n$master_refs"
 else
     report_success "CDN references appear pinned (no @master references)"
 fi
@@ -280,6 +285,10 @@ echo "===================="
 if [ $ERRORS_FOUND -eq 0 ]; then
     echo -e "${GREEN}🎉 All critical checks passed! Ready for deployment.${NC}"
     echo ""
+    if [ $ERRORS_FOUND -gt 0 ]; then
+        report_error "Pre-deploy validation found errors. Check above messages and fix before deploying."
+        exit 1
+    fi
     echo "To deploy, run:"
     echo "  ./scripts/quick-deploy.sh \"Description of changes\""
     exit 0
