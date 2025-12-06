@@ -1,0 +1,223 @@
+{
+  "timestamp": "2025-12-06T20:57:01.423Z",
+  "version": "unknown",
+  "summary": {
+    "total_tests": 9,
+    "passed": 9,
+    "coverage_percentage": 100
+  },
+  "tests": [
+    {
+      "name": "CRUD Operations",
+      "file": "scripts/crud-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Form Validation",
+      "file": "scripts/form-validation-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Error Recovery",
+      "file": "scripts/error-recovery-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Performance Testing",
+      "file": "scripts/performance-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Keyboard Navigation",
+      "file": "scripts/keyboard-nav-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Mobile Responsiveness",
+      "file": "scripts/mobile-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Search & Filter",
+      "file": "scripts/search-filter-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Concurrent Operations",
+      "file": "scripts/concurrent-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    },
+    {
+      "name": "Permission Boundaries",
+      "file": "scripts/permissions-test.js",
+      "status": "available",
+      "timestamp": "2025-12-06T20:57:01.428Z"
+    }
+  ],
+  "coverage_areas": {
+    "User Interface": {
+      "coverage_percent": 75,
+      "areas": [
+        "Form rendering",
+        "Modal display",
+        "Button visibility",
+        "Layout responsiveness"
+      ],
+      "tested_by": [
+        "Form Validation",
+        "Mobile Responsiveness",
+        "Keyboard Navigation"
+      ]
+    },
+    "CRUD Operations": {
+      "coverage_percent": 25,
+      "areas": [
+        "Create teams",
+        "Create players",
+        "Edit records",
+        "Delete records"
+      ],
+      "tested_by": [
+        "CRUD Operations"
+      ]
+    },
+    "Data Management": {
+      "coverage_percent": 50,
+      "areas": [
+        "Data persistence",
+        "Data validation",
+        "Data isolation",
+        "Test cleanup"
+      ],
+      "tested_by": [
+        "CRUD Operations",
+        "Form Validation"
+      ]
+    },
+    "Error Handling": {
+      "coverage_percent": 25,
+      "areas": [
+        "Network errors",
+        "Invalid input",
+        "Missing data",
+        "Fallback displays"
+      ],
+      "tested_by": [
+        "Error Recovery"
+      ]
+    },
+    "Performance": {
+      "coverage_percent": 25,
+      "areas": [
+        "Load time",
+        "Render time",
+        "Memory usage",
+        "Large dataset handling"
+      ],
+      "tested_by": [
+        "Performance Testing"
+      ]
+    },
+    "Accessibility": {
+      "coverage_percent": 67,
+      "areas": [
+        "Keyboard navigation",
+        "Screen reader support",
+        "Mobile navigation"
+      ],
+      "tested_by": [
+        "Keyboard Navigation",
+        "Mobile Responsiveness"
+      ]
+    },
+    "Concurrency": {
+      "coverage_percent": 33,
+      "areas": [
+        "Race condition handling",
+        "Concurrent writes",
+        "Data consistency"
+      ],
+      "tested_by": [
+        "Concurrent Operations"
+      ]
+    },
+    "Security": {
+      "coverage_percent": 25,
+      "areas": [
+        "Access control",
+        "Permission boundaries",
+        "Owner-only features",
+        "Data access"
+      ],
+      "tested_by": [
+        "Permission Boundaries"
+      ]
+    },
+    "Search & Filtering": {
+      "coverage_percent": 33,
+      "areas": [
+        "Case-insensitive search",
+        "Filter application",
+        "Real-time filtering"
+      ],
+      "tested_by": [
+        "Search & Filter"
+      ]
+    }
+  },
+  "gaps": [
+    {
+      "area": "User Interface",
+      "missing_areas": [],
+      "coverage_percent": 75
+    },
+    {
+      "area": "CRUD Operations",
+      "missing_areas": [],
+      "coverage_percent": 25
+    },
+    {
+      "area": "Data Management",
+      "missing_areas": [],
+      "coverage_percent": 50
+    },
+    {
+      "area": "Error Handling",
+      "missing_areas": [],
+      "coverage_percent": 25
+    },
+    {
+      "area": "Performance",
+      "missing_areas": [],
+      "coverage_percent": 25
+    },
+    {
+      "area": "Accessibility",
+      "missing_areas": [],
+      "coverage_percent": 67
+    },
+    {
+      "area": "Concurrency",
+      "missing_areas": [],
+      "coverage_percent": 33
+    },
+    {
+      "area": "Security",
+      "missing_areas": [],
+      "coverage_percent": 25
+    },
+    {
+      "area": "Search & Filtering",
+      "missing_areas": [],
+      "coverage_percent": 33
+    }
+  ]
+}

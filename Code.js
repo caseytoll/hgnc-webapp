@@ -1117,7 +1117,12 @@ function cleanupTestData(prefix, sheetName) {
     }
     
     var deletedCount = rowsToDelete.length;
-    Logger.log('Cleanup: Deleted ' + deletedCount + ' rows with prefix "' + prefix + '" from "' + sheetName + '"');
+    logEvent('CLEANUP', {
+      action: 'delete_test_data',
+      prefix: prefix,
+      sheetName: sheetName,
+      deletedCount: deletedCount
+    });
     
     return {
       success: true,
@@ -1126,7 +1131,194 @@ function cleanupTestData(prefix, sheetName) {
       prefix: prefix
     };
   } catch (e) {
-    Logger.log('Cleanup error: ' + e.message);
+    logError('CLEANUP', e.message, {
+      prefix: prefix,
+      sheetName: sheetName
+    });
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Enhanced logging function for structured events
+ * Provides consistent, searchable logging across the application
+ * 
+ * @param {string} eventType - Type of event (e.g., 'DATA_OPERATION', 'ERROR', 'PERFORMANCE')
+ * @param {object} data - Event data/details
+ */
+function logEvent(eventType, data) {
+  try {
+    var timestamp = new Date().toISOString();
+    var userEmail = '';
+    try {
+      userEmail = Session.getActiveUser().getEmail();
+    } catch(e) {
+      userEmail = 'unknown';
+    }
+    
+    var logEntry = {
+      timestamp: timestamp,
+      level: 'INFO',
+      type: eventType,
+      user: userEmail,
+      data: data
+    };
+    
+    // Log to console with structured format
+    Logger.log('[' + eventType + '] ' + timestamp + ' | ' + JSON.stringify(data));
+    
+    // Optionally persist to Apps Script cache for recent activity tracking
+    try {
+      var cache = CacheService.getScriptCache();
+      if (cache) {
+        var recentLogs = cache.get('recent_logs');
+        var logs = recentLogs ? JSON.parse(recentLogs) : [];
+        logs.push(logEntry);
+        
+        // Keep only last 100 logs in cache (cache has size limits)
+        if (logs.length > 100) {
+          logs = logs.slice(-100);
+        }
+        
+        cache.put('recent_logs', JSON.stringify(logs), 21600); // 6 hour expiry
+      }
+    } catch(cacheError) {
+      // Cache not available in this context, continue with logging
+    }
+  } catch(e) {
+    Logger.log('Logging error: ' + e.message);
+  }
+}
+
+/**
+ * Enhanced error logging function
+ * Logs errors with full context for debugging
+ * 
+ * @param {string} context - Context where error occurred
+ * @param {string} message - Error message
+ * @param {object} details - Additional error details
+ */
+function logError(context, message, details) {
+  try {
+    var timestamp = new Date().toISOString();
+    var userEmail = '';
+    try {
+      userEmail = Session.getActiveUser().getEmail();
+    } catch(e) {
+      userEmail = 'unknown';
+    }
+    
+    var errorLog = {
+      timestamp: timestamp,
+      level: 'ERROR',
+      context: context,
+      message: message,
+      details: details || {},
+      user: userEmail
+    };
+    
+    // Log to console with error format
+    Logger.log('ERROR [' + context + '] ' + timestamp + ': ' + message);
+    if (details && Object.keys(details).length > 0) {
+      Logger.log('  Details: ' + JSON.stringify(details));
+    }
+    
+    // Store error in Apps Script cache for debugging
+    try {
+      var cache = CacheService.getScriptCache();
+      if (cache) {
+        var recentErrors = cache.get('recent_errors');
+        var errors = recentErrors ? JSON.parse(recentErrors) : [];
+        errors.push(errorLog);
+        
+        // Keep only last 50 errors
+        if (errors.length > 50) {
+          errors = errors.slice(-50);
+        }
+        
+        cache.put('recent_errors', JSON.stringify(errors), 86400); // 24 hour expiry
+      }
+    } catch(cacheError) {
+      // Cache not available
+    }
+  } catch(e) {
+    Logger.log('Error logging failed: ' + e.message);
+  }
+}
+
+/**
+ * Get recent application logs for debugging
+ * Owner-only function for monitoring application health
+ * 
+ * @returns {object} Recent logs and errors
+ */
+function getApplicationLogs() {
+  _requireOwnerOrThrow();
+  
+  try {
+    var cache = CacheService.getScriptCache();
+    var logs = [];
+    var errors = [];
+    
+    try {
+      var recentLogs = cache.get('recent_logs');
+      logs = recentLogs ? JSON.parse(recentLogs) : [];
+    } catch(e) {
+      // Ignore parse errors
+    }
+    
+    try {
+      var recentErrors = cache.get('recent_errors');
+      errors = recentErrors ? JSON.parse(recentErrors) : [];
+    } catch(e) {
+      // Ignore parse errors
+    }
+    
+    return {
+      success: true,
+      timestamp: new Date().toISOString(),
+      logs: logs,
+      errors: errors,
+      logCount: logs.length,
+      errorCount: errors.length
+    };
+  } catch(e) {
+    logError('GET_LOGS', e.message, {});
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Clear application logs
+ * Owner-only function to manage log storage
+ * 
+ * @param {string} type - Type of logs to clear ('all', 'logs', 'errors')
+ * @returns {object} Result of clear operation
+ */
+function clearApplicationLogs(type) {
+  _requireOwnerOrThrow();
+  
+  try {
+    type = type || 'all';
+    var cache = CacheService.getScriptCache();
+    
+    if (type === 'all' || type === 'logs') {
+      cache.remove('recent_logs');
+      logEvent('LOGS_CLEARED', { type: 'logs' });
+    }
+    
+    if (type === 'all' || type === 'errors') {
+      cache.remove('recent_errors');
+      logEvent('ERRORS_CLEARED', { type: 'errors' });
+    }
+    
+    return {
+      success: true,
+      message: 'Cleared ' + type + ' logs',
+      timestamp: new Date().toISOString()
+    };
+  } catch(e) {
+    logError('CLEAR_LOGS', e.message, { type: type });
     return { success: false, error: e.message };
   }
 }
