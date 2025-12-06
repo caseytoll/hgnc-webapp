@@ -167,11 +167,11 @@ npm run test:screenshot-compare
 ## 📚 Documentation
 
 - [CHANGELOG.md](docs/CHANGELOG.md) - Version history and release notes
-- [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
-- [DEVELOPMENT-PRINCIPLES.md](docs/DEVELOPMENT-PRINCIPLES.md) - Development philosophy
-- [ICON_IMAGES_STANDARDIZATION.md](docs/ICON_IMAGES_STANDARDIZATION.md) - Icon implementation details
-- [TESTING_README.md](docs/TESTING_README.md) - Testing guidelines
-- [CI_DEPLOY.md](docs/CI_DEPLOY.md) - CI/CD documentation
+- [CONTRIBUTING.md](docs/getting-started/CONTRIBUTING.md) - Contribution guidelines
+- [DEVELOPMENT-PRINCIPLES.md](docs/getting-started/DEVELOPMENT-PRINCIPLES.md) - Development philosophy
+- [ICON_IMAGES_STANDARDIZATION.md](docs/standards/ICON_IMAGES_STANDARDIZATION.md) - Icon implementation details
+- [TESTING_README.md](docs/testing/TESTING_README.md) - Testing guidelines
+- [CI_DEPLOY.md](docs/deployment/CI_DEPLOY.md) - CI/CD documentation
 
 ## 🔐 Security
 
@@ -186,5 +186,5 @@ Copyright © 2025 HGNC WebApp Contributors
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines on how to contribute to this project.
+See [CONTRIBUTING.md](docs/getting-started/CONTRIBUTING.md) for guidelines on how to contribute to this project.
 

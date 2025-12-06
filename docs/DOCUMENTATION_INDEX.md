@@ -5,6 +5,15 @@
 
 ## 📚 Documentation Files Created Today
 
+## 📂 Folder Layout (Updated)
+- `getting-started/`: QUICK_REFERENCE.md, DEVELOPMENT-PRINCIPLES.md, CONTRIBUTING.md
+- `testing/`: TESTING_README.md, SPECIALIZED_TESTING.md, SMOKE_TEST_COVERAGE.md, SMOKE_TEST_RESULTS.md, TEST_SUITE_COMPLETION.md, IMPLEMENTATION_CHECKLIST.md
+- `deployment/`: CI_DEPLOY.md, DEPLOYMENT_READY.md, DEPLOYMENT_COMPLETE.md, RELEASE_NOTES_v243.md
+- `operations/`: ARCHIVE_POLICY.md, CODE_CLEANUP_2025_12_07.md, DEBUGGING_STRATEGY.md, FEATURE_BUG_STATUS.md, PROJECT_STATUS_SUMMARY.md, PR_FIX_INSIGHTS.md, VISUAL_PROJECT_OVERVIEW.md
+- `postmortems/`: POST_MORTEM_2025_12_06.md, REVIEW_SUMMARY.md, SESSION_SUMMARY.md, FINAL_IMPLEMENTATION_REPORT.md
+- `standards/`: ICON_IMAGES_STANDARDIZATION.md
+- Root: CHANGELOG.md, DOCUMENTATION_INDEX.md
+
 This comprehensive review has created 4 new summary documents to help you understand the project:
 
 ### 1. **QUICK_REFERENCE.md** ⭐ START HERE
@@ -304,14 +313,14 @@ You can debug anything and know project history
 
 | Document | Purpose | Length |
 |----------|---------|--------|
-| QUICK_REFERENCE.md | TL;DR version | 250 lines |
-| PROJECT_STATUS_SUMMARY.md | Complete status | 650 lines |
-| FEATURE_BUG_STATUS.md | Feature list | 400 lines |
-| VISUAL_PROJECT_OVERVIEW.md | Metrics & analysis | 500 lines |
-| DEVELOPMENT-PRINCIPLES.md | Non-negotiables | 472 lines |
+| getting-started/QUICK_REFERENCE.md | TL;DR version | 250 lines |
+| operations/PROJECT_STATUS_SUMMARY.md | Complete status | 650 lines |
+| operations/FEATURE_BUG_STATUS.md | Feature list | 400 lines |
+| operations/VISUAL_PROJECT_OVERVIEW.md | Metrics & analysis | 500 lines |
+| getting-started/DEVELOPMENT-PRINCIPLES.md | Non-negotiables | 472 lines |
 | CHANGELOG.md | Version history | 1,685 lines |
-| POST_MORTEM_2025_12_06.md | Bug investigation | 339 lines |
-| README.md | Project intro | 191 lines |
+| postmortems/POST_MORTEM_2025_12_06.md | Bug investigation | 339 lines |
+| ../README.md | Project intro | 191 lines |
 
 ---
 

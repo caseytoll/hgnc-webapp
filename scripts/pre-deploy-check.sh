@@ -17,6 +17,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Flags
+AUTO_FIX_DOCS=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --fix-docs)
+            AUTO_FIX_DOCS=true
+            ;;
+    esac
+done
+
+if [ "$AUTO_FIX_DOCS" = true ]; then
+    echo "🛠️  Auto-fix enabled: documentation files will be moved into expected folders when possible"
+fi
+
 # Function to report errors
 report_error() {
     echo -e "${RED}❌ ERROR: $1${NC}"
@@ -507,14 +522,97 @@ fi
 
 echo ""
 echo "📁 Documentation Organization Check"
+
+# Map documentation file names to their expected subfolders under docs/
+doc_target_dir() {
+    case "$1" in
+        QUICK_REFERENCE.md|DEVELOPMENT-PRINCIPLES.md|CONTRIBUTING.md)
+            echo "getting-started" ;;
+        TESTING_README.md|SPECIALIZED_TESTING.md|SMOKE_TEST_COVERAGE.md|SMOKE_TEST_RESULTS.md|TEST_SUITE_COMPLETION.md|IMPLEMENTATION_CHECKLIST.md)
+            echo "testing" ;;
+        CI_DEPLOY.md|DEPLOYMENT_READY.md|DEPLOYMENT_COMPLETE.md|RELEASE_NOTES_v243.md)
+            echo "deployment" ;;
+        ARCHIVE_POLICY.md|CODE_CLEANUP_2025_12_07.md|DEBUGGING_STRATEGY.md|FEATURE_BUG_STATUS.md|PROJECT_STATUS_SUMMARY.md|PR_FIX_INSIGHTS.md|VISUAL_PROJECT_OVERVIEW.md)
+            echo "operations" ;;
+        POST_MORTEM_2025_12_06.md|REVIEW_SUMMARY.md|SESSION_SUMMARY.md|FINAL_IMPLEMENTATION_REPORT.md)
+            echo "postmortems" ;;
+        ICON_IMAGES_STANDARDIZATION.md)
+            echo "standards" ;;
+        CHANGELOG.md|DOCUMENTATION_INDEX.md)
+            echo "ROOT" ;;
+        *)
+            echo "" ;;
+    esac
+}
+
+move_doc_file() {
+    local src_file="$1"
+    local filename="$2"
+    local target_dir="$3"
+    mkdir -p "$WORKSPACE_DIR/docs/$target_dir"
+    mv "$src_file" "$WORKSPACE_DIR/docs/$target_dir/$filename"
+    report_success "Moved $filename -> docs/$target_dir/ (auto-fix)"
+}
+
 # Check that documentation files are in docs/ folder, not root
 root_doc_files=$(ls -1 "$WORKSPACE_DIR"/*.md 2>/dev/null | grep -vE "^.*README\.md$" || true)
 if [ -n "$root_doc_files" ]; then
-    report_error "Found documentation files in root directory (should be in docs/):"
-    echo "$root_doc_files" | sed 's/^/  ❌ /'
-    echo "  Move to docs/ using: mv *.md docs/ (except README.md)"
+    echo "$root_doc_files" | while read -r docfile; do
+        [ -z "$docfile" ] && continue
+        filename=$(basename "$docfile")
+        target_dir=$(doc_target_dir "$filename")
+        if [ "$AUTO_FIX_DOCS" = true ] && [ -n "$target_dir" ] && [ "$target_dir" != "ROOT" ]; then
+            move_doc_file "$docfile" "$filename" "$target_dir"
+        else
+            report_error "Found documentation file in root: $filename (should be under docs/)"
+        fi
+    done
 else
     report_success "All documentation files properly organized in docs/ folder"
+fi
+
+echo ""
+echo "📑 Documentation Index Consistency"
+# Ensure only allowed markdown files live at docs/ root
+allowed_root_docs=("CHANGELOG.md" "DOCUMENTATION_INDEX.md")
+root_docs=$(find "$WORKSPACE_DIR/docs" -maxdepth 1 -type f -name "*.md" -printf "%f\n" 2>/dev/null)
+for doc in $root_docs; do
+    if [[ ! " ${allowed_root_docs[*]} " =~ " $doc " ]]; then
+        target_dir=$(doc_target_dir "$doc")
+        if [ "$AUTO_FIX_DOCS" = true ] && [ -n "$target_dir" ] && [ "$target_dir" != "ROOT" ]; then
+            move_doc_file "$WORKSPACE_DIR/docs/$doc" "$doc" "$target_dir"
+        else
+            report_error "Unexpected doc at docs/ root: $doc (move into a category subfolder)"
+        fi
+    fi
+done
+
+# Required documentation subfolders that should exist
+required_doc_dirs=("getting-started" "testing" "deployment" "operations" "postmortems" "standards")
+for dir in "${required_doc_dirs[@]}"; do
+    if [ -d "$WORKSPACE_DIR/docs/$dir" ]; then
+        report_success "docs/$dir present"
+    else
+        report_error "Missing docs/$dir directory (create or adjust DOCUMENTATION_INDEX.md layout)"
+    fi
+done
+
+# Verify DOCUMENTATION_INDEX.md references the doc subfolders (helps keep index aligned)
+index_file="$WORKSPACE_DIR/docs/DOCUMENTATION_INDEX.md"
+if [ -f "$index_file" ]; then
+    missing_refs=()
+    for dir in "${required_doc_dirs[@]}"; do
+        if ! grep -q "${dir}/" "$index_file"; then
+            missing_refs+=("$dir/")
+        fi
+    done
+    if [ ${#missing_refs[@]} -gt 0 ]; then
+        report_warning "DOCUMENTATION_INDEX.md missing references to: ${missing_refs[*]} (update folder layout section)"
+    else
+        report_success "DOCUMENTATION_INDEX.md references all expected doc subfolders"
+    fi
+else
+    report_error "docs/DOCUMENTATION_INDEX.md not found"
 fi
 
 echo ""
