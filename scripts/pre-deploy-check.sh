@@ -506,6 +506,18 @@ else
 fi
 
 echo ""
+echo "📁 Documentation Organization Check"
+# Check that documentation files are in docs/ folder, not root
+root_doc_files=$(ls -1 "$WORKSPACE_DIR"/*.md 2>/dev/null | grep -vE "^.*README\.md$" || true)
+if [ -n "$root_doc_files" ]; then
+    report_error "Found documentation files in root directory (should be in docs/):"
+    echo "$root_doc_files" | sed 's/^/  ❌ /'
+    echo "  Move to docs/ using: mv *.md docs/ (except README.md)"
+else
+    report_success "All documentation files properly organized in docs/ folder"
+fi
+
+echo ""
 echo "📊 Final Validation Summary"
 echo "============================"
 
