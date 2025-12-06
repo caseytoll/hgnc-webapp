@@ -56,6 +56,7 @@ const puppeteer = require('puppeteer-core');
           try { window._USER_EMAIL = owner; } catch(e) {}
           try { window._OWNER_EMAIL = owner; } catch(e) {}
           try { currentUserEmail = owner; } catch(e) {}
+          try { ownerEmail = owner; } catch(e) {}
           // Re-run ownership UI wiring similar to `js-startup` owner block
           try {
             var readOnlyBanner = document.getElementById('read-only-banner');
@@ -326,10 +327,18 @@ const puppeteer = require('puppeteer-core');
           const firstTeam = document.querySelector('.team-card');
           if (firstTeam) firstTeam.click();
         });
-        await page.waitForTimeout(500);
+        // Wait until players list is populated or timeout (3s)
+        let waited = 0;
+        const maxWait = 3000;
+        while (waited < maxWait) {
+          const count = await playersCtx.evaluate(() => (document.querySelectorAll('#player-list .list-item').length || 0));
+          if (count > 0) break;
+          await new Promise(r => setTimeout(r, 250));
+          waited += 250;
+        }
         // Show players view
         await playersCtx.evaluate(() => showView('players-view'));
-        await page.waitForTimeout(500);
+        await new Promise(r => setTimeout(r, 500));
         const addPlayerVisible = await playersCtx.evaluate(() => {
           const btn = document.getElementById('show-add-player-modal');
           if (!btn) return {exists: false};

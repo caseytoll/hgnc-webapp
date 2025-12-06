@@ -142,6 +142,17 @@
             );
         }
         listEl.innerHTML = html.join('');
+        // Ensure add-player button is visible for owners when player list is rendered
+        try {
+            const addPlayerBtn = document.getElementById('show-add-player-modal');
+            if (addPlayerBtn) {
+                if (isOwner()) {
+                    addPlayerBtn.classList.remove('hidden');
+                } else {
+                    addPlayerBtn.classList.add('hidden');
+                }
+            }
+        } catch (e) { /* ignore UI errors */ }
     }
 
     const renderGameList = () => {
