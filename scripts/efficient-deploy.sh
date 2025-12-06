@@ -61,9 +61,9 @@ CHANGED=$(git diff --name-only origin/master...HEAD || true)
 for f in $CHANGED; do
   # Include only files that should be pushed to Apps Script
   case "$f" in
-    *.html|*.js|appsscript.json|*.json)
+    *.html|*.js|appsscript.json)
       # Exclude test files, scripts, config files, and non-Apps Script directories
-      if [[ "$f" =~ ^scripts/ || "$f" =~ ^tests/ || "$f" =~ ^assets/ || "$f" =~ ^docs/ || "$f" =~ ^infra/ || "$f" =~ ^\. || "$f" =~ ^\.coverage/ || "$f" == "package.json" || "$f" == "manifest.json" ]]; then
+      if [[ "$f" =~ ^scripts/ || "$f" =~ ^tests/ || "$f" =~ ^assets/ || "$f" =~ ^docs/ || "$f" =~ ^infra/ || "$f" =~ ^\. ]]; then
         continue
       fi
       INCLUDE_FILES+=("$f")
