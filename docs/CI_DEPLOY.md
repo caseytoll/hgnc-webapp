@@ -63,6 +63,29 @@ If possible, prefer GitHub OIDC (Workload Identity Federation) rather than stori
 - Creating a provider binding GitHub repo to a GCP service account
 - Granting the service account minimal privileges and using short-lived tokens
 
+### Terraform example for Workload Identity Federation
+The repository includes `infra/workload-identity.tf` which creates the workload identity pool + provider and a service account.
+You should configure the provider with your `project_id`, `sa_id` and `github_repo` (the repo in the form `owner/repo`). Example:
+
+```hcl
+variable "project_id" { default = "my-gcp-project" }
+variable "sa_id" { default = "hgnc-ci-deployer" }
+variable "github_repo" { default = "caseytoll/hgnc-webapp" }
+```
+
+Apply the Terraform, then copy the `workload_identity_provider` output and the `service_account_email` output to your repository secrets:
+
+- `GCP_WIF_PROVIDER` => the full provider resource name
+- `GCP_SA_EMAIL` => the service account email (used by the OIDC auth action to impersonate SA)
+
+### GitHub Actions OIDC auth example
+The repo contains a workflow `.github/workflows/ensure-anon-access-oidc.yml` that:
+- Uses `google-github-actions/auth@v1` to authenticate using the `GCP_WIF_PROVIDER` and `GCP_SA_EMAIL` secrets
+- Calls `gcloud auth print-access-token` to get a short-lived access token
+- Runs `node ./scripts/ensure-deploy-access.js` with the token set in `GCP_OIDC_TOKEN` to patch the deployment
+
+Remember that Workload Identity Federation eliminates the need to store a long-lived SA key in GitHub secrets and is generally better for security.
+
 Examples and a Terraform integration are beyond this doc; if you prefer this option, say the word and I’ll add a Terraform module and GitHub Action snippet to use OIDC instead of JSON keys.
 
 
