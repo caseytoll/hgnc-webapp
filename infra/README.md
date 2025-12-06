@@ -39,3 +39,8 @@ CI notes
 Security
 - If you must create a service account key (`create_key = true`), store it securely and rotate regularly.
 - For production, prefer OIDC (no long-lived keys) and minimal roles for the service account.
+ - Recommended minimal roles & permissions (least privilege):
+	 - `roles/iam.serviceAccountTokenCreator` (for impersonation/OIDC scenarios)
+	 - `roles/iam.serviceAccountUser` (optional if the CI needs to act as SA)
+	 - Permissions to call Apps Script REST API endpoints used by the CI: `script.projects.get`, `script.projects.deployments.update`, `script.projects.versions.create`.
+		 - If you can't grant granular permissions, `roles/script.admin` (or the equivalent managed role that includes these permissions) is acceptable as a temporary step.

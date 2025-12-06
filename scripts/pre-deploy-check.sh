@@ -104,6 +104,29 @@ done
 
 report_success "Efficiency checks completed"
 
+# Check for bare base64-encoded SVG tokens used as paths (commonly 'PHN2Zy' sequences)
+echo "→ Checking for bare base64 SVG tokens without data: prefix..."
+bare_svg_refs=$(git grep -n "PHN2Zy" -- '*.html' || true)
+if [ -n "$bare_svg_refs" ]; then
+    # Filter out cases where PHN2Zy is inside a proper data: url
+    invalid_refs=$(echo "$bare_svg_refs" | grep -v "data:image" || true)
+    if [ -n "$invalid_refs" ]; then
+        report_error "Found bare base64 SVG tokens (e.g. PHN2Zy) that are not using a 'data:' prefix (these are interpreted as paths and will 404 or fail to decode):\n$invalid_refs"
+    else
+        report_success "All PHN2Zy tokens are properly prefixed with data:image"
+    fi
+else
+    report_success "No PHN2Zy tokens found in HTML files"
+fi
+
+# Check for url\('PHN2Zy' occurrences which may indicate a missing data: prefix
+url_bare_refs=$(git grep -n "url('PHN2Zy\|url(\"PHN2Zy" -- '*.html' || true)
+if [ -n "$url_bare_refs" ]; then
+    report_error "Found url('PHN2Zy...') patterns — this indicates a raw base64 string used as a CSS url without data: prefix. Fix by prefixing with data:image/svg+xml;base64,.\n$url_bare_refs"
+else
+    report_success "No bare url('PHN2Zy') patterns found"
+fi
+
 # Detect any inline SVG placeholders for player-analysis icon
 if grep -q "data:image/svg+xml" player-analysis-icon-code.html 2>/dev/null; then
     report_warning "player-analysis-icon-code.html contains inline SVG. Consider using CDN/WebP asset fallback instead of inline SVG placeholders."

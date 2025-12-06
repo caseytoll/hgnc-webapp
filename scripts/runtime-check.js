@@ -99,6 +99,38 @@ const puppeteer = require('puppeteer-core');
     console.log('Card samples (first 5):\n', (result.samples || []).join('\n---\n'));
     console.log('Network requests for player-analysis assets:', requests);
 
+    // Validate that images/backgrounds for insights menu cards are valid (no bare base64 tokens)
+    try {
+      const imageCheckCtx = targetFrame || page;
+      const imageIssues = await imageCheckCtx.evaluate(() => {
+        const cards = Array.from(document.querySelectorAll('.insights-menu-card'));
+        const issues = [];
+        cards.forEach(c => {
+          const img = c.querySelector('img');
+          if (img) {
+            const src = img.getAttribute('src') || '';
+            // Bare base64 that starts with PHN2Zy or without data: prefix will break
+            if (/^PHN2Zy/i.test(src)) {
+              issues.push({msg: 'img src starts with bare base64 (missing data: prefix)', src});
+            } else if (src && !src.startsWith('data:') && !src.startsWith('/') && !src.startsWith('http')) {
+              issues.push({msg: 'img src looks non-absolute and not a data URL', src});
+            }
+          }
+          const computedBg = window.getComputedStyle(c).backgroundImage || '';
+          if (computedBg && computedBg.includes('PHN2Zy') && !computedBg.includes('data:')) {
+            issues.push({msg: 'Background contains raw base64 token without data: prefix', bg: computedBg});
+          }
+        });
+        return issues;
+      });
+      if (imageIssues && imageIssues.length > 0) {
+        console.error('Insights image/background issues found:', JSON.stringify(imageIssues, null, 2));
+        process.exit(6);
+      }
+    } catch (e) {
+      console.warn('Image validation step failed (non-critical):', e);
+    }
+
     // Interact with the frame that holds the cards
     if (targetFrame) {
       try {
@@ -115,12 +147,19 @@ const puppeteer = require('puppeteer-core');
             const tableHtml = table ? table.innerHTML : '';
             const hasTable = tableHtml.includes('<thead') || tableHtml.includes('<tbody');
             const hasEmptyState = tableHtml.toLowerCase().includes('no player') || tableHtml.toLowerCase().includes('no stats');
-            return {visible: true, hasTable, hasEmptyState};
+            const appStateExists = !!window.appState;
+            const playersPresent = Array.isArray(window.players) && window.players.length > 0;
+            const gamesPresent = Array.isArray(window.games) && window.games.length > 0;
+            return {visible: true, hasTable, hasEmptyState, appStateExists, playersPresent, gamesPresent};
           });
           console.log('Player Analysis view check:', playerResult);
           if (!playerResult.visible || (!playerResult.hasTable && !playerResult.hasEmptyState)) {
             console.error('Player Analysis view appears blank or missing table content');
             process.exit(4);
+          }
+          if (playerResult.hasTable && (!playerResult.appStateExists || (!playerResult.playersPresent && !playerResult.gamesPresent))) {
+            console.error('Player Analysis appears to render table but appState/players/games data is missing');
+            process.exit(5);
           }
         } else {
           console.warn('Player Analysis card not found in the target frame');
@@ -148,12 +187,19 @@ const puppeteer = require('puppeteer-core');
           const tableHtml = table ? table.innerHTML : '';
           const hasTable = tableHtml.includes('<thead') || tableHtml.includes('<tbody');
           const hasEmptyState = tableHtml.toLowerCase().includes('no player') || tableHtml.toLowerCase().includes('no stats');
-          return {visible: true, hasTable, hasEmptyState};
+          const appStateExists = !!window.appState;
+          const playersPresent = Array.isArray(window.players) && window.players.length > 0;
+          const gamesPresent = Array.isArray(window.games) && window.games.length > 0;
+          return {visible: true, hasTable, hasEmptyState, appStateExists, playersPresent, gamesPresent};
         });
         console.log('Player Analysis view check:', playerResult);
         if (!playerResult.visible || (!playerResult.hasTable && !playerResult.hasEmptyState)) {
           console.error('Player Analysis view appears blank or missing table content');
           process.exit(4);
+        }
+        if (playerResult.hasTable && (!playerResult.appStateExists || (!playerResult.playersPresent && !playerResult.gamesPresent))) {
+          console.error('Player Analysis appears to render table but appState/players/games data is missing');
+          process.exit(5);
         }
       } else {
         console.warn('Player Analysis menu card not found to click');
@@ -161,6 +207,52 @@ const puppeteer = require('puppeteer-core');
     }
 
     // Click the Ladder tab and validate the ladder table rendered correctly
+    // Validate team edit UI presence & modal behaviour for owners
+    try {
+      const editCtx = targetFrame || page;
+      const toggleBtnHandle = await editCtx.$('#toggle-edit-mode');
+      if (toggleBtnHandle) {
+        const isHidden = await editCtx.evaluate(() => {
+          const btn = document.getElementById('toggle-edit-mode');
+          return !(btn && !btn.classList.contains('hidden'));
+        });
+        if (!isHidden) {
+          console.log('Toggle edit btn visible - attempting to test team edit UI');
+          await editCtx.evaluate(() => { document.getElementById('toggle-edit-mode').click(); });
+          await new Promise((r) => setTimeout(r, 500));
+          // Check for an edit button on a team card
+          const editButtonExists = await editCtx.evaluate(() => !!document.querySelector('.team-card-edit'));
+          if (!editButtonExists) {
+            console.warn('No team-card-edit found - possibly no teams exist');
+          } else {
+            // Click first edit button and confirm the modal shows and is populated
+            await editCtx.evaluate(() => { document.querySelector('.team-card-edit').click(); });
+            await new Promise((r) => setTimeout(r, 300));
+            const modalVisible = await editCtx.evaluate(() => {
+              const modal = document.getElementById('edit-team-modal');
+              if (!modal) return false;
+              return !modal.classList.contains('hidden');
+            });
+            if (!modalVisible) {
+              console.error('Edit modal did not appear after clicking edit button');
+              process.exit(7);
+            }
+            console.log('Edit modal visible - checking form fields');
+            const hasTeamName = await editCtx.evaluate(() => !!document.getElementById('edit-team-name') && (document.getElementById('edit-team-name').value || '').length > 0);
+            if (!hasTeamName) {
+              console.warn('Edit modal present but team name field empty or not found - this may be a new team creation form');
+            }
+            // Close modal (cancel) to avoid unintended server calls
+            await editCtx.evaluate(() => { const cancelBtn = document.getElementById('update-team-button'); if (cancelBtn && cancelBtn.textContent === 'Create') { document.getElementById('edit-team-modal').classList.add('hidden'); } else { document.getElementById('edit-team-modal').classList.add('hidden'); }});
+            await new Promise((r) => setTimeout(r, 200));
+            // Toggle edit mode back off
+            await editCtx.evaluate(() => { const btn = document.getElementById('toggle-edit-mode'); if (btn) btn.click(); });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Team edit UI check failed (non-critical):', e);
+    }
     const ladderBtn = targetFrame ? await targetFrame.$('#show-netball-ladder-tab') : await page.$('#show-netball-ladder-tab');
     let ladderOk = false;
     if (ladderBtn) {
@@ -176,26 +268,53 @@ const puppeteer = require('puppeteer-core');
         if (!container) return {error: 'Ladder container not found'};
         const html = container.innerHTML || '';
         const txt = (container.innerText || '').trim();
+        const rowCount = container.querySelectorAll('tbody tr').length;
+        const hasRows = rowCount > 0;
         const hasEmpty = !!txt && (!txt.toLowerCase().includes('error') && !txt.toLowerCase().includes('not found'));
-        return {hasTable: html.includes('<table'), hasRK: html.includes('>RK<') || html.includes('RK</th>'), hasEmpty, txt};
+        return {hasTable: html.includes('<table'), hasRK: html.includes('>RK<') || html.includes('RK</th>'), hasEmpty, txt, hasRows, rowCount};
       }) : await page.evaluate(() => {
         const container = document.getElementById('netball-ladder-table');
         if (!container) return {error: 'Ladder container not found'};
         const html = container.innerHTML || '';
         const txt = (container.innerText || '').trim();
+        const rowCount = container.querySelectorAll('tbody tr').length;
+        const hasRows = rowCount > 0;
         const hasEmpty = txt.includes('Loading external ladder data') || txt.toLowerCase().includes('no match data') || txt.toLowerCase().includes('no cached match results');
-        return {hasTable: html.includes('<table'), hasRK: html.includes('>RK<') || html.includes('RK</th>'), hasEmpty, txt};
+        return {hasTable: html.includes('<table'), hasRK: html.includes('>RK<') || html.includes('RK</th>'), hasEmpty, txt, hasRows, rowCount};
       });
       console.log('Ladder rendered check:', ladderResult);
-      ladderOk = ladderResult && ((ladderResult.hasTable && ladderResult.hasRK) || (ladderResult && ladderResult.hasEmpty));
+      ladderOk = ladderResult && ((ladderResult.hasTable && ladderResult.hasRK && ladderResult.hasRows) || (ladderResult && ladderResult.hasEmpty));
       if (!ladderOk && ladderResult && ladderResult.txt) console.log('Ladder container text:', ladderResult.txt.substring(0, 400));
     } else {
       console.warn('Ladder tab button not found on page');
     }
 
+    // Capture screenshots for regression/visual diffing
+    try {
+      const screenshotDir = process.env.SCREENSHOT_DIR || './runtime-check-screenshots';
+      const fs = require('fs');
+      if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
+      // Re-open or reuse page to take screenshots if needed
+      // Take a full page screenshot for the insights view
+      const sPage = page;
+      await sPage.screenshot({path: screenshotDir + '/insights-full.png', fullPage: true});
+      console.log('Saved screenshot:', screenshotDir + '/insights-full.png');
+      // Also capture ladder view
+      try {
+        const ladderEl = await page.$('#netball-ladder-table');
+        if (ladderEl) await ladderEl.screenshot({path: screenshotDir + '/ladder.png'});
+      } catch(e) { /* ignore */ }
+    } catch (e) {
+      console.warn('Screenshot generation failed:', e);
+    }
     await browser.close();
 
-    const playerOk = requests.some(r => r.status === 200) || (result.computedBg && result.computedBg.includes('player-analysis-icon'));
+    const cdnHosts = ['cdn.jsdelivr.net', 'script.googleusercontent.com', 'assets'];
+    let computedBgOk = false;
+    if (result.computedBg) {
+      computedBgOk = cdnHosts.some(h => result.computedBg.includes(h)) || result.computedBg.includes('player-analysis-icon');
+    }
+    const playerOk = requests.some(r => r.status === 200 && r.url.includes('player-analysis')) || computedBgOk;
     if (!playerOk) {
       console.error('Player Analysis asset not loaded (no 200 network request and computed background does not reference asset)');
       process.exit(2);

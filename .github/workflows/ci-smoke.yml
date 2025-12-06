@@ -18,7 +18,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run pre-deploy checks
-        run: npm test
+        run: |
+          npm test
+          node scripts/audit-icons.js
 
   runtime-smoke-check:
     runs-on: ubuntu-latest

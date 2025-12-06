@@ -12,4 +12,15 @@ if [ -x "$HOOK_SCRIPT" ]; then
   "$HOOK_SCRIPT"
 fi
 
+# Run pre-deploy validation checks; block commit if critical checks fail
+PRE_DEPLOY_CHECK="$REPO_ROOT/scripts/pre-deploy-check.sh"
+if [ -x "$PRE_DEPLOY_CHECK" ]; then
+  echo "Running pre-deploy checks (this will block commit on failures)..."
+  "$PRE_DEPLOY_CHECK"
+  if [ $? -ne 0 ]; then
+    echo "Pre-deploy checks failed. Commit aborted." >&2
+    exit 1
+  fi
+fi
+
 exit 0

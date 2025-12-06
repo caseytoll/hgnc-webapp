@@ -4,6 +4,8 @@ on:
   push:
     branches: [ master ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * *' # Run daily at 01:00 UTC
 
 jobs:
   smoke-test-production:
@@ -51,3 +53,19 @@ jobs:
           APP_URL_PUBLIC: ${{ env.APP_URL_PUBLIC }}
         run: |
           node ./scripts/runtime-check.js
+
+      - name: Upload runtime-check screenshots
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-check-screenshots
+          path: runtime-check-screenshots/
+
+      - name: Compare runtime-check screenshots with baseline
+        if: success() || failure()
+        run: |
+          if [ -d tests/baseline-screenshots ]; then
+            npm run test:screenshot-compare || true
+          else
+            echo "No baseline screenshots available; skipping visual diff check";
+          fi

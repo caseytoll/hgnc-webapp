@@ -114,3 +114,12 @@ If something fails in CI, you can also fix the deployed access via the Apps Scri
 - The workflow uses a Node script (`scripts/ensure-deploy-access.js`) that performs a PATCH to the Apps Script REST API. This ensures the webapp entryPoints webApp.access is set to `ANYONE_ANONYMOUS` and safeguards the public exec URL.
 
 If you want me to implement programmatic creation of the service account or a token rotation mechanism for keys, I can help extend these steps.
+
+## Daily runtime smoke tests & artifacts
+
+We run the runtime smoke test daily using the `runtime-smoke-test.yml` workflow (cron). The smoke test script:
+- Validates the public exec URL doesn't redirect to a sign-in page
+- Checks critical UI flows (insights menu, Player Analysis, Ladder)
+- Captures screenshots of the insights view and Ladder and uploads them as workflow artifacts
+
+Artifacts are available under the workflow run details for manual inspection and for visual diffing if you add a baseline image comparison step.

@@ -7,7 +7,19 @@
 
     // --- Missing function added ---
     function loadNetballLadder() {
+        // Load cached data first for fast UI rendering
         loadCachedNetballLadder(); // Default to cached version
+        // If there is no cached data, attempt a manual API fetch (best-effort)
+        setTimeout(function() {
+            try {
+                if (!netballLadderData || netballLadderData.length === 0) {
+                    console.log('No cached ladder data found - attempting API fetch');
+                    loadNetballLadderApi();
+                }
+            } catch (e) {
+                console.warn('loadNetballLadder auto-fetch skipped:', e);
+            }
+        }, 100);
     }
 
     // --- *** OPTIMIZATION: Master update/render function *** ---

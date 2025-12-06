@@ -81,6 +81,16 @@
                     addTeamButton.classList.remove('hidden');
                     addTeamButton.onclick = showAddTeamModal;
                 }
+
+                // Show "Toggle Edit Mode" button (teams) so owners can edit
+                var toggleEditButton = document.getElementById('toggle-edit-mode');
+                if (toggleEditButton) {
+                    toggleEditButton.classList.remove('hidden');
+                    // Wire to toggle function if not already wired in HTML
+                    toggleEditButton.onclick = toggleTeamEditMode;
+                    // Ensure label reflects current mode state
+                    toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit';
+                }
                 
                 // Show "Add Player" button
                 var addPlayerButton = document.getElementById('show-add-player-modal');
@@ -230,7 +240,19 @@
                 if (injected && injected !== '#' && injected.length > 0) {
                     // injected may be a single url or comma-separated list of urls
                     const urlList = injected.split(',').map(u => u.trim());
-                    const bgVal = urlList.map(u => `url('${u.replace(/(^"|"$)/g, "") }')`).join(', ');
+                    const ensureDataUrl = function(u) {
+                        if (!u) return u;
+                        u = u.replace(/(^"|"$)/g, '');
+                        // Already a full data: URL or absolute URL
+                        if (u.indexOf('data:') === 0 || u.indexOf('http') === 0 || u.startsWith('/')) return u;
+                        // Heuristics for common base64 starting sequences
+                        if (/^\/9j\//.test(u)) return 'data:image/jpeg;base64,' + u;
+                        if (/^PHN2Zy/i.test(u)) return 'data:image/svg+xml;base64,' + u;
+                        // Generic base64 fallback: assume SVG if it starts with a base64-like string
+                        if (/^[A-Za-z0-9\+/=\s]+$/.test(u)) return 'data:image/svg+xml;base64,' + u;
+                        return u;
+                    };
+                    const bgVal = urlList.map(u => `url('${ensureDataUrl(u)}')`).join(', ');
                     card.style.setProperty('background-image', bgVal, 'important');
                     return;
                 }

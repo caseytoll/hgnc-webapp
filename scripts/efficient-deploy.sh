@@ -152,7 +152,13 @@ if [ "$ENSURE_ANON" -eq 1 ]; then
     ACCESS_ARG="--access ANYONE_ANONYMOUS"
     echo "→ Ensuring deployment access is ANYONE_ANONYMOUS via clasp"
   else
-    echo "→ WARNING: this version of clasp does not support --access; update clasp or change access via Apps Script UI / API"
+    echo "→ WARNING: this version of clasp does not support --access; attempting to patch deployment access via REST API..."
+    if ! node ./scripts/ensure-deploy-access.js; then
+      echo "ERROR: Could not ensure anonymous access via REST API. Please update clasp or patch the deployment manually." >&2
+      exit 1
+    else
+      echo "→ REST API patch success: deployment should be set to ANYONE_ANONYMOUS"
+    fi
   fi
 fi
 clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID" $ACCESS_ARG

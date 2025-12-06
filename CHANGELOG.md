@@ -3,6 +3,15 @@
 ## [Unreleased]
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
+## v742 — 2025-12-06
+- Fix: Show team edit toggle for owners (Team edit button not visible in some cases)
+- Fix: Ladder view: auto-fetch data when cache empty to avoid blank screens
+- Fix: Stats page images: sanitize bare base64 tokens (e.g. PHN2Zy) and prefix with proper data: URIs to avoid 404s
+- Add: Runtime smoke tests and Puppeteer checks to validate team edit, ladder rendering, and image fallbacks
+- Add: Pre-deploy checks to detect bare base64 URIs and url('PHN2Zy') patterns; added pre-commit hook
+- Add: Audit script for icon partials and added <noscript> fallback to canonical partials
+- Add: Visual regression artifacts and daily runtime smoke CI job
+
 ## v741 — 2025-12-05
 - Style: Improve Ladder and related tables by adding responsive wrappers, improved spacing, and numeric column alignment
 - Style: Highlight top 3 ladder rows with medal tint backgrounds
