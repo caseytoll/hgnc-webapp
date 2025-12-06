@@ -91,6 +91,37 @@ const puppeteer = require('puppeteer-core');
       await insightsBtn.click();
       // Give the page a little more time to run the JS that builds the insights cards
       await page.waitForTimeout(5000);
+
+      // Test clicking the Team Performance card
+      const teamPerfCard = await page.$('.insights-menu-card[onclick*="insights-team-performance-view"]');
+      if (teamPerfCard) {
+        console.log('Clicking Team Performance card...');
+        await teamPerfCard.click();
+        await page.waitForTimeout(2000);
+        // Check if the view is visible
+        const isVisible = await page.evaluate(() => {
+          const view = document.getElementById('insights-team-performance-view');
+          return view && !view.classList.contains('hidden');
+        });
+        console.log('Team Performance view visible after click:', isVisible);
+        if (!isVisible) {
+          console.error('Team Performance view not shown after clicking card');
+          process.exit(7);
+        }
+        // Check if content is populated (not just placeholders)
+        const hasContent = await page.evaluate(() => {
+          const recordEl = document.getElementById('perf-record');
+          return recordEl && recordEl.textContent && recordEl.textContent !== '0-0-0';
+        });
+        console.log('Team Performance view has populated content:', hasContent);
+        if (!hasContent) {
+          console.error('Team Performance view is visible but content not populated');
+          process.exit(8);
+        }
+      } else {
+        console.error('Team Performance card not found');
+        process.exit(9);
+      }
     }
 
     // Wait a moment for runtime script to run and apply fallbacks

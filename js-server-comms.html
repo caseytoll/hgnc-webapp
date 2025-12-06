@@ -166,6 +166,7 @@
                         // Re-render current views to ensure fresh data appears without requiring navigation
                         try { renderPlayerList(); } catch(e) { /* ignore if view not loaded */ }
                         try { renderGameList(); } catch(e) { /* ignore if view not loaded */ }
+                        try { renderNewInsightsDashboard(); } catch(e) { /* ignore if view not loaded */ }
                     } catch (e) {
                         console.error('Error parsing server stats:', e);
                         window.calculatedSeasonStats = null;
@@ -191,6 +192,9 @@
                         
                         // Save the calculated stats
                         saveCurrentTeamData();
+                        
+                        // Re-render insights dashboard if visible
+                        try { renderNewInsightsDashboard(); } catch(e) { /* ignore if view not loaded */ }
                     }
                 }
                 
