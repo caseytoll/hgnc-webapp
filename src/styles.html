@@ -106,6 +106,13 @@
     
     --zero-stat-text: #d1d5db;
     
+    /* Additional utility colors */
+    --error-bg: #fee2e2;
+    --error-text: #b91c1c;
+    --error-light: #fef2f2;
+    --info-color: #6B4C9A;
+    --info-bg: rgba(107, 76, 154, 0.1);
+    
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
@@ -168,6 +175,13 @@
       --top-3-text: #ffffff;
       
       --zero-stat-text: #4b5563;
+      
+      /* Additional utility colors - dark mode */
+      --error-bg: rgba(239, 68, 68, 0.15);
+      --error-text: #fca5a5;
+      --error-light: rgba(239, 68, 68, 0.1);
+      --info-color: #C5B3DC;
+      --info-bg: rgba(155, 127, 196, 0.15);
       
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
       --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
@@ -460,14 +474,8 @@
   }
   
   .delete-btn:hover:not(:disabled) {
-    background-color: #fef2f2;
+    background-color: var(--error-light);
     transform: scale(1.05);
-  }
-  
-  @media (prefers-color-scheme: dark) {
-    .delete-btn:hover:not(:disabled) {
-      background-color: rgba(239, 68, 68, 0.1);
-    }
   }
 
   .edit-btn {
@@ -489,13 +497,13 @@
   }
 
   .error-banner {
-    padding: 10px;
-    margin: 12px 0;
-    background-color: #fee2e2;
-    color: #b91c1c;
-    border-radius: 6px;
+    padding: var(--space-3);
+    margin: var(--space-2) 0;
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border-radius: var(--radius-sm);
     border: 1px solid rgba(185, 28, 28, 0.1);
-    font-size: 0.95rem;
+    font-size: var(--text-sm);
   }
 
   .bottom-nav {
@@ -527,7 +535,7 @@
     flex: 1;
     padding: 14px 8px;
     text-align: center;
-    background: var(--bg-primary);
+    background: var(--content-bg);
     border: none;
     border-top: 2px solid var(--border-color);
     font-size: 13px;
@@ -539,7 +547,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-base);
     cursor: pointer;
     min-height: 56px;
     -webkit-tap-highlight-color: transparent;
@@ -548,7 +556,7 @@
   
   .bottom-nav-button:hover:not(.active) {
     color: var(--text-secondary);
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: var(--bg-secondary);
   }
 
   .bottom-nav-button.app-nav,
