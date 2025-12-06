@@ -18,12 +18,60 @@ Deployments can change access permissions if the manifest or deploy commands do 
 2) In the GCP Console, create a service account. Give it at least these roles on the project:
    - `Editor` (or a role with `script.deployments.update` / `script.projects` permissions)
 3) Create a JSON key for the service account. Download the JSON file.
+   
+### Terraform snippet
+
+If you prefer Terraform to create the service account and bind roles, here's a simple snippet (the sample is also included under `infra/sa-setup.tf` in the repo):
+
+1. Create `terraform.tfvars` with your project id and optionally `create_key = true` (not recommended for long-lived keys):
+
+```
+project_id = "my-gcp-project-id"
+sa_id = "hgnc-ci-deployer"
+create_key = false
+```
+
+2. Run:
+
+```bash
+terraform init
+terraform apply -var-file=terraform.tfvars
+```
+
+3. If you created a key (`create_key = true`), the key will be available in `output.create_sa_key` — store it as a GitHub secret `GCP_SA_KEY`.
+
+Security note: Prefer using Workload Identity Federation instead of generating and storing long-lived JSON keys. See below.
+
+### gcloud CLI sample (manual path)
+Instead of Terraform, the `gcloud` CLI commands below create the service account and attach roles:
+
+```bash
+gcloud iam service-accounts create hgnc-ci-deployer --project=my-gcp-project-id --display-name="HGNC CI Deployer"
+gcloud projects add-iam-policy-binding my-gcp-project-id \
+   --member="serviceAccount:hgnc-ci-deployer@my-gcp-project-id.iam.gserviceaccount.com" \
+   --role="roles/editor"
+# Create a key
+gcloud iam service-accounts keys create key.json --iam-account=hgnc-ci-deployer@my-gcp-project-id.iam.gserviceaccount.com
+```
+
+Then copy/paste the `key.json` contents into the GitHub repository Secret `GCP_SA_KEY`.
+
+### Workload Identity Federation (recommended)
+If possible, prefer GitHub OIDC (Workload Identity Federation) rather than storing a long-lived service account key in GitHub Secrets. This involves:
+
+- Enabling Workload Identity Pool in Google Cloud
+- Creating a provider binding GitHub repo to a GCP service account
+- Granting the service account minimal privileges and using short-lived tokens
+
+Examples and a Terraform integration are beyond this doc; if you prefer this option, say the word and I’ll add a Terraform module and GitHub Action snippet to use OIDC instead of JSON keys.
+
 
 ## GitHub secrets
 Add the following secrets to your repo (Repository → Settings → Secrets & variables → Actions):
 - `GCP_SA_KEY` => Paste the whole JSON content of the service account key file.
 - `SCRIPT_ID` => Copy the `scriptId` from `.clasp.json` (or your Apps Script project’s scriptId).
 - `DEPLOYMENT_ID` => The deployment id used for production (the stable, numbered deployment id)
+ - `GITHUB_OIDC_PROVIDER` (optional) => If using Workload Identity Federation, add provider details. This uses fewer long-lived secrets and is the preferred approach.
 
 Optionally, you may add a `PROD_DEPLOYMENT_ID` secret (same as `DEPLOYMENT_ID`) and update `.github/workflows/runtime-smoke-test.yml` to point to it.
 

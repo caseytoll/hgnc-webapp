@@ -9,11 +9,12 @@ const axios = require('axios');
 async function main() {
   try {
     const serviceAccountJson = process.env.GCP_SA_KEY;
+    const oauthToken = process.env.GCP_OIDC_TOKEN || process.env.GCP_OAUTH_TOKEN || process.env.GCP_OAUTH;
     const scriptId = process.env.SCRIPT_ID || (process.env.CLASP_SCRIPT_ID || null);
     const deploymentId = process.env.DEPLOYMENT_ID;
 
-    if (!serviceAccountJson) {
-      console.error('GCP_SA_KEY env required (service account JSON)');
+    if (!serviceAccountJson && !oauthToken) {
+      console.error('Either GCP_SA_KEY (service account JSON) or GCP_OIDC_TOKEN / GCP_OAUTH_TOKEN must be provided');
       process.exit(1);
     }
     if (!scriptId) {
@@ -25,18 +26,20 @@ async function main() {
       process.exit(1);
     }
 
-    const key = JSON.parse(serviceAccountJson);
-    const client = new google.auth.JWT({
-      email: key.client_email,
-      key: key.private_key,
-      scopes: [
-        'https://www.googleapis.com/auth/script.deployments',
-        'https://www.googleapis.com/auth/script.projects'
-      ]
-    });
-
-    await client.authorize();
-    const accessToken = (await client.getAccessToken()).token;
+    let accessToken = oauthToken;
+    if (!accessToken && serviceAccountJson) {
+      const key = JSON.parse(serviceAccountJson);
+      const client = new google.auth.JWT({
+        email: key.client_email,
+        key: key.private_key,
+        scopes: [
+          'https://www.googleapis.com/auth/script.deployments',
+          'https://www.googleapis.com/auth/script.projects'
+        ]
+      });
+      await client.authorize();
+      accessToken = (await client.getAccessToken()).token;
+    }
     if (!accessToken) throw new Error('Failed to obtain access token');
 
     const scriptApiBase = 'https://script.googleapis.com/v1';

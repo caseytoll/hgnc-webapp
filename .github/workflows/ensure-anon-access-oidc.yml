@@ -1,0 +1,47 @@
+name: Ensure Anonymous Apps Script Deploy Access (OIDC)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  ensure-anonymous-access-oidc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Authenticate to GCP via Workload Identity Federation
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Get auth token for API calls
+        id: get_token
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          echo "TOKEN=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Ensure deploy access is anonymous and run smoke test
+        env:
+          GCP_OIDC_TOKEN: ${{ steps.get_token.outputs.TOKEN }}
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          APP_URL_PUBLIC: https://script.google.com/macros/s/${{ secrets.DEPLOYMENT_ID }}/exec
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+          node ./scripts/ensure-deploy-access.js
+          node ./scripts/runtime-check.js
