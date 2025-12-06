@@ -73,7 +73,137 @@ node ./scripts/extended-smoke-test.js
 ⚠️  TEST 9: Error Handling ✅/⚠️/ℹ️
 ```
 
-### 4. Comprehensive Testing & Deployment (`./scripts/test-and-deploy.sh`)
+### 4. Specialized Test Suite (Comprehensive Testing)
+
+The following specialized test scripts validate specific functionality in depth:
+
+#### 4a. CRUD Operations Testing (`./scripts/crud-test.js`)
+Tests Create, Read, Update, Delete operations:
+- ✅ Add Team functionality
+- ✅ Add Player functionality
+- ✅ Edit Team functionality
+- ✅ Form validation in CRUD operations
+- ✅ Data persistence after operations
+
+**Manual usage:**
+```bash
+node ./scripts/crud-test.js
+```
+
+#### 4b. Form Validation Testing (`./scripts/form-validation-test.js`)
+Comprehensive form validation coverage:
+- ✅ Required field enforcement
+- ✅ Field length validation
+- ✅ Type and format validation
+- ✅ Error message display
+- ✅ Submit button state management
+- ✅ Real-time validation feedback
+
+**Manual usage:**
+```bash
+node ./scripts/form-validation-test.js
+```
+
+#### 4c. Error Recovery Testing (`./scripts/error-recovery-test.js`)
+Tests error handling and graceful failure:
+- ✅ Missing data handling
+- ✅ Invalid input recovery
+- ✅ Error fallback display
+- ✅ Network resilience
+- ✅ Error logging
+- ✅ Graceful degradation
+
+**Manual usage:**
+```bash
+node ./scripts/error-recovery-test.js
+```
+
+#### 4d. Performance Testing (`./scripts/performance-test.js`)
+Measures performance with various metrics:
+- ✅ Team list rendering performance
+- ✅ Player list performance
+- ✅ Scrolling performance (60 FPS capable?)
+- ✅ Memory usage monitoring
+- ✅ DOM operation performance
+- ✅ Network payload size estimation
+
+**Manual usage:**
+```bash
+node ./scripts/performance-test.js
+```
+
+#### 4e. Keyboard Navigation Testing (`./scripts/keyboard-nav-test.js`)
+Verifies keyboard accessibility:
+- ✅ Tab navigation through forms
+- ✅ Enter key form submission
+- ✅ Escape key modal closing
+- ✅ Arrow key list navigation
+- ✅ Focus management
+- ✅ Keyboard shortcuts
+
+**Manual usage:**
+```bash
+node ./scripts/keyboard-nav-test.js
+```
+
+#### 4f. Mobile Responsiveness Testing (`./scripts/mobile-test.js`)
+Tests mobile compatibility at 375px viewport:
+- ✅ Viewport and layout responsiveness
+- ✅ Touch interaction support
+- ✅ Tap target sizes (44x44px minimum)
+- ✅ Font size and readability
+- ✅ Mobile form usability
+- ✅ Mobile web app features
+
+**Manual usage:**
+```bash
+node ./scripts/mobile-test.js
+```
+
+#### 4g. Search & Filter Testing (`./scripts/search-filter-test.js`)
+Validates search and filter functionality:
+- ✅ Search input detection
+- ✅ Real-time filtering
+- ✅ Case-insensitive search
+- ✅ Multi-field search support
+- ✅ Filter controls
+- ✅ Search performance
+
+**Manual usage:**
+```bash
+node ./scripts/search-filter-test.js
+```
+
+### 5. Integration Test Suite (`./scripts/integration-test.js`)
+Runs all 7 specialized tests in sequence and provides comprehensive summary:
+- Orchestrates CRUD, form validation, error recovery, performance, keyboard, mobile, and search tests
+- Provides pass/fail/skip tracking
+- Generates coverage metrics
+- Returns appropriate exit codes for CI/CD integration
+
+**Manual usage:**
+```bash
+node ./scripts/integration-test.js
+```
+
+**Output summary:**
+```
+✅ PASSED (7):
+   • CRUD Operations (25.3s)
+   • Form Validation (22.1s)
+   • Error Recovery (19.8s)
+   • Performance (28.5s)
+   • Keyboard Navigation (18.2s)
+   • Mobile Responsiveness (21.4s)
+   • Search & Filter (17.6s)
+
+📊 COVERAGE METRICS:
+   Passed: 7/7 (100%)
+   Failed: 0/7 (0%)
+   Skipped: 0/7 (0%)
+```
+
+### 6. Comprehensive Testing & Deployment (`./scripts/test-and-deploy.sh`)
 Combines pre-deployment validation, code quality checks, and deployment in one workflow.
 
 **Usage:**

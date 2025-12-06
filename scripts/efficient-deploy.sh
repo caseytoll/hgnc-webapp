@@ -194,6 +194,15 @@ if [ "$SMOKE_TEST" -eq 1 ]; then
   else
     echo "⚠️ Extended smoke test failed (non-critical)"
   fi
+
+  # Run specialized integration test suite (CRUD, validation, errors, performance, a11y, mobile, search)
+  echo ""
+  echo "→ Running comprehensive integration test suite..."
+  if node ./scripts/integration-test.js; then
+    echo "✅ All integration tests passed"
+  else
+    echo "⚠️ Some integration tests failed (review before production)"
+  fi
 fi
 
 echo "✅ Efficient deployment complete: version $VERSION_NUMBER"
