@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploy the current branch using efficient deploy and run a few runtime checks against the deployed URL
-# Usage: ./scripts/deploy_and_test.sh "Description" [public-deployment-url]
-# Optionally set DEPLOYMENT_PUBLIC_URL env var or pass as second argument to run a public runtime smoke test
+echo "❌ Deprecated: use ./scripts/efficient-deploy.sh <description> (this wrapper is disabled)." >&2
+exit 1
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 \"Description of changes\""

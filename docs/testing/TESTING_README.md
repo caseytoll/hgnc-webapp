@@ -203,12 +203,12 @@ node ./scripts/integration-test.js
    Skipped: 0/7 (0%)
 ```
 
-### 6. Comprehensive Testing & Deployment (`./scripts/test-and-deploy.sh`)
-Combines pre-deployment validation, code quality checks, and deployment in one workflow.
+### 6. Comprehensive Testing & Deployment (`./scripts/efficient-deploy.sh`)
+Canonical deploy pipeline. Runs pre-push, versions, deploys, then executes runtime smoke, extended smoke, and full integration suite. Supports `--skip-smoke` and `--dry-run`.
 
 **Usage:**
 ```bash
-./scripts/test-and-deploy.sh "Description of your changes"
+./scripts/efficient-deploy.sh "Description of your changes"
 ```
 
 ### 5. Runtime Validation (Browser Console)
@@ -236,13 +236,14 @@ AppValidator.checkDataAvailability()
 ### For Small Changes
 1. Make your code changes
 2. Run: `./scripts/pre-deploy-check.sh`
-3. If validation passes: `./scripts/quick-deploy.sh "Your description"`
+3. If validation passes: `./scripts/efficient-deploy.sh "Your description"`
 4. Test in browser
 
 ### For Major Changes
 1. Make your code changes
-2. Run: `./scripts/test-and-deploy.sh "Your description"`
-3. Test thoroughly in browser using console validation commands
+2. Run: `./scripts/pre-deploy-check.sh`
+3. Deploy via: `./scripts/efficient-deploy.sh "Your description"`
+4. Test thoroughly in browser using console validation commands
 
 ### During Browser Testing
 1. Open browser developer tools (F12)
@@ -268,6 +269,12 @@ AppValidator.checkDataAvailability()
 - **Functions**: Required functions available globally
 - **Navigation**: View structures are correct
 - **Data**: Required data objects are available
+
+## Deprecated Scripts
+- `scripts/quick-deploy.sh` (disabled) → use `scripts/efficient-deploy.sh`
+- `scripts/test-and-deploy.sh` (disabled) → use `scripts/efficient-deploy.sh`
+- `scripts/deploy_and_test.sh` (disabled) → use `scripts/efficient-deploy.sh`
+- `scripts/release.sh` (disabled) → manage releases via `CHANGELOG.md` + git tags and deploy with `efficient-deploy.sh`
 
 ## Common Issues Caught
 
