@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## [Unreleased]
+- UI: Restore Players navigation button in bottom nav bar (between Schedule and Ladder)
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
 ## v767 — 2025-12-06
