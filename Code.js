@@ -130,16 +130,16 @@ function canonicalizeIconContent(rawContent, fallback) {
  * A helper function to include the content of other HTML files
  */
 function include(filename) {
-  // Map old filenames to new organized structure
+  // Map short names to full paths with .html extension
   var pathMap = {
-    'styles': 'src/styles',
-    'js-startup': 'src/includes/js-startup',
-    'js-helpers': 'src/includes/js-helpers',
-    'js-navigation': 'src/includes/js-navigation',
-    'js-server-comms': 'src/includes/js-server-comms',
-    'js-core-logic': 'src/includes/js-core-logic',
-    'js-render': 'src/includes/js-render',
-    'js-validation': 'src/includes/js-validation'
+    'styles': 'src/styles.html',
+    'js-startup': 'src/includes/js-startup.html',
+    'js-helpers': 'src/includes/js-helpers.html',
+    'js-navigation': 'src/includes/js-navigation.html',
+    'js-server-comms': 'src/includes/js-server-comms.html',
+    'js-core-logic': 'src/includes/js-core-logic.html',
+    'js-render': 'src/includes/js-render.html',
+    'js-validation': 'src/includes/js-validation.html'
   };
   
   var filePath = pathMap[filename] || filename;
