@@ -33,6 +33,17 @@ report_success() {
     echo -e "${GREEN}✅ $1${NC}"
 }
 
+echo "🔍 Checking git status..."
+# Warn if there are uncommitted changes
+uncommitted=$(git status --porcelain 2>/dev/null | grep -v "^?" | wc -l)
+if [ "$uncommitted" -gt 0 ]; then
+    report_warning "Found $uncommitted uncommitted changes. Consider committing before deploying."
+    git status --porcelain 2>/dev/null | grep -v "^?" | sed 's/^/  /'
+else
+    report_success "No uncommitted changes (working directory clean)"
+fi
+
+echo ""
 echo "📋 Checking file structure..."
 
 # Check if all required files exist
@@ -47,6 +58,8 @@ required_files=(
     "src/includes/js-validation.html"
     "src/styles.html"
     "appsscript.json"
+    "Code.js"
+    ".claspignore"
 )
 
 for file in "${required_files[@]}"; do
@@ -58,13 +71,73 @@ for file in "${required_files[@]}"; do
 done
 
 echo ""
-echo "🔍 Checking JavaScript function definitions..."
+echo "🔍 Checking JavaScript include() statements..."
 
-# Check for critical function definitions in js-navigation.html
-if grep -q "function showView(" "$WORKSPACE_DIR/src/includes/js-navigation.html"; then
-    report_success "showView function defined"
+# Define all expected includes
+expected_includes=(
+    "styles"
+    "js-startup"
+    "js-navigation"
+    "js-helpers"
+    "js-server-comms"
+    "js-core-logic"
+    "js-render"
+    "js-validation"
+)
+
+for include_name in "${expected_includes[@]}"; do
+    if grep -q "<?!=.*include('$include_name')" "$WORKSPACE_DIR/index.html"; then
+        report_success "include('$include_name') found in index.html"
+    else
+        report_error "include('$include_name') NOT found in index.html - file won't be included in template"
+    fi
+done
+
+echo ""
+echo "🔍 Checking Code.js server-side functions..."
+
+# Check for critical server-side functions that provide icon data URLs
+server_functions=(
+    "doGet"
+    "getLogoDataUrl"
+    "getTeamPerformanceIconDataUrl"
+    "getOffensiveLeadersIconDataUrl"
+    "getDefensiveWallIconDataUrl"
+    "getPlayerAnalysisIconDataUrl"
+    "getSpreadsheet"
+)
+
+for func in "${server_functions[@]}"; do
+    if grep -q "function $func(" "$WORKSPACE_DIR/Code.js"; then
+        report_success "Code.js has function: $func()"
+    else
+        report_error "Code.js missing function: $func() - server-side functionality incomplete"
+    fi
+done
+
+echo ""
+echo "🔍 Checking HTML structure for tag balance..."
+
+# Count opening and closing tags for critical elements
+closing_view_tag=$(grep -c "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" || echo "0")
+opening_view_tag=$(grep -c "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" || echo "0")
+
+if [ "$closing_view_tag" -eq "$opening_view_tag" ] && [ "$opening_view_tag" -gt 0 ]; then
+    report_success "insights-view has proper opening and closing tags"
 else
-    report_error "showView function not found"
+    report_error "insights-view tag mismatch: found $opening_view_tag opening tags but $closing_view_tag closing tags (should be equal)"
+fi
+
+# Check for common HTML structure issues
+if grep -q "<div id=\"main-content\">" "$WORKSPACE_DIR/index.html"; then
+    closing_main=$(grep -c "</div><!-- End main-content -->" "$WORKSPACE_DIR/index.html" || grep -c "id=\"main-content\"" "$WORKSPACE_DIR/index.html" || echo "0")
+    if [ "$closing_main" -gt 0 ]; then
+        report_success "main-content container properly structured"
+    else
+        report_warning "main-content opening found but closing tag unclear - verify HTML structure"
+    fi
+else
+    report_warning "main-content container not found - verify index.html structure"
 fi
 
     # Warn if debug smoke logger console logs exist in index.html for production
@@ -239,34 +312,49 @@ else
 fi
 
 echo ""
-echo "🔍 Checking development principles compliance..."
+echo "📦 Checking dependencies and configuration..."
 
-# Check if DEVELOPMENT-PRINCIPLES.md exists and has been read recently
-if [ -f "$WORKSPACE_DIR/docs/DEVELOPMENT-PRINCIPLES.md" ]; then
-    report_success "DEVELOPMENT-PRINCIPLES.md exists"
+# Check package.json
+if [ -f "$WORKSPACE_DIR/package.json" ]; then
+    report_success "package.json exists"
     
-    # Check if it was modified in the last 24 hours (indicating recent review)
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        last_modified=$(stat -f "%m" "$WORKSPACE_DIR/docs/DEVELOPMENT-PRINCIPLES.md")
+    # Check if node_modules is installed
+    if [ -d "$WORKSPACE_DIR/node_modules" ]; then
+        report_success "node_modules directory exists (dependencies may be installed)"
     else
-        # Linux
-        last_modified=$(stat -c "%Y" "$WORKSPACE_DIR/docs/DEVELOPMENT-PRINCIPLES.md")
+        report_warning "node_modules not found - dependencies may not be installed (run: npm install)"
     fi
-    current_time=$(date +%s)
-    time_diff=$((current_time - last_modified))
     
-    if [ $time_diff -lt 86400 ]; then # 24 hours in seconds
-        report_success "DEVELOPMENT-PRINCIPLES.md reviewed recently"
+    # Check for critical devDependencies used in scripts
+    if grep -q "@google/clasp" "$WORKSPACE_DIR/package.json"; then
+        report_success "package.json has @google/clasp"
     else
-        report_warning "DEVELOPMENT-PRINCIPLES.md not reviewed in last 24 hours"
+        report_warning "package.json missing @google/clasp dependency"
     fi
 else
-    report_error "DEVELOPMENT-PRINCIPLES.md not found"
+    report_warning "package.json not found - cannot verify dependencies"
+fi
+
+# Check if appsscript.json has proper runtime version
+if [ -f "$WORKSPACE_DIR/appsscript.json" ]; then
+    if grep -q '"runtimeVersion".*"V8"' "$WORKSPACE_DIR/appsscript.json"; then
+        report_success "appsscript.json uses V8 runtime (required for modern JS)"
+    else
+        report_warning "appsscript.json may not be using V8 runtime - check runtimeVersion setting"
+    fi
+    
+    # Check webapp access level
+    if grep -q '"access".*"ANYONE_ANONYMOUS"' "$WORKSPACE_DIR/appsscript.json"; then
+        report_success "appsscript.json configured for anonymous access (ANYONE_ANONYMOUS)"
+    else
+        report_warning "appsscript.json webapp access may not be ANYONE_ANONYMOUS - exec URL might require sign-in"
+    fi
+else
+    report_error "appsscript.json not found"
 fi
 
 echo ""
-echo "🔍 Checking changelog and version..."
+echo "📝 Checking documentation and changelog..."
 
 # Check if CHANGELOG.md exists and has recent entries
 if [ -f "$WORKSPACE_DIR/docs/CHANGELOG.md" ]; then
@@ -279,46 +367,136 @@ if [ -f "$WORKSPACE_DIR/docs/CHANGELOG.md" ]; then
         report_error "CHANGELOG.md missing version entries"
     fi
     
-    # Get the latest version from changelog
-    latest_changelog_version=$(grep -o "## v[0-9]*" "$WORKSPACE_DIR/docs/CHANGELOG.md" | head -1 | sed 's/## v//')
-    
-    # Get version from Code.js
-    code_version=$(grep -o "appVersion = '[0-9]*'" "$WORKSPACE_DIR/Code.js" | sed "s/appVersion = '//" | sed "s/'//")
-    
-    # Check if changelog has been updated recently (within last hour)
+    # Check if changelog has been updated recently (within last 2 hours for warning, 24 hours for critical)
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
         changelog_modified=$(stat -f "%m" "$WORKSPACE_DIR/docs/CHANGELOG.md")
     else
-        # Linux
         changelog_modified=$(stat -c "%Y" "$WORKSPACE_DIR/docs/CHANGELOG.md")
     fi
     
+    current_time=$(date +%s)
     changelog_diff=$((current_time - changelog_modified))
-    if [ $changelog_diff -lt 3600 ]; then # 1 hour in seconds
-        report_success "CHANGELOG.md updated recently"
+    
+    if [ $changelog_diff -lt 7200 ]; then # 2 hours
+        report_success "CHANGELOG.md updated very recently"
+    elif [ $changelog_diff -lt 86400 ]; then # 24 hours
+        report_warning "CHANGELOG.md not updated in last 2 hours - verify deployment changes are documented"
     else
-        report_warning "CHANGELOG.md not updated in last hour - please add deployment notes"
+        report_warning "CHANGELOG.md not updated in last 24 hours - should add recent deployment notes"
     fi
 else
     report_error "CHANGELOG.md not found"
 fi
 
-# Basic syntax check - look for common syntax issues
-if grep -n "console\.log(" "$WORKSPACE_DIR/src/includes/js-navigation.html" | grep -v ");" | head -3 | grep -q "console"; then
-    report_warning "Possible unclosed console.log statements found"
-fi
+echo ""
+echo "🔍 Checking version consistency..."
 
-# Check for unmatched braces (very basic check)
-nav_js=$(cat "$WORKSPACE_DIR/src/includes/js-navigation.html" | grep -v "^[[:space:]]*//" | grep -o "[{}]" | wc -l)
-if [ $((nav_js % 2)) -ne 0 ]; then
-    report_warning "Possible unmatched braces in js-navigation.html"
+# Get version from Code.js (should be just a number like '824')
+code_version=$(grep -o "appVersion = '[0-9]*'" "$WORKSPACE_DIR/Code.js" | sed "s/appVersion = '//" | sed "s/'//")
+
+# Get latest version from CHANGELOG (should be like 'v824')
+if [ -f "$WORKSPACE_DIR/docs/CHANGELOG.md" ]; then
+    changelog_version=$(grep -o "## v[0-9]*" "$WORKSPACE_DIR/docs/CHANGELOG.md" | head -1 | sed 's/## v//')
+    
+    if [ -z "$code_version" ]; then
+        report_error "Code.js appVersion not found or has invalid format (expected: 'xxx' where xxx is a number)"
+    elif [ -z "$changelog_version" ]; then
+        report_error "CHANGELOG.md has no version entries (expected: ## vXXX format)"
+    elif [ "$code_version" = "$changelog_version" ]; then
+        report_success "Version consistency check: Code.js ($code_version) matches CHANGELOG.md (v$changelog_version)"
+    else
+        report_warning "Version mismatch: Code.js has appVersion='$code_version' but CHANGELOG.md has latest v$changelog_version (should match)"
+    fi
 else
-    report_success "Brace matching looks good in js-navigation.html"
+    report_error "CHANGELOG.md not found - cannot verify version consistency"
 fi
 
 echo ""
-echo "� CDN pinning check"
+echo "🔍 Checking .claspignore configuration..."
+
+# Verify .claspignore exists
+if [ ! -f "$WORKSPACE_DIR/.claspignore" ]; then
+    report_error ".claspignore missing - clasp may push unwanted files"
+else
+    report_success ".claspignore exists"
+    
+    # Check that critical files are NOT ignored
+    critical_not_ignored=(
+        "Code.js"
+        "index.html"
+        "appsscript.json"
+    )
+    
+    for file in "${critical_not_ignored[@]}"; do
+        if grep -q "^$file$" "$WORKSPACE_DIR/.claspignore"; then
+            report_error ".claspignore is ignoring $file - this file MUST be pushed to Apps Script"
+        else
+            report_success ".claspignore does not ignore $file (correct)"
+        fi
+    done
+    
+    # Check that unnecessary files ARE ignored
+    should_ignore=(
+        "docs/"
+        "node_modules/"
+        "tests/"
+        "scripts/"
+        ".github/"
+    )
+    
+    for pattern in "${should_ignore[@]}"; do
+        if grep -F "$pattern" "$WORKSPACE_DIR/.claspignore" >/dev/null 2>&1; then
+            report_success ".claspignore ignores $pattern (correct)"
+        else
+            report_warning ".claspignore does not ignore $pattern - consider adding it to keep deploy clean"
+        fi
+    done
+fi
+
+# Enhanced syntax checking - check all include files for unmatched braces
+echo ""
+echo "🔍 Checking syntax in all JavaScript includes..."
+
+js_include_files=(
+    "src/includes/js-navigation.html"
+    "src/includes/js-render.html"
+    "src/includes/js-core-logic.html"
+    "src/includes/js-helpers.html"
+    "src/includes/js-server-comms.html"
+    "src/includes/js-startup.html"
+    "src/includes/js-validation.html"
+)
+
+for file in "${js_include_files[@]}"; do
+    if [ ! -f "$WORKSPACE_DIR/$file" ]; then
+        report_error "$file not found (cannot check syntax)"
+        continue
+    fi
+    
+    # Count braces (opening and closing)
+    opening_braces=$(grep -o "{" "$WORKSPACE_DIR/$file" | wc -l)
+    closing_braces=$(grep -o "}" "$WORKSPACE_DIR/$file" | wc -l)
+    
+    if [ "$opening_braces" -eq "$closing_braces" ]; then
+        report_success "$file: brace matching OK ($opening_braces pairs)"
+    else
+        report_error "$file: brace mismatch - found $opening_braces { but $closing_braces } (difference: $((opening_braces - closing_braces)))"
+    fi
+    
+    # Check for console.log statements that might be debug code
+    debug_logs=$(grep -n "console\.log(" "$WORKSPACE_DIR/$file" | grep -v "console\.log.*message\|console\.log.*error\|console\.log.*warning" | head -3 || true)
+    if [ -n "$debug_logs" ]; then
+        report_warning "$file may contain debug console.log statements (first 3): $(echo "$debug_logs" | cut -d: -f1 | paste -sd',' -)"
+    fi
+done
+
+# Check for console.error/log in Code.js (server-side, should use Logger.log instead)
+if grep -q "console\.log\|console\.error" "$WORKSPACE_DIR/Code.js"; then
+    report_warning "Code.js contains console.log/error statements (these are ignored in server-side code; use Logger.log instead)"
+fi
+
+echo ""
+echo "🎯 CDN and Asset Verification"
 # Warn if any jsDelivr references still use @master - recommend to pin to a tag or commit
 master_refs=$(git grep -n "cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master" | grep -v "scripts/pre-deploy-check.sh" || true)
 if [ -n "$master_refs" ]; then
@@ -326,26 +504,31 @@ if [ -n "$master_refs" ]; then
 else
     report_success "CDN references appear pinned (no @master references)"
 fi
-echo "�📊 Validation Summary"
-echo "===================="
+
+echo ""
+echo "📊 Final Validation Summary"
+echo "============================"
+
+echo ""
+echo "📊 Final Validation Summary"
+echo "============================"
 
 if [ $ERRORS_FOUND -eq 0 ]; then
     echo -e "${GREEN}🎉 All critical checks passed! Ready for deployment.${NC}"
     echo ""
-    if [ $ERRORS_FOUND -gt 0 ]; then
-        report_error "Pre-deploy validation found errors. Check above messages and fix before deploying."
-        exit 1
-    fi
-    echo "To deploy, run:"
-    echo "  ./scripts/quick-deploy.sh \"Description of changes\""
+    echo "✅ Next steps:"
+    echo "  1. Review all warnings above (if any)"
+    echo "  2. Commit any changes: git add -A && git commit -m 'v{X} - description'"
+    echo "  3. Deploy: ./scripts/efficient-deploy.sh \"Description of changes\""
+    echo ""
     exit 0
 else
     echo -e "${RED}🚫 $ERRORS_FOUND critical issues found. Please fix before deploying.${NC}"
+    echo ""
+    echo "❌ Issues to fix:"
+    echo "  • Review all ERROR messages above"
+    echo "  • Fix each issue and re-run this script"
+    echo "  • Do not deploy until all errors are resolved"
+    echo ""
     exit 1
-fi
-
-# Additional check: ensure appsscript.json 'webapp.access' is set to ANYONE_ANONYMOUS (recommended for public exec URL)
-manifest_access=$(grep -o '"access":\s*"[A-Z_]*"' "$WORKSPACE_DIR/appsscript.json" | sed -E 's/.*"([A-Z_]+)".*/\1/' || true)
-if [ "$manifest_access" != "ANYONE_ANONYMOUS" ]; then
-    report_warning "appsscript.json webapp.access is set to '$manifest_access' (expected: ANYONE_ANONYMOUS). This can cause the exec URL to require Google sign-in after push/deploy. To make it anonymous set webapp.access to ANYONE_ANONYMOUS in appsscript.json or pass --access ANYONE_ANONYMOUS to deployment."
 fi

@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## v824 — 2025-12-07
+**Deployment Configuration & Pre-Deploy Validation Improvements**
+- **Config**: Fixed `.clasp.json` with correct `src/includes/` and `src/icons/` file paths
+  - Updated `filePushOrder` to reflect new project structure
+  - Removed 4 outdated partial file references
+- **Scripts**: Enhanced `pre-deploy-check.sh` with 8 new validation categories
+  - Git status checking (detects uncommitted changes)
+  - JavaScript include() statement validation (verifies all 7 modules loaded)
+  - Code.js server-side function validation (checks 7 critical functions)
+  - HTML structure tag balance checking
+  - Version consistency verification (Code.js vs CHANGELOG)
+  - .claspignore configuration validation
+  - package.json and dependencies verification
+  - Enhanced syntax checking with brace matching across all JS files
+- **Docs**: Created 6 comprehensive project documentation files
+  - QUICK_REFERENCE.md: Daily deployment reference guide
+  - PROJECT_STATUS_SUMMARY.md: Comprehensive project overview
+  - FEATURE_BUG_STATUS.md: Complete feature inventory
+  - VISUAL_PROJECT_OVERVIEW.md: Code metrics and analysis
+  - DOCUMENTATION_INDEX.md: Navigation guide for all documentation
+  - REVIEW_SUMMARY.md: Executive summary of entire codebase
+- **Testing**: All smoke tests passed (4 insight cards rendering correctly)
+- **Fix**: Updated workspace path references in deployment scripts for folder portability
+
 ## v823 — 2025-12-07
 **Project Structure Refactor & Icon Optimization**
 - **Refactor**: Reorganized entire project structure following best practices
