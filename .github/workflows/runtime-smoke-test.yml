@@ -1,0 +1,53 @@
+name: Runtime Smoke Test (Production exec)
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  smoke-test-production:
+    name: Runtime smoke test on prod exec URL
+    runs-on: ubuntu-latest
+    env:
+      # Update this to your canonical production deployment ID or set a repository secret
+      PROD_DEPLOYMENT_ID: AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug
+      APP_URL_PUBLIC: https://script.google.com/macros/s/AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug/exec
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Install chromium (for puppeteer-core headless)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+          echo "CHROME_PATH=/usr/bin/chromium-browser" >> $GITHUB_ENV
+
+      - name: Verify public exec URL does not redirect to sign-in
+        run: |
+          echo "Checking APP_URL_PUBLIC=$APP_URL_PUBLIC"
+          set -euo pipefail
+          first_location=$(curl -s -I -L -o /dev/null -w '%{url_effective}' "$APP_URL_PUBLIC")
+          echo "Effective URL after redirects: $first_location"
+          if echo "$first_location" | grep -q "accounts.google.com"; then
+            echo "❌ Exec URL redirects to Google sign-in. Please set deployment access to 'Anyone (even anonymous)'."
+            exit 1
+          fi
+          echo "✅ Exec URL does not redirect to Google sign-in."
+
+      - name: Run runtime-check smoke test
+        env:
+          # Puppeteer executable path
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+          APP_URL_PUBLIC: ${{ env.APP_URL_PUBLIC }}
+        run: |
+          node ./scripts/runtime-check.js
