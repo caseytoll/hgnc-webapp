@@ -142,8 +142,13 @@ echo "  Created version: $VERSION_NUMBER"
 echo "→ Deploying version $VERSION_NUMBER..."
 ACCESS_ARG=""
 if [ "$ENSURE_ANON" -eq 1 ]; then
-  ACCESS_ARG="--access ANYONE_ANONYMOUS"
-  echo "→ Ensuring deployment access is ANYONE_ANONYMOUS"
+  # Test whether clasp deploy supports the --access flag
+  if clasp deploy --help 2>&1 | /usr/bin/grep -q -- --access; then
+    ACCESS_ARG="--access ANYONE_ANONYMOUS"
+    echo "→ Ensuring deployment access is ANYONE_ANONYMOUS via clasp"
+  else
+    echo "→ WARNING: this version of clasp does not support --access; update clasp or change access via Apps Script UI / API"
+  fi
 fi
 clasp deploy --versionNumber "$VERSION_NUMBER" --deploymentId "$DEPLOYMENT_ID" $ACCESS_ARG
 
