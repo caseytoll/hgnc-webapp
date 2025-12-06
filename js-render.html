@@ -1233,7 +1233,7 @@
             dashboard.classList.remove('hidden');
         }
         // Defensive: ensure display is not none
-        dashboard.style.display = '';
+        dashboard.style.display = 'block';
         // Show loading spinner if team data or stats are not yet loaded
         if (!window.allTeamData || !(window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID)) {
             if (dashboard) {

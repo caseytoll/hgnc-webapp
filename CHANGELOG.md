@@ -3,6 +3,7 @@
 ## [Unreleased]
 - UI: Restore Players navigation button in bottom nav bar (between Schedule and Ladder)
 - Fix: Ensure insights sub-views (Team Performance, Offensive Leaders, etc.) render content after stats load by calling renderNewInsightsDashboard in handleSelectTeam
+- Fix: Ensure insights dashboard is visible by setting display to block in renderNewInsightsDashboard
 - Fleshed out README.md with comprehensive project overview, setup instructions, and usage guide.
 
 ## v767 — 2025-12-06
