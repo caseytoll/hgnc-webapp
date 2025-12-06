@@ -6,7 +6,9 @@
 echo "🔍 HGNC WebApp Pre-Deployment Validation"
 echo "========================================"
 
-WORKSPACE_DIR="/Users/casey-work/HGNC WebApp/17.11.25"
+# Get the directory where this script is located, then go up to repo root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WORKSPACE_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 ERRORS_FOUND=0
 
 # Colors for output
@@ -36,14 +38,14 @@ echo "📋 Checking file structure..."
 # Check if all required files exist
 required_files=(
     "index.html"
-    "js-navigation.html"
-    "js-render.html"
-    "js-core-logic.html"
-    "js-helpers.html"
-    "js-server-comms.html"
-    "js-startup.html"
-    "js-validation.html"
-    "styles.html"
+    "src/includes/js-navigation.html"
+    "src/includes/js-render.html"
+    "src/includes/js-core-logic.html"
+    "src/includes/js-helpers.html"
+    "src/includes/js-server-comms.html"
+    "src/includes/js-startup.html"
+    "src/includes/js-validation.html"
+    "src/styles.html"
     "appsscript.json"
 )
 
@@ -59,7 +61,7 @@ echo ""
 echo "🔍 Checking JavaScript function definitions..."
 
 # Check for critical function definitions in js-navigation.html
-if grep -q "function showView(" "$WORKSPACE_DIR/js-navigation.html"; then
+if grep -q "function showView(" "$WORKSPACE_DIR/src/includes/js-navigation.html"; then
     report_success "showView function defined"
 else
     report_error "showView function not found"
@@ -154,19 +156,19 @@ if grep -q "data:image/svg+xml" player-analysis-icon-code.html 2>/dev/null; then
     report_warning "player-analysis-icon-code.html contains inline SVG. Consider using CDN/WebP asset fallback instead of inline SVG placeholders."
 fi
 
-if grep -q "const renderNewInsightsDashboard" "$WORKSPACE_DIR/js-render.html"; then
+if grep -q "const renderNewInsightsDashboard" "$WORKSPACE_DIR/src/includes/js-render.html"; then
     report_success "renderNewInsightsDashboard function defined"
 else
     report_error "renderNewInsightsDashboard function not found"
 fi
 
-if grep -q "const renderInsightsOffensiveLeaders" "$WORKSPACE_DIR/js-render.html"; then
+if grep -q "const renderInsightsOffensiveLeaders" "$WORKSPACE_DIR/src/includes/js-render.html"; then
     report_success "renderInsightsOffensiveLeaders function defined"
 else
     report_error "renderInsightsOffensiveLeaders function not found"
 fi
 
-if grep -q "const renderInsightsDefensiveWall" "$WORKSPACE_DIR/js-render.html"; then
+if grep -q "const renderInsightsDefensiveWall" "$WORKSPACE_DIR/src/includes/js-render.html"; then
     report_success "renderInsightsDefensiveWall function defined"
 else
     report_error "renderInsightsDefensiveWall function not found"
@@ -218,19 +220,19 @@ echo ""
 echo "🔍 Checking render function calls in showView..."
 
 # Check that showView has render calls for the insight views
-if grep -q "renderNewInsightsDashboard()" "$WORKSPACE_DIR/js-navigation.html"; then
+if grep -q "renderNewInsightsDashboard()" "$WORKSPACE_DIR/src/includes/js-navigation.html"; then
     report_success "renderNewInsightsDashboard called in showView"
 else
     report_error "renderNewInsightsDashboard not called in showView"
 fi
 
-if grep -q "renderInsightsOffensiveLeaders()" "$WORKSPACE_DIR/js-navigation.html"; then
+if grep -q "renderInsightsOffensiveLeaders()" "$WORKSPACE_DIR/src/includes/js-navigation.html"; then
     report_success "renderInsightsOffensiveLeaders called in showView"
 else
     report_error "renderInsightsOffensiveLeaders not called in showView"
 fi
 
-if grep -q "renderInsightsDefensiveWall()" "$WORKSPACE_DIR/js-navigation.html"; then
+if grep -q "renderInsightsDefensiveWall()" "$WORKSPACE_DIR/src/includes/js-navigation.html"; then
     report_success "renderInsightsDefensiveWall called in showView"
 else
     report_error "renderInsightsDefensiveWall not called in showView"
@@ -267,29 +269,29 @@ echo ""
 echo "🔍 Checking changelog and version..."
 
 # Check if CHANGELOG.md exists and has recent entries
-if [ -f "$WORKSPACE_DIR/CHANGELOG.md" ]; then
+if [ -f "$WORKSPACE_DIR/docs/CHANGELOG.md" ]; then
     report_success "CHANGELOG.md exists"
     
     # Check if there's an unreleased section or recent version
-    if grep -q "## \[Unreleased\]" "$WORKSPACE_DIR/CHANGELOG.md" || grep -q "## v[0-9]" "$WORKSPACE_DIR/CHANGELOG.md"; then
+    if grep -q "## \[Unreleased\]" "$WORKSPACE_DIR/docs/CHANGELOG.md" || grep -q "## v[0-9]" "$WORKSPACE_DIR/docs/CHANGELOG.md"; then
         report_success "CHANGELOG.md has version entries"
     else
         report_error "CHANGELOG.md missing version entries"
     fi
     
     # Get the latest version from changelog
-    latest_changelog_version=$(grep -o "## v[0-9]*" "$WORKSPACE_DIR/CHANGELOG.md" | head -1 | sed 's/## v//')
+    latest_changelog_version=$(grep -o "## v[0-9]*" "$WORKSPACE_DIR/docs/CHANGELOG.md" | head -1 | sed 's/## v//')
     
     # Get version from Code.js
-    code_version=$(grep -o "appVersion = '[0-9]*\.[0-9]*'" "$WORKSPACE_DIR/Code.js" | sed "s/appVersion = '//" | sed "s/'//")
+    code_version=$(grep -o "appVersion = '[0-9]*'" "$WORKSPACE_DIR/Code.js" | sed "s/appVersion = '//" | sed "s/'//")
     
     # Check if changelog has been updated recently (within last hour)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
-        changelog_modified=$(stat -f "%m" "$WORKSPACE_DIR/CHANGELOG.md")
+        changelog_modified=$(stat -f "%m" "$WORKSPACE_DIR/docs/CHANGELOG.md")
     else
         # Linux
-        changelog_modified=$(stat -c "%Y" "$WORKSPACE_DIR/CHANGELOG.md")
+        changelog_modified=$(stat -c "%Y" "$WORKSPACE_DIR/docs/CHANGELOG.md")
     fi
     
     changelog_diff=$((current_time - changelog_modified))
@@ -303,12 +305,12 @@ else
 fi
 
 # Basic syntax check - look for common syntax issues
-if grep -n "console\.log(" "$WORKSPACE_DIR/js-navigation.html" | grep -v ");" | head -3 | grep -q "console"; then
+if grep -n "console\.log(" "$WORKSPACE_DIR/src/includes/js-navigation.html" | grep -v ");" | head -3 | grep -q "console"; then
     report_warning "Possible unclosed console.log statements found"
 fi
 
 # Check for unmatched braces (very basic check)
-nav_js=$(cat "$WORKSPACE_DIR/js-navigation.html" | grep -v "^[[:space:]]*//" | grep -o "[{}]" | wc -l)
+nav_js=$(cat "$WORKSPACE_DIR/src/includes/js-navigation.html" | grep -v "^[[:space:]]*//" | grep -o "[{}]" | wc -l)
 if [ $((nav_js % 2)) -ne 0 ]; then
     report_warning "Possible unmatched braces in js-navigation.html"
 else

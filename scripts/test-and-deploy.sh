@@ -3,7 +3,9 @@
 # === HGNC WebApp Testing & Deployment Workflow ===
 # Comprehensive script that validates, tests, and deploys
 
-WORKSPACE_DIR="/Users/casey-work/HGNC WebApp/17.11.25"
+# Get the directory where this script is located, then go up to repo root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WORKSPACE_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # Colors
 RED='\033[0;31m'
