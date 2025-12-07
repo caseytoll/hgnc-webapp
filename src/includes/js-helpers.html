@@ -1,6 +1,16 @@
 <script>
     // === GLOBAL STATE (Modernized) ===
     
+    // === TEAM NICKNAME MAPPING ===
+    // Maps full team names to mobile-friendly nicknames for display
+    var TEAM_NICKNAMES = {
+        'Montmorency': 'Monty'
+    };
+    
+    function getDisplayName(fullName) {
+        return TEAM_NICKNAMES[fullName] || fullName;
+    }
+    
     // === NATIVE MOBILE FEATURES ===
     
     // Haptic feedback helper (vibration)

@@ -232,7 +232,7 @@
                     gameRowContent = 
                         '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
-                            '<span class="game-opponent">vs ' + game.opponent + '</span>' +
+                            '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
                             '<span class="spacer"></span>' +
                             data.statusBadge +
                         '</div>' +
@@ -244,7 +244,7 @@
                     gameRowContent = 
                         '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
-                            '<span class="game-opponent">vs ' + game.opponent + '</span>' +
+                            '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
                             '<span class="spacer"></span>' +
                             '<div class="game-row-score">' +
                                 '<span class="score-us">' + data.scores.ourScore + '</span>' +
@@ -832,7 +832,7 @@
             var diffStr = diff > 0 ? '+' + diff : diff.toString();
             
             html += '<div class="perf-detail-row">';
-            html += '<span>' + game.opponent + '</span>';
+            html += '<span>' + getDisplayName(game.opponent) + '</span>';
             html += '<span class="' + diffClass + '" style="font-weight: bold;">' + diffStr + '</span>';
             html += '</div>';
         });
@@ -861,7 +861,7 @@
             
             html += '<div class="perf-detail-row">';
             html += '<span class="' + resultClass + '" style="font-weight: bold; width: 20px;">' + result + '</span>';
-            html += '<span>' + game.opponent + '</span>';
+            html += '<span>' + getDisplayName(game.opponent) + '</span>';
             html += '<span style="font-size: 11px;">' + scores.ourScore + '-' + scores.opponentScore + '</span>';
             html += '</div>';
         });
@@ -957,7 +957,7 @@
         var html = '<div style="margin-bottom: 8px; font-size: 11px; font-weight: bold; opacity: 0.7;">Highest</div>';
         highest.forEach(function(game) {
             html += '<div class="perf-detail-row">';
-            html += '<span>' + game.opponent + '</span>';
+            html += '<span>' + getDisplayName(game.opponent) + '</span>';
             html += '<span class="positive" style="font-weight: bold;">' + game.score + '</span>';
             html += '</div>';
         });
@@ -965,7 +965,7 @@
         html += '<div style="margin: 8px 0 8px 0; font-size: 11px; font-weight: bold; opacity: 0.7;">Lowest</div>';
         lowest.forEach(function(game) {
             html += '<div class="perf-detail-row">';
-            html += '<span>' + game.opponent + '</span>';
+            html += '<span>' + getDisplayName(game.opponent) + '</span>';
             html += '<span>' + game.score + '</span>';
             html += '</div>';
         });
@@ -1085,7 +1085,7 @@
         var result = scores.ourScore > scores.opponentScore ? 'W' : (scores.ourScore < scores.opponentScore ? 'L' : 'D');
         
         var html = '<div style="text-align: center; margin-bottom: 8px;">';
-        html += '<div style="font-size: 11px; opacity: 0.7;">vs ' + highScoreGame.opponent + '</div>';
+        html += '<div style="font-size: 11px; opacity: 0.7;">vs ' + getDisplayName(highScoreGame.opponent) + '</div>';
         html += '<div style="font-size: 24px; font-weight: bold; margin: 4px 0;" class="positive">' + highestScore + '-' + scores.opponentScore + '</div>';
         html += '<div style="font-size: 11px; opacity: 0.7;">Result: ' + result + '</div>';
         html += '</div>';
@@ -3798,7 +3798,7 @@
                 // Game header
                 html += '<div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">';
                 html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
-                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + game.opponent + '</div>';
+                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + getDisplayName(game.opponent) + '</div>';
                 html += '<span class="' + resultClass + '" style="font-weight: bold; font-size: 1.1rem; padding: 4px 8px; border-radius: 6px;">' + result + '</span>';
                 html += '</div>';
                 html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; opacity: 0.8;">';
@@ -3923,7 +3923,7 @@
             html += '<div class="perf-card-front">';
             html += '<div style="display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="flex: 1;">';
-            html += '<div style="font-weight: 600; font-size: 0.9rem;">' + game.opponent + '</div>';
+            html += '<div style="font-weight: 600; font-size: 0.9rem;">' + getDisplayName(game.opponent) + '</div>';
             html += '<div style="font-size: 0.75rem; opacity: 0.7; margin-top: 2px;">' + formatGameDate(game.date) + ' • ' + detail.quartersPlayed + ' Qtrs</div>';
             html += '</div>';
             html += '<div style="display: flex; align-items: center; gap: 12px;">';
@@ -3987,7 +3987,7 @@
                 // Game header
                 html += '<div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">';
                 html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
-                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + game.opponent + '</div>';
+                html += '<div style="font-size: 1.1rem; font-weight: 700;">' + getDisplayName(game.opponent) + '</div>';
                 html += '<span class="' + resultClass + '" style="font-weight: bold; font-size: 1.1rem; padding: 4px 8px; border-radius: 6px;">' + result + '</span>';
                 html += '</div>';
                 html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; opacity: 0.8;">';
