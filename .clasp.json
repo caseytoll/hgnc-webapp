@@ -9,15 +9,11 @@
     "appsscript.json"
     ,"Code.js"
     ,"index.html"
-    ,"src/styles.html"
-    ,"src/includes/js-helpers.html"
-    ,"src/includes/js-navigation.html"
-    ,"src/includes/js-server-comms.html"
+    ,"styles.html"
     ,"src/includes/js-core-logic.html"
+    ,"src/includes/js-navigation.html"
     ,"src/includes/js-render.html"
     ,"src/includes/js-startup.html"
-    ,"src/includes/js-validation.html"
-    ,"manifest.json"
-    ,"package.json"
+    ,"src/styles.html"
   ]
 }
