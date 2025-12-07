@@ -5528,4 +5528,392 @@
   background: #e6e9f0 !important;
 }
 
+/* ========================================
+   CRITICAL UI ELEMENTS
+   ======================================== */
+
+/* CRITICAL: Loading overlay must be centered with smoke effect */
+#loading-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column !important;
+  z-index: 200 !important;
+  visibility: visible !important;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  gap: 12px;
+}
+
+#loading-overlay.hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* ========================================
+   MODAL OVERLAYS & DIALOGS
+   ======================================== */
+
+/* Fixed modal overlay */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.custom-modal-overlay.hidden {
+  display: none;
+}
+
+.custom-modal-content {
+  background: var(--content-bg);
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 350px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.custom-modal-content h3 {
+  margin-top: 0;
+  font-size: 1.2em;
+  color: var(--primary-color);
+}
+
+.custom-modal-content p {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.custom-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.custom-modal-actions button {
+  padding: 10px 16px;
+  font-weight: 600;
+}
+
+.custom-modal-actions .confirm-ok {
+  background-color: var(--primary-color);
+}
+
+.custom-modal-actions .confirm-cancel {
+  background-color: var(--border-color);
+  color: #333;
+}
+
+.custom-modal-actions .alert-close {
+  width: 100%;
+}
+
+.error-modal-title {
+  color: var(--danger-color) !important;
+}
+
+/* ========================================
+   INSIGHTS TAB & BUTTON STYLING
+   ======================================== */
+
+/* Test insights & tab button styles */
+.test-insights-btn {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(60, 60, 120, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35em;
+  cursor: pointer;
+  transition: box-shadow 0.18s, background 0.18s, opacity 0.18s;
+  opacity: 0.92;
+  color: #3a3a5a;
+}
+
+.test-insights-btn:hover,
+.test-insights-btn:focus {
+  background: linear-gradient(135deg, #e0e7ff 0%, #b6c6e6 100%);
+  box-shadow: 0 4px 16px rgba(60, 60, 120, 0.18);
+  opacity: 1;
+  outline: none;
+}
+
+.test-insights-btn span[role="img"] {
+  filter: drop-shadow(0 1px 0 #fff) drop-shadow(0 2px 2px #b6c6e6);
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+/* Refresh button styling */
+#refresh-insights-btn:hover {
+  background: linear-gradient(135deg, #e0e7ff 0%, #b6c6e6 100%);
+  box-shadow: 0 4px 16px rgba(60, 60, 120, 0.18);
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+#refresh-insights-btn:active {
+  transform: scale(0.95);
+}
+
+/* Insights Tab Button Styling */
+.insights-tab-btn {
+  position: relative;
+  background: none;
+  border: none;
+  outline: none;
+  z-index: 2;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.insights-tab-btn .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #3a3a5a;
+  font-size: 1.35em;
+  box-shadow: 0 1px 4px rgba(60, 60, 120, 0.08);
+  margin: 0 auto 2px auto;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.insights-tab-btn.active .icon,
+.insights-tab-btn:active .icon,
+.insights-tab-btn:focus .icon {
+  background: linear-gradient(135deg, #e0e7ff 0%, #b6c6e6 100%);
+  color: #5a3aff;
+  box-shadow: 0 2px 8px rgba(60, 60, 120, 0.16);
+}
+
+.insights-tab-btn:hover .icon {
+  background: linear-gradient(135deg, #e0e7ff 0%, #b6c6e6 100%);
+  color: #5a3aff;
+  box-shadow: 0 2px 8px rgba(60, 60, 120, 0.16);
+}
+
+.insights-tab-btn .icon:before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Reserve space for optional subtitle notes to avoid layout shift */
+.card-subtitle {
+  min-height: 1.25em;
+}
+
+.card-subtitle.hidden {
+  visibility: hidden;
+}
+
+.insights-tab-btn span {
+  display: block;
+  font-size: 0.92em;
+  color: #3a3a5a;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.insights-tab-btn.active span,
+.insights-tab-btn:active span,
+.insights-tab-btn:focus span {
+  color: #5a3aff;
+}
+
+.insights-tab-btn:hover span {
+  color: #5a3aff;
+}
+
+/* Experimental badge for test insights */
+.experimental-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(90, 58, 255, 0.12);
+  color: #5a3aff;
+  border: 1px solid rgba(90, 58, 255, 0.14);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  z-index: 20;
+}
+
+/* Visual cue for low-sample statistics */
+.low-sample {
+  opacity: 0.64;
+  filter: grayscale(20%);
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+/* Hub tab styling */
+.hub-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--secondary-text);
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.hub-tab:hover {
+  background: rgba(90, 58, 255, 0.06);
+  color: #5a3aff;
+}
+
+.hub-tab.active,
+.hub-tab[aria-selected="true"] {
+  background: linear-gradient(135deg, #e9e6ff, #efe8ff);
+  color: #5a3aff;
+  box-shadow: 0 4px 12px rgba(90, 58, 255, 0.06);
+  border-color: rgba(90, 58, 255, 0.08);
+}
+
+/* ========================================
+   ACCESSIBILITY & DEBUG
+   ======================================== */
+
+/* Accessibility helper: visually-hidden */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Small debug status badge */
+.test-debug-badge {
+  position: fixed;
+  left: 12px;
+  bottom: 56px;
+  z-index: 100000;
+  background: rgba(90, 58, 255, 0.95);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(15, 12, 40, 0.28);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  opacity: 0.98;
+  display: none; /* shown when debug enabled */
+}
+
+/* ========================================
+   LEADERBOARD LAYOUT
+   ======================================== */
+
+.leaderboard-headers {
+  display: grid;
+  grid-template-columns: 54px 1fr 140px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  font-weight: 700;
+  color: var(--secondary-text);
+  font-size: 0.92em;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+  background: transparent;
+}
+
+.leaderboard-headers .col-rank {
+  justify-self: start;
+}
+
+.leaderboard-headers .col-player {
+  justify-self: start;
+  padding-left: 0;
+}
+
+.leaderboard-headers .col-score {
+  justify-self: end;
+}
+
+.leaderboard-item {
+  padding: 12px;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.leaderboard-item .leaderboard-name {
+  justify-self: start;
+  margin: 0;
+  padding: 0;
+}
+
+.leaderboard-goals {
+  justify-self: end;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.leaderboard-goals .score {
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.leaderboard-subtext {
+  display: block;
+  font-size: 0.92em;
+  color: var(--secondary-text);
+}
+
+.leaderboard-subbracket {
+  display: block;
+  font-size: 0.78em;
+  color: var(--secondary-text);
+  margin-top: 4px;
+}
+
+.leaderboard-rank {
+  justify-self: start;
+  font-weight: 700;
+  color: var(--secondary-text);
+}
+
 </style>
