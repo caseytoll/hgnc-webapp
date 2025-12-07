@@ -1336,14 +1336,14 @@
   }
 
   .game-row {
-    padding: 12px;
+    padding: 8px 12px;
     flex-grow: 1;
     cursor: pointer;
     transition: background-color 0.2s;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
+    align-items: center;
+    gap: 12px;
   }
 
   .game-row.is-bye {
@@ -1377,9 +1377,11 @@
 
   .game-row-header {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex: 1;
-    gap: 6px;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .game-row-top {
@@ -1391,24 +1393,25 @@
 
   .game-round {
     font-weight: 600;
-    font-size: 0.95em;
+    font-size: 0.9em;
     color: var(--primary-text);
-    flex: 1;
-    line-height: 1.3;
+    flex-shrink: 0;
+    min-width: fit-content;
   }
 
   .game-row-meta {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 4px;
+    margin-top: 0;
   }
 
   .game-row-date {
     color: var(--secondary-text);
-    font-size: 0.75em;
+    font-size: 0.8em;
     font-weight: normal;
-    line-height: 1.3;
+    flex: 0 1 auto;
+    min-width: fit-content;
   }
 
   .game-row-details {
@@ -1418,47 +1421,63 @@
     font-size: 0.9em;
   }
 
-  .game-row-opponent {
+  .game-opponent {
     font-weight: 500;
     color: var(--primary-text);
+    flex: 0 1 auto;
+    min-width: fit-content;
   }
 
   .game-row-score {
     font-weight: bold;
-    font-size: 1.1em;
+    font-size: 1em;
     text-align: right;
     white-space: nowrap;
-    min-width: 70px;
     flex-shrink: 0;
+    min-width: fit-content;
+  }
+
+  .edit-btn {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 0.9em;
   }
 
   @media (max-width: 480px) {
     .game-row {
-      padding: 10px;
-      gap: 12px;
+      padding: 8px 10px;
+      gap: 10px;
     }
 
     .game-row-top {
-      flex-direction: column;
+      flex-direction: row;
       gap: 4px;
     }
 
     .game-round {
-      font-size: 0.9em;
+      font-size: 0.85em;
+    }
+
+    .game-opponent {
+      font-size: 0.85em;
     }
 
     .game-row-score {
-      font-size: 1.2em;
-      min-width: 65px;
+      font-size: 0.95em;
     }
 
     .game-row-meta {
       gap: 8px;
-      margin-top: 3px;
+      margin-top: 0;
     }
 
     .game-row-date {
-      font-size: 0.7em;
+      font-size: 0.75em;
+    }
+
+    .edit-btn {
+      padding: 3px 6px;
+      font-size: 0.8em;
     }
   }
 
