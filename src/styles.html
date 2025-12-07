@@ -3406,16 +3406,17 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--overlay-bg);
+    background: rgba(0, 0, 0, 0.6) !important;
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     display: flex !important;
-    align-items: center;
-    justify-content: center;
+    align-items: center !important;
+    justify-content: center !important;
     font-size: var(--text-xl);
     font-weight: 600;
     z-index: 200;
     color: var(--text-primary);
-    flex-direction: column;
+    flex-direction: column !important;
     gap: var(--space-3);
   }
   
