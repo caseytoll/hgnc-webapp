@@ -109,15 +109,10 @@
                             addGameButton.onclick = showAddGameModal;
                         }
 
-                        // Show game-detail edit nav button
-                        var editGameNavButton = document.getElementById('show-edit-game-nav');
+                        // Show game-detail edit tab button
+                        var editGameNavButton = document.getElementById('show-edit-tab');
                         if (editGameNavButton) {
                             editGameNavButton.classList.remove('hidden');
-                            editGameNavButton.onclick = function() {
-                                if (typeof currentGameId !== 'undefined' && currentGameId) {
-                                    showEditGameModal(currentGameId);
-                                }
-                            };
                         }
 
                         // Show and set up Admin button in Insights view
@@ -138,7 +133,7 @@
                     } else {
                         // Non-owner: ensure admin UI is hidden
                         if (readOnlyBanner) readOnlyBanner.classList.remove('hidden');
-                        var selectors = ['show-add-team-modal', 'toggle-edit-mode', 'show-add-player-modal', 'show-add-game-modal', 'show-admin-view-btn', 'show-edit-game-nav'];
+                        var selectors = ['show-add-team-modal', 'toggle-edit-mode', 'show-add-player-modal', 'show-add-game-modal', 'show-admin-view-btn', 'show-edit-tab'];
                         selectors.forEach(function(id){ var el = document.getElementById(id); if (el) el.classList.add('hidden'); });
                     }
                 } catch (e) {

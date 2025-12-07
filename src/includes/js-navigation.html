@@ -628,13 +628,19 @@
         document.getElementById('show-availability-tab').classList.toggle('active', tabName === 'availability');
         document.getElementById('show-lineup-tab').classList.toggle('active', tabName ==='lineup');
         document.getElementById('show-scoring-tab').classList.toggle('active', tabName === 'scoring');
+        var editTab = document.getElementById('show-edit-tab');
+        if (editTab) editTab.classList.toggle('active', tabName === 'edit');
         
         document.getElementById('availability-content').classList.toggle('hidden', tabName !== 'availability');
         document.getElementById('game-lineup-content').classList.toggle('hidden', tabName !== 'lineup');
         document.getElementById('scoring-content').classList.toggle('hidden', tabName !== 'scoring');
+        var editContent = document.getElementById('edit-content');
+        if (editContent) editContent.classList.toggle('hidden', tabName !== 'edit');
         
         if (tabName === 'lineup') {
             renderGameDetailLineup();
+        } else if (tabName === 'edit') {
+            populateGameEditForm();
         }
     }
     
@@ -798,16 +804,64 @@
 
     var gameEditReturnView = 'fixture-view';
 
+    function populateGameEditForm() {
+        if (!currentGameId) return;
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        var titleEl = document.getElementById('game-edit-title');
+        var subtitleEl = document.getElementById('game-edit-subtitle');
+        var submitBtn = document.getElementById('add-game-button');
+        if (titleEl) titleEl.textContent = 'Edit Game';
+        if (subtitleEl) subtitleEl.textContent = 'Round ' + (game.round || '?') + ' vs ' + (game.opponent || '');
+        if (submitBtn) submitBtn.textContent = 'Update';
+        
+        var dateInput = document.getElementById('new-game-date');
+        var roundInput = document.getElementById('new-game-round');
+        var timeInput = document.getElementById('new-game-time');
+        var courtInput = document.getElementById('new-game-court');
+        var venueInput = document.getElementById('new-game-venue');
+        var statusSelect = document.getElementById('new-game-status');
+        var opponentInput = document.getElementById('new-game-opponent');
+        var deleteZone = document.getElementById('delete-game-zone');
+        
+        if (roundInput) roundInput.value = game.round;
+        if (dateInput) dateInput.value = game.date;
+        if (timeInput) timeInput.value = game.time || '';
+        if (courtInput) courtInput.value = game.court || '';
+        if (venueInput) venueInput.value = game.venue || '';
+        var status = game.status || 'normal';
+        if (statusSelect) statusSelect.value = status;
+        if (opponentInput) opponentInput.value = (status === 'bye') ? '' : game.opponent;
+        toggleOpponentField(status);
+        if (deleteZone) deleteZone.classList.remove('hidden');
+        
+        appState.currentGame.editingId = currentGameId;
+    }
+
     function showGameEditor(mode, gameId) {
         if (!isOwner()) return; // Read-only mode: prevent creation/edits
         var isEdit = mode === 'edit';
-        gameEditReturnView = isEdit ? 'game-detail-view' : 'fixture-view';
-        appState.currentGame.editingId = isEdit ? gameId : null;  
+
+        if (isEdit) {
+            var targetId = gameId || currentGameId;
+            if (!targetId) return;
+            currentGameId = targetId;
+            appState.currentGame.editingId = targetId;
+            // Ensure game detail view is shown with edit tab active
+            showGameDetail(targetId);
+            showGameDetailTab('edit');
+            return;
+        }
+
+        // Add game flow (still needed for the add button on schedule)
+        gameEditReturnView = 'fixture-view';
+        appState.currentGame.editingId = null;
 
         var titleEl = document.getElementById('game-edit-title');
         var submitBtn = document.getElementById('add-game-button');
-        if (titleEl) titleEl.textContent = isEdit ? 'Edit Game' : 'Add Game';
-        if (submitBtn) submitBtn.textContent = isEdit ? 'Update' : 'Add';
+        if (titleEl) titleEl.textContent = 'Add Game';
+        if (submitBtn) submitBtn.textContent = 'Add';
 
         var dateInput = document.getElementById('new-game-date');
         var roundInput = document.getElementById('new-game-round');
@@ -818,72 +872,59 @@
         var opponentInput = document.getElementById('new-game-opponent');
         var deleteZone = document.getElementById('delete-game-zone');
 
-        if (isEdit) {
-            var game = arrayFind(games, function(g) { return g.id === gameId; });
-            if (!game) return;
-            if (roundInput) roundInput.value = game.round;
-            if (dateInput) dateInput.value = game.date;
-            if (timeInput) timeInput.value = game.time || '';
-            if (courtInput) courtInput.value = game.court || '';
-            if (venueInput) venueInput.value = game.venue || '';
-            var status = game.status || 'normal';
-            if (statusSelect) statusSelect.value = status;
-            if (opponentInput) opponentInput.value = (status === 'bye') ? '' : game.opponent;
-            toggleOpponentField(status);
-            if (deleteZone) deleteZone.classList.remove('hidden');
-        } else {
-            var today = new Date();
-            var yyyy = today.getFullYear();
-            var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
-            var dd = es5PadStart(String(today.getDate()), 2, '0');
-            if (dateInput) dateInput.value = yyyy + "-" + mm + "-" + dd;
+        var today = new Date();
+        var yyyy = today.getFullYear();
+        var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
+        var dd = es5PadStart(String(today.getDate()), 2, '0');
+        if (dateInput) dateInput.value = yyyy + "-" + mm + "-" + dd;
 
-            var maxRound = 0;
-            games.forEach(function(g) {
-                if (g.round > maxRound) {
-                    maxRound = g.round;
-                }
-            });
-            if (roundInput) roundInput.value = maxRound + 1;
+        var maxRound = 0;
+        games.forEach(function(g) {
+            if (g.round > maxRound) {
+                maxRound = g.round;
+            }
+        });
+        if (roundInput) roundInput.value = maxRound + 1;
 
-            if (statusSelect) statusSelect.value = 'normal';
-            if (opponentInput) opponentInput.value = "";
-            if (timeInput) timeInput.value = "";
-            if (courtInput) courtInput.value = "";
-            if (venueInput) venueInput.value = "";
-            toggleOpponentField('normal');
-            if (deleteZone) deleteZone.classList.add('hidden');
-        }
+        if (statusSelect) statusSelect.value = 'normal';
+        if (opponentInput) opponentInput.value = "";
+        if (timeInput) timeInput.value = "";
+        if (courtInput) courtInput.value = "";
+        if (venueInput) venueInput.value = "";
+        toggleOpponentField('normal');
+        if (deleteZone) deleteZone.classList.add('hidden');
 
-        // Show view
-        document.getElementById('game-edit-view').classList.remove('hidden');
-        document.getElementById('fixture-view').classList.add('hidden');
-        document.getElementById('game-detail-view').classList.add('hidden');
-        document.getElementById('players-view').classList.add('hidden');
-        document.getElementById('team-selector-view').classList.add('hidden');
-        document.getElementById('insights-view').classList.add('hidden');
-        document.getElementById('app-tab-nav').classList.add('hidden');
-        document.getElementById('game-detail-tab-nav').classList.add('hidden');
+        // For add flow, reuse the edit tab content but keep nav visible by staying on fixture view
+        // Show fixture view and keep tabs hidden (no game-detail context yet)
+        showView('fixture-view');
+        var editContent = document.getElementById('edit-content');
+        if (editContent) editContent.classList.remove('hidden');
+        var availability = document.getElementById('availability-content');
+        var lineup = document.getElementById('game-lineup-content');
+        var scoring = document.getElementById('scoring-content');
+        if (availability) availability.classList.add('hidden');
+        if (lineup) lineup.classList.add('hidden');
+        if (scoring) scoring.classList.add('hidden');
     }
 
     function cancelGameEdit() {
-        hideGameEditView();
-        if (gameEditReturnView === 'game-detail-view' && currentGameId) {
+        // For edit tab, just go back to availability tab
+        if (currentGameId) {
             showGameDetail(currentGameId);
+            showGameDetailTab('availability');
         } else {
             showView('fixture-view');
         }
     }
 
     function hideGameEditView() {
-        var view = document.getElementById('game-edit-view');
-        if (view) view.classList.add('hidden');
+        // Deprecated: edit now lives inside game-detail tabs
     }
 
     function finishGameEdit() {
-        hideGameEditView();
-        if (gameEditReturnView === 'game-detail-view' && currentGameId) {
+        if (currentGameId) {
             showGameDetail(currentGameId);
+            showGameDetailTab('availability');
         } else {
             showView('fixture-view');
         }

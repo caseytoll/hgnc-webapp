@@ -183,7 +183,12 @@
         haptic(50); // Haptic feedback
         saveCurrentTeamData();  
         renderGameList();
-        finishGameEdit();
+        if (currentGameId) {
+            showGameDetail(currentGameId);
+            showGameDetailTab('availability');
+        } else {
+            finishGameEdit();
+        }
     }
     
     function executeDeleteGame() {
@@ -204,7 +209,7 @@
                 editingGameId = null;
                 saveCurrentTeamData();
                 renderGameList();
-                finishGameEdit();
+                showView('fixture-view');
             },
             function() { // On Cancel
                 //
