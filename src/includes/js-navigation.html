@@ -851,6 +851,13 @@
         document.getElementById('delete-game-zone').classList.remove('hidden');
         showModal('add-game-modal');
     }
+
+    // Helper exposed for inline handlers (e.g., game detail nav)
+    function showEditGameModal(gameId) {
+        var targetId = gameId || currentGameId;
+        if (!targetId) return;
+        handleEditGame(targetId);
+    }
     
     function showAddTeamModal() {
         if (!isOwner()) return; // Read-only mode: prevent creation
