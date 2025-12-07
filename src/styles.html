@@ -1361,11 +1361,11 @@
   .game-row-line2 {
     justify-content: flex-start;
     font-size: 0.85em;
+    gap: 8px;
   }
 
   .spacer {
-    flex: 0 0 auto;
-    min-width: 8px;
+    display: none;
   }
 
   .game-row.is-bye {
@@ -1430,10 +1430,10 @@
     flex-shrink: 0;
     align-self: center;
     line-height: 1.2;
-    margin-right: 8px;
-    max-width: 45px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    overflow: visible;
     white-space: nowrap;
   }
 
