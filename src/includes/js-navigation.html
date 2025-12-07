@@ -796,60 +796,105 @@
         cancelCallback = null;
     }
 
-    function showAddGameModal() {
-        if (!isOwner()) return; // Read-only mode: prevent creation
-        appState.currentGame.editingId = null;  
-        document.getElementById('add-game-modal-title').textContent = "Add Game";
-        document.getElementById('add-game-button').textContent = "Add";
-        
+    var gameEditReturnView = 'fixture-view';
+
+    function showGameEditor(mode, gameId) {
+        if (!isOwner()) return; // Read-only mode: prevent creation/edits
+        var isEdit = mode === 'edit';
+        gameEditReturnView = isEdit ? 'game-detail-view' : 'fixture-view';
+        appState.currentGame.editingId = isEdit ? gameId : null;  
+
+        var titleEl = document.getElementById('game-edit-title');
+        var submitBtn = document.getElementById('add-game-button');
+        if (titleEl) titleEl.textContent = isEdit ? 'Edit Game' : 'Add Game';
+        if (submitBtn) submitBtn.textContent = isEdit ? 'Update' : 'Add';
+
         var dateInput = document.getElementById('new-game-date');
-        var today = new Date();
-        var yyyy = today.getFullYear();
-        var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
-        var dd = es5PadStart(String(today.getDate()), 2, '0');
-        dateInput.value = yyyy + "-" + mm + "-" + dd;
-        
         var roundInput = document.getElementById('new-game-round');
-        
-        var maxRound = 0;
-        games.forEach(function(g) {
-            if (g.round > maxRound) {
-                maxRound = g.round;
-            }
-        });
-        roundInput.value = maxRound + 1;
-        
-        document.getElementById('new-game-status').value = 'normal';
-        document.getElementById('new-game-opponent').value = "";
-        document.getElementById('new-game-time').value = "";
-        document.getElementById('new-game-court').value = "";
-        toggleOpponentField('normal');
-        
-        document.getElementById('delete-game-zone').classList.add('hidden');
-        showModal('add-game-modal');
+        var timeInput = document.getElementById('new-game-time');
+        var courtInput = document.getElementById('new-game-court');
+        var venueInput = document.getElementById('new-game-venue');
+        var statusSelect = document.getElementById('new-game-status');
+        var opponentInput = document.getElementById('new-game-opponent');
+        var deleteZone = document.getElementById('delete-game-zone');
+
+        if (isEdit) {
+            var game = arrayFind(games, function(g) { return g.id === gameId; });
+            if (!game) return;
+            if (roundInput) roundInput.value = game.round;
+            if (dateInput) dateInput.value = game.date;
+            if (timeInput) timeInput.value = game.time || '';
+            if (courtInput) courtInput.value = game.court || '';
+            if (venueInput) venueInput.value = game.venue || '';
+            var status = game.status || 'normal';
+            if (statusSelect) statusSelect.value = status;
+            if (opponentInput) opponentInput.value = (status === 'bye') ? '' : game.opponent;
+            toggleOpponentField(status);
+            if (deleteZone) deleteZone.classList.remove('hidden');
+        } else {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
+            var dd = es5PadStart(String(today.getDate()), 2, '0');
+            if (dateInput) dateInput.value = yyyy + "-" + mm + "-" + dd;
+
+            var maxRound = 0;
+            games.forEach(function(g) {
+                if (g.round > maxRound) {
+                    maxRound = g.round;
+                }
+            });
+            if (roundInput) roundInput.value = maxRound + 1;
+
+            if (statusSelect) statusSelect.value = 'normal';
+            if (opponentInput) opponentInput.value = "";
+            if (timeInput) timeInput.value = "";
+            if (courtInput) courtInput.value = "";
+            if (venueInput) venueInput.value = "";
+            toggleOpponentField('normal');
+            if (deleteZone) deleteZone.classList.add('hidden');
+        }
+
+        // Show view
+        document.getElementById('game-edit-view').classList.remove('hidden');
+        document.getElementById('fixture-view').classList.add('hidden');
+        document.getElementById('game-detail-view').classList.add('hidden');
+        document.getElementById('players-view').classList.add('hidden');
+        document.getElementById('team-selector-view').classList.add('hidden');
+        document.getElementById('insights-view').classList.add('hidden');
+        document.getElementById('app-tab-nav').classList.add('hidden');
+        document.getElementById('game-detail-tab-nav').classList.add('hidden');
+    }
+
+    function cancelGameEdit() {
+        hideGameEditView();
+        if (gameEditReturnView === 'game-detail-view' && currentGameId) {
+            showGameDetail(currentGameId);
+        } else {
+            showView('fixture-view');
+        }
+    }
+
+    function hideGameEditView() {
+        var view = document.getElementById('game-edit-view');
+        if (view) view.classList.add('hidden');
+    }
+
+    function finishGameEdit() {
+        hideGameEditView();
+        if (gameEditReturnView === 'game-detail-view' && currentGameId) {
+            showGameDetail(currentGameId);
+        } else {
+            showView('fixture-view');
+        }
+    }
+
+    function showAddGameModal() {
+        showGameEditor('add');
     }
 
     function handleEditGame(gameId) {
-        if (!isOwner()) return; // Read-only mode: prevent edits
-        appState.currentGame.editingId = gameId;  
-        var game = arrayFind(games, function(g) { return g.id === gameId; });
-        if (!game) return;
-        
-        document.getElementById('add-game-modal-title').textContent = "Edit Game";
-        document.getElementById('add-game-button').textContent = "Update";
-        
-        document.getElementById('new-game-round').value = game.round;
-        document.getElementById('new-game-date').value = game.date;
-        document.getElementById('new-game-time').value = game.time || '';
-        document.getElementById('new-game-court').value = game.court || '';  
-        
-        var status = game.status || 'normal';
-        document.getElementById('new-game-status').value = status;
-        document.getElementById('new-game-opponent').value = (status === 'bye') ? "" : game.opponent;
-        toggleOpponentField(status);
-        
-        document.getElementById('delete-game-zone').classList.remove('hidden');
-        showModal('add-game-modal');
+        showGameEditor('edit', gameId);
     }
 
     // Helper exposed for inline handlers (e.g., game detail nav)
@@ -858,7 +903,6 @@
         if (!targetId) return;
         handleEditGame(targetId);
     }
-    
     function showAddTeamModal() {
         if (!isOwner()) return; // Read-only mode: prevent creation
         appState.editing.team = null;

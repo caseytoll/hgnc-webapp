@@ -1568,54 +1568,51 @@
       </div>
     </div>
   </div>
-  <div id="add-game-modal" class="modal-overlay hidden" onclick=
-  "closeModal(event, 'add-game-modal')">
-    <div class="modal-content">
-      <h3 id="add-game-modal-title">Add Game</h3><label for=
-      "new-game-round">Round</label> <input type="number" id=
-      "new-game-round" placeholder="e.g., 1"> <label for=
-      "new-game-date">Date</label> <input type="date" id=
-      "new-game-date"> <label for="new-game-time">Game
-      Time</label> <input type="time" id="new-game-time"
-      placeholder="e.g., 14:30"> <label for=
-      "new-game-court">Court</label> <input type="text" id=
-      "new-game-court" placeholder="e.g., Court 1"> 
-      <label for="new-game-venue">Venue 📍</label> 
-      <div style="display: flex; gap: 8px;">
-        <input type="text" id="new-game-venue" placeholder="e.g., Smith Park" style="flex: 1;">
-        <button type="button" onclick="getCurrentLocation()" class="icon-button" title="Use current location">📍</button>
+  <div id="game-edit-view" class="view hidden">
+    <section class="card">
+      <div class="card-header">
+        <button class="back-button" onclick="cancelGameEdit()" aria-label="Back to previous view">← Back</button>
+        <h2 id="game-edit-title">Add Game</h2>
       </div>
-      <label for="new-game-status">Game
-      Status</label> <select id="new-game-status" onchange=
-      "toggleOpponentField(this.value)">
-        <option value="normal">
-          Normal
-        </option>
-        <option value="bye">
-          BYE
-        </option>
-        <option value="forfeit_us">
-          Forfeited by Us
-        </option>
-        <option value="forfeit_opp">
-          Forfeited by Opponent
-        </option>
-        <option value="abandoned">
-          Abandoned
-        </option>
-      </select> <label for="new-game-opponent">Opponent</label>
-      <input type="text" id="new-game-opponent" placeholder=
-      "Opponent Name">
-      <div class="modal-actions">
-        <button class="cancel-btn" onclick=
-        "hideModal('add-game-modal')">Cancel</button> <button id=
-        "add-game-button">Add</button>
+      <div class="form-grid">
+        <label for="new-game-round">Round</label>
+        <input type="number" id="new-game-round" placeholder="e.g., 1">
+
+        <label for="new-game-date">Date</label>
+        <input type="date" id="new-game-date">
+
+        <label for="new-game-time">Game Time</label>
+        <input type="time" id="new-game-time" placeholder="e.g., 14:30">
+
+        <label for="new-game-court">Court</label>
+        <input type="text" id="new-game-court" placeholder="e.g., Court 1">
+
+        <label for="new-game-venue">Venue 📍</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="new-game-venue" placeholder="e.g., Smith Park" style="flex: 1;">
+          <button type="button" onclick="getCurrentLocation()" class="icon-button" title="Use current location">📍</button>
+        </div>
+
+        <label for="new-game-status">Game Status</label>
+        <select id="new-game-status" onchange="toggleOpponentField(this.value)">
+          <option value="normal">Normal</option>
+          <option value="bye">BYE</option>
+          <option value="forfeit_us">Forfeited by Us</option>
+          <option value="forfeit_opp">Forfeited by Opponent</option>
+          <option value="abandoned">Abandoned</option>
+        </select>
+
+        <label for="new-game-opponent">Opponent</label>
+        <input type="text" id="new-game-opponent" placeholder="Opponent Name">
+      </div>
+      <div class="modal-actions" style="margin-top: 16px;">
+        <button class="cancel-btn" onclick="cancelGameEdit()">Cancel</button>
+        <button id="add-game-button">Add</button>
       </div>
       <div id="delete-game-zone" class="modal-delete-zone hidden">
-        <button id="delete-game-button" class=
-        "delete-button-modal">Delete Game</button>
+        <button id="delete-game-button" class="delete-button-modal">Delete Game</button>
       </div>
-    </div>
+    </section>
   </div>
   <div id="share-lineup-modal" class="modal-overlay hidden"
   onclick="closeModal(event, 'share-lineup-modal')">
