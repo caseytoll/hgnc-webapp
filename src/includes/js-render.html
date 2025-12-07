@@ -221,17 +221,29 @@
             
             var gameRowContent = '';
             if (!data.isBye) {
-                gameRowContent = 
-                    '<div class="game-row-details">' +
-                        '<span class="game-row-date">' + data.displayDate + '</span>' +
-                        '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
-                    '</div>' +
-                    '<div class="game-row-score">' +
-                        '<span class="score-us">' + data.scores.ourScore + '</span>' +
-                        '<span class="score-separator">-</span>' +
-                        '<span class="score-them">' + data.scores.opponentScore + '</span>' +
-                        data.statusBadge +
-                    '</div>';
+                // For abandoned/cancelled games, show only the status, not the score
+                if (game.status !== 'normal' && game.status !== 'bye') {
+                    gameRowContent = 
+                        '<div class="game-row-details">' +
+                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
+                        '</div>' +
+                        '<div class="game-row-score">' +
+                            data.statusBadge +
+                        '</div>';
+                } else {
+                    gameRowContent = 
+                        '<div class="game-row-details">' +
+                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
+                        '</div>' +
+                        '<div class="game-row-score">' +
+                            '<span class="score-us">' + data.scores.ourScore + '</span>' +
+                            '<span class="score-separator">-</span>' +
+                            '<span class="score-them">' + data.scores.opponentScore + '</span>' +
+                            data.statusBadge +
+                        '</div>';
+                }
             } else {
                 gameRowContent = 
                     '<div class="game-row-details">' +
