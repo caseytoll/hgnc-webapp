@@ -318,6 +318,7 @@
             if (opponents.length > 0) {
                 const firstOpponent = opponents[0];
                 const computed = window.getComputedStyle(firstOpponent);
+                const rect = firstOpponent.getBoundingClientRect();
                 console.log('🎨 First .game-opponent computed styles:', {
                     alignSelf: computed.alignSelf,
                     textAlign: computed.textAlign,
@@ -325,26 +326,47 @@
                     flexGrow: computed.flexGrow,
                     marginLeft: computed.marginLeft,
                     marginRight: computed.marginRight,
-                    display: computed.display
+                    display: computed.display,
+                    width: computed.width,
+                    actualWidth: rect.width + 'px',
+                    left: rect.left + 'px'
                 });
                 
                 const parent = firstOpponent.closest('.game-row-line2');
                 if (parent) {
                     const parentComputed = window.getComputedStyle(parent);
+                    const parentRect = parent.getBoundingClientRect();
                     console.log('📏 Parent .game-row-line2 computed styles:', {
                         display: parentComputed.display,
                         justifyContent: parentComputed.justifyContent,
                         alignItems: parentComputed.alignItems,
-                        gap: parentComputed.gap
+                        gap: parentComputed.gap,
+                        width: parentRect.width + 'px'
                     });
+                    
+                    // Log all children
+                    const children = Array.from(parent.children);
+                    console.log('👶 Children of .game-row-line2:', children.map(child => {
+                        const childRect = child.getBoundingClientRect();
+                        const childComputed = window.getComputedStyle(child);
+                        return {
+                            class: child.className,
+                            width: childRect.width + 'px',
+                            flexGrow: childComputed.flexGrow,
+                            flexShrink: childComputed.flexShrink,
+                            text: child.textContent.substring(0, 20)
+                        };
+                    }));
                 }
                 
                 const round = document.querySelector('.game-round');
                 if (round) {
                     const roundComputed = window.getComputedStyle(round);
+                    const roundRect = round.getBoundingClientRect();
                     console.log('🔢 .game-round computed styles:', {
                         marginRight: roundComputed.marginRight,
-                        display: roundComputed.display
+                        display: roundComputed.display,
+                        width: roundRect.width + 'px'
                     });
                 }
             }
