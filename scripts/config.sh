@@ -3,8 +3,8 @@
 # Prefer environment overrides; fall back to known defaults.
 
 # Primary deployment ID (Apps Script deployment)
-# Latest deployment from clasp deployments: AKfycbyzIhkw5F5HJm7x1W3rGSdQHZefDvB2-U9M04RzvuRh @HEAD
-: "${DEPLOYMENT_ID:=AKfycbyzIhkw5F5HJm7x1W3rGSdQHZefDvB2-U9M04RzvuRh}"
+# Using v843 deployment ID - this is the modifiable deployment
+: "${DEPLOYMENT_ID:=AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug}"
 
 # Public execution URL (derived if not provided)
 : "${APP_URL_PUBLIC:=https://script.google.com/macros/s/$DEPLOYMENT_ID/exec}"
