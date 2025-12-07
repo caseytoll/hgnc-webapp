@@ -81,8 +81,13 @@
             
             console.log("onTeamListLoaded - Updated masterTeamList");
             
-            renderTeamSelector();
-            setLoading(false);
+            try {
+                renderTeamSelector();
+            } catch (err) {
+                console.error('Error rendering team selector:', err);
+            } finally {
+                setLoading(false);
+            }
         } catch (e) {
             console.error("onTeamListLoaded - Unexpected error:", e);
             onDataLoadFailed("Unexpected error loading teams");

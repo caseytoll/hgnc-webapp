@@ -1554,15 +1554,16 @@
       </div>
     </div>
   </div>
-  <div id="season-summary-modal" class="modal-overlay hidden"
-  style="background: var(--primary-color);">
-    <button class="summary-nav-close" onclick=
-    "hideSeasonSummary()">×</button>
-    <div id="season-summary-slides"></div>
+  <div id="season-summary-view" class="view hidden">
+    <div class="view-header">
+      <button class="back-button" onclick="hideView('season-summary-view')" aria-label="Back to previous view">←</button>
+      <h2>Season Summary</h2>
+    </div>
+    <div id="season-summary-slides" style="background: var(--primary-color); min-height: 400px; display: flex; align-items: center; justify-content: center;"></div>
     <div class="summary-nav">
-      <button id="summary-prev" onclick=
-      "navigateSummary(-1)">Back</button> <button id="summary-next"
-      onclick="navigateSummary(1)">Next</button>
+      <button id="summary-prev" onclick="navigateSummary(-1)">← Back</button>
+      <span id="slide-counter" style="color: white; font-weight: 600;">1 / 1</span>
+      <button id="summary-next" onclick="navigateSummary(1)">Next →</button>
     </div>
   </div>
   <div id="custom-alert-confirm-modal" class=

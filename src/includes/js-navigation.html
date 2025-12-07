@@ -906,16 +906,18 @@
             var stats = calculateSeasonStats();
             renderSeasonSummary(stats);
             setLoading(false);
-            showModal('season-summary-modal');
+            showView('season-summary-view');
         }, 50);
     }
     
     function hideSeasonSummary() {
-        hideModal('season-summary-modal');
+        hideView('season-summary-view');
     }
     
     function navigateSummary(direction) {
         var slides = document.querySelectorAll('.summary-slide');
+        if (slides.length === 0) return;
+        
         slides[currentSummarySlide].classList.remove('active-slide');
         
         currentSummarySlide += direction;
@@ -932,8 +934,13 @@
     }
     
     function updateSummaryNav() {
-        document.getElementById('summary-prev').disabled = (currentSummarySlide === 0);
-        document.getElementById('summary-next').disabled = (currentSummarySlide === totalSummarySlides - 1);
+        var prevBtn = document.getElementById('summary-prev');
+        var nextBtn = document.getElementById('summary-next');
+        var counter = document.getElementById('slide-counter');
+        
+        if (prevBtn) prevBtn.disabled = (currentSummarySlide === 0);
+        if (nextBtn) nextBtn.disabled = (currentSummarySlide === totalSummarySlides - 1);
+        if (counter) counter.textContent = (currentSummarySlide + 1) + ' / ' + totalSummarySlides;
     }
     
     function toggleOpponentField(status) {
