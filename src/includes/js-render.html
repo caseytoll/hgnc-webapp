@@ -230,38 +230,47 @@
                 // For abandoned/cancelled games, show only the status, not the score
                 if (game.status !== 'normal' && game.status !== 'bye') {
                     gameRowContent = 
-                        '<div class="game-row-header">' +
+                        '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                             '<span class="game-opponent">vs ' + game.opponent + '</span>' +
-                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            '<span class="spacer"></span>' +
                             data.statusBadge +
                         '</div>' +
-                        editButton;
+                        '<div class="game-row-line2">' +
+                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            editButton +
+                        '</div>';
                 } else {
                     gameRowContent = 
-                        '<div class="game-row-header">' +
+                        '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                             '<span class="game-opponent">vs ' + game.opponent + '</span>' +
+                            '<span class="spacer"></span>' +
+                            '<div class="game-row-score">' +
+                                '<span class="score-us">' + data.scores.ourScore + '</span>' +
+                                '<span>-</span>' +
+                                '<span class="score-them">' + data.scores.opponentScore + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="game-row-line2">' +
                             '<span class="game-row-date">' + data.displayDate + '</span>' +
-                        '</div>' +
-                        '<div class="game-row-score">' +
-                            '<span class="score-us">' + data.scores.ourScore + '</span>' +
-                            '<span>-</span>' +
-                            '<span class="score-them">' + data.scores.opponentScore + '</span>' +
-                        '</div>' +
-                        editButton;
+                            editButton +
+                        '</div>';
                 }
             } else {
                 gameRowContent = 
-                    '<div class="game-row-header">' +
+                    '<div class="game-row-line1">' +
                         '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                         '<span class="game-opponent">BYE</span>' +
+                        '<span class="spacer"></span>' +
+                        '<div class="game-row-score">' +
+                            '<span class="bye-badge">BYE</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="game-row-line2">' +
                         '<span class="game-row-date">' + data.displayDate + '</span>' +
-                    '</div>' +
-                    '<div class="game-row-score">' +
-                        '<span class="bye-badge">BYE</span>' +
-                    '</div>' +
-                    editButton;
+                        editButton +
+                    '</div>';
             }
             
             html.push(
