@@ -1494,24 +1494,24 @@
     }
 
     .spacer {
-      flex: 0 0 auto;
-      min-width: 4px;
+      flex: 1;
+      min-width: 8px;
     }
 
     .game-round {
       font-size: 0.75em;
-      max-width: 32px;
-      margin-right: 4px;
+      width: 40px;
+      text-align: left;
       font-weight: 500;
       flex-shrink: 0;
       flex-grow: 0;
+      white-space: nowrap;
     }
 
     .game-opponent {
       font-size: 0.85em;
       flex-shrink: 0;
       flex-grow: 0;
-      min-width: 0;
       text-align: left;
       align-self: flex-start;
     }
@@ -1519,7 +1519,6 @@
     .game-row-score {
       font-size: 0.85em;
       flex-shrink: 0;
-      margin-left: 4px;
     }
 
     .game-status-badge {
