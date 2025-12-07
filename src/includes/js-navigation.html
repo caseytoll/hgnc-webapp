@@ -277,8 +277,15 @@
         console.log('[showView] All views hidden, now routing based on viewId:', viewId);
             
         // --- 3. Handle navigation bar visibility and active states ---
-        if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view') { 
+        if (viewId === 'team-selector-view') {
+            // Hide all navigation bars on team selector
+            document.getElementById('app-tab-nav').classList.add('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
+        } else if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view') { 
             document.getElementById('app-tab-nav').classList.remove('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
             
             // Update active states for navigation buttons
             document.getElementById('show-home-tab').classList.toggle('active', false); // Home is never "active" in team views
@@ -307,6 +314,7 @@
         
         if (viewId === 'game-detail-view') {
             document.getElementById('game-detail-tab-nav').classList.remove('hidden');
+            document.getElementById('app-tab-nav').classList.add('hidden');
             
             // Update active states for game detail navigation
             document.getElementById('show-home-tab-game').classList.toggle('active', false); // Home is never "active"

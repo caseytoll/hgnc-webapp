@@ -3402,7 +3402,7 @@
     height: 100%;
     background: var(--overlay-bg);
     backdrop-filter: blur(8px);
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     font-size: var(--text-xl);
@@ -3411,6 +3411,10 @@
     color: var(--text-primary);
     flex-direction: column;
     gap: var(--space-3);
+  }
+  
+  #loading-overlay.hidden {
+    display: none !important;
   }
 
   .spinner {
