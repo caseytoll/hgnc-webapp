@@ -220,23 +220,37 @@
             var data = game._cachedDisplay;
             
             var gameRowContent = '';
+            var gameRowHeader = '';
             if (!data.isBye) {
                 // For abandoned/cancelled games, show only the status, not the score
                 if (game.status !== 'normal' && game.status !== 'bye') {
+                    gameRowHeader = 
+                        '<div class="game-row-header">' +
+                            '<div class="game-row-top">' +
+                                '<span class="game-round">Round ' + (game.round || '?') + ': vs ' + game.opponent + '</span>' +
+                                (owner ? '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>' : '') +
+                            '</div>' +
+                            '<div class="game-row-meta">' +
+                                '<span class="game-row-date">' + data.displayDate + '</span>' +
+                                data.statusBadge +
+                            '</div>' +
+                        '</div>';
                     gameRowContent = 
-                        '<div class="game-row-details">' +
-                            '<span class="game-row-date">' + data.displayDate + '</span>' +
-                            '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
-                        '</div>' +
                         '<div class="game-row-score">' +
                             data.statusBadge +
                         '</div>';
                 } else {
+                    gameRowHeader = 
+                        '<div class="game-row-header">' +
+                            '<div class="game-row-top">' +
+                                '<span class="game-round">Round ' + (game.round || '?') + ': vs ' + game.opponent + '</span>' +
+                                (owner ? '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>' : '') +
+                            '</div>' +
+                            '<div class="game-row-meta">' +
+                                '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            '</div>' +
+                        '</div>';
                     gameRowContent = 
-                        '<div class="game-row-details">' +
-                            '<span class="game-row-date">' + data.displayDate + '</span>' +
-                            '<span class="game-row-opponent">vs ' + game.opponent + '</span>' +
-                        '</div>' +
                         '<div class="game-row-score">' +
                             '<span class="score-us">' + data.scores.ourScore + '</span>' +
                             '<span class="score-separator">-</span>' +
@@ -245,11 +259,17 @@
                         '</div>';
                 }
             } else {
+                gameRowHeader = 
+                    '<div class="game-row-header">' +
+                        '<div class="game-row-top">' +
+                            '<span class="game-round">Round ' + (game.round || '?') + ': BYE</span>' +
+                            (owner ? '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>' : '') +
+                        '</div>' +
+                        '<div class="game-row-meta">' +
+                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                        '</div>' +
+                    '</div>';
                 gameRowContent = 
-                    '<div class="game-row-details">' +
-                        '<span class="game-row-date">' + data.displayDate + '</span>' +
-                        '<span class="game-row-opponent">BYE</span>' +
-                    '</div>' +
                     '<div class="game-row-score">' +
                         '<span class="bye-badge">BYE</span>' +
                     '</div>';
@@ -262,10 +282,7 @@
             
             html.push(
                 '<div class="list-item game-row" onclick="showGameDetail(\'' + game.id + '\')">' +
-                    '<div class="game-row-header">' +
-                        '<span class="game-round">Round ' + (game.round || '?') + '</span>' +
-                        editButton +
-                    '</div>' +
+                    gameRowHeader +
                     gameRowContent +
                 '</div>'
             );

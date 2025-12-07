@@ -1340,6 +1340,10 @@
     flex-grow: 1;
     cursor: pointer;
     transition: background-color 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
   }
 
   .game-row.is-bye {
@@ -1371,6 +1375,40 @@
     vertical-align: middle;
   }
 
+  .game-row-header {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 4px;
+  }
+
+  .game-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .game-round {
+    font-weight: 600;
+    font-size: 0.95em;
+    color: var(--primary-text);
+    flex: 1;
+  }
+
+  .game-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 2px;
+  }
+
+  .game-row-date {
+    color: var(--secondary-text);
+    font-size: 0.8em;
+    font-weight: normal;
+  }
+
   .game-row-details {
     display: flex;
     flex-direction: column;
@@ -1378,18 +1416,17 @@
     font-size: 0.9em;
   }
 
-  .game-row-date {
-    color: var(--secondary-text);
-    font-size: 0.85em;
-  }
-
   .game-row-opponent {
     font-weight: 500;
+    color: var(--primary-text);
   }
 
   .game-row-score {
     font-weight: bold;
     font-size: 1em;
+    text-align: right;
+    white-space: nowrap;
+    min-width: 80px;
   }
 
   .game-detail-header {
