@@ -246,10 +246,6 @@
             
             var gameRowContent = '';
             var gameRowHeader = '';
-            var editButton = '';
-            if (owner) {
-                editButton = '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>';
-            }
             
             if (!data.isBye) {
                 // For abandoned/cancelled games, show only the status, not the score
@@ -258,7 +254,6 @@
                         '<div class="game-row-line1">' +
                             '<span class="game-row-date">' + data.displayDate + '</span>' +
                             '<span class="spacer"></span>' +
-                            editButton +
                         '</div>' +
                         '<div class="game-row-line2">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
@@ -271,7 +266,6 @@
                         '<div class="game-row-line1">' +
                             '<span class="game-row-date">' + data.displayDate + '</span>' +
                             '<span class="spacer"></span>' +
-                            editButton +
                         '</div>' +
                         '<div class="game-row-line2">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
@@ -289,7 +283,6 @@
                     '<div class="game-row-line1">' +
                         '<span class="game-row-date">' + data.displayDate + '</span>' +
                         '<span class="spacer"></span>' +
-                        '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>' +
                     '</div>' +
                     '<div class="game-row-line2">' +
                         '<span class="game-round">R' + (game.round || '?') + ':</span>' +
