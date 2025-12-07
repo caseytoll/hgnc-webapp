@@ -1358,6 +1358,21 @@
     align-items: center;
   }
 
+  /* 
+   * ALIGNMENT STRATEGY FOR .game-row-line2:
+   * 
+   * Structure: [game-opponent-line][spacer][score/badge]
+   * 
+   * Key learnings (2025-12-08):
+   * - game-opponent-line contains both round and opponent text as single element
+   * - Round has fixed width (2.5em) as inline-block for consistent alignment
+   * - Spacer uses flex:1 to push score/badge right, NOT to space between round/opponent
+   * - This ensures "vs Opponent" starts at same position regardless of score/badge width
+   * - Mobile and desktop MUST use same strategy for consistency
+   * 
+   * Anti-pattern: Separate round/opponent elements with flex spacer between them
+   * causes variable positioning based on right-side content width
+   */
   .game-row-line2 {
     justify-content: flex-start;
     font-size: 0.85em;
