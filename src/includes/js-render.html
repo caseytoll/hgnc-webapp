@@ -309,6 +309,46 @@
         window._cachedGameListHash = gamesHash;
         
         console.log('[renderGameList] Rendered', games.length, 'games, HTML length:', finalHtml.length);
+        
+        // 🔍 ALIGNMENT DIAGNOSTICS - Run after DOM updates
+        setTimeout(() => {
+            const opponents = document.querySelectorAll('.game-opponent');
+            console.log('🔍 DIAGNOSTIC: Found', opponents.length, '.game-opponent elements');
+            
+            if (opponents.length > 0) {
+                const firstOpponent = opponents[0];
+                const computed = window.getComputedStyle(firstOpponent);
+                console.log('🎨 First .game-opponent computed styles:', {
+                    alignSelf: computed.alignSelf,
+                    textAlign: computed.textAlign,
+                    flexShrink: computed.flexShrink,
+                    flexGrow: computed.flexGrow,
+                    marginLeft: computed.marginLeft,
+                    marginRight: computed.marginRight,
+                    display: computed.display
+                });
+                
+                const parent = firstOpponent.closest('.game-row-line2');
+                if (parent) {
+                    const parentComputed = window.getComputedStyle(parent);
+                    console.log('📏 Parent .game-row-line2 computed styles:', {
+                        display: parentComputed.display,
+                        justifyContent: parentComputed.justifyContent,
+                        alignItems: parentComputed.alignItems,
+                        gap: parentComputed.gap
+                    });
+                }
+                
+                const round = document.querySelector('.game-round');
+                if (round) {
+                    const roundComputed = window.getComputedStyle(round);
+                    console.log('🔢 .game-round computed styles:', {
+                        marginRight: roundComputed.marginRight,
+                        display: roundComputed.display
+                    });
+                }
+            }
+        }, 100);
     };
 
     // === REPLACED LEADERBOARD RENDER WITH NEW HUB ===
