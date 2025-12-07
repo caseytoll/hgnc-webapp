@@ -329,7 +329,8 @@
                     display: computed.display,
                     width: computed.width,
                     actualWidth: rect.width + 'px',
-                    left: rect.left + 'px'
+                    left: rect.left + 'px',
+                    whiteSpace: computed.whiteSpace
                 });
                 
                 const parent = firstOpponent.closest('.game-row-line2');
@@ -341,20 +342,25 @@
                         justifyContent: parentComputed.justifyContent,
                         alignItems: parentComputed.alignItems,
                         gap: parentComputed.gap,
-                        width: parentRect.width + 'px'
+                        width: parentRect.width + 'px',
+                        paddingLeft: parentComputed.paddingLeft,
+                        paddingRight: parentComputed.paddingRight
                     });
                     
-                    // Log all children
+                    // Log all children with detailed positions
                     const children = Array.from(parent.children);
-                    console.log('👶 Children of .game-row-line2:', children.map(child => {
+                    console.log('👶 Children of .game-row-line2 (detailed):', children.map((child, idx) => {
                         const childRect = child.getBoundingClientRect();
                         const childComputed = window.getComputedStyle(child);
                         return {
+                            index: idx,
                             class: child.className,
-                            width: childRect.width + 'px',
+                            width: childRect.width.toFixed(0) + 'px',
+                            left: childRect.left.toFixed(0) + 'px',
                             flexGrow: childComputed.flexGrow,
                             flexShrink: childComputed.flexShrink,
-                            text: child.textContent.substring(0, 20)
+                            flexBasis: childComputed.flexBasis,
+                            text: child.textContent.substring(0, 25)
                         };
                     }));
                 }
@@ -366,7 +372,8 @@
                     console.log('🔢 .game-round computed styles:', {
                         marginRight: roundComputed.marginRight,
                         display: roundComputed.display,
-                        width: roundRect.width + 'px'
+                        width: roundRect.width.toFixed(0) + 'px',
+                        left: roundRect.left.toFixed(0) + 'px'
                     });
                 }
             }

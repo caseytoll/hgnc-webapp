@@ -58,7 +58,7 @@ function doGet(e) {
 
     // Cache buster - update this to force client refresh
     // NOTE: bump this on each production deploy so that clients bust cached JS/CSS
-    template.appVersion = '914';
+    template.appVersion = '915';
 
     var result = template.evaluate()
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -84,7 +84,7 @@ function doGet(e) {
  * NOTE: This value is automatically updated by deploy script during releases.
  * Current HEAD commit is used to pin CDN references at deploy time.
  */
-var CDN_TAG = '@306da78';  // Updated to master; production releases pin to commit SHA
+var CDN_TAG = '@a3c8ad3';  // Updated to master; production releases pin to commit SHA
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
 
 /**
