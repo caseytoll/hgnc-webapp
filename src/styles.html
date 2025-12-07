@@ -1361,6 +1361,7 @@
   .game-row-line2 {
     justify-content: flex-start;
     font-size: 0.85em;
+    gap: 6px;
   }
 
   .spacer {
@@ -1455,11 +1456,13 @@
   .game-opponent {
     font-weight: 500;
     color: var(--primary-text);
-    flex-shrink: 1;
+    flex-shrink: 0;
+    flex-grow: 0;
     min-width: 0;
     align-self: flex-start;
     text-align: left;
     line-height: 1.2;
+    margin-right: 0;
   }
 
   .game-row-score {
