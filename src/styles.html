@@ -1497,12 +1497,17 @@
       max-width: 32px;
       margin-right: 4px;
       font-weight: 500;
+      flex-shrink: 0;
+      flex-grow: 0;
     }
 
     .game-opponent {
       font-size: 0.85em;
-      flex-shrink: 1;
+      flex-shrink: 0;
+      flex-grow: 0;
       min-width: 0;
+      text-align: left;
+      align-self: flex-start;
     }
 
     .game-row-score {
@@ -1514,6 +1519,7 @@
       font-size: 0.6em !important;
       padding: 1px 4px !important;
       max-width: 85px !important;
+      flex-shrink: 0;
     }
 
     .game-row-meta {
