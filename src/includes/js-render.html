@@ -258,19 +258,21 @@
                         '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                             '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
-                            '<span class="spacer"></span>' +
-                            data.statusBadge +
-                        '</div>' +
-                        '<div class="game-row-line2">' +
                             '<span class="game-row-date">' + data.displayDate + '</span>' +
                             editButton +
+                        '</div>' +
+                        '<div class="game-row-line2">' +
+                            data.statusBadge +
                         '</div>';
                 } else {
                     gameRowContent = 
                         '<div class="game-row-line1">' +
                             '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                             '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
-                            '<span class="spacer"></span>' +
+                            '<span class="game-row-date">' + data.displayDate + '</span>' +
+                            editButton +
+                        '</div>' +
+                        '<div class="game-row-line2">' +
                             '<div class="game-row-score">' +
                                 '<span class="score-us">' + data.scores.ourScore + '</span>' +
                                 '<span>-</span>' +
@@ -278,8 +280,11 @@
                             '</div>' +
                         '</div>' +
                         '<div class="game-row-line2">' +
-                            '<span class="game-row-date">' + data.displayDate + '</span>' +
-                            editButton +
+                            '<div class="game-row-score">' +
+                                '<span class="score-us">' + data.scores.ourScore + '</span>' +
+                                '<span>-</span>' +
+                                '<span class="score-them">' + data.scores.opponentScore + '</span>' +
+                            '</div>' +
                         '</div>';
                 }
             } else {
@@ -287,10 +292,13 @@
                     '<div class="game-row-line1">' +
                         '<span class="game-round">R' + (game.round || '?') + ':</span>' +
                         '<span class="game-opponent">BYE</span>' +
-                        '<span class="spacer"></span>' +
+                        '<span class="game-row-date">' + data.displayDate + '</span>' +
+                        '<button class="edit-btn" onclick="showEditGameModal(\'' + game.id + '\')" title="Edit Game">&#9998;</button>' +
+                    '</div>' +
+                    '<div class="game-row-line2">' +
                         '<div class="game-row-score">' +
                             '<span class="bye-badge">BYE</span>' +
-                        '</div>' +
+                        '</div>'
                     '</div>' +
                     '<div class="game-row-line2">' +
                         '<span class="game-row-date">' + data.displayDate + '</span>' +
