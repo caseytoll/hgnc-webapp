@@ -166,12 +166,29 @@ npm run test:screenshot-compare
 
 ## 📚 Documentation
 
+📖 **[Complete Documentation Index](docs/DOCUMENTATION_INDEX.md)** - Start here for all documentation
+
+### Quick Links
+
+**New to the project?** Read these in order:
+1. [LESSONS_LEARNED.md](docs/LESSONS_LEARNED.md) - Critical insights from past work
+2. [QUICK_REFERENCE.md](docs/getting-started/QUICK_REFERENCE.md) - Daily reference
+3. [DEVELOPMENT-PRINCIPLES.md](docs/getting-started/DEVELOPMENT-PRINCIPLES.md) - **Read before coding**
+
+**Essential Documentation:**
 - [CHANGELOG.md](docs/CHANGELOG.md) - Version history and release notes
-- [CONTRIBUTING.md](docs/getting-started/CONTRIBUTING.md) - Contribution guidelines
-- [DEVELOPMENT-PRINCIPLES.md](docs/getting-started/DEVELOPMENT-PRINCIPLES.md) - Development philosophy
-- [ICON_IMAGES_STANDARDIZATION.md](docs/standards/ICON_IMAGES_STANDARDIZATION.md) - Icon implementation details
+- [CSS_BEST_PRACTICES.md](docs/standards/CSS_BEST_PRACTICES.md) - CSS patterns & anti-patterns
 - [TESTING_README.md](docs/testing/TESTING_README.md) - Testing guidelines
-- [CI_DEPLOY.md](docs/deployment/CI_DEPLOY.md) - CI/CD documentation
+- [DEPLOYMENT_WORKFLOW_v2.md](docs/deployment/DEPLOYMENT_WORKFLOW_v2.md) - How to deploy
+- [DEBUGGING_STRATEGY.md](docs/operations/DEBUGGING_STRATEGY.md) - Debug methodology
+
+**By Topic:**
+- **Standards:** [ICON_IMAGES_STANDARDIZATION.md](docs/standards/ICON_IMAGES_STANDARDIZATION.md), [GIT_HOOKS.md](docs/standards/GIT_HOOKS.md)
+- **Deployment:** [CI_DEPLOY.md](docs/deployment/CI_DEPLOY.md), [SHIPPING_CHECKLIST.md](docs/deployment/SHIPPING_CHECKLIST.md)
+- **Operations:** [ARCHIVE_POLICY.md](docs/operations/ARCHIVE_POLICY.md), [PROJECT_STATUS_SUMMARY.md](docs/operations/PROJECT_STATUS_SUMMARY.md)
+- **Learning:** [POST_MORTEM_2025_12_06.md](docs/postmortems/POST_MORTEM_2025_12_06.md)
+
+**Contributing:** See [CONTRIBUTING.md](docs/getting-started/CONTRIBUTING.md)
 
 ## 🔐 Security
 

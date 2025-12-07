@@ -1,153 +1,275 @@
 # HGNC WebApp - Complete Documentation Index
-**December 7, 2025 | Full Project Review Complete**
+
+**Last Updated:** December 8, 2025  
+**Total Documents:** 46 active + 11 archived  
+**Total Lines:** ~15,700 lines
 
 ---
 
-## 📚 Documentation Files Created Today
+## 🚀 Quick Start - Read These First
 
-## 📂 Folder Layout (Updated)
-- `getting-started/`: QUICK_REFERENCE.md, DEVELOPMENT-PRINCIPLES.md, CONTRIBUTING.md
-- `testing/`: TESTING_README.md, SPECIALIZED_TESTING.md, SMOKE_TEST_COVERAGE.md, SMOKE_TEST_RESULTS.md, TEST_SUITE_COMPLETION.md, IMPLEMENTATION_CHECKLIST.md
-- `deployment/`: CI_DEPLOY.md, DEPLOYMENT_READY.md, DEPLOYMENT_COMPLETE.md, RELEASE_NOTES_v243.md
-- `operations/`: ARCHIVE_POLICY.md, CODE_CLEANUP_2025_12_07.md, DEBUGGING_STRATEGY.md, FEATURE_BUG_STATUS.md, PROJECT_STATUS_SUMMARY.md, PR_FIX_INSIGHTS.md, VISUAL_PROJECT_OVERVIEW.md
-- `postmortems/`: POST_MORTEM_2025_12_06.md, REVIEW_SUMMARY.md, SESSION_SUMMARY.md, FINAL_IMPLEMENTATION_REPORT.md
-- `standards/`: ICON_IMAGES_STANDARDIZATION.md
-- Root: CHANGELOG.md, DOCUMENTATION_INDEX.md
+**New to the project?** Start here in order:
 
-This comprehensive review has created 4 new summary documents to help you understand the project:
+1. **[README.md](../README.md)** (10 min) - Project overview and setup
+2. **[LESSONS_LEARNED.md](./LESSONS_LEARNED.md)** (15 min) ⭐ - Critical insights from past work
+3. **[getting-started/QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md)** (10 min) - Daily reference
+4. **[getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md)** (30 min) - **READ BEFORE CODING**
 
-### 1. **QUICK_REFERENCE.md** ⭐ START HERE
-- **Length:** ~250 lines
-- **Audience:** Anyone who needs quick answers
-- **Contains:** TL;DR version, quick deploy commands, pre-deploy checklist
-- **Best For:** Daily reference during development
+**Before making CSS changes:** Read [standards/CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md)
 
-### 2. **PROJECT_STATUS_SUMMARY.md** 📊 COMPREHENSIVE OVERVIEW
-- **Length:** ~650 lines
-- **Audience:** Developers, architects, stakeholders
-- **Contains:** Full project status, features completed, lessons learned, performance metrics
-- **Best For:** Complete understanding of what's been done and why
-
-### 3. **FEATURE_BUG_STATUS.md** ✅ FEATURE CHECKLIST
-- **Length:** ~400 lines
-- **Audience:** QA, product managers, developers
-- **Contains:** Complete feature list, bug reports, edge cases, future work
-- **Best For:** Understanding what works and what's potential future work
-
-### 4. **VISUAL_PROJECT_OVERVIEW.md** 📈 METRICS & ANALYSIS
-- **Length:** ~500 lines
-- **Audience:** Technical leads, architects
-- **Contains:** Code metrics, file organization, development timeline, health score
-- **Best For:** Technical assessment and planning
+**Before deploying:** Check [deployment/DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md)
 
 ---
 
-## 📖 Original Project Documentation
+## 📂 Folder Structure
 
-### Essential Reading (In Order)
-1. **README.md** (191 lines)
-   - Project description and quick start guide
-   - Setup instructions for development
-   - Features overview
-
-2. **DEVELOPMENT-PRINCIPLES.md** (472 lines)
-   - ⚠️ **READ BEFORE EVERY FEATURE**
-   - Non-negotiables (deployment URL, testing, etc.)
-   - Critical patterns and learnings
-   - Pre-implementation checklist
-
-3. **CHANGELOG.md** (1,685 lines)
-   - Complete version history (v600-v823)
-   - What changed in each version
-   - 40+ versions documented
-
-### Debugging & Problem-Solving
-4. **POST_MORTEM_2025_12_06.md** (339 lines)
-   - Root cause analysis of blank insights page
-   - How we debugged a complex CSS issue
-   - Timeline through 40+ versions
-   - Lessons learned
-
-5. **DEBUGGING_STRATEGY.md** (193 lines)
-   - Comprehensive debugging approach
-   - 5 different fix strategies tested
-   - Diagnostic logging patterns
-
-### Feature Documentation
-6. **ICON_IMAGES_STANDARDIZATION.md** (400+ lines)
-   - How the 4 insight card icons work
-   - Fix for missing icon display
-   - Icon fallback patterns
-   - Benefits of standardization
-
-### Operations & Deployment
-7. **CI_DEPLOY.md** (TBD lines)
-   - GCP service account setup
-   - GitHub Actions workflow configuration
-   - Workload Identity Federation setup
-   - Manual deployment alternatives
-
-8. **TESTING_README.md** (TBD lines)
-   - How to run tests
-   - Pre-deployment validation procedures
-   - Browser console validation commands
-   - Common issues and fixes
-
-### Contribution & Maintenance
-9. **CONTRIBUTING.md** (TBD lines)
-   - CHANGELOG guidelines
-   - Testing & deployment workflow
-   - Browser testing with console commands
-
-10. **ARCHIVE_POLICY.md** (TBD lines)
-    - Large file handling rules
-    - Archive compression procedures
-    - Historical cleanup strategy
-
-11. **CODE_CLEANUP_2025_12_07.md** (342 lines)
-    - Diagnostic logging removal
-    - Debug statement cleanup
-    - Verification of fixes
-    - Cleanup metrics
+```
+docs/
+├── README.md ⭐ (if you're reading this, start with main README.md)
+├── LESSONS_LEARNED.md ⭐ Cumulative learnings (append-only)
+├── DOCUMENTATION_INDEX.md (this file)
+├── CHANGELOG.md (version history)
+│
+├── getting-started/      - Onboarding & daily reference
+├── standards/            - Code conventions & best practices
+├── testing/              - QA procedures & test suites
+├── deployment/           - Shipping workflows & checklists
+├── operations/           - Maintenance & debugging
+├── postmortems/          - Root cause analyses
+├── templates/            - Document templates for consistency
+└── archive/              - Historical snapshots (dated)
+```
 
 ---
 
-## 🗺️ Navigation Guide
+## 📚 Documentation by Purpose
 
-### If you're a...
+### 🎯 Getting Started (New Developers)
 
-#### 👨‍💻 Developer Starting New Feature
-1. Read **QUICK_REFERENCE.md** (pre-deploy checklist)
-2. Read **DEVELOPMENT-PRINCIPLES.md** (patterns & non-negotiables)
-3. Search **CHANGELOG.md** for similar features
-4. Read relevant docs (ICON_IMAGES_STANDARDIZATION.md for icon work, etc.)
-5. Test in browser DevTools before deploying
-6. Use efficient-deploy.sh
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) | Daily reference cheat sheet | 10 min | ⭐⭐⭐ |
+| [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) | Patterns, non-negotiables | 30 min | ⭐⭐⭐ |
+| [CONTRIBUTING.md](./getting-started/CONTRIBUTING.md) | Contribution guidelines | 15 min | ⭐⭐ |
+| [MOBILE_FIRST_DEVELOPMENT.md](./getting-started/MOBILE_FIRST_DEVELOPMENT.md) | Mobile-first approach | 10 min | ⭐⭐ |
+| [GOOGLE_APPS_SCRIPT_CACHING.md](./getting-started/GOOGLE_APPS_SCRIPT_CACHING.md) | Cache behavior & gotchas | 10 min | ⭐⭐ |
+| [IMPLEMENTATION_FRAMEWORK.md](./getting-started/IMPLEMENTATION_FRAMEWORK.md) | Development framework | 20 min | ⭐ |
 
-#### 🐛 Developer Fixing a Bug
-1. Read **POST_MORTEM_2025_12_06.md** (debugging methodology)
-2. Read **DEBUGGING_STRATEGY.md** (approaches)
-3. Add comprehensive logging upfront
-4. Document findings in inline comments
-5. Create post-mortem after fixing
-6. Update CHANGELOG.md
+### 📏 Standards & Best Practices
 
-#### 🏗️ New Team Member / Architect
-1. Start with **README.md** (30 mins)
-2. Read **PROJECT_STATUS_SUMMARY.md** (1 hour)
-3. Read **DEVELOPMENT-PRINCIPLES.md** (30 mins)
-4. Review **CHANGELOG.md** (scan titles, skim important versions)
-5. Check **VISUAL_PROJECT_OVERVIEW.md** (20 mins)
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) | CSS patterns & anti-patterns | 30 min | ⭐⭐⭐ |
+| [ICON_IMAGES_STANDARDIZATION.md](./standards/ICON_IMAGES_STANDARDIZATION.md) | Icon implementation guide | 15 min | ⭐⭐ |
+| [GIT_HOOKS.md](./standards/GIT_HOOKS.md) | Git workflow automation | 10 min | ⭐ |
 
-#### 👤 Product Manager / QA
-1. Read **QUICK_REFERENCE.md** (current state)
-2. Check **FEATURE_BUG_STATUS.md** (what's done/what's not)
-3. Review **CHANGELOG.md** for recent changes
-4. Look at RELEASE_NOTES_v243.md for customer-facing changes
+### 🧪 Testing
 
-#### 🚀 DevOps / Infrastructure
-1. Read **CI_DEPLOY.md** (GCP setup)
-2. Review script files in `scripts/` directory
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [TESTING_README.md](./testing/TESTING_README.md) | Test suite overview | 20 min | ⭐⭐⭐ |
+| [SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) | Specialized test details | 30 min | ⭐⭐ |
+| [ERROR_HANDLING.md](./testing/ERROR_HANDLING.md) | Error handling patterns | 15 min | ⭐⭐ |
+| [SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) | Smoke test checklist | 10 min | ⭐⭐ |
+| [COVERAGE_METRICS.md](./testing/COVERAGE_METRICS.md) | Test coverage tracking | 10 min | ⭐ |
+
+### 🚀 Deployment
+
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Current workflow | 20 min | ⭐⭐⭐ |
+| [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Pre/during/post deploy | 15 min | ⭐⭐⭐ |
+| [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) | GitHub Actions CI/CD | 30 min | ⭐⭐ |
+| [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) | GH Actions configuration | 20 min | ⭐⭐ |
+| [RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) | Example release notes | 10 min | ⭐ |
+
+### 🔧 Operations & Maintenance
+
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md) | Debugging methodology | 20 min | ⭐⭐⭐ |
+| [ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) | Large file management | 10 min | ⭐⭐ |
+| [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) | Current project state | 30 min | ⭐⭐ |
+| [FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) | Feature completion status | 20 min | ⭐⭐ |
+| [VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) | Metrics & health score | 20 min | ⭐ |
+| [PR_FIX_INSIGHTS.md](./operations/PR_FIX_INSIGHTS.md) | PR patterns & insights | 15 min | ⭐ |
+
+### 📖 Learning from History
+
+| Document | Purpose | Time | Priority |
+|----------|---------|------|----------|
+| [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) | Cumulative insights | 20 min | ⭐⭐⭐ |
+| [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) | Insights page debug | 30 min | ⭐⭐ |
+| [CHANGELOG.md](./CHANGELOG.md) | Version history | Scan | ⭐⭐ |
+
+### 📝 Templates
+
+| Template | When to Use |
+|----------|-------------|
+| [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md) | After each dev session |
+| [POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md) | After significant issues |
+| [FEATURE_TEMPLATE.md](./templates/FEATURE_TEMPLATE.md) | Documenting new features |
+
+---
+
+## 🗺️ Navigation by Role
+
+### 👨‍💻 Developer - New Feature
+
+**Read before starting:**
+1. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) - Don't repeat past mistakes
+2. [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) - Patterns
+3. [CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) (if CSS work)
+
+**During development:**
+- [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - Quick answers
+- [TESTING_README.md](./testing/TESTING_README.md) - How to test
+
+**Before deploying:**
+- [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) - Pre-deploy steps
+- [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - How to ship
+
+**After session:**
+- Update [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) if you learned something valuable
+- Create session summary from [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md)
+
+### 🐛 Developer - Fixing Bugs
+
+**Read first:**
+1. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) - Has this been solved before?
+2. [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md) - Systematic approach
+3. [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) - Example methodology
+
+**During debugging:**
+- Add diagnostic logging (see [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md))
+- Document findings in code comments
+- Test on both desktop and mobile
+
+**After fixing:**
+- Create post-mortem from [POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md)
+- Extract lesson to [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
+- Update [CHANGELOG.md](./CHANGELOG.md)
+
+### 🏗️ New Team Member / Architect
+
+**Day 1 (2-3 hours):**
+1. [README.md](../README.md) (30 min) - Project overview
+2. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) (20 min) - What we've learned
+3. [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) (1 hour) - Current state
+4. [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) (30 min) - How we work
+
+**Week 1:**
+- [VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) - Codebase structure
+- [CHANGELOG.md](./CHANGELOG.md) - Scan recent versions
+- [TESTING_README.md](./testing/TESTING_README.md) - Testing approach
+
+### 👤 Product Manager / QA
+
+**Current state:**
+1. [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - What's deployed
+2. [FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) - What works/doesn't
+
+**Testing:**
+- [SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) - Manual test checklist
+- [SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) - Test suite details
+
+**Releases:**
+- [RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) - Example format
+- [CHANGELOG.md](./CHANGELOG.md) - Recent changes
+
+### 🚀 DevOps / Infrastructure
+
+**Setup:**
+1. [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) - GCP & GitHub Actions
+2. [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) - Workflow config
+
+**Operations:**
+- [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - Deploy process
+- [ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) - File management
+
+---
+
+## 📋 Maintenance Schedule
+
+### After Every Development Session
+- [ ] Extract key learnings to [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
+- [ ] Update [CHANGELOG.md](./CHANGELOG.md)
+- [ ] Create session summary (optional, using [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md))
+
+### Monthly
+- [ ] Review and consolidate similar learnings in [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
+- [ ] Archive session summaries older than 30 days
+- [ ] Update [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md)
+
+### Quarterly
+- [ ] Archive outdated snapshots
+- [ ] Update this index with new documents
+- [ ] Review and update priority ratings
+- [ ] Consolidate redundant documentation
+
+---
+
+## 🗄️ Archived Documentation
+
+Historical snapshots moved to `archive/` for reference:
+
+### archive/2025-12-07-deployment-push/
+- DEPLOYMENT_READY.md
+- READY_TO_DEPLOY.md
+- READY_TO_PUSH.md
+- DEPLOYMENT_COMPLETE.md
+
+### archive/2025-12-07-session/
+- SESSION_SUMMARY.md
+- REVIEW_SUMMARY.md
+- FINAL_IMPLEMENTATION_REPORT.md
+- IMPLEMENTATION_COMPLETE.md
+- HIGH_PRIORITY_IMPLEMENTATION.md
+- IMPROVEMENTS_SUMMARY.md
+- DOCUMENTATION_ENHANCEMENT_SUMMARY.md
+
+**Access:** Available for historical reference, but not actively maintained.
+
+---
+
+## 📊 Documentation Statistics
+
+- **Active Documents:** 46
+- **Archived Documents:** 11
+- **Templates:** 3
+- **Total Lines:** ~15,700
+- **Total Size:** ~616KB
+- **Folders:** 7
+
+---
+
+## 🔗 External Resources
+
+### Google Apps Script
+- [Official Documentation](https://developers.google.com/apps-script)
+- [Caching Behavior](https://developers.google.com/apps-script/guides/html/best-practices#cache_static_content)
+
+### Testing
+- [Playwright Documentation](https://playwright.dev/)
+- [Puppeteer Documentation](https://pptr.dev/)
+
+### Deployment
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [clasp Documentation](https://github.com/google/clasp)
+
+---
+
+## ❓ Can't Find What You Need?
+
+1. **Search:** Use `grep -r "keyword" docs/` to search all documentation
+2. **Check Archive:** Older docs may be in `archive/`
+3. **Ask:** Create an issue or ask the team
+4. **Document:** If the answer isn't documented, add it to the appropriate living doc
+
+---
+
+**Last Review:** December 8, 2025  
+**Next Review Due:** March 8, 2026
 3. Check `.github/workflows/` for GitHub Actions
 4. Review `infra/` for Terraform configuration
 
