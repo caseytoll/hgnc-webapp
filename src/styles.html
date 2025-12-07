@@ -1425,14 +1425,10 @@
   }
 
   .game-round {
+    display: inline-block;
     font-weight: 600;
-    font-size: 0.9em;
     color: var(--primary-text);
-    flex-shrink: 0;
-    flex-grow: 0;
-    align-self: center;
-    line-height: 1.2;
-    width: 40px;
+    width: 2.5em;
     text-align: left;
     white-space: nowrap;
   }
@@ -1458,17 +1454,14 @@
     font-size: 0.9em;
   }
 
-  .game-opponent {
+  .game-opponent-line {
     font-weight: 500;
     color: var(--primary-text);
     flex-shrink: 0;
     flex-grow: 0;
-    min-width: 0;
     align-self: flex-start;
     text-align: left;
     line-height: 1.2;
-    margin-right: 0;
-    margin-left: 0;
   }
 
   .game-row-score {
@@ -1499,21 +1492,11 @@
     }
 
     .game-round {
-      font-size: 0.75em;
-      width: 40px;
-      text-align: left;
-      font-weight: 500;
-      flex-shrink: 0;
-      flex-grow: 0;
-      white-space: nowrap;
+      width: 2.5em;
     }
 
-    .game-opponent {
+    .game-opponent-line {
       font-size: 0.85em;
-      flex-shrink: 0;
-      flex-grow: 0;
-      text-align: left;
-      align-self: flex-start;
     }
 
     .game-row-score {

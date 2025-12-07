@@ -256,8 +256,9 @@
                             '<span class="spacer"></span>' +
                         '</div>' +
                         '<div class="game-row-line2">' +
-                            '<span class="game-round">R' + (game.round || '?') + ':</span>' +
-                            '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
+                            '<span class="game-opponent-line">' +
+                                '<span class="game-round">R' + (game.round || '?') + ':</span> vs ' + getDisplayName(game.opponent) +
+                            '</span>' +
                             '<span class="spacer"></span>' +
                             data.statusBadge +
                         '</div>';
@@ -268,8 +269,9 @@
                             '<span class="spacer"></span>' +
                         '</div>' +
                         '<div class="game-row-line2">' +
-                            '<span class="game-round">R' + (game.round || '?') + ':</span>' +
-                            '<span class="game-opponent">vs ' + getDisplayName(game.opponent) + '</span>' +
+                            '<span class="game-opponent-line">' +
+                                '<span class="game-round">R' + (game.round || '?') + ':</span> vs ' + getDisplayName(game.opponent) +
+                            '</span>' +
                             '<span class="spacer"></span>' +
                             '<div class="game-row-score">' +
                                 '<span class="score-us">' + data.scores.ourScore + '</span>' +
@@ -285,8 +287,9 @@
                         '<span class="spacer"></span>' +
                     '</div>' +
                     '<div class="game-row-line2">' +
-                        '<span class="game-round">R' + (game.round || '?') + ':</span>' +
-                        '<span class="game-opponent">BYE</span>' +
+                        '<span class="game-opponent-line">' +
+                            '<span class="game-round">R' + (game.round || '?') + ':</span> BYE' +
+                        '</span>' +
                         '<span class="spacer"></span>' +
                         '<div class="game-row-score">' +
                             '<span class="bye-badge">BYE</span>' +
