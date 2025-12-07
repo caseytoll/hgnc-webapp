@@ -100,6 +100,9 @@
         if (overlay) {
             overlay.querySelector('span').textContent = message;
             overlay.classList.toggle('hidden', !isLoading);
+            console.log('setLoading:', isLoading, 'message:', message, 'hasHiddenClass:', overlay.classList.contains('hidden'));
+        } else {
+            console.warn('setLoading: overlay element not found!');
         }
     }
     
