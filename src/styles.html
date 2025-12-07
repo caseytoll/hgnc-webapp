@@ -506,7 +506,8 @@
   }
 
   .hidden {
-    display: none;
+    display: none !important;
+    visibility: hidden !important;
   }
 
   .error-banner {
@@ -538,6 +539,11 @@
     gap: var(--space-1);
     padding-top: var(--space-2);
     padding-right: var(--space-3);
+  }
+  
+  .bottom-nav.hidden {
+    display: none !important;
+    visibility: hidden !important;
   }
   
   @media (prefers-color-scheme: dark) {
