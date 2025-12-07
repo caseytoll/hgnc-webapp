@@ -1373,13 +1373,18 @@
 
   .game-row-details {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 4px;
     font-size: 0.9em;
   }
 
   .game-row-date {
     color: var(--secondary-text);
+    font-size: 0.85em;
+  }
+
+  .game-row-opponent {
+    font-weight: 500;
   }
 
   .game-row-score {
