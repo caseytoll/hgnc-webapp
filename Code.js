@@ -84,7 +84,7 @@ function doGet(e) {
  * NOTE: This value is automatically updated by deploy script during releases.
  * Current HEAD commit is used to pin CDN references at deploy time.
  */
-var CDN_TAG = '@4227f08';  // Updated to master; production releases pin to commit SHA
+var CDN_TAG = '@5e28be8';  // Updated to master; production releases pin to commit SHA
 var CDN_BASE = 'https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp' + CDN_TAG + '/assets/';
 
 /**
