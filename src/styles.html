@@ -3197,6 +3197,10 @@
     z-index: 100;
   }
 
+  .modal-overlay.hidden {
+    display: none;
+  }
+
   .modal-content {
     background: var(--content-bg);
     padding: 24px;
@@ -4957,6 +4961,10 @@
   .modal-overlay {
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     align-items: flex-end;
+  }
+
+  .modal-overlay.hidden {
+    display: none;
   }
 
   .modal-content {
