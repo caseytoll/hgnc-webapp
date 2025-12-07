@@ -306,10 +306,17 @@
             }
         } else if (viewId === 'insights-test-view') {
             document.getElementById('app-tab-nav').classList.remove('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
             document.getElementById('show-home-tab').classList.toggle('active', false);
             document.getElementById('show-fixture-tab').classList.toggle('active', false);
             document.getElementById('show-insights-tab').classList.toggle('active', false);
             document.getElementById('show-netball-ladder-tab').classList.toggle('active', false);
+        } else {
+            // Hide both navigation bars for any other views (admin, detail views, etc.)
+            document.getElementById('app-tab-nav').classList.add('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
         }
         
         if (viewId === 'game-detail-view') {
