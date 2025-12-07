@@ -2,20 +2,28 @@
     // === GLOBAL STATE (Modernized) ===
     
     // === TEAM NICKNAME MAPPING ===
-    // Maps full team names to mobile-friendly nicknames for display
+    // Maps base team names to mobile-friendly nicknames
+    // Uses substring replacement to handle all variants (e.g., "Montmorency 11 White" → "Monty 11 White")
     var TEAM_NICKNAMES = {
-        'Montmorency': 'Monty',
-        'Montmorency 11 White': 'Monty 11 White',
-        'Montmorency Swoopers': 'Monty Swoopers',
-        'Montmorency White': 'Monty White'
+        'Montmorency': 'Monty'
     };
     
     function getDisplayName(fullName) {
         if (!fullName) return fullName;
         var trimmed = String(fullName).trim();
-        var displayName = TEAM_NICKNAMES[trimmed] || trimmed;
-        console.log('[getDisplayName] Input: "' + fullName + '" → Trimmed: "' + trimmed + '" → Display: "' + displayName + '"');
-        return displayName;
+        
+        // Check if any nickname base matches the start of the team name
+        for (var base in TEAM_NICKNAMES) {
+            if (trimmed.indexOf(base) === 0) {
+                // Replace the base name with nickname, preserving the rest
+                var displayName = TEAM_NICKNAMES[base] + trimmed.substring(base.length);
+                console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + displayName + '"');
+                return displayName;
+            }
+        }
+        
+        console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + trimmed + '" (no match)');
+        return trimmed;
     }
     
     // === NATIVE MOBILE FEATURES ===
