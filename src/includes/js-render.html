@@ -1,5 +1,19 @@
 <script>
     // === RENDER FUNCTIONS ===
+    
+    // Team nickname mapping (duplicate from helpers for safety)
+    var TEAM_NICKNAMES_RENDER = {
+        'Montmorency': 'Monty'
+    };
+    
+    function getDisplayName(fullName) {
+        if (!fullName) return fullName;
+        var trimmed = String(fullName).trim();
+        var displayName = TEAM_NICKNAMES_RENDER[trimmed] || trimmed;
+        console.log('[getDisplayName] Input: "' + fullName + '" → Trimmed: "' + trimmed + '" → Display: "' + displayName + '"');
+        return displayName;
+    }
+    
     // Expose showView to the global window object for console access
     if (typeof showView === 'function') {
         window.showView = showView;

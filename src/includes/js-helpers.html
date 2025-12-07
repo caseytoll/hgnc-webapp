@@ -8,7 +8,11 @@
     };
     
     function getDisplayName(fullName) {
-        return TEAM_NICKNAMES[fullName] || fullName;
+        if (!fullName) return fullName;
+        var trimmed = String(fullName).trim();
+        var displayName = TEAM_NICKNAMES[trimmed] || trimmed;
+        console.log('[getDisplayName] Input: "' + fullName + '" → Trimmed: "' + trimmed + '" → Display: "' + displayName + '"');
+        return displayName;
     }
     
     // === NATIVE MOBILE FEATURES ===
