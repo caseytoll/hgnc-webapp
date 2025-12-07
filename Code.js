@@ -58,7 +58,7 @@ function doGet(e) {
 
     // Cache buster - update this to force client refresh
     // NOTE: bump this on each production deploy so that clients bust cached JS/CSS
-    template.appVersion = '869';
+    template.appVersion = '871';
 
     var result = template.evaluate()
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
