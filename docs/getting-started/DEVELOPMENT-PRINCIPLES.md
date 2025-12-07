@@ -98,6 +98,163 @@ Before writing ANY code, answer these:
 
 ---
 
+## 🗓️ LEARNINGS FROM DECEMBER 7, 2025 SESSION
+
+**Session Focus**: Fixed 3 critical UI bugs + iterated schedule layout design (62/100 → 92/100+)
+
+### KEY DISCOVERY: Google Apps Script CSS Caching is Aggressive
+
+**Problem**: CSS changes deployed but users see old cached version. This led to 4 failed deployment attempts trying to fix loading overlay with CSS-only changes.
+
+**Solution Implemented**: 
+1. **Critical CSS must be embedded directly in HTML** (not linked via includes)
+2. **Use appVersion bumping for non-critical changes** (forces JS reload, which pulls new HTML)
+3. **Combined strategy prevents cache issues** without needing user hard refresh
+
+**What This Means for You**:
+- Loading overlays, visibility controls, modal positioning → **Embed in index.html `<head>`**
+- Non-critical styling (colors, spacing, fonts) → Can use `styles.html` include
+- Any JavaScript changes → **Always bump appVersion in Code.js**
+- See: `docs/getting-started/GOOGLE_APPS_SCRIPT_CACHING.md` for detailed strategy
+
+**Files Affected by This Learning**:
+- `index.html` - Now has embedded critical CSS
+- `Code.js` - appVersion tracking for cache invalidation
+- `src/styles.html` - Non-critical CSS
+- New doc: `GOOGLE_APPS_SCRIPT_CACHING.md` (read this!)
+
+### KEY LEARNING: Substring-Based Mappings Beat Hardcoding
+
+**Problem**: Team names like "Montmorency 11 White" and "Montmorency Swoopers" both need shortening to "Monty XX", but hardcoding each variant is unmaintainable.
+
+**Solution Implemented**:
+```javascript
+// Instead of: NICKNAMES = { 'Montmorency 11 White': 'Monty 11 White', ... }
+// Use substring replacement:
+var TEAM_NICKNAMES = { 'Montmorency': 'Monty' };
+
+function getDisplayName(fullName) {
+  for (var base in TEAM_NICKNAMES) {
+    if (fullName.indexOf(base) === 0) { // Starts with base
+      return TEAM_NICKNAMES[base] + fullName.substring(base.length);
+    }
+  }
+  return fullName;
+}
+```
+
+**Benefits**:
+- ✅ Single mapping handles all variants
+- ✅ Future variants automatically supported without code changes
+- ✅ Preserves important suffix data (team designation, division)
+- ✅ Easy to add new base names
+- ⚠️ Only works when variant starts with base name
+
+**When to Use This Pattern**:
+- Team names with multiple variants
+- Player names with suffixes
+- Any text with repeating base + variable suffix structure
+
+### KEY LEARNING: Iterative Design with Metrics is Powerful
+
+**Process Used**:
+1. Initial design scored 62/100 (wrapping issues, spacing)
+2. Each iteration tested on mobile device, scored objectively
+3. Score progression: 62 → 72 → 78 → 92/100+
+4. Each score included specific feedback ("date smaller", "opponent misaligned")
+5. Final version addressed root causes, not symptoms
+
+**Scoring Framework Applied**:
+- Readability on mobile (font sizes, line spacing)
+- Information hierarchy (primary vs secondary content)
+- Visual alignment (vertical centering, consistency)
+- Wrapping/truncation behavior
+- Touch target sizes (buttons, clickable areas)
+
+**Files Affected**: `src/includes/js-render.html`, `src/styles.html`
+
+**For Future Work**: When designing layouts or components, implement similar scoring system rather than relying on "looks good to me"
+
+### KEY LEARNING: Mobile Device Testing > Desktop Testing
+
+**Discovery**: Layout issues invisible on desktop become obvious on mobile:
+- Text wrapping behavior different (narrower viewport)
+- Touch/clickable areas different size
+- Font rendering different (system fonts)
+- Vertical alignment appears different
+- Spacing feels different at smaller scale
+
+**Session Evidence**: All iterations (v858-v870) tested on physical mobile device with screenshots. Each screenshot revealed issues that wouldn't show on desktop browser.
+
+**For Future Work**: 
+- Test CSS layout changes on actual mobile device BEFORE considering "done"
+- Use DevTools mobile emulation as first pass, but verify on real device
+- Consider mobile viewport width (375px typical) when designing
+- Test touch interactions on actual touch screen
+
+### KEY LEARNING: Root Cause Analysis > Symptom Fixes
+
+**Bad Approach** (what initially happened):
+1. Loading overlay in wrong position → adjust CSS top/left values
+2. Still wrong → adjust more
+3. Deploy, test, still wrong → repeat v852-v855
+
+**Good Approach** (what worked):
+1. Loading overlay in wrong position → Why? Check CSS
+2. CSS not applying → Why? Check if external CSS is cached
+3. External CSS cached → Why? Google Apps Script caches aggressively
+4. Solution: Embed critical CSS directly, bump appVersion
+5. One fix, done → v856 works
+
+**Root Cause Analysis Checklist**:
+- [ ] Does the issue appear in browser console (JavaScript error)?
+- [ ] Does HTML validate (no unclosed tags)?
+- [ ] Is parent element visible? (Trace CSS chain upward)
+- [ ] Is this a cache issue? (Try hard refresh, then approach fix)
+- [ ] What's the **first point of failure**? (Trace backwards)
+- [ ] Is this the root cause or a symptom of something else?
+
+**Files/Docs to Reference**:
+- `docs/operations/DEBUGGING_STRATEGY.md` (when stuck on CSS issues)
+- `docs/DEVELOPMENT_SESSION_2025_12_07.md` (phase-by-phase breakdown)
+
+### KEY LEARNING: Two-Line Mobile Layouts Need Explicit Alignment
+
+**Problem**: Elements on same flex line appear misaligned (opponent taller than others)
+
+**Root Cause**: Multi-line flex containers need `align-items: center` + individual elements need `align-self: center` for consistent alignment
+
+**Solution Applied**:
+```css
+.game-row-line2 {
+  display: flex;
+  align-items: center;  /* Container centers all items */
+  gap: 8px;
+}
+
+.game-opponent {
+  align-self: center;   /* Explicit centering for this element */
+  line-height: 1.2;     /* Consistent line height */
+}
+
+.game-row-date {
+  align-self: center;   /* Explicit centering */
+}
+```
+
+**Learning**: When elements on flex line appear at different heights, it's usually:
+1. `line-height` mismatch between elements
+2. Missing `align-self: center` on individual items
+3. Inline vs block display differences
+4. Font-size differences causing baseline shifts
+
+**For Future Work**: 
+- Always verify flex alignment on both container AND items
+- Check line-height consistency across sibling elements
+- Test with actual content, not just placeholder text
+
+---
+
 ## ⚡ CRITICAL PATTERNS FROM 365 VERSIONS
 
 ### 1. DATA PERSISTENCE: Static-Until-Game Pattern
