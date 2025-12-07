@@ -1412,11 +1412,19 @@
     <!-- PLAYER ANALYSIS VIEW -->
     <div id="insights-player-analysis-view" class="view hidden">
       <div id="insights-player-analysis-error-banner" class="error-banner hidden"></div>
-      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
-      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
-      <section class="card">
-        <h3 class="card-title" style="margin-bottom: 12px;">Player Analysis</h3>
-        <p class="card-subtitle">Individual player performance metrics and versatility analysis</p>
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Player Analysis</h2>
+              <div class="dashboard-subtitle">Individual player performance metrics and versatility analysis</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+
+      <section class="card" style="background: transparent; box-shadow: none;">
+        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player Analysis</h3>
+        <p class="card-subtitle" style="display: none;">Individual player performance metrics and versatility analysis</p>
 
         <!-- Player Superlatives Section -->
         <div class="dashboard-section">
@@ -1471,13 +1479,22 @@
           </div>
         </div>
       </section>
+        </div>
+      </div>
     </div>
 
     <div id="insights-player-plusminus-view" class="view hidden">
-      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
-      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
-      <section class="card">
-        <h3 class="card-title" style="margin-bottom: 12px;">Player
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Player +/- by Position</h2>
+              <div class="dashboard-subtitle">Individual player plus/minus performance analysis</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+      <section class="card" style="background: transparent; box-shadow: none;">
+        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player
         +/- by Position</h3>
         <p class="card-subtitle hidden" id="insights-pm-subtitle">Note: "Avg +/-" sort only shows players with 3 or more Qtrs in that position.</p>
         <div class="sort-tabs">
@@ -1494,6 +1511,8 @@
           "insights-player-plusminus-table"></table>
         </div>
       </section>
+        </div>
+      </div>
     </div>
   </main>
   <div id="edit-team-modal" class="modal-overlay hidden" onclick=
