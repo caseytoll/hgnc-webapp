@@ -1493,19 +1493,31 @@
     }
 
     .game-round {
-      font-size: 0.85em;
+      font-size: 0.75em;
+      max-width: 32px;
+      margin-right: 4px;
+      font-weight: 500;
     }
 
     .game-opponent {
       font-size: 0.85em;
+      flex-shrink: 1;
+      min-width: 0;
     }
 
     .game-row-score {
-      font-size: 0.95em;
+      font-size: 0.85em;
+      flex-shrink: 0;
+    }
+
+    .game-status-badge {
+      font-size: 0.6em !important;
+      padding: 1px 4px !important;
+      max-width: 85px !important;
     }
 
     .game-row-meta {
-      gap: 8px;
+      gap: 4px;
       margin-top: 0;
     }
 
