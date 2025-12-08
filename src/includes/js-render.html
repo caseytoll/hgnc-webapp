@@ -190,21 +190,28 @@
         };
 
         const html = [];
+        
+        // Team List Section
         html.push('<div class="player-section">');
         html.push('<div class="player-section-title">Team List</div>');
         if (regularPlayers.length === 0) {
             html.push('<div class="empty-state">No regular players yet.</div>');
         } else {
+            html.push('<div class="player-grid">');
             regularPlayers.forEach(function(p){ html.push(renderPlayerRow(p)); });
+            html.push('</div>');
         }
         html.push('</div>');
 
+        // Fill Ins Section
         html.push('<div class="player-section">');
         html.push('<div class="player-section-title">Fill Ins</div>');
         if (fillIns.length === 0) {
             html.push('<div class="empty-state">No fill-in players yet.</div>');
         } else {
+            html.push('<div class="player-grid">');
             fillIns.forEach(function(p){ html.push(renderPlayerRow(p)); });
+            html.push('</div>');
         }
         html.push('</div>');
 
