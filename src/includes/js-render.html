@@ -4336,12 +4336,15 @@
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====
     function renderLineupAttackingUnits() {
+        console.log('[renderLineupAttackingUnits] Called');
         const container = document.getElementById('lineup-attacking-units-table');
         if (!container) {
             console.error('[renderLineupAttackingUnits] Container not found');
             return;
         }
+        console.log('[renderLineupAttackingUnits] attackingUnitStats:', window.attackingUnitStats);
         if (!window.attackingUnitStats || Object.keys(window.attackingUnitStats).length === 0) {
+            console.log('[renderLineupAttackingUnits] No data, showing empty state');
             container.innerHTML = '<div class="empty-state">No attacking unit data available. Play more games to see unit combinations.</div>';
             return;
         }
@@ -4375,12 +4378,15 @@
 
     // ===== PHASE 3: POSITION PAIRINGS =====
     function renderLineupPositionPairings() {
+        console.log('[renderLineupPositionPairings] Called');
         const container = document.getElementById('lineup-position-pairings-content');
         if (!container) {
             console.error('[renderLineupPositionPairings] Container not found');
             return;
         }
+        console.log('[renderLineupPositionPairings] positionPairingStats:', window.positionPairingStats);
         if (!window.positionPairingStats) {
+            console.log('[renderLineupPositionPairings] No data, showing empty state');
             container.innerHTML = '<div class="empty-state">No pairing data available. Play more games to see position pairs.</div>';
             return;
         }
