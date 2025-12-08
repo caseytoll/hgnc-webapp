@@ -1416,7 +1416,279 @@
       };
     })();
   </script>
-<?!= include('src/includes/js-dom-ready-init'); ?>
+  <script>
+  // Move inline style for test insights button to CSS
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('show-insights-test-tab');
+    var toggle = document.getElementById('toggle-test-insights');
+    var toggle2 = document.getElementById('toggle-test-insights-2');
+    var testView = document.getElementById('insights-test-view');
+    
+    // Toast helper for quick feedback
+    function ensureToastContainer() {
+        if (document.getElementById('toast-container')) return document.getElementById('toast-container');
+        var c = document.createElement('div');
+        c.id = 'toast-container';
+        c.style = 'position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:99999;pointer-events:none;';
+        document.body.appendChild(c);
+        return c;
+    }
+    function showToast(msg, ms) {
+        try {
+            var cont = ensureToastContainer();
+            var t = document.createElement('div');
+            t.className = 'app-toast';
+            t.style = 'background:rgba(0,0,0,0.78);color:#fff;padding:8px 12px;border-radius:8px;margin-top:8px;font-size:13px;pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,0.25);';
+            t.textContent = msg;
+            cont.appendChild(t);
+        try { if (window.announce && typeof window.announce === 'function') window.announce(msg); } catch (e) { /* ignore announce errors */ }
+            setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, ms || 2000);
+        } catch (e) { console.warn('showToast error', e); }
+    }
+    if (btn) {
+        btn.addEventListener('click', function() {
+            showView('insights-test-view');
+        });
+    }
+    if (toggle && btn) {
+        // Restore persisted preference (localStorage) or fall back to server feature flag
+        var stored = null;
+        try { stored = localStorage.getItem('testInsightsEnabled'); } catch (e) { stored = null; }
+        var initialChecked = (stored !== null) ? (stored === 'true') : (window.TEST_INSIGHTS_ENABLED === true || window.TEST_INSIGHTS_ENABLED === 'true');
+        toggle.checked = !!initialChecked;
+        if (toggle2) toggle2.checked = !!initialChecked;
+        btn.style.display = initialChecked ? '' : 'none';
+        if (testView) {
+            if (initialChecked) testView.classList.remove('hidden');
+            else testView.classList.add('hidden');
+        }
+
+        var syncToggles = function(checked, source) {
+            if (toggle && source !== 'a') toggle.checked = checked;
+            if (toggle2 && source !== 'b') toggle2.checked = checked;
+            if (btn) btn.style.display = checked ? '' : 'none';
+        };
+
+        toggle.addEventListener('change', function() {
+            syncToggles(toggle.checked, 'a');
+            try { localStorage.setItem('testInsightsEnabled', toggle.checked ? 'true' : 'false'); } catch (e) {}
+                try {
+                    if (window.google && google.script && google.script.run) {
+                        google.script.run.recordTelemetry('client.testInsightsToggle', { user: window._USER_EMAIL || '', enabled: !!toggle.checked, source: 'toggle-a' });
+                    }
+                } catch (e) { /* ignore telemetry errors */ }
+            if (toggle.checked) {
+                // Immediately show the test insights view
+                showView('insights-test-view');
+                showToast('Test Insights enabled');
+            } else {
+                // Immediately return to the standard insights view
+                showView('insights-view');
+                showToast('Test Insights disabled');
+            }
+        });
+
+        if (toggle2) {
+            toggle2.addEventListener('change', function() {
+                syncToggles(toggle2.checked, 'b');
+                try { localStorage.setItem('testInsightsEnabled', toggle2.checked ? 'true' : 'false'); } catch (e) {}
+                try {
+                    if (window.google && google.script && google.script.run) {
+                        google.script.run.recordTelemetry('client.testInsightsToggle', { user: window._USER_EMAIL || '', enabled: !!toggle2.checked, source: 'toggle-b' });
+                    }
+                } catch (e) { /* ignore telemetry errors */ }
+                if (toggle2.checked) {
+                    showView('insights-test-view');
+                    showToast('Test Insights enabled');
+                } else {
+                    showView('insights-view');
+                    showToast('Test Insights disabled');
+                }
+            });
+        }
+    }
+    // Fallback for Apps Script variables for local dev
+    if (typeof window.google === 'undefined') {
+        window.google = {};
+    }
+    // Floating debug toggle button (toggles window.DEBUG_TEST_INSIGHTS)
+    try {
+        // Debug toggle removed - not needed in production
+        window.DEBUG_TEST_INSIGHTS = false;
+    } catch (e) { /* ignore */ }
+    // Fallback for _USER_EMAIL for local dev
+    if (typeof window._USER_EMAIL === 'undefined') {
+        window._USER_EMAIL = 'localdev@example.com';
+    }
+    // Patch showView to avoid errors if view is missing
+    if (typeof window.showView === 'function') {
+        var origShowView = window.showView;
+        window.showView = function(viewId) {
+            var el = document.getElementById(viewId);
+            if (!el) {
+                console.warn('View not found:', viewId);
+                return;
+            }
+            // Hide test insights button if switching away from insights-view
+            var toggle = document.getElementById('toggle-test-insights');
+            var btn = document.getElementById('show-insights-test-tab');
+                if (toggle && btn) {
+                if (viewId !== 'insights-view') {
+                    btn.style.display = 'none';
+                    toggle.checked = false;
+                        var toggle2 = document.getElementById('toggle-test-insights-2');
+                        if (toggle2) toggle2.checked = false;
+                }
+            }
+            return origShowView.apply(this, arguments);
+        };
+    }
+
+    // Make insight dashboard cards clickable and keyboard-accessible
+    try {
+      function makeClickableCard(el, viewId) {
+        if (!el) return;
+        el.style.cursor = 'pointer';
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'button');
+        el.addEventListener('click', function (ev) {
+          // avoid intercepting clicks on nested interactive controls
+          if (ev.target && (ev.target.closest('a') || ev.target.closest('button') || ev.target.closest('input'))) return;
+          if (typeof showView === 'function') showView(viewId);
+        });
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (typeof showView === 'function') showView(viewId); }
+        });
+      }
+
+      // Team summary cards -> team record view
+      document.querySelectorAll('.match-summary-grid .team-stats').forEach(function (n) { makeClickableCard(n, 'insights-team-record-view'); });
+
+      // Quarter flow canvas -> team record view
+      makeClickableCard(document.getElementById('quarter-flow-viz'), 'insights-team-record-view');
+
+      // Offensive summary values -> offense hub
+      ['efficient-scorer-avg', 'total-combinations', 'insights-our-avg', 'insights-their-avg'].forEach(function (id) {
+        makeClickableCard(document.getElementById(id), 'insights-offense-hub-view');
+      });
+
+      // Player spotlights: route defenders to defensive view, otherwise offense hub
+      document.querySelectorAll('.player-spotlight').forEach(function (n) {
+        var isDef = n.querySelector('[id^="top-defender"]') || n.querySelector('[id^="top-dpair"]');
+        makeClickableCard(n, isDef ? 'insights-defense-view' : 'insights-offense-hub-view');
+      });
+
+      // Impact stats -> player +/- view
+      ['impact-gs', 'impact-ga', 'impact-c', 'impact-gk'].forEach(function (id) { makeClickableCard(document.getElementById(id), 'insights-player-plusminus-view'); });
+
+      // Defensive stats -> defense view
+      ['avg-ga', 'defensive-quarters', 'insights-best-qtr', 'insights-avg-margin'].forEach(function (id) { makeClickableCard(document.getElementById(id), 'insights-defense-view'); });
+
+      // Ensure test snapshot cards already clickable keep behaviour (no-op if missing)
+      document.querySelectorAll('.test-snapshot-card').forEach(function (n) { if (!n.onclick) n.addEventListener('click', function () { showView('insights-test-view'); }); });
+
+      // Wire the new 2x2 offensive leader cards to open detailed leaderboards
+      function wireOffenseCard(cardId, sortMode, focusId) {
+        var el = document.getElementById(cardId);
+        if (!el) return;
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'button');
+        el.style.cursor = 'pointer';
+        var openDetail = function() {
+          try {
+            // choose the hub tab based on where the card should focus
+            var hubTab = (focusId === 'insights-offense-combos') ? 'pairs' : 'singles';
+            try {
+                if (!window.appState) window.appState = {};
+                if (!window.appState.insights) window.appState.insights = {};
+                window.appState.insights.offenseHubTab = hubTab;
+            } catch (e) { /* ignore */ }
+
+            if (typeof setOffenseHubTab === 'function') setOffenseHubTab(hubTab);
+            if (typeof showInsightsSubView === 'function') showInsightsSubView('insights-offense-hub-view');
+
+            if (typeof setInsightsSort === 'function') {
+              if (hubTab === 'singles') setInsightsSort('single', sortMode);
+              else setInsightsSort('offense', sortMode);
+            } else if (window.appState && window.appState.insights) {
+              if (hubTab === 'singles') window.appState.insights.sortSingle = sortMode;
+              else window.appState.insights.sortOffense = sortMode;
+              if (typeof renderOffensiveHub === 'function') renderOffensiveHub();
+            }
+
+            // scroll to the relevant section after render
+            setTimeout(function(){ try { var f = document.getElementById(focusId); if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 150);
+          } catch (e) { console.warn('openOffenseDetail error', e); }
+        };
+        el.addEventListener('click', openDetail);
+        el.addEventListener('keydown', function(ev){ if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openDetail(); } });
+      }
+
+      wireOffenseCard('card-single-total','impact','leaderboard-list-total');
+      wireOffenseCard('card-single-avg','avg','leaderboard-list-per-qtr');
+      wireOffenseCard('card-pair-total','impact','insights-offense-combos');
+      wireOffenseCard('card-pair-avg','avg','insights-offense-combos');
+
+      // Attach keyboard navigation to the hub tabs and initialize tab state from localStorage
+      try {
+        var hubTabs = Array.prototype.slice.call(document.querySelectorAll('.hub-tabs [role="tab"]'));
+        if (hubTabs && hubTabs.length) {
+          hubTabs.forEach(function(btn, idx) {
+            btn.addEventListener('keydown', function(e) {
+              var key = e.key;
+              if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); var next = hubTabs[(idx + 1) % hubTabs.length]; next.focus(); }
+              else if (key === 'ArrowLeft' || key === 'Left') { e.preventDefault(); var prev = hubTabs[(idx - 1 + hubTabs.length) % hubTabs.length]; prev.focus(); }
+              else if (key === 'Home') { e.preventDefault(); hubTabs[0].focus(); }
+              else if (key === 'End') { e.preventDefault(); hubTabs[hubTabs.length - 1].focus(); }
+              else if (key === 'Enter' || key === ' ') { e.preventDefault(); btn.click(); }
+            });
+          });
+          // Initialize tab from localStorage if present
+          try {
+            var stored = null;
+            try { stored = localStorage.getItem('offenseHubTab'); } catch(e) { stored = null; }
+            if (stored && typeof setOffenseHubTab === 'function') setOffenseHubTab(stored);
+          } catch (e) { /* ignore */ }
+          // Wire the per-tab "Show Top 3 / Show All" toggle button
+          try {
+            var showAllBtn = document.getElementById('offense-show-all-toggle');
+            function updateShowAllButtonText() {
+              try {
+                var currentTab = (window.appState && window.appState.insights && window.appState.insights.offenseHubTab) || (localStorage.getItem('offenseHubTab') || 'singles');
+                if (!showAllBtn) return;
+                if (currentTab === 'singles') {
+                  var val = !!(window.appState && window.appState.insights && window.appState.insights.showAllSingles);
+                  showAllBtn.textContent = val ? 'Show Top 3' : 'Show All';
+                  showAllBtn.setAttribute('aria-pressed', val ? 'true' : 'false');
+                } else if (currentTab === 'pairs') {
+                  // pairs uses its own inline toggle; hide hub-level toggle
+                  showAllBtn.style.display = 'none';
+                  return;
+                } else {
+                  // pairs uses its own toggle inside list; hide hub-level toggle
+                  showAllBtn.style.display = 'none';
+                  return;
+                }
+                showAllBtn.style.display = '';
+              } catch (e) {}
+            }
+
+            if (showAllBtn) {
+              showAllBtn.addEventListener('click', function() {
+                var currentTab = (window.appState && window.appState.insights && window.appState.insights.offenseHubTab) || (localStorage.getItem('offenseHubTab') || 'singles');
+                if (currentTab === 'singles' && typeof toggleSinglesShowAll === 'function') toggleSinglesShowAll();
+                else if (currentTab === 'pairs' && typeof toggleInsightsOffense === 'function') toggleInsightsOffense();
+                setTimeout(updateShowAllButtonText, 40);
+              });
+              // ensure label reflects current stored value
+              setTimeout(updateShowAllButtonText, 80);
+            }
+          } catch (e) { /* ignore */ }
+        }
+      } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('Failed to wire insight card click handlers', e); }
+  });
+  </script>
 </script>
   <script>
     // Ensure the Team Performance icon has a fallback when data: URLs are blocked or the image fails to load.
