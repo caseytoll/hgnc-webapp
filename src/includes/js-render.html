@@ -4292,16 +4292,20 @@
     }
 
     // ===== PHASE 1: DEFENSIVE UNIT INSIGHTS =====
-    const renderLineupDefensiveUnits = () => {
+    function renderLineupDefensiveUnits() {
         const container = document.getElementById('lineup-defensive-units-table');
-        if (!defensiveUnitStats || Object.keys(defensiveUnitStats).length === 0) {
-            container.innerHTML = '<div class="empty-state">No defensive unit data available.</div>';
+        if (!container) {
+            console.error('[renderLineupDefensiveUnits] Container not found');
+            return;
+        }
+        if (!window.defensiveUnitStats || Object.keys(window.defensiveUnitStats).length === 0) {
+            container.innerHTML = '<div class="empty-state">No defensive unit data available. Play more games to see unit combinations.</div>';
             return;
         }
         
         // Sort by avg +/-
-        const sorted = Object.keys(defensiveUnitStats)
-            .map(key => ({ key: key, data: defensiveUnitStats[key] }))
+        const sorted = Object.keys(window.defensiveUnitStats)
+            .map(key => ({ key: key, data: window.defensiveUnitStats[key] }))
             .sort((a, b) => parseFloat(b.data.avgPlusMinus) - parseFloat(a.data.avgPlusMinus));
         
         let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
@@ -4325,18 +4329,22 @@
         
         html += '</table>';
         container.innerHTML = html;
-    };
+    }
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====
-    const renderLineupAttackingUnits = () => {
+    function renderLineupAttackingUnits() {
         const container = document.getElementById('lineup-attacking-units-table');
-        if (!attackingUnitStats || Object.keys(attackingUnitStats).length === 0) {
-            container.innerHTML = '<div class="empty-state">No attacking unit data available.</div>';
+        if (!container) {
+            console.error('[renderLineupAttackingUnits] Container not found');
+            return;
+        }
+        if (!window.attackingUnitStats || Object.keys(window.attackingUnitStats).length === 0) {
+            container.innerHTML = '<div class="empty-state">No attacking unit data available. Play more games to see unit combinations.</div>';
             return;
         }
         
-        const sorted = Object.keys(attackingUnitStats)
-            .map(key => ({ key: key, data: attackingUnitStats[key] }))
+        const sorted = Object.keys(window.attackingUnitStats)
+            .map(key => ({ key: key, data: window.attackingUnitStats[key] }))
             .sort((a, b) => parseFloat(b.data.avgGoalsFor) - parseFloat(a.data.avgGoalsFor));
         
         let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
@@ -4360,13 +4368,17 @@
         
         html += '</table>';
         container.innerHTML = html;
-    };
+    }
 
     // ===== PHASE 3: POSITION PAIRINGS =====
-    const renderLineupPositionPairings = () => {
+    function renderLineupPositionPairings() {
         const container = document.getElementById('lineup-position-pairings-content');
-        if (!positionPairingStats) {
-            container.innerHTML = '<div class="empty-state">No pairing data available.</div>';
+        if (!container) {
+            console.error('[renderLineupPositionPairings] Container not found');
+            return;
+        }
+        if (!window.positionPairingStats) {
+            container.innerHTML = '<div class="empty-state">No pairing data available. Play more games to see position pairs.</div>';
             return;
         }
         
@@ -4382,8 +4394,8 @@
                 '<th style="padding: 6px; text-align: center; font-weight: bold;">GA/Q</th>' +
                 '</tr>';
         
-        const defPairings = Object.keys(positionPairingStats.defensive)
-            .map(key => ({ key: key, data: positionPairingStats.defensive[key] }))
+        const defPairings = Object.keys(window.positionPairingStats.defensive || {})
+            .map(key => ({ key: key, data: window.positionPairingStats.defensive[key] }))
             .sort((a, b) => parseFloat(a.data.avgGoalsAgainst) - parseFloat(b.data.avgGoalsAgainst))
             .slice(0, 8); // Top 8
         
@@ -4408,8 +4420,8 @@
                 '<th style="padding: 6px; text-align: center; font-weight: bold;">GF/Q</th>' +
                 '</tr>';
         
-        const atkPairings = Object.keys(positionPairingStats.attacking)
-            .map(key => ({ key: key, data: positionPairingStats.attacking[key] }))
+        const atkPairings = Object.keys(window.positionPairingStats.attacking || {})
+            .map(key => ({ key: key, data: window.positionPairingStats.attacking[key] }))
             .sort((a, b) => parseFloat(b.data.avgGoalsFor) - parseFloat(a.data.avgGoalsFor))
             .slice(0, 8); // Top 8
         
@@ -4436,8 +4448,8 @@
                 '<th style="padding: 6px; text-align: center; font-weight: bold;">+/- Avg</th>' +
                 '</tr>';
         
-        const transPairings = Object.keys(positionPairingStats.transition)
-            .map(key => ({ key: key, data: positionPairingStats.transition[key] }))
+        const transPairings = Object.keys(window.positionPairingStats.transition || {})
+            .map(key => ({ key: key, data: window.positionPairingStats.transition[key] }))
             .sort((a, b) => parseFloat(b.data.avgPlusMinus) - parseFloat(a.data.avgPlusMinus));
         
         transPairings.forEach(item => {
@@ -4454,5 +4466,5 @@
         html += '</table></div>';
         
         container.innerHTML = html;
-    };
+    }
 </script>
