@@ -78,7 +78,8 @@
   "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?>,
   "offensiveLeadersIconDataUrl": <?!= JSON.stringify(offensiveLeadersIconDataUrl || '#') ?>,
   "defensiveWallIconDataUrl": <?!= JSON.stringify(defensiveWallIconDataUrl || '#') ?>,
-  "playerAnalysisIconDataUrl": <?!= JSON.stringify(playerAnalysisIconDataUrl || '#') ?> }
+  "playerAnalysisIconDataUrl": <?!= JSON.stringify(playerAnalysisIconDataUrl || '#') ?>,
+  "appUrl": <?!= JSON.stringify(ScriptApp.getService().getUrl()) ?> }
   </script>
   <script>
     // Keep debug off by default; set window.DEBUG = true in the console to enable.
@@ -96,6 +97,7 @@
   window.OFFENSIVE_LEADERS_ICON_DATA_URL = data.offensiveLeadersIconDataUrl || '#';
   window.DEFENSIVE_WALL_ICON_DATA_URL = data.defensiveWallIconDataUrl || '#';
   window.PLAYER_ANALYSIS_ICON_DATA_URL = data.playerAnalysisIconDataUrl || '#';
+  window.APP_URL = data.appUrl || window.location.origin + window.location.pathname;
       } catch (e) {
         window._USER_EMAIL = window._USER_EMAIL || '';
         window._OWNER_EMAIL = window._OWNER_EMAIL || '';

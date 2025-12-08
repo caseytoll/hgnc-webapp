@@ -15,7 +15,8 @@
   <script id="server-data" type="application/json">
     { "userEmail": <?!= JSON.stringify(userEmail || '') ?>,
       "ownerEmail": <?!= JSON.stringify(ownerEmail || '') ?>,
-      "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?> }
+      "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?>,
+      "appUrl": <?!= JSON.stringify(ScriptApp.getService().getUrl()) ?> }
   </script>
   
   <script>
@@ -27,6 +28,7 @@
         window._USER_EMAIL = data.userEmail || '';
         window._OWNER_EMAIL = data.ownerEmail || '';
         window.LOGO_DATA_URL = data.logoDataUrl || '#';
+        window.APP_URL = data.appUrl || window.location.origin + window.location.pathname.replace('?page=lineup', '');
       } catch (e) {
         window._USER_EMAIL = '';
         window._OWNER_EMAIL = '';
@@ -45,7 +47,7 @@
               <h2 class="dashboard-title">Defensive Units (GK-GD-WD-C)</h2>
               <div class="dashboard-subtitle">Performance analysis of defensive unit combinations</div>
             </div>
-            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+            <button class="back-button" onclick="window.location.href=window.APP_URL" aria-label="Back to Insights">← Back</button>
           </div>
         </div>
         <section class="card">
@@ -65,7 +67,7 @@
               <h2 class="dashboard-title">Attacking Units (GS-GA-WA-C)</h2>
               <div class="dashboard-subtitle">Performance analysis of attacking unit combinations</div>
             </div>
-            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+            <button class="back-button" onclick="window.location.href=window.APP_URL" aria-label="Back to Insights">← Back</button>
           </div>
         </div>
         <section class="card">
@@ -85,7 +87,7 @@
               <h2 class="dashboard-title">Position Pairings</h2>
               <div class="dashboard-subtitle">Performance analysis of defensive, attacking, and transition position pairs</div>
             </div>
-            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+            <button class="back-button" onclick="window.location.href=window.APP_URL" aria-label="Back to Insights">← Back</button>
           </div>
         </div>
         <section class="card">
@@ -110,7 +112,7 @@
       try {
         var state = JSON.parse(localStorage.getItem('appState') || '{}');
         if (!state.currentTeam || !state.currentTeam.teamID) {
-          window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+          window.location.href = window.APP_URL;
           return;
         }
         
@@ -149,12 +151,12 @@
             console.error('Failed to load team data:', error);
             setLoading(false);
             alert('Failed to load team data. Returning to main page...');
-            window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+            window.location.href = window.APP_URL;
           })
           .loadTeamData(state.currentTeam.sheetName);
       } catch (e) {
         console.error('Lineup page init error:', e);
-        window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+        window.location.href = window.APP_URL;
       }
     });
     
