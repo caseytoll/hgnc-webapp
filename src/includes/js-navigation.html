@@ -440,6 +440,13 @@
         } else if (viewId === 'insights-test-view') {
             renderInsightsTest();
         } else if (viewId === 'player-detail-view') {
+            // Ensure stats are calculated before rendering player detail
+            if (statsNeedUpdate || !calculatedPlayerTable) {
+                console.log('[showView] Stats not ready for player detail, updating...');
+                updateAllStats();
+                statsNeedUpdate = false;
+            }
+            document.getElementById('player-detail-view').classList.remove('hidden');
             renderPlayerDetail();
         } else if (viewId === 'netball-ladder-view') {
             document.getElementById('netball-ladder-view').classList.remove('hidden');

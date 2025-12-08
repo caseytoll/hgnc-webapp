@@ -610,7 +610,14 @@
     
     const renderPlayerDetail = () => {
         const player = players.find(p => p.id === appState.playerDetail.id);
-        if (!player) return;
+        if (!player) {
+            console.log('[renderPlayerDetail] Player not found with ID:', appState.playerDetail.id);
+            return;
+        }
+        
+        console.log('[renderPlayerDetail] Rendering details for:', player.name);
+        console.log('[renderPlayerDetail] calculatedPlayerTable:', calculatedPlayerTable);
+        console.log('[renderPlayerDetail] calculatedLeaderboardTotal:', calculatedLeaderboardTotal);
         
         document.getElementById('player-detail-name').textContent = player.name;
         
@@ -622,8 +629,8 @@
         const positionCounts = {};
         const positionPlusMinus = {};
         
-        const playerStats = calculatedPlayerTable.find(p => p.id === appState.playerDetail.id);
-        const playerPlusMinus = calculatedPlayerPlusMinus.find(p => p.id === appState.playerDetail.id);
+        const playerStats = calculatedPlayerTable && calculatedPlayerTable.find(p => p.id === appState.playerDetail.id);
+        const playerPlusMinus = calculatedPlayerPlusMinus && calculatedPlayerPlusMinus.find(p => p.id === appState.playerDetail.id);
 
         if (playerStats) {
             gamesPlayed = playerStats.gamesPlayed;
@@ -634,6 +641,8 @@
                     positionCounts[pos] = playerStats[pos];
                 }
             });
+        } else {
+            console.log('[renderPlayerDetail] No stats found for player:', player.name);
         }
         
         // Count games available
@@ -641,7 +650,7 @@
             return (g.availablePlayerIDs || []).includes(player.id) && isGameInPast(g);
         }).length;
         
-        const playerGoals = calculatedLeaderboardTotal.find(p => p.name === player.name);
+        const playerGoals = calculatedLeaderboardTotal && calculatedLeaderboardTotal.find(p => p.name === player.name);
         totalGoals = playerGoals ? playerGoals.goals : 0;
         
         // Calculate goals against for defensive players
