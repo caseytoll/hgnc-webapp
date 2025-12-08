@@ -4356,6 +4356,25 @@
             parentView: container.closest('.view'),
             viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
         });
+        
+        // ENHANCED DIAGNOSTICS
+        var parentCard = container.closest('.card');
+        var parentSection = container.closest('.dashboard-section');
+        console.log('[renderLineupDefensiveUnits] Parent hierarchy check:', {
+            card: parentCard ? {
+                display: window.getComputedStyle(parentCard).display,
+                visibility: window.getComputedStyle(parentCard).visibility,
+                height: window.getComputedStyle(parentCard).height,
+                hasHidden: parentCard.classList.contains('hidden')
+            } : 'not found',
+            section: parentSection ? {
+                display: window.getComputedStyle(parentSection).display,
+                visibility: window.getComputedStyle(parentSection).visibility,
+                height: window.getComputedStyle(parentSection).height,
+                hasHidden: parentSection.classList.contains('hidden')
+            } : 'not found',
+            containerHTML: container.innerHTML.substring(0, 200)
+        });
     }
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====
