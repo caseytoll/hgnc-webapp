@@ -4293,12 +4293,15 @@
 
     // ===== PHASE 1: DEFENSIVE UNIT INSIGHTS =====
     function renderLineupDefensiveUnits() {
+        console.log('[renderLineupDefensiveUnits] Called');
         const container = document.getElementById('lineup-defensive-units-table');
         if (!container) {
             console.error('[renderLineupDefensiveUnits] Container not found');
             return;
         }
+        console.log('[renderLineupDefensiveUnits] defensiveUnitStats:', window.defensiveUnitStats);
         if (!window.defensiveUnitStats || Object.keys(window.defensiveUnitStats).length === 0) {
+            console.log('[renderLineupDefensiveUnits] No data, showing empty state');
             container.innerHTML = '<div class="empty-state">No defensive unit data available. Play more games to see unit combinations.</div>';
             return;
         }

@@ -536,34 +536,40 @@
 
         // LINEUP ANALYTICS VIEWS
         if (viewId === 'insights-lineup-defensive-units-view') {
+            console.log('[showView] Routing to defensive units view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
                 return;
             }
             document.getElementById('insights-lineup-defensive-units-view').classList.remove('hidden');
+            console.log('[showView] Calling renderLineupDefensiveUnits');
             try { renderLineupDefensiveUnits(); } catch (e) { console.error('Error rendering Defensive Units view:', e); }
             return;
         }
 
         if (viewId === 'insights-lineup-attacking-units-view') {
+            console.log('[showView] Routing to attacking units view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
                 return;
             }
             document.getElementById('insights-lineup-attacking-units-view').classList.remove('hidden');
+            console.log('[showView] Calling renderLineupAttackingUnits');
             try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
             return;
         }
 
         if (viewId === 'insights-lineup-position-pairings-view') {
+            console.log('[showView] Routing to position pairings view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
                 return;
             }
             document.getElementById('insights-lineup-position-pairings-view').classList.remove('hidden');
+            console.log('[showView] Calling renderLineupPositionPairings');
             try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
             return;
         }
