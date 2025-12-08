@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lineup Analytics</title>
+  <?!= include('styles'); ?>
+</head>
+<body class="preload">
+  <div id="loading-overlay">
+    <div class="spinner"></div><span>Loading...</span>
+  </div>
+  
+  <!-- Server data -->
+  <script id="server-data" type="application/json">
+    { "userEmail": <?!= JSON.stringify(userEmail || '') ?>,
+      "ownerEmail": <?!= JSON.stringify(ownerEmail || '') ?>,
+      "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?> }
+  </script>
+  
+  <script>
+    window.DEBUG = window.DEBUG || false;
+    (function(){
+      try {
+        var el = document.getElementById('server-data');
+        var data = el ? JSON.parse(el.textContent || el.innerText || '{}') : {};
+        window._USER_EMAIL = data.userEmail || '';
+        window._OWNER_EMAIL = data.ownerEmail || '';
+        window.LOGO_DATA_URL = data.logoDataUrl || '#';
+      } catch (e) {
+        window._USER_EMAIL = '';
+        window._OWNER_EMAIL = '';
+        window.LOGO_DATA_URL = '#';
+      }
+    })();
+  </script>
+  
+  <main id="main-content">
+    <!-- LINEUP ANALYTICS: DEFENSIVE UNITS VIEW -->
+    <div id="insights-lineup-defensive-units-view" class="view">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Defensive Units (GK-GD-WD-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive unit combinations</div>
+            </div>
+            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-defensive-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: ATTACKING UNITS VIEW -->
+    <div id="insights-lineup-attacking-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Attacking Units (GS-GA-WA-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of attacking unit combinations</div>
+            </div>
+            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-attacking-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: POSITION PAIRINGS VIEW -->
+    <div id="insights-lineup-position-pairings-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Position Pairings</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive, attacking, and transition position pairs</div>
+            </div>
+            <button class="back-button" onclick="window.location.href='<?= ScriptApp.getService().getUrl() ?>'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
+          <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
+          <div id="lineup-position-pairings-content"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Include shared JavaScript -->
+  <?!= include('js-helpers'); ?>
+  <?!= include('js-server-comms'); ?>
+  <?!= include('js-core-logic'); ?>
+  <?!= include('js-render'); ?>
+  
+  <script>
+    // Lineup page initialization
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load team data from localStorage
+      try {
+        var state = JSON.parse(localStorage.getItem('appState') || '{}');
+        if (!state.currentTeam || !state.currentTeam.teamID) {
+          window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+          return;
+        }
+        
+        window.appState = state;
+        
+        // Load team data from server
+        setLoading(true, 'Loading team data...');
+        google.script.run
+          .withSuccessHandler(function(teamData) {
+            window.games = teamData.games || [];
+            window.players = teamData.players || [];
+            
+            // Calculate stats
+            updateAllStats();
+            
+            // Show appropriate view based on URL hash
+            var hash = window.location.hash.replace('#', '');
+            var viewId = hash || 'insights-lineup-defensive-units-view';
+            
+            document.querySelectorAll('.view').forEach(function(v) { v.classList.add('hidden'); });
+            var view = document.getElementById(viewId);
+            if (view) view.classList.remove('hidden');
+            
+            // Render the appropriate view
+            if (viewId === 'insights-lineup-defensive-units-view') {
+              renderLineupDefensiveUnits();
+            } else if (viewId === 'insights-lineup-attacking-units-view') {
+              renderLineupAttackingUnits();
+            } else if (viewId === 'insights-lineup-position-pairings-view') {
+              renderLineupPositionPairings();
+            }
+            
+            setLoading(false);
+          })
+          .withFailureHandler(function(error) {
+            console.error('Failed to load team data:', error);
+            setLoading(false);
+            alert('Failed to load team data. Returning to main page...');
+            window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+          })
+          .loadTeamData(state.currentTeam.sheetName);
+      } catch (e) {
+        console.error('Lineup page init error:', e);
+        window.location.href = '<?= ScriptApp.getService().getUrl() ?>';
+      }
+    });
+    
+    function setLoading(isLoading, message) {
+      var overlay = document.getElementById('loading-overlay');
+      if (overlay) {
+        overlay.querySelector('span').textContent = message || 'Loading...';
+        overlay.classList.toggle('hidden', !isLoading);
+      }
+    }
+  </script>
+</body>
+</html>

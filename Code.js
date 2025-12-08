@@ -20,7 +20,15 @@ function getSpreadsheet() {
 
 // This function serves your HTML file as the web page.
 function doGet(e) {
-  var template = HtmlService.createTemplateFromFile('index');
+  // Support multi-page routing to avoid 50KB HTML limit
+  var page = (e && e.parameter && e.parameter.page) || 'index';
+  var templateFile = 'index';
+  
+  if (page === 'lineup') {
+    templateFile = 'lineup';
+  }
+  
+  var template = HtmlService.createTemplateFromFile(templateFile);
 
   var userEmail = '';
   try {

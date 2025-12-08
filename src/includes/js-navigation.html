@@ -4,6 +4,26 @@
     // Navigation history for swipe-to-go-back
     var navigationHistory = [];
     var maxHistoryLength = 20;
+    
+    // Navigate to lineup analytics page (separate HTML to avoid 50KB limit)
+    function navigateToLineupPage(viewType) {
+        // Save current app state to localStorage
+        try {
+            localStorage.setItem('appState', JSON.stringify(window.appState));
+            
+            // Navigate to lineup page with hash for specific view
+            var baseUrl = ScriptApp.getService().getUrl();
+            var hash = '';
+            if (viewType === 'defensive-units') hash = '#insights-lineup-defensive-units-view';
+            else if (viewType === 'attacking-units') hash = '#insights-lineup-attacking-units-view';
+            else if (viewType === 'position-pairings') hash = '#insights-lineup-position-pairings-view';
+            
+            window.location.href = baseUrl + '?page=lineup' + hash;
+        } catch (e) {
+            console.error('Failed to navigate to lineup page:', e);
+            alert('Navigation failed. Please try again.');
+        }
+    }
 
     // --- Missing function added ---
     function loadNetballLadder() {

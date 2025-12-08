@@ -4335,6 +4335,11 @@
         container.innerHTML = html;
         console.log('[renderLineupDefensiveUnits] HTML set, container has', container.children.length, 'children');
         
+        // DEBUG: Add bright red background to make container impossible to miss
+        container.style.backgroundColor = 'red';
+        container.style.padding = '20px';
+        container.style.minHeight = '200px';
+        
         // Force visibility AND display on all parents
         var parentView = container.closest('.view');
         var parentDashboard = container.closest('.insights-dashboard');
