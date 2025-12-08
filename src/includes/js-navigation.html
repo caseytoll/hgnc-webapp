@@ -553,6 +553,7 @@
             console.log('[showView] Dashboard found:', !!dashboard, 'Dashboard hidden?', dashboard ? dashboard.classList.contains('hidden') : 'N/A');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
                 console.log('[showView] Dashboard unhidden, still hidden?', dashboard.classList.contains('hidden'));
             }
             console.log('[showView] Calling renderLineupDefensiveUnits');
@@ -571,7 +572,10 @@
             view.classList.remove('hidden');
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
-            if (dashboard) dashboard.classList.remove('hidden');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+            }
             console.log('[showView] Calling renderLineupAttackingUnits');
             try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
             return;
@@ -588,7 +592,10 @@
             view.classList.remove('hidden');
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
-            if (dashboard) dashboard.classList.remove('hidden');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+            }
             console.log('[showView] Calling renderLineupPositionPairings');
             try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
             return;
