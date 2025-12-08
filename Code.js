@@ -1335,3 +1335,118 @@ function clearApplicationLogs(type) {
     return { success: false, error: e.message };
   }
 }
+/**
+ * Get pre-calculated lineup statistics for the lineup analytics page
+ * This avoids sending massive JS files to the client
+ */
+function getLineupStats(sheetName) {
+  try {
+    var ss = getSpreadsheet();
+    var teamSheet = ss.getSheetByName(sheetName);
+    if (!teamSheet) {
+      throw new Error('Team data sheet not found: ' + sheetName);
+    }
+    var teamDataJSON = teamSheet.getRange('A1').getValue();
+    var teamData = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
+    var games = teamData.games || [];
+    
+    // Calculate lineup stats server-side
+    var defensiveUnitStats = calculateDefensiveUnitStatsFromData(games);
+    var attackingUnitStats = calculateAttackingUnitStatsFromData(games);
+    var positionPairingStats = calculatePositionPairingStatsFromData(games);
+    
+    return {
+      defensiveUnitStats: defensiveUnitStats,
+      attackingUnitStats: attackingUnitStats,
+      positionPairingStats: positionPairingStats
+    };
+  } catch (error) {
+    Logger.log('Error in getLineupStats: ' + error.toString());
+    throw new Error('Failed to calculate lineup stats: ' + error.message);
+  }
+}
+
+function calculateDefensiveUnitStatsFromData(games) {
+  var stats = {};
+  games.forEach(function(game) {
+    if (!game.lineup || game.lineup.length === 0) return;
+    game.lineup.forEach(function(quarter) {
+      var positions = quarter.positions || {};
+      var gk = positions.GK; var gd = positions.GD; var wd = positions.WD; var c = positions.C;
+      if (!gk || !gd || !wd || !c) return;
+      var key = [gk, gd, wd, c].sort().join('|');
+      if (!stats[key]) {
+        stats[key] = { gk: gk, gd: gd, wd: wd, c: c, quarters: 0, totalGoalsAgainst: 0, totalPlusMinus: 0 };
+      }
+      stats[key].quarters++;
+      stats[key].totalGoalsAgainst += parseInt(quarter.opponentScore) || 0;
+      var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
+      stats[key].totalPlusMinus += plusMinus;
+    });
+  });
+  Object.keys(stats).forEach(function(key) {
+    var unit = stats[key];
+    unit.avgGoalsAgainst = (unit.totalGoalsAgainst / unit.quarters).toFixed(1);
+    unit.avgPlusMinus = (unit.totalPlusMinus / unit.quarters).toFixed(1);
+  });
+  return stats;
+}
+
+function calculateAttackingUnitStatsFromData(games) {
+  var stats = {};
+  games.forEach(function(game) {
+    if (!game.lineup || game.lineup.length === 0) return;
+    game.lineup.forEach(function(quarter) {
+      var positions = quarter.positions || {};
+      var gs = positions.GS; var ga = positions.GA; var wa = positions.WA; var c = positions.C;
+      if (!gs || !ga || !wa || !c) return;
+      var key = [gs, ga, wa, c].sort().join('|');
+      if (!stats[key]) {
+        stats[key] = { gs: gs, ga: ga, wa: wa, c: c, quarters: 0, totalGoalsFor: 0, totalPlusMinus: 0 };
+      }
+      stats[key].quarters++;
+      stats[key].totalGoalsFor += parseInt(quarter.ourScore) || 0;
+      var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
+      stats[key].totalPlusMinus += plusMinus;
+    });
+  });
+  Object.keys(stats).forEach(function(key) {
+    var unit = stats[key];
+    unit.avgGoalsFor = (unit.totalGoalsFor / unit.quarters).toFixed(1);
+    unit.avgPlusMinus = (unit.totalPlusMinus / unit.quarters).toFixed(1);
+  });
+  return stats;
+}
+
+function calculatePositionPairingStatsFromData(games) {
+  var stats = {};
+  games.forEach(function(game) {
+    if (!game.lineup || game.lineup.length === 0) return;
+    game.lineup.forEach(function(quarter) {
+      var positions = quarter.positions || {};
+      var posKeys = Object.keys(positions);
+      for (var i = 0; i < posKeys.length; i++) {
+        for (var j = i + 1; j < posKeys.length; j++) {
+          var p1 = positions[posKeys[i]]; var p2 = positions[posKeys[j]];
+          if (!p1 || !p2) continue;
+          var key = [p1, p2].sort().join('|');
+          if (!stats[key]) {
+            stats[key] = { player1: p1, player2: p2, quarters: 0, totalPlusMinus: 0 };
+          }
+          stats[key].quarters++;
+          var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
+          stats[key].totalPlusMinus += plusMinus;
+        }
+      }
+    });
+  });
+  var filtered = {};
+  Object.keys(stats).forEach(function(key) {
+    var pair = stats[key];
+    if (pair.quarters >= 2) {
+      pair.avgPlusMinus = (pair.totalPlusMinus / pair.quarters).toFixed(1);
+      filtered[key] = pair;
+    }
+  });
+  return filtered;
+}
