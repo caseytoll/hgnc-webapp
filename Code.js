@@ -139,7 +139,10 @@ function include(filename) {
     'js-server-comms': 'src/includes/js-server-comms.html',
     'js-core-logic': 'src/includes/js-core-logic.html',
     'js-render': 'src/includes/js-render.html',
-    'js-validation': 'src/includes/js-validation.html'
+    'js-validation': 'src/includes/js-validation.html',
+    'src/includes/inline-scripts-pre-main': 'src/includes/inline-scripts-pre-main.html',
+    'src/includes/main-views': 'src/includes/main-views.html',
+    'src/includes/js-dom-ready-init': 'src/includes/js-dom-ready-init.html'
   };
   
   var filePath = pathMap[filename] || filename;
@@ -153,7 +156,7 @@ function getLogoDataUrl() {
   try {
     // Read the base64 data from the file
     // Note: file contains raw data URL, no HTML tags
-    var logoContent = HtmlService.createHtmlOutputFromFile('base image code').getContent();
+    var logoContent = HtmlService.createHtmlOutputFromFile('src/icons/base-image-code').getContent();
     
     // The file should contain: data:image/jpeg;base64,{base64string}
     // Extract the data URL - trim any whitespace
