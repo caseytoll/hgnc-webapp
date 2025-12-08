@@ -950,6 +950,12 @@
         // Mark as complete
         statsCalculated = true;
         
+        // Calculate lineup and grouping statistics
+        var lineupStats = calculateLineupStats();
+        var defensiveUnitStats = calculateDefensiveUnitStats();
+        var attackingUnitStats = calculateAttackingUnitStats();
+        var positionPairingStats = calculatePositionPairingStats();
+        
         // Update cache
         statsCache = {
             timestamp: Date.now(),
@@ -959,14 +965,22 @@
             playerTable: calculatedPlayerTable,
             leaderboardTotal: calculatedLeaderboardTotal,
             leaderboardPerQtr: calculatedLeaderboardPerQtr,
-            playerPlusMinus: calculatedPlayerPlusMinus
+            playerPlusMinus: calculatedPlayerPlusMinus,
+            lineupStats: lineupStats,
+            defensiveUnitStats: defensiveUnitStats,
+            attackingUnitStats: attackingUnitStats,
+            positionPairingStats: positionPairingStats
         };
         
         // Keep a canonical global reference for other modules
         try {
             window.calculatedSeasonStats = calculatedSeasonStats;
+            window.lineupStats = lineupStats;
+            window.defensiveUnitStats = defensiveUnitStats;
+            window.attackingUnitStats = attackingUnitStats;
+            window.positionPairingStats = positionPairingStats;
         } catch (e) {
-            console.warn('Unable to set window.calculatedSeasonStats', e);
+            console.warn('Unable to set window stats', e);
         }
 
         // Save to localStorage
@@ -1658,5 +1672,267 @@
             }
             document.body.removeChild(textarea);
         }
+    }
+
+    // ===== PHASE 1: DEFENSIVE UNIT STATS =====
+    function calculateDefensiveUnitStats() {
+        var defensiveStats = {};
+        var minQuarters = 3; // Minimum quarters for statistical significance
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var gk = positions.GK;
+                var gd = positions.GD;
+                var wd = positions.WD;
+                var c = positions.C;
+                
+                if (!gk || !gd || !wd || !c) return; // Skip incomplete quarters
+                
+                // Create key for defensive unit (sorted for consistency)
+                var defensiveKey = [gk, gd, wd, c].sort().join('|');
+                
+                // Calculate quarter goals against
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                
+                if (!defensiveStats[defensiveKey]) {
+                    defensiveStats[defensiveKey] = {
+                        gk: gk,
+                        gd: gd,
+                        wd: wd,
+                        c: c,
+                        quarters: 0,
+                        goalsAgainst: 0,
+                        goalsFor: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                var ourScore = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var quarterPlusMinus = ourScore - goalsAgainst;
+                
+                defensiveStats[defensiveKey].quarters++;
+                defensiveStats[defensiveKey].goalsAgainst += goalsAgainst;
+                defensiveStats[defensiveKey].goalsFor += ourScore;
+                defensiveStats[defensiveKey].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        // Filter and add averages
+        var filtered = {};
+        for (var key in defensiveStats) {
+            if (defensiveStats.hasOwnProperty(key) && defensiveStats[key].quarters >= minQuarters) {
+                var stat = defensiveStats[key];
+                stat.avgGoalsAgainst = (stat.goalsAgainst / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== PHASE 2: ATTACKING UNIT STATS =====
+    function calculateAttackingUnitStats() {
+        var attackingStats = {};
+        var minQuarters = 3;
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var gs = positions.GS;
+                var ga = positions.GA;
+                var wa = positions.WA;
+                var c = positions.C;
+                
+                if (!gs || !ga || !wa || !c) return;
+                
+                var attackingKey = [gs, ga, wa, c].sort().join('|');
+                
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                if (!attackingStats[attackingKey]) {
+                    attackingStats[attackingKey] = {
+                        gs: gs,
+                        ga: ga,
+                        wa: wa,
+                        c: c,
+                        quarters: 0,
+                        goalsFor: 0,
+                        goalsAgainst: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                attackingStats[attackingKey].quarters++;
+                attackingStats[attackingKey].goalsFor += goalsFor;
+                attackingStats[attackingKey].goalsAgainst += goalsAgainst;
+                attackingStats[attackingKey].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        var filtered = {};
+        for (var key in attackingStats) {
+            if (attackingStats.hasOwnProperty(key) && attackingStats[key].quarters >= minQuarters) {
+                var stat = attackingStats[key];
+                stat.avgGoalsFor = (stat.goalsFor / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== PHASE 3: POSITION PAIRING STATS =====
+    function calculatePositionPairingStats() {
+        var pairingStats = {
+            defensive: {},  // GK-GD, GD-WD, WD-C pairings
+            attacking: {},  // GS-GA, GA-WA, WA-C pairings
+            transition: {}  // WD-WA, C-WA pairings
+        };
+        var minQuarters = 2; // Lower threshold for pairs
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                // Defensive Pairings
+                var gkGd = [positions.GK, positions.GD].sort().join('|');
+                var gdWd = [positions.GD, positions.WD].sort().join('|');
+                var wdC = [positions.WD, positions.C].sort().join('|');
+                
+                [gkGd, gdWd, wdC].forEach(function(pairKey) {
+                    if (!pairingStats.defensive[pairKey]) {
+                        pairingStats.defensive[pairKey] = {
+                            quarters: 0, goalsAgainst: 0, plusMinus: 0, type: 'defensive'
+                        };
+                    }
+                    pairingStats.defensive[pairKey].quarters++;
+                    pairingStats.defensive[pairKey].goalsAgainst += goalsAgainst;
+                    pairingStats.defensive[pairKey].plusMinus += quarterPlusMinus;
+                });
+                
+                // Attacking Pairings
+                var gsGa = [positions.GS, positions.GA].sort().join('|');
+                var gaWa = [positions.GA, positions.WA].sort().join('|');
+                var waC = [positions.WA, positions.C].sort().join('|');
+                
+                [gsGa, gaWa, waC].forEach(function(pairKey) {
+                    if (!pairingStats.attacking[pairKey]) {
+                        pairingStats.attacking[pairKey] = {
+                            quarters: 0, goalsFor: 0, plusMinus: 0, type: 'attacking'
+                        };
+                    }
+                    pairingStats.attacking[pairKey].quarters++;
+                    pairingStats.attacking[pairKey].goalsFor += goalsFor;
+                    pairingStats.attacking[pairKey].plusMinus += quarterPlusMinus;
+                });
+                
+                // Transition Pairings
+                var wdWa = [positions.WD, positions.WA].sort().join('|');
+                var cWa = [positions.C, positions.WA].sort().join('|');
+                
+                [wdWa, cWa].forEach(function(pairKey) {
+                    if (!pairingStats.transition[pairKey]) {
+                        pairingStats.transition[pairKey] = {
+                            quarters: 0, plusMinus: 0, type: 'transition'
+                        };
+                    }
+                    pairingStats.transition[pairKey].quarters++;
+                    pairingStats.transition[pairKey].plusMinus += quarterPlusMinus;
+                });
+            });
+        });
+        
+        // Filter and add averages
+        var filtered = { defensive: {}, attacking: {}, transition: {} };
+        
+        for (var key in pairingStats.defensive) {
+            if (pairingStats.defensive.hasOwnProperty(key) && pairingStats.defensive[key].quarters >= minQuarters) {
+                var stat = pairingStats.defensive[key];
+                stat.avgGoalsAgainst = (stat.goalsAgainst / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.defensive[key] = stat;
+            }
+        }
+        
+        for (var key in pairingStats.attacking) {
+            if (pairingStats.attacking.hasOwnProperty(key) && pairingStats.attacking[key].quarters >= minQuarters) {
+                var stat = pairingStats.attacking[key];
+                stat.avgGoalsFor = (stat.goalsFor / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.attacking[key] = stat;
+            }
+        }
+        
+        for (var key in pairingStats.transition) {
+            if (pairingStats.transition.hasOwnProperty(key) && pairingStats.transition[key].quarters >= minQuarters) {
+                var stat = pairingStats.transition[key];
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.transition[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== COMPLETE LINEUP STATS (for future extension) =====
+    function calculateLineupStats() {
+        var lineupStats = {};
+        var minQuarters = 3;
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var lineup = [
+                    positions.GS, positions.GA, positions.WA,
+                    positions.C, positions.WD, positions.GD, positions.GK
+                ].sort().join('|');
+                
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                if (!lineupStats[lineup]) {
+                    lineupStats[lineup] = {
+                        players: positions,
+                        quarters: 0,
+                        goalsFor: 0,
+                        goalsAgainst: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                lineupStats[lineup].quarters++;
+                lineupStats[lineup].goalsFor += goalsFor;
+                lineupStats[lineup].goalsAgainst += goalsAgainst;
+                lineupStats[lineup].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        var filtered = {};
+        for (var key in lineupStats) {
+            if (lineupStats.hasOwnProperty(key) && lineupStats[key].quarters >= minQuarters) {
+                var stat = lineupStats[key];
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
     }
 </script>

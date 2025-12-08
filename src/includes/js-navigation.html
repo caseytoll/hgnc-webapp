@@ -75,6 +75,12 @@
             renderInsightsDefensiveWall();
         } else if (activeView.id === 'insights-player-analysis-view') {
             renderInsightsPlayerAnalysis();
+        } else if (activeView.id === 'insights-lineup-defensive-units-view') {
+            renderLineupDefensiveUnits();
+        } else if (activeView.id === 'insights-lineup-attacking-units-view') {
+            renderLineupAttackingUnits();
+        } else if (activeView.id === 'insights-lineup-position-pairings-view') {
+            renderLineupPositionPairings();
         // Removed legacy 'insights-offense-view' (now use 'insights-offense-hub-view')
         } else if (activeView.id === 'insights-defense-view') {
             renderInsightsDefense();
@@ -275,6 +281,13 @@
             if (olToHide) olToHide.classList.add('hidden');
             if (dwToHide) dwToHide.classList.add('hidden');
             if (paToHide) paToHide.classList.add('hidden');
+            // Hide lineup analytics views
+            var duToHide = document.getElementById('insights-lineup-defensive-units-view');
+            var auToHide = document.getElementById('insights-lineup-attacking-units-view');
+            var ppToHide = document.getElementById('insights-lineup-position-pairings-view');
+            if (duToHide) duToHide.classList.add('hidden');
+            if (auToHide) auToHide.classList.add('hidden');
+            if (ppToHide) ppToHide.classList.add('hidden');
         }
         
         console.log('[showView] All views hidden, now routing based on viewId:', viewId);
@@ -285,7 +298,7 @@
             document.getElementById('app-tab-nav').classList.add('hidden');
             var gameDetailNav = document.getElementById('game-detail-tab-nav');
             if (gameDetailNav) gameDetailNav.classList.add('hidden');
-        } else if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view') { 
+        } else if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view' || viewId === 'insights-lineup-defensive-units-view' || viewId === 'insights-lineup-attacking-units-view' || viewId === 'insights-lineup-position-pairings-view') { 
             document.getElementById('app-tab-nav').classList.remove('hidden');
             var gameDetailNav = document.getElementById('game-detail-tab-nav');
             if (gameDetailNav) gameDetailNav.classList.add('hidden');
@@ -294,7 +307,7 @@
             document.getElementById('show-home-tab').classList.toggle('active', false); // Home is never "active" in team views
             document.getElementById('show-fixture-tab').classList.toggle('active', viewId === 'fixture-view');
             document.getElementById('show-players-tab').classList.toggle('active', viewId === 'players-view');
-            document.getElementById('show-insights-tab').classList.toggle('active', viewId === 'insights-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view');
+            document.getElementById('show-insights-tab').classList.toggle('active', viewId === 'insights-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view' || viewId === 'insights-lineup-defensive-units-view' || viewId === 'insights-lineup-attacking-units-view' || viewId === 'insights-lineup-position-pairings-view');
             document.getElementById('show-netball-ladder-tab').classList.toggle('active', viewId === 'netball-ladder-view'); 
 
             if (viewId === 'insights-view') {
@@ -518,6 +531,40 @@
             // Sub-views are now siblings, just show the sub-view
             document.getElementById('insights-player-analysis-view').classList.remove('hidden');
             try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
+            return;
+        }
+
+        // LINEUP ANALYTICS VIEWS
+        if (viewId === 'insights-lineup-defensive-units-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-lineup-defensive-units-view').classList.remove('hidden');
+            try { renderLineupDefensiveUnits(); } catch (e) { console.error('Error rendering Defensive Units view:', e); }
+            return;
+        }
+
+        if (viewId === 'insights-lineup-attacking-units-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-lineup-attacking-units-view').classList.remove('hidden');
+            try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
+            return;
+        }
+
+        if (viewId === 'insights-lineup-position-pairings-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-lineup-position-pairings-view').classList.remove('hidden');
+            try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
             return;
         }
 

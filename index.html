@@ -363,6 +363,27 @@
               <h3 class="insights-menu-card-title">Player Analysis</h3>
             </div>
           </div>
+
+          <!-- Lineup Analytics: Defensive Units Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-defensive-units-view')" tabindex="0" role="button" aria-label="View defensive unit combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Defensive Units</h3>
+            </div>
+          </div>
+
+          <!-- Lineup Analytics: Attacking Units Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-attacking-units-view')" tabindex="0" role="button" aria-label="View attacking unit combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Attacking Units</h3>
+            </div>
+          </div>
+
+          <!-- Lineup Analytics: Position Pairings Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-position-pairings-view')" tabindex="0" role="button" aria-label="View position pair combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Position Pairings</h3>
+            </div>
+          </div>
         </div><!-- End insights-menu-grid -->
       </div><!-- End insights-menu -->
     </div><!-- End insights-view -->
@@ -1154,6 +1175,66 @@
         </div>
       </section>
         </div>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: DEFENSIVE UNITS VIEW -->
+    <div id="insights-lineup-defensive-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Defensive Units (GK-GD-WD-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive unit combinations</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-defensive-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: ATTACKING UNITS VIEW -->
+    <div id="insights-lineup-attacking-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Attacking Units (GS-GA-WA-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of attacking unit combinations</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-attacking-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: POSITION PAIRINGS VIEW -->
+    <div id="insights-lineup-position-pairings-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Position Pairings</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive, attacking, and transition position pairs</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
+          <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
+          <div id="lineup-position-pairings-content"></div>
+        </section>
       </div>
     </div>
   </main>
