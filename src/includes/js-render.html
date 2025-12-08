@@ -4334,6 +4334,15 @@
         console.log('[renderLineupDefensiveUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
         console.log('[renderLineupDefensiveUnits] HTML set, container has', container.children.length, 'children');
+        console.log('[renderLineupDefensiveUnits] Container visibility:', {
+            display: window.getComputedStyle(container).display,
+            visibility: window.getComputedStyle(container).visibility,
+            hasHiddenClass: container.classList.contains('hidden'),
+            parentDashboard: container.closest('.insights-dashboard'),
+            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
+            parentView: container.closest('.view'),
+            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
+        });
     }
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====
