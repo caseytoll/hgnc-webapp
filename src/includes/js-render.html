@@ -696,7 +696,14 @@
         
         // Update Season Summary
         const participationRate = gamesAvailable > 0 ? ((gamesPlayed / gamesAvailable) * 100).toFixed(0) : 0;
-        document.getElementById('player-detail-games').textContent = gamesPlayed + ' of ' + gamesAvailable + ' (' + participationRate + '%)';
+        const gamesPlayedHtml = '<div style="display: flex; align-items: baseline; gap: 8px;">' +
+                                '<span style="font-size: 2em; font-weight: bold; color: #6a0dad;">' + gamesPlayed + '</span>' +
+                                '<span style="font-size: 1em; color: #666;">of</span>' +
+                                '<span style="font-size: 1.5em; font-weight: bold; color: #333;">' + gamesAvailable + '</span>' +
+                                '<span style="font-size: 0.75em; color: #999;">(' + participationRate + '%)</span>' +
+                                '</div>';
+        document.getElementById('player-detail-games').innerHTML = gamesPlayedHtml;
+        document.getElementById('player-detail-games').style.fontSize = 'inherit';
         document.getElementById('player-detail-goals').textContent = totalGoals;
         
         // Update Fill-in badge
