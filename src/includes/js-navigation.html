@@ -1006,8 +1006,18 @@
         document.getElementById('edit-player-fav-position').value = player.favoritePosition || '';
         var fillInCheckbox = document.getElementById('edit-player-fill-in');
         var favoriteCheckbox = document.getElementById('edit-player-favorite');
-        if (fillInCheckbox) fillInCheckbox.checked = !!player.isFillIn;
-        if (favoriteCheckbox) favoriteCheckbox.checked = !!player.isFavorite;
+        
+        console.log('[showEditPlayerModal] Player:', player.name, 'isFillIn:', player.isFillIn, 'isFavorite:', player.isFavorite);
+        console.log('[showEditPlayerModal] fillInCheckbox found:', !!fillInCheckbox, 'favoriteCheckbox found:', !!favoriteCheckbox);
+        
+        if (fillInCheckbox) {
+            fillInCheckbox.checked = !!player.isFillIn;
+            console.log('[showEditPlayerModal] fillInCheckbox.checked set to:', fillInCheckbox.checked);
+        }
+        if (favoriteCheckbox) {
+            favoriteCheckbox.checked = !!player.isFavorite;
+            console.log('[showEditPlayerModal] favoriteCheckbox.checked set to:', favoriteCheckbox.checked);
+        }
         showModal('edit-player-modal');
     }
     

@@ -104,23 +104,27 @@
         var newFavPosition = favPositionInput.value || null;
         var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
         var isFavorite = favoriteCheckbox ? favoriteCheckbox.checked : false;
-        if (isFillIn) isFavorite = false;
         
+        console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'N/A');
+        console.log('[updatePlayer] favoriteCheckbox.checked:', favoriteCheckbox ? favoriteCheckbox.checked : 'N/A');
+        console.log('[updatePlayer] isFillIn:', isFillIn, 'isFavorite:', isFavorite);
+        
+        if (isFillIn) isFavorite = false; // Fill-ins should not be marked favorite
+
         if (newName) {
             haptic(50); // Haptic feedback
             player.name = newName;
             player.favoritePosition = newFavPosition;
             player.isFillIn = isFillIn;
             player.isFavorite = isFavorite;
+            console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', player.isFillIn, 'isFavorite:', player.isFavorite);
             saveCurrentTeamData();
             renderPlayerList();
             hideModal('edit-player-modal');
         } else {
             showCustomAlert("Input Error", "Player name cannot be empty.");
         }
-    }
-
-    function executeDeletePlayer() {
+    }    function executeDeletePlayer() {
         if (!isOwner()) return; // Read-only mode: prevent deletion
         if (!editingPlayerId) return;
         var player = arrayFind(players, function(p) { return p.id === editingPlayerId; });
