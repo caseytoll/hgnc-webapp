@@ -63,19 +63,16 @@
         var nameInput = cachedElements.forms?.newPlayerName || document.getElementById('new-player-name');
         var favPositionSelect = cachedElements.forms?.newPlayerFavPosition || document.getElementById('new-player-fav-position');
         var fillInCheckbox = document.getElementById('new-player-fill-in');
-        var favoriteCheckbox = document.getElementById('new-player-favorite');
         var name = nameInput.value.trim();
         var favPosition = favPositionSelect.value || null;
         var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
-        var isFavorite = favoriteCheckbox ? favoriteCheckbox.checked : false;
-        if (isFillIn) isFavorite = false; // Fill-ins should not be marked favorite
-        
+
         if (name) {
             haptic(50); // Haptic feedback
             var newPlayer = createPlayer(name);
             newPlayer.favoritePosition = favPosition;
             newPlayer.isFillIn = isFillIn;
-            newPlayer.isFavorite = isFavorite;
+            newPlayer.isFavorite = false; // Favorites not set on add
             players.push(newPlayer);
             saveCurrentTeamData();  
             renderPlayerList();
@@ -83,13 +80,10 @@
             nameInput.value = "";
             favPositionSelect.value = "";
             if (fillInCheckbox) fillInCheckbox.checked = false;
-            if (favoriteCheckbox) favoriteCheckbox.checked = false;
         } else {
             showCustomAlert("Input Error", "Player name cannot be empty.");
         }
-    }
-
-    function updatePlayer() {
+    }    function updatePlayer() {
         if (!isOwner()) return;
         var editingPlayerId = appState.editing.playerId;
         if (!editingPlayerId) return;
@@ -99,24 +93,19 @@
         var nameInput = cachedElements.forms?.editPlayerName || document.getElementById('edit-player-name');
         var favPositionInput = cachedElements.forms?.editPlayerFavPosition || document.getElementById('edit-player-fav-position');
         var fillInCheckbox = document.getElementById('edit-player-fill-in');
-        var favoriteCheckbox = document.getElementById('edit-player-favorite');
         var newName = nameInput.value.trim();
         var newFavPosition = favPositionInput.value || null;
         var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
-        var isFavorite = favoriteCheckbox ? favoriteCheckbox.checked : false;
         
         console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'N/A');
-        console.log('[updatePlayer] favoriteCheckbox.checked:', favoriteCheckbox ? favoriteCheckbox.checked : 'N/A');
-        console.log('[updatePlayer] isFillIn:', isFillIn, 'isFavorite:', isFavorite);
-        
-        if (isFillIn) isFavorite = false; // Fill-ins should not be marked favorite
+        console.log('[updatePlayer] isFillIn:', isFillIn);
 
         if (newName) {
             haptic(50); // Haptic feedback
             player.name = newName;
             player.favoritePosition = newFavPosition;
             player.isFillIn = isFillIn;
-            player.isFavorite = isFavorite;
+            // isFavorite is not changed from edit modal—only set via list sorting
             console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', player.isFillIn, 'isFavorite:', player.isFavorite);
             saveCurrentTeamData();
             renderPlayerList();
