@@ -9,7 +9,28 @@
     function navigateToLineupPage(viewType) {
         // Save current app state to localStorage
         try {
-            localStorage.setItem('appState', JSON.stringify(window.appState));
+            // Show loading indicator
+            setLoading(true, 'Loading lineup analytics...');
+            
+            // Validate we have team data
+            if (!window.appState || !window.appState.currentTeam || !window.appState.currentTeam.sheetName) {
+                console.error('Cannot navigate to lineup page: No team selected');
+                setLoading(false);
+                alert('Please select a team first');
+                return;
+            }
+            
+            // Save state with all necessary data
+            var stateToSave = {
+                currentTeam: {
+                    teamID: window.appState.currentTeam.teamID,
+                    sheetName: window.appState.currentTeam.sheetName,
+                    name: window.appState.currentTeam.name
+                }
+            };
+            
+            console.log('Saving state to localStorage:', stateToSave);
+            localStorage.setItem('appState', JSON.stringify(stateToSave));
             
             // Navigate to lineup page with hash for specific view
             var baseUrl = window.APP_URL || (window.location.origin + window.location.pathname);
@@ -18,10 +39,13 @@
             else if (viewType === 'attacking-units') hash = '#insights-lineup-attacking-units-view';
             else if (viewType === 'position-pairings') hash = '#insights-lineup-position-pairings-view';
             
-            window.location.href = baseUrl + '?page=lineup' + hash;
+            var targetUrl = baseUrl + '?page=lineup' + hash;
+            console.log('Navigating to:', targetUrl);
+            window.location.href = targetUrl;
         } catch (e) {
             console.error('Failed to navigate to lineup page:', e);
-            alert('Navigation failed. Please try again.');
+            setLoading(false);
+            alert('Navigation failed: ' + e.message);
         }
     }
 

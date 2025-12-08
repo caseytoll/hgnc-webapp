@@ -108,14 +108,24 @@
   <script>
     // Lineup page initialization
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('[Lineup Page] DOMContentLoaded');
+      
       // Load team data from localStorage
       try {
-        var state = JSON.parse(localStorage.getItem('appState') || '{}');
-        if (!state.currentTeam || !state.currentTeam.teamID) {
+        var stateJSON = localStorage.getItem('appState');
+        console.log('[Lineup Page] localStorage appState:', stateJSON);
+        
+        var state = JSON.parse(stateJSON || '{}');
+        console.log('[Lineup Page] Parsed state:', state);
+        
+        if (!state.currentTeam || !state.currentTeam.teamID || !state.currentTeam.sheetName) {
+          console.error('[Lineup Page] Missing team data in state:', state);
+          alert('No team selected. Returning to main page...');
           window.location.href = window.APP_URL;
           return;
         }
         
+        console.log('[Lineup Page] Loading data for team:', state.currentTeam.name, 'Sheet:', state.currentTeam.sheetName);
         window.appState = state;
         
         // Load team data from server
