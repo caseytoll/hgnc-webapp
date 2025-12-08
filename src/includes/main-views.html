@@ -1,0 +1,1112 @@
+      <script>
+        // Runtime icon injection handled by ensureInsightsCardImages() in js-startup.html
+        // This script ensures data-icon attributes are set with server-injected values as fallback
+        // The cards already have data-icon attributes from template rendering, but this provides
+        // a fallback mechanism in case template variables evaluate to empty or '#'
+        (function () {
+          // Use globally-exposed icon data URLs (parsed from server-data JSON)
+          var iconUrls = {
+            'team-performance': window.TEAM_PERFORMANCE_ICON_DATA_URL,
+            'offensive-leaders': window.OFFENSIVE_LEADERS_ICON_DATA_URL,
+            'defensive-wall': window.DEFENSIVE_WALL_ICON_DATA_URL,
+            'player-analysis': window.PLAYER_ANALYSIS_ICON_DATA_URL
+          };
+          
+          var cards = document.querySelectorAll('.insights-menu-card');
+          cards.forEach(function(card) {
+            var onclick = card.getAttribute('onclick') || '';
+            var viewId = '';
+            if (onclick.indexOf('team-performance') !== -1) viewId = 'team-performance';
+            else if (onclick.indexOf('offensive-leaders') !== -1) viewId = 'offensive-leaders';
+            else if (onclick.indexOf('defensive-wall') !== -1) viewId = 'defensive-wall';
+            else if (onclick.indexOf('player-analysis') !== -1) viewId = 'player-analysis';
+            
+            if (viewId && iconUrls[viewId]) {
+              var currentIcon = card.getAttribute('data-icon');
+              // If attribute is missing, empty, or '#', set it from global URL
+              if (!currentIcon || currentIcon === '#' || currentIcon.trim() === '') {
+                card.setAttribute('data-icon', iconUrls[viewId]);
+              }
+            }
+          });
+        })();
+      </script>
+      <!-- Refresh Button (outside dashboard container so it's always visible) -->
+      <button id="refresh-insights-btn" onclick="refreshInsightsDashboard()" aria-label="Refresh Stats"
+        style="position: absolute; top: 18px; right: 24px; width: 40px; height: 40px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border: none; border-radius: 50%; box-shadow: 0 2px 8px rgba(60, 60, 120, 0.10); display: flex; align-items: center; justify-content: center; font-size: 1.35em; cursor: pointer; transition: all 0.2s; opacity: 0.92; color: #3a3a5a; z-index: 10;">
+        <span role="img" aria-label="Refresh">🔄</span>
+      </button>
+
+      <!-- INSIGHTS MENU -->
+      <div class="insights-menu">
+        <div class="insights-menu-header">
+          <h1 class="insights-menu-title">Team Insights</h1>
+          <p class="insights-menu-subtitle">Choose an analysis view</p>
+        </div>
+
+        <div class="insights-menu-grid">
+          <!-- Team Performance Button (clean) -->
+          <div class="insights-menu-card" onclick="showView('insights-team-performance-view')" tabindex="0" role="button" aria-label="View team performance dashboard" data-icon="<?!= teamPerformanceIconDataUrl || '/assets/team-performance-icon.png' ?>">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Team Performance</h3>
+            </div>
+          </div>
+
+          <!-- Offensive Leaders Button (clean) -->
+          <div class="insights-menu-card" onclick="showView('insights-offensive-leaders-view')" tabindex="0" role="button" aria-label="View offensive leaders" data-icon="<?!= offensiveLeadersIconDataUrl || '/assets/Offensive-Leaders-Icon.jpeg' ?>">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Offensive Leaders</h3>
+            </div>
+          </div>
+
+          <!-- Defensive Wall Button (clean) -->
+          <div class="insights-menu-card" onclick="showView('insights-defensive-wall-view')" tabindex="0" role="button" aria-label="View defensive wall" data-icon="<?!= defensiveWallIconDataUrl || '/assets/Defensive-Wall-Icon.jpeg' ?>">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Defensive Wall</h3>
+            </div>
+          </div>
+
+          <!-- Player Analysis Button (clean) -->
+          <div class="insights-menu-card" onclick="showView('insights-player-analysis-view')" tabindex="0" role="button" aria-label="View player analysis" data-icon="<?!= playerAnalysisIconDataUrl || '/assets/player-analysis-icon.webp' ?>">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Player Analysis</h3>
+            </div>
+          </div>
+
+          <!-- Lineup Analytics: Defensive Units Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-defensive-units-view')" tabindex="0" role="button" aria-label="View defensive unit combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Defensive Units</h3>
+            </div>
+          </div>
+
+          <!-- Lineup Analytics: Attacking Units Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-attacking-units-view')" tabindex="0" role="button" aria-label="View attacking unit combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Attacking Units</h3>
+            </div>
+          </div>
+
+          <!-- Lineup Analytics: Position Pairings Button -->
+          <div class="insights-menu-card" onclick="showView('insights-lineup-position-pairings-view')" tabindex="0" role="button" aria-label="View position pair combinations">
+            <div class="insights-menu-card-content">
+              <h3 class="insights-menu-card-title">Position Pairings</h3>
+            </div>
+          </div>
+        </div><!-- End insights-menu-grid -->
+      </div><!-- End insights-menu -->
+    </div><!-- End insights-view -->
+
+    <!-- TEAM PERFORMANCE DASHBOARD SUB-VIEW -->
+    <div id="insights-team-performance-view" class="view hidden">
+      <div class="insights-dashboard">
+        <!-- TEAM PERFORMANCE OVERVIEW -->
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Team Performance Dashboard</h2>
+              <div class="dashboard-subtitle" id="insights-season-stats">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+
+          <!-- Core Performance Metrics Grid -->
+          <div class="perf-metrics-grid">
+            <!-- Record Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View record details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Record <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-record">0-0-0</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Record Breakdown</div>
+                  <div class="perf-detail-content" id="perf-record-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Win Rate Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View win rate details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Win Rate <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-win-rate">0%</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Win Rate Trend</div>
+                  <div class="perf-detail-content" id="perf-winrate-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Goal Diff Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View goal difference details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Goal Diff <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-goal-diff">+0</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Goal Differential</div>
+                  <div class="perf-detail-content" id="perf-goaldiff-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View recent form details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Form (L5) <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value perf-form" id="perf-form">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Recent Games</div>
+                  <div class="perf-detail-content" id="perf-form-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scoring Efficiency Grid -->
+          <div class="perf-metrics-grid" style="margin-top: 12px;">
+            <!-- Avg For Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View scoring statistics">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Avg For <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-avg-for">0.0</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Scoring Range</div>
+                  <div class="perf-detail-content" id="perf-avgfor-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Avg Against Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View defensive statistics">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Avg Against <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-avg-against">0.0</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Defensive Range</div>
+                  <div class="perf-detail-content" id="perf-avgagainst-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Best Quarter Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View best quarter details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Best Quarter <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-best-qtr">Q1</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Best Quarter Stats</div>
+                  <div class="perf-detail-content" id="perf-bestqtr-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top Defender Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View top defender details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Top Defender <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-clean-sheets">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Best Defender by Avg GA/Q</div>
+                  <div class="perf-detail-content" id="perf-cleansheets-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Average Goals Cards -->
+          <div class="perf-metrics-grid" style="margin-top: 12px;">
+            <!-- Ave Goals For Singles Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View singles scoring average details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Ave Goals For Singles <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-ave-goals-for-singles">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Singles Scoring Average</div>
+                  <div class="perf-detail-content" id="perf-ave-goals-for-singles-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ave Goals Against Singles Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View singles defensive average details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Ave Goals Against Singles <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-ave-goals-against-singles">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Singles Defensive Average</div>
+                  <div class="perf-detail-content" id="perf-ave-goals-against-singles-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ave Goals For Pairs Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View pairs scoring average details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Ave Goals For Pairs <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-ave-goals-for-pairs">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Pairs Scoring Average</div>
+                  <div class="perf-detail-content" id="perf-ave-goals-for-pairs-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ave Goals Against Pairs Card -->
+            <div class="perf-flip-container" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View pairs defensive average details">
+              <div class="perf-flip-card">
+                <div class="perf-card-front">
+                  <div class="perf-label">Ave Goals Against Pairs <span class="flip-hint">ⓘ</span></div>
+                  <div class="perf-value" id="perf-ave-goals-against-pairs">—</div>
+                </div>
+                <div class="perf-card-back">
+                  <div class="perf-detail-title">Pairs Defensive Average</div>
+                  <div class="perf-detail-content" id="perf-ave-goals-against-pairs-detail">Loading...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLLAPSIBLE SECTION: Quarter Performance -->
+        <div class="insights-accordion-section">
+          <div class="insights-accordion-header" onclick="toggleInsightsSection('quarter-perf')">
+            <div class="insights-accordion-title">
+              <span class="insights-accordion-icon" id="quarter-perf-icon">▶</span>
+              <h3>Quarter Performance</h3>
+            </div>
+            <div class="insights-accordion-summary" id="quarter-perf-summary">
+              <span class="summary-badge">Best: <strong id="summary-best-qtr">—</strong></span>
+              <span class="summary-badge">Worst: <strong id="summary-worst-qtr">—</strong></span>
+            </div>
+          </div>
+          <div class="insights-accordion-content" id="quarter-perf-content" style="display: none;">
+
+        <!-- QUARTER PERFORMANCE SUMMARY -->
+        <div class="dashboard-section quarter-summary-card" onclick="showInsightsSubView('insights-team-record-view')" style="margin-top: 0;">
+          <div class="dashboard-header">
+            <h3 class="dashboard-title">Quarter Performance</h3>
+            <span class="chevron-right">›</span>
+          </div>
+          <div class="quarter-summary-stats">
+            <div class="quarter-stat-item">
+              <div class="quarter-stat-label">Best</div>
+              <div class="quarter-stat-value best" id="insights-best-qtr">Q1</div>
+            </div>
+            <div class="quarter-stat-item">
+              <div class="quarter-stat-label">Worst</div>
+              <div class="quarter-stat-value worst" id="insights-worst-qtr">Q3</div>
+            </div>
+            <div class="quarter-stat-item">
+              <div class="quarter-stat-label">Avg. Margin</div>
+              <div class="quarter-stat-value" id="insights-avg-margin">+7</div>
+            </div>
+          </div>
+        </div>
+
+        </div>
+        </div>
+
+        <!-- COLLAPSIBLE SECTION: Suggested Lineup -->
+        <div class="insights-accordion-section">
+          <div class="insights-accordion-header" onclick="toggleInsightsSection('lineup')">
+            <div class="insights-accordion-title">
+              <span class="insights-accordion-icon" id="lineup-icon">▶</span>
+              <h3>🎯 Suggested Lineup</h3>
+            </div>
+            <div class="insights-accordion-summary" id="lineup-summary">
+              <span class="summary-badge">AI-powered recommendations</span>
+            </div>
+          </div>
+          <div class="insights-accordion-content" id="lineup-content" style="display: none;">
+            <!-- Suggested Lineup content goes here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OFFENSIVE LEADERS SUB-VIEW -->
+    <div id="insights-offensive-leaders-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Offensive Leaders</h2>
+              <div class="dashboard-subtitle">Top scorers and goal-scoring combinations</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+
+          <!-- Top Scorer Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View top scorer details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Top Scorer <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="offense-top-scorer">—</div>
+                <div class="perf-subtext">Most goals scored</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Leading Goal Scorer</div>
+                <div class="perf-detail-content" id="offense-topscorer-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Scoring Pair Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View top scoring pair details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Top Scoring Pair <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="offense-top-pair">—</div>
+                <div class="perf-subtext">Most goals by GS&amp;GA combination</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Leading Scoring Combination</div>
+                <div class="perf-detail-content" id="offense-toppair-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Most Efficient Scorer Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View most efficient scorer details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Most Efficient Scorer <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="offense-efficient-scorer">—</div>
+                <div class="perf-subtext">Highest goals per quarter average</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Most Efficient Goal Scorer</div>
+                <div class="perf-detail-content" id="offense-efficient-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Offensive Hub Access -->
+          <div class="dashboard-section" style="margin-top: 20px; text-align: center;">
+            <button class="action-btn-large" onclick="showInsightsSubView('insights-offense-hub-view')" style="width: 100%; max-width: 300px;">
+              📊 View Full Offensive Analysis
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEFENSIVE WALL SUB-VIEW -->
+    <div id="insights-defensive-wall-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Defensive Wall</h2>
+              <div class="dashboard-subtitle">Defensive performance and goals against analysis</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+
+          <!-- Top Defender Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View top defender details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Top Defender <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="defense-top-defender">—</div>
+                <div class="perf-subtext">Lowest goals against average</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Best Defender by Goals Against</div>
+                <div class="perf-detail-content" id="defense-topdefender-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Defensive Pair Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View top defensive pair details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Top Defensive Pair <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="defense-top-pair">—</div>
+                <div class="perf-subtext">Lowest goals against by GD&amp;GK combination</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Best Defensive Combination</div>
+                <div class="perf-detail-content" id="defense-toppair-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clean Sheet Leader Card -->
+          <div class="perf-flip-container perf-large-card" onclick="flipPerfCard(this)" tabindex="0" role="button" aria-label="View clean sheet leader details">
+            <div class="perf-flip-card">
+              <div class="perf-card-front">
+                <div class="perf-label-large">Clean Sheet Leader <span class="flip-hint">ⓘ</span></div>
+                <div class="perf-value-large" id="defense-clean-sheets">—</div>
+                <div class="perf-subtext">Most quarters with zero goals conceded</div>
+              </div>
+              <div class="perf-card-back">
+                <div class="perf-detail-title">Clean Sheet Performance</div>
+                <div class="perf-detail-content" id="defense-cleansheets-detail">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Defensive Analysis Access -->
+          <div class="dashboard-section" style="margin-top: 20px; text-align: center;">
+            <button class="action-btn-large" onclick="showInsightsSubView('insights-defenders-view')" style="width: 100%; max-width: 300px;">
+              🛡️ View Full Defensive Analysis
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="netball-ladder-view" class="view hidden">
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Ladder</h2><button class="icon-btn" onclick=
+          "refreshLadderManually()" title=
+          "Refresh from API">⟳</button>
+        </div>
+        <div id="netball-ladder-table">
+          <div class="empty-state">
+            Loading ladder data...
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Round by Round
+          Fixture</h2><button class="icon-btn" onclick=
+          "refreshResultsManually()" title=
+          "Refresh from API">⟳</button>
+        </div>
+        <div id="netball-results-container">
+          <div class="empty-state">
+            Loading match data...
+          </div>
+        </div>
+      </section>
+    </div>
+    <div id="admin-view" class="view hidden">
+      <button class="back-button" onclick="showTeamSelector()">🏠
+      Home</button>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">
+        NetballConnect Auth Token</h3>
+        <p class="card-subtitle">Paste the Authorization token
+        copied from the browser's Network tab here when it
+        expires.</p>
+        <textarea id="admin-auth-token" rows="5" style=
+        "width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9em; box-sizing: border-box;">
+        </textarea>
+        <div style=
+        "margin-top: 10px; display: flex; justify-content: flex-end;">
+          <button id="admin-save-token-btn" style=
+          "padding: 10px 16px;">Save New Token</button>
+        </div>
+        <p style="margin-top: 20px; font-size: 0.9em;">Current
+        Status: <span id="admin-token-status" style=
+        "font-weight: bold; color: var(--secondary-text);">Loading...</span></p>
+        <hr style=
+        "margin: 12px 0; border: none; border-top: 1px solid var(--border-color); opacity: 0.6;">
+
+        <div id="admin-feature-controls" style="margin-top:12px;">
+          <h4 style="margin:6px 0 8px 0;">Feature
+          Flags</h4><label style=
+          "display:flex;align-items:center;gap:8px;"><input type=
+          "checkbox" id="admin-toggle-test-insights"> <span>Enable
+          Test Insights (server-wide)</span></label>
+          <p style=
+          "margin:8px 0 0 0;font-size:0.9em;color:var(--secondary-text);">
+          Server flag: <strong id=
+          "admin-feature-status">Loading...</strong></p>
+          <h4 style="margin:12px 0 8px 0;">Owner Account</h4>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="admin-owner-email" type="email" placeholder=
+            "owner@example.com" style=
+            "flex:1;padding:8px;border:1px solid var(--border-color);border-radius:6px;">
+            <button id="admin-set-owner-btn" style=
+            "padding:8px 12px;">Set Owner</button>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">
+        Opponent Difficulty Ratings (DR)</h3>
+        <p class="card-subtitle">Calculated based on external team
+        points and goal percentage.</p>
+        <div class="position-grid-wrapper">
+          <table class="position-grid insights-table" id=
+          "admin-dr-table"></table>
+        </div>
+      </section>
+    </div>
+    <div id="game-detail-view" class="view hidden">
+      <header class="game-detail-header">
+        <button class="back-button" onclick=
+        "showView('fixture-view')">← Back to Fixture</button>
+        <h1 id="game-detail-title" class="page-title">vs
+        Opponent</h1>
+        <button id="fullscreen-toggle-btn" class="icon-btn" onclick="toggleFullscreen()" 
+        title="Toggle Fullscreen">⛶</button>
+        <button id="share-game-btn" class="icon-btn" onclick="shareCurrentGame()" 
+        title="Share Game Result">📤</button>
+      </header>
+      <div class="sticky-score-wrapper">
+        <section class="card total-score-card">
+          <div class="score-team">
+            <h5>Us</h5>
+            <div id="total-score-us" class="score">
+              0
+            </div>
+          </div>
+          <div class="score-separator">
+            -
+          </div>
+          <div class="score-team">
+            <h5 id="total-score-opponent-name">Opponent</h5>
+            <div id="total-score-opponent" class="score">
+              0
+            </div>
+          </div>
+        </section>
+      </div>
+      <section id="availability-content" class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Player
+        Availability</h3>
+        <div id="game-availability-list"></div>
+      </section>
+      <section id="game-lineup-content" class="card hidden">
+        <div class="card-header">
+          <h3 class="card-title" style=
+          "margin: 0; padding: 0; border: none;">
+          Lineup</h3><button id="show-share-modal-btn" style=
+          "padding: 8px 12px; font-size: 0.9em;">📥 Share
+          Lineup</button>
+        </div>
+        <div id="lineup-status-card" class="card" style=
+        "background-color: var(--bg-color);"></div>
+        <div class="position-grid-wrapper">
+          <table class="position-grid" id="position-grid-table">
+          </table>
+        </div>
+      </section>
+      <section id="scoring-content" class="card hidden">
+        <div class="goals-grid" id="goals-grid-container"></div>
+      </section>
+      <section id="edit-content" class="card hidden">
+        <div class="card-header" style="align-items: center;">
+          <h3 class="card-title" id="game-edit-title" style="margin: 0;">Edit Game</h3>
+          <span id="game-edit-subtitle" class="card-subtitle" style="margin-left: auto; font-size: 0.9em; color: var(--secondary-text);"></span>
+        </div>
+
+        <div class="form-grid" style="row-gap: 12px;">
+          <label for="new-game-round">Round</label>
+          <input type="number" id="new-game-round" placeholder="e.g., 1">
+
+          <label for="new-game-date">Date</label>
+          <input type="date" id="new-game-date">
+
+          <label for="new-game-time">Game Time</label>
+          <input type="time" id="new-game-time" placeholder="e.g., 14:30">
+
+          <label for="new-game-court">Court</label>
+          <input type="text" id="new-game-court" placeholder="e.g., Court 1">
+
+          <label for="new-game-venue">Venue 📍</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="new-game-venue" placeholder="e.g., Smith Park" style="flex: 1;">
+            <button type="button" onclick="getCurrentLocation()" class="icon-button" title="Use current location">📍</button>
+          </div>
+
+          <label for="new-game-status">Game Status</label>
+          <select id="new-game-status" onchange="toggleOpponentField(this.value)">
+            <option value="normal">Normal</option>
+            <option value="bye">BYE</option>
+            <option value="forfeit_us">Forfeited by Us</option>
+            <option value="forfeit_opp">Forfeited by Opponent</option>
+            <option value="abandoned">Abandoned</option>
+          </select>
+
+          <label for="new-game-opponent">Opponent</label>
+          <input type="text" id="new-game-opponent" placeholder="Opponent Name">
+        </div>
+
+        <div class="card-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 12px;">
+          <div id="delete-game-zone" class="modal-delete-zone hidden" style="margin: 0; padding: 0;">
+            <button id="delete-game-button" class="delete-button-modal">Delete Game</button>
+          </div>
+          <div style="display: flex; gap: 10px; margin-left: auto;">
+            <button class="cancel-btn" onclick="cancelGameEdit()">Cancel</button>
+            <button id="add-game-button">Save</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div id="player-detail-view" class="view hidden">
+      <header class="game-detail-header">
+        <h1 id="player-detail-name" class="page-title">Player Name</h1>
+        <button class="back-button" onclick="showView('players-view')">← Back to Players</button>
+      </header>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Season Summary</h3>
+        <div id="player-detail-fill-in-badge" style="margin-bottom: 12px;"></div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div id="player-detail-games" class="stat-value">0</div>
+            <div class="stat-label">Games Played</div>
+          </div>
+          <div class="stat-card">
+            <div id="player-detail-goals" class="stat-value">0</div>
+            <div class="stat-label">Total Goals</div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Position Distribution (Qtrs)</h3>
+        <div id="player-detail-positions"></div>
+      </section>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Bench Time</h3>
+        <div id="player-detail-off-stats"></div>
+      </section>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">+/- by Position</h3>
+        <div id="player-detail-plusminus"></div>
+      </section>
+    <div id="insights-team-record-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Round
+        by Round</h3>
+        <div id="insights-team-record-table"></div>
+      </section>
+    </div>
+    <div id="insights-player-stats-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Player Scoring Stats</h3>
+        <p class="card-subtitle">Players and pairs with 3+ quarters played</p>
+        
+        <div class="stats-section">
+          <h4>Single Players - Total Goals & Goal Average</h4>
+          <div id="player-scoring-stats"></div>
+        </div>
+        
+        <div class="stats-section">
+          <h4>GS&amp;GA Pairs - Total Goals &amp; Goal Average</h4>
+          <div id="pairs-scoring-stats"></div>
+        </div>
+      </section>
+      
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Defensive Stats</h3>
+        <p class="card-subtitle">Players and pairs with 3+ quarters played</p>
+        
+        <div class="stats-section">
+          <h4>Single Players - Goals Against Average</h4>
+          <div id="player-defensive-stats"></div>
+        </div>
+        
+        <div class="stats-section">
+          <h4>GD&amp;GK Pairs - Goals Against Average</h4>
+          <div id="pairs-defensive-stats"></div>
+        </div>
+      </section>
+    </div><!-- Removed empty/duplicate insights-offense-view -->
+    <div id="insights-defense-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">GD/GK
+        Pairs (Goals Conceded)</h3>
+        <p class="card-subtitle hidden" id="insights-defense-subtitle">Note: "Efficiency" sort only shows pairs with 3 or more Qtrs played.</p>
+        <div class="sort-tabs">
+          <button id="sort-defense-impact" class=
+          "sort-tab-button active" onclick=
+          "setInsightsSort('defense', 'impact')">Total
+          Impact</button> <button id="sort-defense-avg" class=
+          "sort-tab-button" onclick=
+          "setInsightsSort('defense', 'avg')">Efficiency
+          (Avg)</button> <button id="sort-defense-qtrs" class=
+          "sort-tab-button" onclick=
+          "setInsightsSort('defense', 'quarters')">Qtrs</button>
+        </div>
+        <div id="insights-defense-combos"></div>
+      </section>
+    </div>
+    <div id="insights-defenders-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Top
+        GD/GK Individuals (Goals Conceded)</h3>
+        <p class="card-subtitle hidden" id="insights-defenders-subtitle">Note: "Efficiency" sort only shows players with 3 or more Qtrs played.</p>
+        <div class="sort-tabs">
+          <button id="sort-defenders-impact" class=
+          "sort-tab-button active" onclick=
+          "setInsightsSort('defenders', 'impact')">Total
+          Impact</button> <button id="sort-defenders-avg" class=
+          "sort-tab-button" onclick=
+          "setInsightsSort('defenders', 'avg')">Efficiency
+          (Avg)</button> <button id="sort-defenders-qtrs" class=
+          "sort-tab-button" onclick=
+          "setInsightsSort('defenders', 'quarters')">Qtrs</button>
+        </div>
+        <div id="insights-top-defenders"></div>
+      </section>
+    </div>
+
+    <!-- PLAYER ANALYSIS VIEW -->
+    <div id="insights-player-analysis-view" class="view hidden">
+      <div id="insights-player-analysis-error-banner" class="error-banner hidden"></div>
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Player Analysis</h2>
+              <div class="dashboard-subtitle">Individual player performance metrics and versatility analysis</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+
+      <section class="card" style="background: transparent; box-shadow: none;">
+        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player Analysis</h3>
+        <p class="card-subtitle" style="display: none;">Individual player performance metrics and versatility analysis</p>
+
+        <!-- Player Superlatives Section -->
+        <div class="dashboard-section">
+          <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Superlatives</h4>
+          <div class="superlatives-grid">
+            <div class="superlative-card" id="superlative-top-gun">
+              <div class="superlative-icon">🏆</div>
+              <div class="superlative-content">
+                <h5 class="superlative-title">Top Gun</h5>
+                <p class="superlative-value" id="top-gun-name">—</p>
+                <p class="superlative-detail" id="top-gun-detail">Most goals scored</p>
+              </div>
+            </div>
+            <div class="superlative-card" id="superlative-iron-woman">
+              <div class="superlative-icon">💪</div>
+              <div class="superlative-content">
+                <h5 class="superlative-title">Iron Woman</h5>
+                <p class="superlative-value" id="iron-woman-name">—</p>
+                <p class="superlative-detail" id="iron-woman-detail">Most quarters played</p>
+              </div>
+            </div>
+            <div class="superlative-card" id="superlative-swiss-army">
+              <div class="superlative-icon">🔧</div>
+              <div class="superlative-content">
+                <h5 class="superlative-title">Swiss Army Knife</h5>
+                <p class="superlative-value" id="swiss-army-name">—</p>
+                <p class="superlative-detail" id="swiss-army-detail">Most versatile player</p>
+              </div>
+            </div>
+            <div class="superlative-card" id="superlative-leader">
+              <div class="superlative-icon">👑</div>
+              <div class="superlative-content">
+                <h5 class="superlative-title">Team Leader</h5>
+                <p class="superlative-value" id="leader-name">—</p>
+                <p class="superlative-detail" id="leader-detail">Most captaincies</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Performance Table -->
+        <div class="dashboard-section">
+          <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Performance Overview</h4>
+          <div class="sort-tabs">
+            <button id="sort-analysis-goals" class="sort-tab-button active" onclick="setPlayerAnalysisSort('goals')">Total Goals</button>
+            <button id="sort-analysis-quarters" class="sort-tab-button" onclick="setPlayerAnalysisSort('quarters')">Quarters</button>
+            <button id="sort-analysis-versatility" class="sort-tab-button" onclick="setPlayerAnalysisSort('versatility')">Versatility</button>
+            <button id="sort-analysis-games" class="sort-tab-button" onclick="setPlayerAnalysisSort('games')">Games</button>
+          </div>
+          <div class="position-grid-wrapper">
+            <table class="position-grid insights-table" id="insights-player-analysis-table"></table>
+          </div>
+        </div>
+      </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="insights-player-plusminus-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Player +/- by Position</h2>
+              <div class="dashboard-subtitle">Individual player plus/minus performance analysis</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+      <section class="card" style="background: transparent; box-shadow: none;">
+        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player
+        +/- by Position</h3>
+        <p class="card-subtitle hidden" id="insights-pm-subtitle">Note: "Avg +/-" sort only shows players with 3 or more Qtrs in that position.</p>
+        <div class="sort-tabs">
+          <button id="sort-pm-total" class="sort-tab-button active"
+          onclick="setInsightsPlusMinusSort('total')">Total
+          +/-</button> <button id="sort-pm-avg" class=
+          "sort-tab-button" onclick=
+          "setInsightsPlusMinusSort('avg')">Avg +/-</button>
+          <button id="sort-pm-qtrs" class="sort-tab-button"
+          onclick="setInsightsPlusMinusSort('quarters')">Qtrs</button>
+        </div>
+        <div class="position-grid-wrapper">
+          <table class="position-grid insights-table" id=
+          "insights-player-plusminus-table"></table>
+        </div>
+      </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: DEFENSIVE UNITS VIEW -->
+    <div id="insights-lineup-defensive-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Defensive Units (GK-GD-WD-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive unit combinations</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-defensive-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: ATTACKING UNITS VIEW -->
+    <div id="insights-lineup-attacking-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Attacking Units (GS-GA-WA-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of attacking unit combinations</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-attacking-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: POSITION PAIRINGS VIEW -->
+    <div id="insights-lineup-position-pairings-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Position Pairings</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive, attacking, and transition position pairs</div>
+            </div>
+            <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
+          <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
+          <div id="lineup-position-pairings-content"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <div id="edit-team-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'edit-team-modal')">
+    <div class="modal-content">
+      <h3 id="edit-team-modal-title">Edit Team</h3><label for=
+      "edit-team-year">Year</label> <input type="number" id=
+      "edit-team-year" placeholder="e.g., 2026"> <label for=
+      "edit-team-season">Season</label> <select id=
+      "edit-team-season">
+        <option value="Season 1">
+          Season 1
+        </option>
+        <option value="Season 2">
+          Season 2
+        </option>
+        <option value="NFNL">
+          NFNL
+        </option>
+        <option value="Other">
+          Other
+        </option>
+      </select> <label for="edit-team-name">Team Name</label>
+      <input type="text" id="edit-team-name" placeholder=
+      "e.g., U11"> <label for="edit-team-photo">Team Photo (Optional)</label>
+      <input type="file" id="edit-team-photo" accept="image/*" capture="environment" 
+      onchange="handleTeamPhotoUpload(this)">
+      <div id="team-photo-preview" style="margin-top: 8px; display: none;">
+        <!-- img src intentionally omitted - set dynamically via JavaScript when file is selected -->
+        <img id="team-photo-preview-img" alt="Team photo preview" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color);">
+      </div>
+      <label for="edit-team-ladder-name">External
+      Ladder Name (Match Exact Text)</label> <input type="text" id=
+      "edit-team-ladder-name" placeholder=
+      "e.g., U11-A (for NetballConnect)"> <label for=
+      "edit-team-ladder-api">Ladder API URL</label> <input type="url"
+      id="edit-team-ladder-api" placeholder=
+      "https://api.example.com/ladder"> <label for=
+      "edit-team-results-api">Results API URL</label> <input type="url"
+      id="edit-team-results-api" placeholder=
+      "https://api.example.com/results">
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('edit-team-modal')">Cancel</button> <button id=
+        "update-team-button">Update</button>
+      </div>
+      <div class="modal-delete-zone hidden">
+        <button id="delete-team-button" class=
+        "delete-button-modal">Delete Team</button>
+      </div>
+    </div>
+  </div>
+  <div id="edit-player-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'edit-player-modal')">
+    <div class="modal-content">
+      <h3>Edit Player</h3><label for="edit-player-name">Player
+      Name</label> <input type="text" id="edit-player-name"
+      placeholder="Player Name">
+      
+      <label for="edit-player-fav-position">Favorite Position (optional)</label>
+      <select id="edit-player-fav-position">
+        <option value="">Auto (best avg +/-)</option>
+        <option value="GS">GS - Goal Shooter</option>
+        <option value="GA">GA - Goal Attack</option>
+        <option value="WA">WA - Wing Attack</option>
+        <option value="C">C - Centre</option>
+        <option value="WD">WD - Wing Defence</option>
+        <option value="GD">GD - Goal Defence</option>
+        <option value="GK">GK - Goal Keeper</option>
+      </select>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="edit-player-fill-in" style="width: 20px; height: 20px; cursor: pointer; margin-right: 8px; accent-color: #6a0dad;">
+        <label for="edit-player-fill-in" style="cursor: pointer;">Mark as fill-in</label>
+      </div>
+      <p class="helper-text">Fill-in players are listed separately and default to unavailable for new games.</p>
+      
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('edit-player-modal')">Cancel</button>
+        <button id="update-player-button">Update</button>
+      </div>
+      <div class="modal-delete-zone hidden">
+        <button id="delete-player-button" class=
+        "delete-button-modal">Delete Player</button>
+      </div>
+    </div>
+  </div>
+  <div id="add-player-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'add-player-modal')">
+    <div class="modal-content">
+      <h3>Add Player</h3><input type="text" id="new-player-name"
+      placeholder="Player Name">
+      
+      <label for="new-player-fav-position">Favorite Position (optional)</label>
+      <select id="new-player-fav-position">
+        <option value="">Auto (best avg +/-)</option>
+        <option value="GS">GS - Goal Shooter</option>
+        <option value="GA">GA - Goal Attack</option>
+        <option value="WA">WA - Wing Attack</option>
+        <option value="C">C - Centre</option>
+        <option value="WD">WD - Wing Defence</option>
+        <option value="GD">GD - Goal Defence</option>
+        <option value="GK">GK - Goal Keeper</option>
+      </select>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="new-player-fill-in" style="width: 20px; height: 20px; cursor: pointer; margin-right: 8px; accent-color: #6a0dad;">
+        <label for="new-player-fill-in" style="cursor: pointer;">Mark as fill-in</label>
+      </div>
+      <p class="helper-text">Fill-in players will default to unavailable for new games.</p>
+      
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('add-player-modal')">Cancel</button> <button id=
+        "add-player-button">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="share-lineup-modal" class="modal-overlay hidden"
+  onclick="closeModal(event, 'share-lineup-modal')">
+    <div class="modal-content">
+      <h3>Share Lineup</h3>
+      <p style="text-align: center; color: var(--secondary-text);">
+      Screenshot this card to share with your team.</p>
+      <div id="share-lineup-validation-modal" style=
+      "margin-bottom: 16px;"></div>
+      <div id="share-lineup-card-modal"></div>
+      <div class="modal-actions" style="margin-top: 20px;">
+        <button class="cancel-btn" onclick=
+        "hideModal('share-lineup-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="season-summary-view" class="view hidden">
+    <div class="view-header">
+      <button class="back-button" onclick="hideView('season-summary-view')" aria-label="Back to previous view">←</button>
+      <h2>Season Summary</h2>
+    </div>
+    <div id="season-summary-slides" style="background: var(--primary-color); min-height: 400px; display: flex; align-items: center; justify-content: center;"></div>
+    <div class="summary-nav">
+      <button id="summary-prev" onclick="navigateSummary(-1)">← Back</button>
+      <span id="slide-counter" style="color: white; font-weight: 600;">1 / 1</span>
+      <button id="summary-next" onclick="navigateSummary(1)">Next →</button>
+    </div>
+  </div>
+  <div id="custom-alert-confirm-modal" class=
+  "custom-modal-overlay hidden">
+    <div class="custom-modal-content">
+      <h3 id="custom-modal-title">Confirmation</h3>
+      <p id="custom-modal-message">Are you sure?</p>
+      <div class="custom-modal-actions" id="custom-modal-actions">
+      </div>
+    </div>
+  </div><!-- server includes below -->
+  <?!= include('js-startup'); ?>
+  <?!= include('js-helpers'); ?>
+  <?!= include('js-navigation'); ?>
+  <?!= include('js-server-comms'); ?>
+  <?!= include('js-core-logic'); ?>
+  <?!= include('js-render'); ?>
+  <?!= include('js-validation'); ?>
+  <!-- Accessible live region for screen readers. Use `announce(msg)` to send messages. -->
+  <div id="aria-live-region" role="status" aria-live="polite" aria-atomic="true" class="sr-only" aria-hidden="false"></div>
