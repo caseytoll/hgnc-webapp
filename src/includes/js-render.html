@@ -4381,20 +4381,45 @@
         // ENHANCED DIAGNOSTICS
         var parentCard = container.closest('.card');
         var parentSection = container.closest('.dashboard-section');
-        console.log('[renderLineupDefensiveUnits] Parent hierarchy check:', {
+        var parentView = container.closest('.view');
+        var table = container.querySelector('table');
+        
+        console.log('[renderLineupDefensiveUnits] FULL DIAGNOSTIC:', {
+            container: {
+                id: container.id,
+                display: window.getComputedStyle(container).display,
+                visibility: window.getComputedStyle(container).visibility,
+                opacity: window.getComputedStyle(container).opacity,
+                position: window.getComputedStyle(container).position,
+                zIndex: window.getComputedStyle(container).zIndex,
+                top: window.getComputedStyle(container).top,
+                left: window.getComputedStyle(container).left,
+                width: window.getComputedStyle(container).width,
+                height: window.getComputedStyle(container).height
+            },
+            table: table ? {
+                display: window.getComputedStyle(table).display,
+                visibility: window.getComputedStyle(table).visibility,
+                opacity: window.getComputedStyle(table).opacity,
+                width: window.getComputedStyle(table).width,
+                height: window.getComputedStyle(table).height
+            } : 'not found',
             card: parentCard ? {
                 display: window.getComputedStyle(parentCard).display,
                 visibility: window.getComputedStyle(parentCard).visibility,
+                opacity: window.getComputedStyle(parentCard).opacity,
                 height: window.getComputedStyle(parentCard).height,
                 hasHidden: parentCard.classList.contains('hidden')
             } : 'not found',
-            section: parentSection ? {
-                display: window.getComputedStyle(parentSection).display,
-                visibility: window.getComputedStyle(parentSection).visibility,
-                height: window.getComputedStyle(parentSection).height,
-                hasHidden: parentSection.classList.contains('hidden')
-            } : 'not found',
-            containerHTML: container.innerHTML.substring(0, 200)
+            view: parentView ? {
+                id: parentView.id,
+                display: window.getComputedStyle(parentView).display,
+                visibility: window.getComputedStyle(parentView).visibility,
+                opacity: window.getComputedStyle(parentView).opacity,
+                position: window.getComputedStyle(parentView).position,
+                zIndex: window.getComputedStyle(parentView).zIndex,
+                hasHidden: parentView.classList.contains('hidden')
+            } : 'not found'
         });
     }
 
