@@ -362,10 +362,14 @@
             renderGameList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
         } else if (viewId === 'insights-view') {
-            // Show the menu, hide any sub-views and all dashboards
+            // Show the menu, hide any sub-views and dashboards ONLY in currently visible views
             var dashboards = document.querySelectorAll('.insights-dashboard');
             dashboards.forEach(function(dashboard) {
-                dashboard.classList.add('hidden');
+                // Only hide dashboard if its parent view is visible (not hidden)
+                var parentView = dashboard.closest('.view');
+                if (parentView && !parentView.classList.contains('hidden')) {
+                    dashboard.classList.add('hidden');
+                }
             });
             // Hide all sub-views
             document.getElementById('insights-team-record-view').classList.add('hidden');
