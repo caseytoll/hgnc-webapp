@@ -189,7 +189,9 @@ function getTeamPerformanceIconDataUrl() {
     var content = HtmlService.createHtmlOutputFromFile('src/icons/team-performance-icon-code').getContent();
     var trimmed = content.trim();
     var fallback = CDN_BASE + 'team-performance-icon-source.jpeg';
-    return canonicalizeIconContent(trimmed, fallback);
+    var result = canonicalizeIconContent(trimmed, fallback);
+    Logger.log('Team Performance Icon - Raw: ' + trimmed.substring(0, 100) + '... Result: ' + result.substring(0, 100));
+    return result;
   } catch (e) {
   Logger.log('Team performance icon load error: ' + e.toString() + ' - using CDN fallback');
   return CDN_BASE + 'team-performance-icon-source.jpeg';
