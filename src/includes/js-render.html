@@ -4334,6 +4334,19 @@
         console.log('[renderLineupDefensiveUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
         console.log('[renderLineupDefensiveUnits] HTML set, container has', container.children.length, 'children');
+        
+        // Force visibility on all parents
+        var parentView = container.closest('.view');
+        var parentDashboard = container.closest('.insights-dashboard');
+        var parentSection = container.closest('.dashboard-section');
+        var parentCard = container.closest('.card');
+        
+        if (parentView) parentView.style.visibility = 'visible';
+        if (parentDashboard) parentDashboard.style.visibility = 'visible';
+        if (parentSection) parentSection.style.visibility = 'visible';
+        if (parentCard) parentCard.style.visibility = 'visible';
+        container.style.visibility = 'visible';
+        
         console.log('[renderLineupDefensiveUnits] Container visibility:', {
             display: window.getComputedStyle(container).display,
             visibility: window.getComputedStyle(container).visibility,
