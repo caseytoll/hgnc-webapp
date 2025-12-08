@@ -5030,6 +5030,21 @@
     accent-color: var(--primary-color);
   }
 
+  /* Explicit styling for all checkboxes to ensure they're visible */
+  input[type="checkbox"] {
+    accent-color: var(--primary-color) !important;
+    width: 20px !important;
+    height: 20px !important;
+    cursor: pointer !important;
+    -webkit-appearance: checkbox !important;
+    appearance: checkbox !important;
+  }
+
+  input[type="checkbox"]:checked {
+    background-color: var(--primary-color) !important;
+    accent-color: var(--primary-color) !important;
+  }
+
   .helper-text {
     font-size: 0.85em;
     color: var(--text-secondary);
