@@ -616,8 +616,6 @@
         }
         
         console.log('[renderPlayerDetail] Rendering details for:', player.name);
-        console.log('[renderPlayerDetail] calculatedPlayerTable:', calculatedPlayerTable);
-        console.log('[renderPlayerDetail] calculatedLeaderboardTotal:', calculatedLeaderboardTotal);
         
         document.getElementById('player-detail-name').textContent = player.name;
         
@@ -628,6 +626,8 @@
         let captainCount = 0;
         const positionCounts = {};
         const positionPlusMinus = {};
+        let offQuarters = 0;
+        let totalQuarters = 0;
         
         const playerStats = calculatedPlayerTable && calculatedPlayerTable.find(p => p.id === appState.playerDetail.id);
         const playerPlusMinus = calculatedPlayerPlusMinus && calculatedPlayerPlusMinus.find(p => p.id === appState.playerDetail.id);
@@ -635,12 +635,18 @@
         if (playerStats) {
             gamesPlayed = playerStats.gamesPlayed;
             captainCount = playerStats.captain;
-            const allPos = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK', 'Off'];
+            const allPos = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
             allPos.forEach(function(pos) {
                 if (playerStats[pos] > 0) {
                     positionCounts[pos] = playerStats[pos];
+                    totalQuarters += playerStats[pos];
                 }
             });
+            // Count Off quarters separately
+            if (playerStats.Off) {
+                offQuarters = playerStats.Off;
+                totalQuarters += playerStats.Off;
+            }
         } else {
             console.log('[renderPlayerDetail] No stats found for player:', player.name);
         }
@@ -666,71 +672,51 @@
             });
         });
         
-        // Calculate position-specific +/- stats
-        if (playerPlusMinus) {
-            const offensivePos = ['GS', 'GA'];
-            const defensivePos = ['GD', 'GK'];
-            
-            offensivePos.forEach(function(pos) {
-                if (playerPlusMinus[pos] && playerPlusMinus[pos].total !== 0) {
-                    const avg = playerPlusMinus[pos].qtrs > 0 ? 
-                        (playerPlusMinus[pos].total / playerPlusMinus[pos].qtrs).toFixed(2) : 0;
-                    positionPlusMinus[pos] = {
-                        total: playerPlusMinus[pos].total,
-                        avg: parseFloat(avg)
-                    };
-                }
-            });
-        }
+        // Build +/- stats for all positions (GS, GA, WA, C, WD, GD, GK)
+        const allPositions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+        const plusMinusData = [];
         
-        document.getElementById('player-detail-games').textContent = gamesPlayed;
+        allPositions.forEach(function(pos) {
+            let total = 0;
+            let qtrs = 0;
+            
+            if (playerPlusMinus && playerPlusMinus[pos]) {
+                total = playerPlusMinus[pos].total || 0;
+                qtrs = playerPlusMinus[pos].qtrs || 0;
+            }
+            
+            const avg = qtrs > 0 ? (total / qtrs).toFixed(2) : 0;
+            plusMinusData.push({
+                pos: pos,
+                total: total,
+                qtrs: qtrs,
+                avg: parseFloat(avg)
+            });
+        });
+        
+        // Update Season Summary
+        const participationRate = gamesAvailable > 0 ? ((gamesPlayed / gamesAvailable) * 100).toFixed(0) : 0;
+        document.getElementById('player-detail-games').textContent = gamesPlayed + ' of ' + gamesAvailable + ' (' + participationRate + '%)';
         document.getElementById('player-detail-goals').textContent = totalGoals;
         
-        const posContainer = document.getElementById('player-detail-positions');
+        // Update Fill-in badge
+        const badgeContainer = document.getElementById('player-detail-fill-in-badge');
+        if (player.isFillIn) {
+            badgeContainer.innerHTML = '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Fill-in</span>';
+        } else {
+            badgeContainer.innerHTML = '';
+        }
         
+        // Update Position Distribution
+        const posContainer = document.getElementById('player-detail-positions');
         const sortedPositions = Object.keys(positionCounts).map(function(pos) {
             return { pos: pos, count: positionCounts[pos] };
         }).sort(function(a, b) { return b.count - a.count; });
         
-        // Build comprehensive HTML
-        let html = '';
-        
-        // Status badge
-        const statusBadge = player.isFillIn ? 
-            '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Fill-in</span>' :
-            '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Regular</span>';
-        
-        html += '<div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center;">' +
-                statusBadge;
-        
-        if (captainCount > 0) {
-            html += '<span style="background: #2196f3; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">👑 Captain x' + captainCount + '</span>';
-        }
-        
-        html += '</div>';
-        
-        // Games availability stats
-        html += '<div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 16px;">' +
-                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">' +
-                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Games Available</div><div style="font-size: 1.5em; font-weight: bold; color: #2196f3;">' + gamesAvailable + '</div></div>' +
-                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Participation Rate</div><div style="font-size: 1.5em; font-weight: bold; color: #4caf50;">' + 
-                (gamesAvailable > 0 ? ((gamesPlayed / gamesAvailable) * 100).toFixed(0) + '%' : '0%') + '</div></div>' +
-                '</div></div>';
-        
-        // Defensive stats if applicable
-        if (totalGoalsAgainst > 0) {
-            html += '<div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin-bottom: 16px;">' +
-                    '<div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Goals Against (Defensive)</div>' +
-                    '<div style="font-size: 1.5em; font-weight: bold; color: #ff9800;">' + totalGoalsAgainst + '</div>' +
-                    '</div>';
-        }
-        
-        // Position distribution
         if (sortedPositions.length === 0) {
-            html += '<div class="empty-state">No position data recorded.</div>';
+            posContainer.innerHTML = '<div class="empty-state">No position data recorded.</div>';
         } else {
-            html += '<h4 style="margin-bottom: 12px; font-size: 1em;">Position Distribution (Quarters)</h4>';
-            html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;">';
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;">';
             sortedPositions.forEach(function(item) {
                 html += '<div style="background: #e3f2fd; padding: 8px; border-radius: 6px; text-align: center;">' +
                         '<div style="font-weight: bold; color: #1976d2;">' + item.pos + '</div>' +
@@ -738,9 +724,47 @@
                         '</div>';
             });
             html += '</div>';
+            posContainer.innerHTML = html;
         }
         
-        posContainer.innerHTML = html;
+        // Update Bench Time (Off quarters)
+        const offContainer = document.getElementById('player-detail-off-stats');
+        if (offQuarters > 0 && totalQuarters > 0) {
+            const offPercentage = ((offQuarters / totalQuarters) * 100).toFixed(1);
+            offContainer.innerHTML = 
+                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">' +
+                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Quarters Off Bench</div><div style="font-size: 1.5em; font-weight: bold; color: #ff9800;">' + offQuarters + '</div></div>' +
+                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Percentage Off</div><div style="font-size: 1.5em; font-weight: bold; color: #ff9800;">' + offPercentage + '%</div></div>' +
+                '</div>';
+        } else {
+            offContainer.innerHTML = '<div class="empty-state">No bench time recorded.</div>';
+        }
+        
+        // Update +/- by Position
+        const pmContainer = document.getElementById('player-detail-plusminus');
+        let pmHtml = '<div style="overflow-x: auto;">';
+        pmHtml += '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
+        pmHtml += '<tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">' +
+                  '<th style="padding: 8px; text-align: left; font-weight: bold;">Position</th>' +
+                  '<th style="padding: 8px; text-align: center; font-weight: bold;">Qtrs</th>' +
+                  '<th style="padding: 8px; text-align: center; font-weight: bold;">Total</th>' +
+                  '<th style="padding: 8px; text-align: center; font-weight: bold;">Avg/Qtr</th>' +
+                  '</tr>';
+        
+        plusMinusData.forEach(function(data) {
+            const bgColor = data.qtrs === 0 ? '#f9f9f9' : (data.avg >= 0 ? '#e8f5e9' : '#ffebee');
+            const textColor = data.avg > 0 ? '#2e7d32' : (data.avg < 0 ? '#c62828' : '#666');
+            
+            pmHtml += '<tr style="border-bottom: 1px solid #eee; background: ' + bgColor + ';">' +
+                      '<td style="padding: 8px; font-weight: 600;">' + data.pos + '</td>' +
+                      '<td style="padding: 8px; text-align: center;">' + (data.qtrs === 0 ? '—' : data.qtrs) + '</td>' +
+                      '<td style="padding: 8px; text-align: center; color: ' + textColor + '; font-weight: bold;">' + (data.total === 0 ? '—' : data.total) + '</td>' +
+                      '<td style="padding: 8px; text-align: center; color: ' + textColor + '; font-weight: bold;">' + (data.qtrs === 0 ? '—' : data.avg) + '</td>' +
+                      '</tr>';
+        });
+        
+        pmHtml += '</table></div>';
+        pmContainer.innerHTML = pmHtml;
     }
     
     // --- MODIFIED: Ladder Snapshot Rendering ---

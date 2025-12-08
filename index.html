@@ -936,42 +936,35 @@
     </div>
     <div id="player-detail-view" class="view hidden">
       <header class="game-detail-header">
-        <button class="back-button" onclick=
-        "showView('players-view')">← Back to Players</button>
-        <button class="back-button" onclick="showTeamSelector()"
-        style="margin-left: 10px;">🏠 Home</button>
-        <h1 id="player-detail-name" class="page-title">Player
-        Name</h1>
+        <h1 id="player-detail-name" class="page-title">Player Name</h1>
+        <button class="back-button" onclick="showView('players-view')">← Back to Players</button>
       </header>
       <section class="card">
-        <h3 class="card-title" style="margin-bottom: 12px;">Season
-        Summary</h3>
+        <h3 class="card-title" style="margin-bottom: 12px;">Season Summary</h3>
+        <div id="player-detail-fill-in-badge" style="margin-bottom: 12px;"></div>
         <div class="stat-grid">
           <div class="stat-card">
-            <div id="player-detail-games" class="stat-value">
-              0
-            </div>
-            <div class="stat-label">
-              Games Played
-            </div>
+            <div id="player-detail-games" class="stat-value">0</div>
+            <div class="stat-label">Games Played</div>
           </div>
           <div class="stat-card">
-            <div id="player-detail-goals" class="stat-value">
-              0
-            </div>
-            <div class="stat-label">
-              Total Goals
-            </div>
+            <div id="player-detail-goals" class="stat-value">0</div>
+            <div class="stat-label">Total Goals</div>
           </div>
         </div>
       </section>
       <section class="card">
-        <h3 class="card-title" style="margin-bottom: 12px;">
-        Position Summary (Qtrs)</h3>
-        <div id="player-detail-positions" class=
-        "position-summary-list"></div>
+        <h3 class="card-title" style="margin-bottom: 12px;">Position Distribution (Qtrs)</h3>
+        <div id="player-detail-positions"></div>
       </section>
-    </div>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">Bench Time</h3>
+        <div id="player-detail-off-stats"></div>
+      </section>
+      <section class="card">
+        <h3 class="card-title" style="margin-bottom: 12px;">+/- by Position</h3>
+        <div id="player-detail-plusminus"></div>
+      </section>
     <div id="insights-team-record-view" class="view hidden">
       <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
       <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
