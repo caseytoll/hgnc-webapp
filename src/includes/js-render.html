@@ -615,13 +615,19 @@
         document.getElementById('player-detail-name').textContent = player.name;
         
         let gamesPlayed = 0;
+        let gamesAvailable = 0;
         let totalGoals = 0;
+        let totalGoalsAgainst = 0;
+        let captainCount = 0;
         const positionCounts = {};
+        const positionPlusMinus = {};
         
         const playerStats = calculatedPlayerTable.find(p => p.id === appState.playerDetail.id);
+        const playerPlusMinus = calculatedPlayerPlusMinus.find(p => p.id === appState.playerDetail.id);
 
         if (playerStats) {
             gamesPlayed = playerStats.gamesPlayed;
+            captainCount = playerStats.captain;
             const allPos = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK', 'Off'];
             allPos.forEach(function(pos) {
                 if (playerStats[pos] > 0) {
@@ -630,9 +636,43 @@
             });
         }
         
+        // Count games available
+        gamesAvailable = games.filter(function(g) { 
+            return (g.availablePlayerIDs || []).includes(player.id) && isGameInPast(g);
+        }).length;
+        
         const playerGoals = calculatedLeaderboardTotal.find(p => p.name === player.name);
         totalGoals = playerGoals ? playerGoals.goals : 0;
         
+        // Calculate goals against for defensive players
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter) {
+                const positions = quarter.positions;
+                if ((positions.GD === player.name || positions.GK === player.name) && 
+                    quarter.opponentGsGoals !== undefined && quarter.opponentGaGoals !== undefined) {
+                    totalGoalsAgainst += (quarter.opponentGsGoals + quarter.opponentGaGoals);
+                }
+            });
+        });
+        
+        // Calculate position-specific +/- stats
+        if (playerPlusMinus) {
+            const offensivePos = ['GS', 'GA'];
+            const defensivePos = ['GD', 'GK'];
+            
+            offensivePos.forEach(function(pos) {
+                if (playerPlusMinus[pos] && playerPlusMinus[pos].total !== 0) {
+                    const avg = playerPlusMinus[pos].qtrs > 0 ? 
+                        (playerPlusMinus[pos].total / playerPlusMinus[pos].qtrs).toFixed(2) : 0;
+                    positionPlusMinus[pos] = {
+                        total: playerPlusMinus[pos].total,
+                        avg: parseFloat(avg)
+                    };
+                }
+            });
+        }
         
         document.getElementById('player-detail-games').textContent = gamesPlayed;
         document.getElementById('player-detail-goals').textContent = totalGoals;
@@ -643,19 +683,55 @@
             return { pos: pos, count: positionCounts[pos] };
         }).sort(function(a, b) { return b.count - a.count; });
         
-        if (sortedPositions.length === 0) {
-            posContainer.innerHTML = '<div class="empty-state">No position data recorded.</div>';
-            return;
+        // Build comprehensive HTML
+        let html = '';
+        
+        // Status badge
+        const statusBadge = player.isFillIn ? 
+            '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Fill-in</span>' :
+            '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Regular</span>';
+        
+        html += '<div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center;">' +
+                statusBadge;
+        
+        if (captainCount > 0) {
+            html += '<span style="background: #2196f3; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">👑 Captain x' + captainCount + '</span>';
         }
         
-        posContainer.innerHTML = sortedPositions.map(function(item) {
-             return (
-            '<div class="position-summary-item">' +
-                '<strong>' + item.pos + '</strong>' +
-                '<span class="count">' + item.count + '</span>' +
-            '</div>'
-            );
-        }).join('');
+        html += '</div>';
+        
+        // Games availability stats
+        html += '<div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 16px;">' +
+                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">' +
+                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Games Available</div><div style="font-size: 1.5em; font-weight: bold; color: #2196f3;">' + gamesAvailable + '</div></div>' +
+                '<div><div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Participation Rate</div><div style="font-size: 1.5em; font-weight: bold; color: #4caf50;">' + 
+                (gamesAvailable > 0 ? ((gamesPlayed / gamesAvailable) * 100).toFixed(0) + '%' : '0%') + '</div></div>' +
+                '</div></div>';
+        
+        // Defensive stats if applicable
+        if (totalGoalsAgainst > 0) {
+            html += '<div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin-bottom: 16px;">' +
+                    '<div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">Goals Against (Defensive)</div>' +
+                    '<div style="font-size: 1.5em; font-weight: bold; color: #ff9800;">' + totalGoalsAgainst + '</div>' +
+                    '</div>';
+        }
+        
+        // Position distribution
+        if (sortedPositions.length === 0) {
+            html += '<div class="empty-state">No position data recorded.</div>';
+        } else {
+            html += '<h4 style="margin-bottom: 12px; font-size: 1em;">Position Distribution (Quarters)</h4>';
+            html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;">';
+            sortedPositions.forEach(function(item) {
+                html += '<div style="background: #e3f2fd; padding: 8px; border-radius: 6px; text-align: center;">' +
+                        '<div style="font-weight: bold; color: #1976d2;">' + item.pos + '</div>' +
+                        '<div style="font-size: 1.2em; font-weight: bold; color: #333;">' + item.count + '</div>' +
+                        '</div>';
+            });
+            html += '</div>';
+        }
+        
+        posContainer.innerHTML = html;
     }
     
     // --- MODIFIED: Ladder Snapshot Rendering ---
