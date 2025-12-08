@@ -4397,7 +4397,31 @@
         });
         
         html += '</table>';
+        console.log('[renderLineupAttackingUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
+        console.log('[renderLineupAttackingUnits] HTML set, container has', container.children.length, 'children');
+        
+        // Force visibility on all parents
+        var parentView = container.closest('.view');
+        var parentDashboard = container.closest('.insights-dashboard');
+        var parentSection = container.closest('.dashboard-section');
+        var parentCard = container.closest('.card');
+        
+        if (parentView) parentView.style.visibility = 'visible';
+        if (parentDashboard) parentDashboard.style.visibility = 'visible';
+        if (parentSection) parentSection.style.visibility = 'visible';
+        if (parentCard) parentCard.style.visibility = 'visible';
+        container.style.visibility = 'visible';
+        
+        console.log('[renderLineupAttackingUnits] Container visibility:', {
+            display: window.getComputedStyle(container).display,
+            visibility: window.getComputedStyle(container).visibility,
+            hasHiddenClass: container.classList.contains('hidden'),
+            parentDashboard: container.closest('.insights-dashboard'),
+            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
+            parentView: container.closest('.view'),
+            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
+        });
     }
 
     // ===== PHASE 3: POSITION PAIRINGS =====
@@ -4498,6 +4522,30 @@
         
         html += '</table></div>';
         
+        console.log('[renderLineupPositionPairings] Setting HTML, length:', html.length);
         container.innerHTML = html;
+        console.log('[renderLineupPositionPairings] HTML set, container has', container.children.length, 'children');
+        
+        // Force visibility on all parents
+        var parentView = container.closest('.view');
+        var parentDashboard = container.closest('.insights-dashboard');
+        var parentSection = container.closest('.dashboard-section');
+        var parentCard = container.closest('.card');
+        
+        if (parentView) parentView.style.visibility = 'visible';
+        if (parentDashboard) parentDashboard.style.visibility = 'visible';
+        if (parentSection) parentSection.style.visibility = 'visible';
+        if (parentCard) parentCard.style.visibility = 'visible';
+        container.style.visibility = 'visible';
+        
+        console.log('[renderLineupPositionPairings] Container visibility:', {
+            display: window.getComputedStyle(container).display,
+            visibility: window.getComputedStyle(container).visibility,
+            hasHiddenClass: container.classList.contains('hidden'),
+            parentDashboard: container.closest('.insights-dashboard'),
+            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
+            parentView: container.closest('.view'),
+            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
+        });
     }
 </script>
