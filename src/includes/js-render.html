@@ -4313,19 +4313,19 @@
         
         let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
         html += '<tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">' +
-                '<th style="padding: 8px; text-align: left; font-weight: bold;">Defensive Unit (GK-GD-WD-C)</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">Qtrs</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">GA/Qtr</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">+/- Avg</th>' +
+                '<th style="padding: 8px; text-align: left; font-weight: bold; color: #000;">Defensive Unit (GK-GD-WD-C)</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">Qtrs</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">GA/Qtr</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">+/- Avg</th>' +
                 '</tr>';
         
         sorted.forEach(item => {
             const textColor = parseFloat(item.data.avgPlusMinus) > 0 ? '#2e7d32' : 
                              parseFloat(item.data.avgPlusMinus) < 0 ? '#c62828' : '#666';
-            html += '<tr style="border-bottom: 1px solid #eee;">' +
-                    '<td style="padding: 8px; font-weight: 600;">' + item.data.gk + ' / ' + item.data.gd + ' / ' + item.data.wd + ' / ' + item.data.c + '</td>' +
-                    '<td style="padding: 8px; text-align: center;">' + item.data.quarters + '</td>' +
-                    '<td style="padding: 8px; text-align: center;">' + item.data.avgGoalsAgainst + '</td>' +
+            html += '<tr style="border-bottom: 1px solid #eee; background: #fff;">' +
+                    '<td style="padding: 8px; font-weight: 600; color: #000;">' + item.data.gk + ' / ' + item.data.gd + ' / ' + item.data.wd + ' / ' + item.data.c + '</td>' +
+                    '<td style="padding: 8px; text-align: center; color: #000;">' + item.data.quarters + '</td>' +
+                    '<td style="padding: 8px; text-align: center; color: #000;">' + item.data.avgGoalsAgainst + '</td>' +
                     '<td style="padding: 8px; text-align: center; color: ' + textColor + '; font-weight: bold;">' + item.data.avgPlusMinus + '</td>' +
                     '</tr>';
         });
@@ -4444,19 +4444,19 @@
         
         let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
         html += '<tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">' +
-                '<th style="padding: 8px; text-align: left; font-weight: bold;">Attacking Unit (GS-GA-WA-C)</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">Qtrs</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">GF/Qtr</th>' +
-                '<th style="padding: 8px; text-align: center; font-weight: bold;">+/- Avg</th>' +
+                '<th style="padding: 8px; text-align: left; font-weight: bold; color: #000;">Attacking Unit (GS-GA-WA-C)</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">Qtrs</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">GF/Qtr</th>' +
+                '<th style="padding: 8px; text-align: center; font-weight: bold; color: #000;">+/- Avg</th>' +
                 '</tr>';
         
         sorted.forEach(item => {
             const textColor = parseFloat(item.data.avgPlusMinus) > 0 ? '#2e7d32' : 
                              parseFloat(item.data.avgPlusMinus) < 0 ? '#c62828' : '#666';
-            html += '<tr style="border-bottom: 1px solid #eee;">' +
-                    '<td style="padding: 8px; font-weight: 600;">' + item.data.gs + ' / ' + item.data.ga + ' / ' + item.data.wa + ' / ' + item.data.c + '</td>' +
-                    '<td style="padding: 8px; text-align: center;">' + item.data.quarters + '</td>' +
-                    '<td style="padding: 8px; text-align: center;">' + item.data.avgGoalsFor + '</td>' +
+            html += '<tr style="border-bottom: 1px solid #eee; background: #fff;">' +
+                    '<td style="padding: 8px; font-weight: 600; color: #000;">' + item.data.gs + ' / ' + item.data.ga + ' / ' + item.data.wa + ' / ' + item.data.c + '</td>' +
+                    '<td style="padding: 8px; text-align: center; color: #000;">' + item.data.quarters + '</td>' +
+                    '<td style="padding: 8px; text-align: center; color: #000;">' + item.data.avgGoalsFor + '</td>' +
                     '<td style="padding: 8px; text-align: center; color: ' + textColor + '; font-weight: bold;">' + item.data.avgPlusMinus + '</td>' +
                     '</tr>';
         });
