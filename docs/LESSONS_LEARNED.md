@@ -2,7 +2,7 @@
 
 **Purpose:** Living document capturing key learnings from development sessions to prevent repeating mistakes and build on successes.
 
-**Last Updated:** December 8, 2025
+**Last Updated:** December 9, 2025 (Added: Google Apps Script 50KB limit, Browser caching, SPA routing)
 
 ---
 
@@ -341,3 +341,107 @@ Quick reference to find learnings by topic:
 ---
 
 **Remember:** This document should grow with every session. If you learned something valuable today, add it here!
+
+---
+
+## ADDENDUM: Session Dec 9, 2025 - Lineup Analytics (v943)
+
+### 50KB Compiled Output Limit is a HARD Constraint
+
+The ~50KB limit on `HtmlService.createTemplateFromFile()` applies to the FINAL compiled output AFTER all `<?!= include() ?>` directives are merged. This is an **architectural constraint**, not just a size optimization issue.
+
+**What Failed:**
+- v926-v932: CSS visibility fixes to "show" truncated views
+- v935: Script extraction to separate includes (still included heavy files)
+- v940: Multi-page without removing includes (414KB total, still truncated)
+
+**What Worked:**
+- v943: Multi-page routing + minimal includes + server-side calculation
+  - lineup.html: 7KB HTML + 6KB styles + 5KB inline render = 18KB total ✓
+
+**Rule:** When hitting 50KB limit, restructure architecture:
+1. Split features into separate pages (`doGet(e.parameter.page)`)
+2. Move calculations to server-side Code.js
+3. Send minimal client-side JavaScript
+4. Only include essential files (styles, small utils)
+
+---
+
+### Browser Caching Defeats Deployments
+
+**Problem:** v943 deployed but browser served v932 with different function names.
+
+**Root Causes:**
+- Google Apps Script creates unique URL per deployment
+- Redeploying to same ID doesn't invalidate browser cache
+- Function name changes cause confusion (renderLineupDefensiveUnits vs renderDefensiveUnits)
+
+**Solutions:**
+- New features: `clasp deploy` (new URL)
+- Bug fixes: Bump `appVersion` in Code.js (line 67) + `clasp deploy -i <ORIGINAL_ID>`
+- User troubleshooting: Hard refresh Cmd+Shift+R or incognito window
+
+---
+
+### Single-Page App Routing is Complex with Multiple HTML Pages
+
+**Problem:** Back button used `?view=insights` but app only recognizes `#insights-view` hash routing.
+
+**Root Cause:** Mixed routing approaches between pages.
+
+**Solution:** Use hash routing consistently for internal navigation:
+```javascript
+// Back button should use:
+window.location.href = window.APP_URL + '#insights-view'
+
+// NOT query params:
+window.location.href = window.APP_URL + '?view=insights'  // ✗ Doesn't work
+```
+
+Also: Store team state in localStorage before navigating away, restore on return.
+
+---
+
+### Always Inspect Data Structure Before Writing Calculations
+
+**Problem:** Built lineup stat calculation functions without seeing actual game data. Functions returned empty `{}`. Couldn't diagnose: missing data? Structure mismatch? Code bug?
+
+**Solution:**
+1. Export real data first: `console.log(JSON.stringify(window.games[0], null, 2))`
+2. Verify structure matches expectations (game.lineup, quarter.positions, etc.)
+3. Add validation layer with helpful error messages
+4. Add logging at each calculation step
+5. Test with actual data, not assumptions
+
+**Result:** Can immediately distinguish between data issues vs code bugs.
+
+---
+
+### Good Logging Format Speeds Debugging by 10x
+
+**Good:** `[FunctionName] Action: value1, value2`
+Example: `[getLineupStats] Processing 15 games, found 3 with lineup data`
+
+**Bad:** `Loading... Error undefined`
+
+Good format lets you grep console and immediately understand context and flow.
+
+---
+
+### Lessons for Next Session
+
+**Known Issues to Fix (v944):**
+1. Back button: Change to `#insights-view` hash routing (quick 1-minute fix)
+2. Empty stats: Add logging to getLineupStats() to diagnose data structure
+3. Navigation: Verify hash routing works and state persists
+
+**Documentation Created:**
+- docs/LINEUP_ANALYTICS_BUGS_v943.md - Full task list and issue analysis
+- docs/SESSION_LEARNINGS_Dec9_2025.md - Detailed session report with statistics
+- docs/QUICK_FIX_GUIDE.md - Quick reference for common issues
+
+**Files to Review:**
+- Code.js lines 1342-1453 (server-side calculation functions)
+- lineup.html lines 1-328 (lightweight client-side page)
+- Verify game data structure includes lineup property
+
