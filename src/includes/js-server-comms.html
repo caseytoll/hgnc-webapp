@@ -137,7 +137,7 @@
                 if (data.teamData) {
                     try {
                         var teamData = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
-                        players = teamData.players || [];
+                        players = (teamData.players || []).map(function(p){ return normalizePlayer(p); });
                         games = teamData.games || [];
                         console.log('[handleSelectTeam] Loaded team data from server:', games.length, 'games,', players.length, 'players');
                         // Re-render list immediately so UI reflects the data change
@@ -293,7 +293,7 @@
         // Fast comparison: check if data exists and lengths match first
         var isDataDifferent = !localTeamData;
         
-        var serverPlayers = serverTeamData.players || [];
+        var serverPlayers = (serverTeamData.players || []).map(function(p){ return normalizePlayer(p); });
         var serverGames = serverTeamData.games || [];
         
         console.log('[onTeamDataLoaded] serverGames:', serverGames, 'serverPlayers:', serverPlayers);
@@ -316,7 +316,7 @@
             // --- 2. SAVE NEW DATA ---
             var cacheData = {data: serverTeamData, timestamp: Date.now()};
             try { localStorage.setItem(appState.currentTeam.sheetName, JSON.stringify(cacheData)); } catch(e){ console.warn('localStorage save failed', e); }
-            players = serverTeamData.players || [];
+            players = serverPlayers;
             games = serverTeamData.games || [];
             
             // Load stats from server if available

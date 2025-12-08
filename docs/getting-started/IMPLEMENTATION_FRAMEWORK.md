@@ -79,6 +79,8 @@ function getMappedText(fullText) {
 var displayText = getMappedText(originalText);
 ```
 
+Current mapping lives in `src/includes/js-helpers.html` under the `TEXT_MAPPINGS` block—extend that map to add new variants.
+
 **Why This Works**:
 - Single entry handles all variants
 - Preserves important suffixes
@@ -125,6 +127,13 @@ Step 3: Deploy (users may need hard refresh, but it works)
 | Navigation visibility | YES | Embed + bump | Show/hide nav bar, dropdowns |
 | Font sizes | MAYBE | styles.html + bump | Usually non-critical unless affects layout |
 | Flex layout | YES | Embed + bump | Changes which can break layouts |
+
+**Critical CSS checklist (real incidents to avoid repeats)**:
+- Loading overlay position and z-index
+- Insights/menu/nav visibility and toggles
+- Any container that controls height/parent visibility (avoid hidden parents)
+- Modal/backdrop positioning
+- Mobile nav or dropdown hit areas
 
 ---
 
@@ -200,6 +209,8 @@ Question 5: What's the FIRST point of failure?
   
   Fix the root cause, test, verify
 ```
+
+**Canonical example**: Parent visibility/root-cause flow is documented in `docs/postmortems/POST_MORTEM_2025_12_06.md` (missing closing tags causing hidden parent).
 
 **Don't Do This**:
 - ❌ Adjust CSS values randomly hoping it works

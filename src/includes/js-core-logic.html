@@ -62,19 +62,28 @@
         if (!isOwner()) return;
         var nameInput = cachedElements.forms?.newPlayerName || document.getElementById('new-player-name');
         var favPositionSelect = cachedElements.forms?.newPlayerFavPosition || document.getElementById('new-player-fav-position');
+        var fillInCheckbox = document.getElementById('new-player-fill-in');
+        var favoriteCheckbox = document.getElementById('new-player-favorite');
         var name = nameInput.value.trim();
         var favPosition = favPositionSelect.value || null;
+        var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
+        var isFavorite = favoriteCheckbox ? favoriteCheckbox.checked : false;
+        if (isFillIn) isFavorite = false; // Fill-ins should not be marked favorite
         
         if (name) {
             haptic(50); // Haptic feedback
             var newPlayer = createPlayer(name);
             newPlayer.favoritePosition = favPosition;
+            newPlayer.isFillIn = isFillIn;
+            newPlayer.isFavorite = isFavorite;
             players.push(newPlayer);
             saveCurrentTeamData();  
             renderPlayerList();
             hideModal('add-player-modal');
             nameInput.value = "";
             favPositionSelect.value = "";
+            if (fillInCheckbox) fillInCheckbox.checked = false;
+            if (favoriteCheckbox) favoriteCheckbox.checked = false;
         } else {
             showCustomAlert("Input Error", "Player name cannot be empty.");
         }
@@ -89,13 +98,20 @@
         
         var nameInput = cachedElements.forms?.editPlayerName || document.getElementById('edit-player-name');
         var favPositionInput = cachedElements.forms?.editPlayerFavPosition || document.getElementById('edit-player-fav-position');
+        var fillInCheckbox = document.getElementById('edit-player-fill-in');
+        var favoriteCheckbox = document.getElementById('edit-player-favorite');
         var newName = nameInput.value.trim();
         var newFavPosition = favPositionInput.value || null;
+        var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
+        var isFavorite = favoriteCheckbox ? favoriteCheckbox.checked : false;
+        if (isFillIn) isFavorite = false;
         
         if (newName) {
             haptic(50); // Haptic feedback
             player.name = newName;
             player.favoritePosition = newFavPosition;
+            player.isFillIn = isFillIn;
+            player.isFavorite = isFavorite;
             saveCurrentTeamData();
             renderPlayerList();
             hideModal('edit-player-modal');
@@ -177,6 +193,7 @@
             newGame.venue = venue || null;
             newGame.venueLat = venueLat;
             newGame.venueLng = venueLng;
+            newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
             games.unshift(newGame);  
         }
         

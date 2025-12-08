@@ -160,20 +160,54 @@
             listEl.innerHTML = '<div class="empty-state">No players yet</div>';
             return;
         }
-        const html = [];
-        for (var i = 0; i < players.length; i++) {
-            var player = players[i];
+        const regularPlayers = players.filter(function(p){ return !p.isFillIn; });
+        const fillIns = players.filter(function(p){ return p.isFillIn; });
+
+        regularPlayers.sort(function(a,b){
+            if (a.isFavorite === b.isFavorite) return a.name.localeCompare(b.name);
+            return a.isFavorite ? -1 : 1;
+        });
+        fillIns.sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+        const renderPlayerRow = function(player) {
             var editButton = '';
             if (owner) {
-                editButton = '<button class="edit-btn" onclick="showEditPlayerModal(\'' + player.id + '\')" title="Edit Player">&#9998;</button>';
+                editButton = '<div class="player-actions"><button class="edit-btn" onclick="showEditPlayerModal(\'' + player.id + '\')" title="Edit Player">&#9998;</button></div>';
             }
-            html.push(
-                '<div class="list-item">',
-                    '<span onclick="showPlayerDetail(\'' + player.id + '\')">' + player.name + '</span>',
-                    editButton,
+            var badges = [];
+            if (player.isFavorite && !player.isFillIn) badges.push('<span class="badge-fav">★ Favorite</span>');
+            if (player.isFillIn) badges.push('<span class="badge-fillin">Fill-In</span>');
+            var badgeHTML = badges.length ? '<div class="player-badges">' + badges.join('') + '</div>' : '';
+            return (
+                '<div class="player-card">' +
+                    '<div class="player-info">' +
+                        '<div class="player-name" onclick="showPlayerDetail(\'' + player.id + '\')">' + player.name + '</div>' +
+                        badgeHTML +
+                    '</div>' +
+                    editButton +
                 '</div>'
             );
+        };
+
+        const html = [];
+        html.push('<div class="player-section">');
+        html.push('<div class="player-section-title">Team List</div>');
+        if (regularPlayers.length === 0) {
+            html.push('<div class="empty-state">No regular players yet.</div>');
+        } else {
+            regularPlayers.forEach(function(p){ html.push(renderPlayerRow(p)); });
         }
+        html.push('</div>');
+
+        html.push('<div class="player-section">');
+        html.push('<div class="player-section-title">Fill Ins</div>');
+        if (fillIns.length === 0) {
+            html.push('<div class="empty-state">No fill-in players yet.</div>');
+        } else {
+            fillIns.forEach(function(p){ html.push(renderPlayerRow(p)); });
+        }
+        html.push('</div>');
+
         listEl.innerHTML = html.join('');
         // Note: add-player button visibility handled prior to early return to support owners with empty rosters
     }
@@ -3323,14 +3357,23 @@
             return '<option value="' + p.id + '" ' + (game.captainPlayerID === p.id ? 'selected' : '') + '>' + p.name + '</option>';
         }).join('');
         
-        var html = players.map(function(player) {
+        var sortedPlayers = players.slice().sort(function(a,b){
+            if (a.isFillIn !== b.isFillIn) return a.isFillIn ? 1 : -1;
+            if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        var html = sortedPlayers.map(function(player) {
             const isChecked = game.availablePlayerIDs.indexOf(player.id) !== -1;
+            var label = player.name;
+            if (player.isFavorite && !player.isFillIn) label += ' • Favorite';
+            if (player.isFillIn) label += ' (Fill-in)';
             return (
             '<div class="checkbox-group">' +
                 '<input type="checkbox" id="avail_' + game.id + '_' + player.id + '"  ' +
                        'onchange="updatePlayerAvailability(\'' + player.id + '\', this.checked)"  ' +
                        (isChecked ? 'checked' : '') + '>' +
-                '<label for="avail_' + game.id + '_' + player.id + '">' + player.name + '</label>' +
+                '<label for="avail_' + game.id + '_' + player.id + '">' + label + '</label>' +
             '</div>'
             );
         }).join('');

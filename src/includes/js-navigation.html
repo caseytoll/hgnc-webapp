@@ -650,7 +650,9 @@
         if (!game) return;
         
         if (!game.availablePlayerIDs) {
-            game.availablePlayerIDs = players.map(function(p) { return p.id; });
+            game.availablePlayerIDs = players
+                .filter(function(p){ return !p.isFillIn; })
+                .map(function(p) { return p.id; });
             saveCurrentTeamData();  
         }
         
@@ -1002,6 +1004,10 @@
         
         document.getElementById('edit-player-name').value = player.name;
         document.getElementById('edit-player-fav-position').value = player.favoritePosition || '';
+        var fillInCheckbox = document.getElementById('edit-player-fill-in');
+        var favoriteCheckbox = document.getElementById('edit-player-favorite');
+        if (fillInCheckbox) fillInCheckbox.checked = !!player.isFillIn;
+        if (favoriteCheckbox) favoriteCheckbox.checked = !!player.isFavorite;
         showModal('edit-player-modal');
     }
     

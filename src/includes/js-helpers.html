@@ -946,8 +946,20 @@
         return {
             id: uuidv4(),
             name: name,
-            favoritePosition: null // GS, GA, WA, C, WD, GD, GK or null
+            favoritePosition: null, // GS, GA, WA, C, WD, GD, GK or null
+            isFillIn: false,
+            isFavorite: false
         };
+    };
+
+    // Normalize legacy player objects to ensure new fields exist
+    var normalizePlayer = function(player) {
+        if (!player) return player;
+        if (!player.id) player.id = uuidv4();
+        if (player.favoritePosition === undefined) player.favoritePosition = null;
+        if (player.isFillIn === undefined) player.isFillIn = false;
+        if (player.isFavorite === undefined) player.isFavorite = false;
+        return player;
     };
     
     // === TOAST NOTIFICATION SYSTEM ===
