@@ -4331,7 +4331,9 @@
         });
         
         html += '</table>';
+        console.log('[renderLineupDefensiveUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
+        console.log('[renderLineupDefensiveUnits] HTML set, container has', container.children.length, 'children');
     }
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====

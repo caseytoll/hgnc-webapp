@@ -362,11 +362,11 @@
             renderGameList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
         } else if (viewId === 'insights-view') {
-            // Show the menu, hide any sub-views and dashboard
-            var dashboard = document.querySelector('.insights-dashboard');
-            if (dashboard) {
+            // Show the menu, hide any sub-views and all dashboards
+            var dashboards = document.querySelectorAll('.insights-dashboard');
+            dashboards.forEach(function(dashboard) {
                 dashboard.classList.add('hidden');
-            }
+            });
             // Hide all sub-views
             document.getElementById('insights-team-record-view').classList.add('hidden');
             document.getElementById('insights-player-stats-view').classList.add('hidden');
@@ -542,7 +542,11 @@
                 showView('team-selector-view');
                 return;
             }
-            document.getElementById('insights-lineup-defensive-units-view').classList.remove('hidden');
+            var view = document.getElementById('insights-lineup-defensive-units-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) dashboard.classList.remove('hidden');
             console.log('[showView] Calling renderLineupDefensiveUnits');
             try { renderLineupDefensiveUnits(); } catch (e) { console.error('Error rendering Defensive Units view:', e); }
             return;
@@ -555,7 +559,11 @@
                 showView('team-selector-view');
                 return;
             }
-            document.getElementById('insights-lineup-attacking-units-view').classList.remove('hidden');
+            var view = document.getElementById('insights-lineup-attacking-units-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) dashboard.classList.remove('hidden');
             console.log('[showView] Calling renderLineupAttackingUnits');
             try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
             return;
@@ -568,7 +576,11 @@
                 showView('team-selector-view');
                 return;
             }
-            document.getElementById('insights-lineup-position-pairings-view').classList.remove('hidden');
+            var view = document.getElementById('insights-lineup-position-pairings-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) dashboard.classList.remove('hidden');
             console.log('[showView] Calling renderLineupPositionPairings');
             try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
             return;
