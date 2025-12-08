@@ -95,18 +95,22 @@
         var fillInCheckbox = document.getElementById('edit-player-fill-in');
         var newName = nameInput.value.trim();
         var newFavPosition = favPositionInput.value || null;
-        var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
         
-        console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'N/A');
-        console.log('[updatePlayer] isFillIn:', isFillIn);
+        // Debug: log checkbox state
+        console.log('[updatePlayer] fillInCheckbox element:', fillInCheckbox);
+        console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'null');
+        console.log('[updatePlayer] fillInCheckbox.value:', fillInCheckbox ? fillInCheckbox.value : 'null');
+        
+        var isFillIn = fillInCheckbox && fillInCheckbox.checked === true;
+        console.log('[updatePlayer] isFillIn (final):', isFillIn);
 
         if (newName) {
             haptic(50); // Haptic feedback
+            var oldFillIn = player.isFillIn;
             player.name = newName;
             player.favoritePosition = newFavPosition;
             player.isFillIn = isFillIn;
-            // isFavorite is not changed from edit modal—only set via list sorting
-            console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', player.isFillIn, 'isFavorite:', player.isFavorite);
+            console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', oldFillIn, '→', player.isFillIn, 'isFavorite:', player.isFavorite);
             saveCurrentTeamData();
             renderPlayerList();
             hideModal('edit-player-modal');
