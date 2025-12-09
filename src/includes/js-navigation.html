@@ -589,7 +589,18 @@
             } else {
                 console.error('[showView] Dashboard NOT found in player analysis view!');
             }
-            try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
+            try { 
+                renderInsightsPlayerAnalysis(); 
+                // Fix height collapse after rendering
+                setTimeout(function() {
+                    if (dashboard && dashboard.scrollHeight > 0) {
+                        view.style.minHeight = dashboard.scrollHeight + 'px';
+                        console.log('[showView] Set view minHeight to', dashboard.scrollHeight, 'px');
+                    }
+                }, 50);
+            } catch (e) { 
+                console.error('Error rendering Player Analysis view:', e); 
+            }
             return;
         }
 
