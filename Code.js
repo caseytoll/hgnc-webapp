@@ -1382,9 +1382,23 @@ function computeLineupStats(sheetName) {
   var teamData = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
   var games = teamData.games || [];
   
+  Logger.log('[computeLineupStats] Processing ' + games.length + ' games');
+  games.forEach(function(game, idx) {
+    if (game.lineup && game.lineup.length > 0) {
+      Logger.log('[computeLineupStats] Game ' + idx + ' has lineup with ' + game.lineup.length + ' quarters');
+      Logger.log('[computeLineupStats] Sample quarter: ' + JSON.stringify(game.lineup[0]));
+    } else {
+      Logger.log('[computeLineupStats] Game ' + idx + ' has NO lineup data');
+    }
+  });
+  
   var defensiveUnitStats = calculateDefensiveUnitStatsFromData(games);
   var attackingUnitStats = calculateAttackingUnitStatsFromData(games);
   var positionPairingStats = calculatePositionPairingStatsFromData(games);
+  
+  Logger.log('[computeLineupStats] Defensive units calculated: ' + Object.keys(defensiveUnitStats).length);
+  Logger.log('[computeLineupStats] Attacking units calculated: ' + Object.keys(attackingUnitStats).length);
+  Logger.log('[computeLineupStats] Position pairings calculated: ' + Object.keys(positionPairingStats).length);
   
   return {
     defensiveUnitStats: defensiveUnitStats,

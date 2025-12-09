@@ -176,20 +176,33 @@
             var hash = window.location.hash.replace('#', '');
             var viewId = hash || 'insights-lineup-defensive-units-view';
             
+            console.log('[Lineup Page] URL hash:', window.location.hash);
+            console.log('[Lineup Page] Parsed hash:', hash);
+            console.log('[Lineup Page] Target viewId:', viewId);
+            
             document.querySelectorAll('.view').forEach(function(v) { v.classList.add('hidden'); });
             var view = document.getElementById(viewId);
+            console.log('[Lineup Page] Found view element:', view);
             if (view) {
               view.classList.remove('hidden');
               view.querySelector('.insights-dashboard').classList.remove('hidden');
+              console.log('[Lineup Page] Showing view:', viewId);
+            } else {
+              console.error('[Lineup Page] View not found:', viewId);
             }
             
             // Render based on view
             if (viewId === 'insights-lineup-defensive-units-view') {
+              console.log('[Lineup Page] Rendering defensive units, stats:', response.defensiveUnitStats);
               renderDefensiveUnits(response.defensiveUnitStats);
             } else if (viewId === 'insights-lineup-attacking-units-view') {
+              console.log('[Lineup Page] Rendering attacking units, stats:', response.attackingUnitStats);
               renderAttackingUnits(response.attackingUnitStats);
             } else if (viewId === 'insights-lineup-position-pairings-view') {
+              console.log('[Lineup Page] Rendering position pairings, stats:', response.positionPairingStats);
               renderPositionPairings(response.positionPairingStats);
+            } else {
+              console.error('[Lineup Page] Unknown viewId, not rendering:', viewId);
             }
             
             setLoading(false);
