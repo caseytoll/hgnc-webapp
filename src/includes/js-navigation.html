@@ -596,6 +596,19 @@
                     console.log('[showView] setTimeout executing, dashboard:', !!dashboard);
                     if (dashboard) {
                         console.log('[showView] Dashboard scrollHeight:', dashboard.scrollHeight, 'offsetHeight:', dashboard.offsetHeight);
+                        
+                        // If dashboard has no height, check children
+                        var dashboardSection = dashboard.querySelector('.dashboard-section');
+                        if (dashboardSection) {
+                            console.log('[showView] Dashboard section scrollHeight:', dashboardSection.scrollHeight);
+                            if (dashboardSection.scrollHeight > 0) {
+                                dashboard.style.minHeight = dashboardSection.scrollHeight + 'px';
+                                view.style.minHeight = dashboardSection.scrollHeight + 'px';
+                                console.log('[showView] Set heights based on dashboard-section:', dashboardSection.scrollHeight, 'px');
+                                console.log('[showView] View offsetHeight now:', view.offsetHeight);
+                                return;
+                            }
+                        }
                     }
                     if (dashboard && dashboard.scrollHeight > 0) {
                         view.style.minHeight = dashboard.scrollHeight + 'px';
