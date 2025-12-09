@@ -1339,31 +1339,69 @@ function clearApplicationLogs(type) {
  * Get pre-calculated lineup statistics for the lineup analytics page
  * This avoids sending massive JS files to the client
  */
+/**
+ * Get lineup stats from cache if available, otherwise calculate and cache
+ * This removes heavy computation from the click path, keeping UX snappy
+ */
 function getLineupStats(sheetName) {
   try {
-    var ss = getSpreadsheet();
-    var teamSheet = ss.getSheetByName(sheetName);
-    if (!teamSheet) {
-      throw new Error('Team data sheet not found: ' + sheetName);
+    var cacheKey = 'lineupStats_' + sheetName;
+    var cache = CacheService.getUserCache();
+    var cached = cache.get(cacheKey);
+    
+    if (cached) {
+      Logger.log('[getLineupStats] Cache hit for ' + sheetName);
+      return JSON.parse(cached);
     }
-    var teamDataJSON = teamSheet.getRange('A1').getValue();
-    var teamData = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
-    var games = teamData.games || [];
     
-    // Calculate lineup stats server-side
-    var defensiveUnitStats = calculateDefensiveUnitStatsFromData(games);
-    var attackingUnitStats = calculateAttackingUnitStatsFromData(games);
-    var positionPairingStats = calculatePositionPairingStatsFromData(games);
+    Logger.log('[getLineupStats] Cache miss, computing stats for ' + sheetName);
+    var stats = computeLineupStats(sheetName);
     
-    return {
-      defensiveUnitStats: defensiveUnitStats,
-      attackingUnitStats: attackingUnitStats,
-      positionPairingStats: positionPairingStats
-    };
+    // Cache for 6 hours (21600 seconds)
+    cache.put(cacheKey, JSON.stringify(stats), 21600);
+    Logger.log('[getLineupStats] Cached stats for ' + sheetName);
+    
+    return stats;
   } catch (error) {
     Logger.log('Error in getLineupStats: ' + error.toString());
     throw new Error('Failed to calculate lineup stats: ' + error.message);
   }
+}
+
+/**
+ * Compute lineup stats from raw game data
+ * Separated so it can be called by cache refresh triggers
+ */
+function computeLineupStats(sheetName) {
+  var ss = getSpreadsheet();
+  var teamSheet = ss.getSheetByName(sheetName);
+  if (!teamSheet) {
+    throw new Error('Team data sheet not found: ' + sheetName);
+  }
+  var teamDataJSON = teamSheet.getRange('A1').getValue();
+  var teamData = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
+  var games = teamData.games || [];
+  
+  var defensiveUnitStats = calculateDefensiveUnitStatsFromData(games);
+  var attackingUnitStats = calculateAttackingUnitStatsFromData(games);
+  var positionPairingStats = calculatePositionPairingStatsFromData(games);
+  
+  return {
+    defensiveUnitStats: defensiveUnitStats,
+    attackingUnitStats: attackingUnitStats,
+    positionPairingStats: positionPairingStats,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Invalidate cached stats when data changes
+ * Call this from onEdit or other data update triggers
+ */
+function invalidateLineupCache(sheetName) {
+  var cacheKey = 'lineupStats_' + sheetName;
+  CacheService.getUserCache().remove(cacheKey);
+  Logger.log('[invalidateLineupCache] Cleared cache for ' + sheetName);
 }
 
 function calculateDefensiveUnitStatsFromData(games) {
@@ -1449,4 +1487,32 @@ function calculatePositionPairingStatsFromData(games) {
     }
   });
   return filtered;
+}
+
+/**
+ * Clears lineup cache when document changes
+ * Called automatically on edit events
+ */
+function onEdit(e) {
+  try {
+    Logger.log('[onEdit] Sheet changed, invalidating lineup cache');
+    // Invalidate all lineup caches when any data changes
+    var cache = CacheService.getUserCache();
+    var keys = ['lineupStats_'];
+    // Clear all lineup stat caches
+    try {
+      cache.remove('lineupStats_');
+    } catch (err) {
+      Logger.log('[onEdit] No cache entries to clear');
+    }
+    // Also try pattern removal if available
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ss.getSheets();
+    sheets.forEach(function(sheet) {
+      var sheetName = sheet.getName();
+      invalidateLineupCache(sheetName);
+    });
+  } catch (e) {
+    Logger.log('[onEdit] Error clearing cache: ' + e.toString());
+  }
 }

@@ -110,6 +110,29 @@
       }
     }
     
+    // Show skeleton/shell UI for perceived speed
+    function showLoadingShell() {
+      var defensiveEl = document.getElementById('lineup-defensive-units-table');
+      var attackingEl = document.getElementById('lineup-attacking-units-table');
+      var pairingEl = document.getElementById('lineup-position-pairings-content');
+      
+      var skeleton = '<div class="skeleton-table" style="animation: pulse 1.5s ease-in-out infinite;">' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '</div>';
+      
+      if (defensiveEl) defensiveEl.innerHTML = skeleton;
+      if (attackingEl) attackingEl.innerHTML = skeleton;
+      if (pairingEl) pairingEl.innerHTML = skeleton;
+    }
+    
+    // Hide skeleton UI
+    function hideLoadingShell() {
+      // Shells will be replaced with actual content during render
+      // So this is mainly a no-op, but useful for future enhancements
+    }
+    
     // Lineup page initialization
     document.addEventListener('DOMContentLoaded', function() {
       console.log('[Lineup Page] DOMContentLoaded');
@@ -131,12 +154,15 @@
         console.log('[Lineup Page] Loading for:', state.currentTeam.name);
         window.appState = state;
         
-        setLoading(true, 'Loading team data...');
+        // Show loading shell immediately (perceived speed)
+        showLoadingShell();
+        setLoading(true, 'Loading stats...');
         
-        // Load pre-calculated stats from server
+        // Load pre-calculated stats from server (cached on server = fast)
         google.script.run
           .withSuccessHandler(function(response) {
             console.log('[Lineup Page] Received stats:', response);
+            hideLoadingShell();
             
             if (!response || !response.defensiveUnitStats) {
               console.error('[Lineup Page] No lineup stats in response');
@@ -170,6 +196,7 @@
           })
           .withFailureHandler(function(error) {
             console.error('[Lineup Page] Load failed:', error);
+            hideLoadingShell();
             setLoading(false);
             alert('Failed to load data: ' + error.message);
             window.location.href = window.APP_URL;
@@ -178,6 +205,7 @@
           
       } catch (e) {
         console.error('[Lineup Page] Init error:', e);
+        hideLoadingShell();
         alert('Error: ' + e.message);
         window.location.href = window.APP_URL;
       }
