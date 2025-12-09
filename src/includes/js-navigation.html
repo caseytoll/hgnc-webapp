@@ -5,47 +5,51 @@
     var navigationHistory = [];
     var maxHistoryLength = 20;
     
-    // Navigate to lineup analytics page (separate HTML to avoid 50KB limit)
+    // Navigate to lineup analytics (LAZY-LOADED MODULE - NO PAGE NAVIGATION)
     function navigateToLineupPage(viewType) {
-        // Save current app state to localStorage
         try {
-            // Show loading indicator
-            setLoading(true, 'Loading lineup analytics...');
-            
             // Validate we have team data
             if (!window.appState || !window.appState.currentTeam || !window.appState.currentTeam.sheetName) {
-                console.error('Cannot navigate to lineup page: No team selected');
-                setLoading(false);
-                alert('Please select a team first');
+                console.error('Cannot show lineup: No team selected');
+                showToast('Please select a team first');
                 return;
             }
             
-            // Save state with all necessary data
-            var stateToSave = {
-                currentTeam: {
-                    teamID: window.appState.currentTeam.teamID,
-                    sheetName: window.appState.currentTeam.sheetName,
-                    name: window.appState.currentTeam.name
-                }
-            };
+            // Show loading state
+            setLoading(true, 'Loading lineup analytics...');
             
-            console.log('Saving state to localStorage:', stateToSave);
-            localStorage.setItem('appState', JSON.stringify(stateToSave));
+            // Determine target view ID
+            var viewId = '';
+            if (viewType === 'defensive-units') viewId = 'insights-lineup-defensive-units-view';
+            else if (viewType === 'attacking-units') viewId = 'insights-lineup-attacking-units-view';
+            else if (viewType === 'position-pairings') viewId = 'insights-lineup-position-pairings-view';
             
-            // Navigate to lineup page with hash for specific view
-            var baseUrl = window.APP_URL || (window.location.origin + window.location.pathname);
-            var hash = '';
-            if (viewType === 'defensive-units') hash = '#insights-lineup-defensive-units-view';
-            else if (viewType === 'attacking-units') hash = '#insights-lineup-attacking-units-view';
-            else if (viewType === 'position-pairings') hash = '#insights-lineup-position-pairings-view';
+            // Lazy-load lineup module if not already loaded
+            if (!window._LINEUP_MODULE_LOADED) {
+                console.log('[Navigation] Lazy-loading lineup module...');
+                
+                // Dynamic script injection - only loads 8KB module when needed
+                var script = document.createElement('script');
+                script.textContent = <?!= include('js-lineup-lazy').getContent() ?>;
+                document.head.appendChild(script);
+                
+                // Wait for module to initialize
+                setTimeout(function() {
+                    showView(viewId);
+                    window.loadLineupStats(viewType);
+                    setLoading(false);
+                }, 50);
+            } else {
+                // Module already loaded - instant show
+                showView(viewId);
+                window.loadLineupStats(viewType);
+                setLoading(false);
+            }
             
-            var targetUrl = baseUrl + '?page=lineup' + hash;
-            console.log('Navigating to:', targetUrl);
-            window.location.href = targetUrl;
         } catch (e) {
-            console.error('Failed to navigate to lineup page:', e);
+            console.error('Failed to show lineup:', e);
             setLoading(false);
-            alert('Navigation failed: ' + e.message);
+            showToast('Error loading lineup: ' + e.message);
         }
     }
 

@@ -18,6 +18,11 @@
         // Mark stats as stale since data changed
         markStatsStale();
         
+        // Invalidate lineup cache (if lazy module loaded)
+        if (window.invalidateLineupCache) {
+            window.invalidateLineupCache();
+        }
+        
         console.log("Syncing data for " + appState.currentTeam.sheetName + "...");
         google.script.run
             .withSuccessHandler(onSaveSuccess)
