@@ -568,7 +568,6 @@
         }
         
         if (viewId === 'insights-player-analysis-view') {
-            console.log('[showView] Player Analysis view requested');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
@@ -576,48 +575,16 @@
             }
             // Sub-views are now siblings, just show the sub-view
             var view = document.getElementById('insights-player-analysis-view');
-            console.log('[showView] View found:', !!view);
             view.classList.remove('hidden');
-            view.style.visibility = 'visible'; // Override inherited visibility: hidden
+            view.style.visibility = 'visible';
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
-            console.log('[showView] Dashboard found:', !!dashboard);
             if (dashboard) {
                 dashboard.classList.remove('hidden');
-                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
-                console.log('[showView] Dashboard visibility set to visible');
-            } else {
-                console.error('[showView] Dashboard NOT found in player analysis view!');
+                dashboard.style.visibility = 'visible';
             }
             try { 
                 renderInsightsPlayerAnalysis(); 
-                // Fix height collapse after rendering
-                setTimeout(function() {
-                    console.log('[showView] setTimeout executing, dashboard:', !!dashboard);
-                    if (dashboard) {
-                        console.log('[showView] Dashboard scrollHeight:', dashboard.scrollHeight, 'offsetHeight:', dashboard.offsetHeight);
-                        
-                        // If dashboard has no height, check children
-                        var dashboardSection = dashboard.querySelector('.dashboard-section');
-                        if (dashboardSection) {
-                            console.log('[showView] Dashboard section scrollHeight:', dashboardSection.scrollHeight);
-                            if (dashboardSection.scrollHeight > 0) {
-                                dashboard.style.minHeight = dashboardSection.scrollHeight + 'px';
-                                view.style.minHeight = dashboardSection.scrollHeight + 'px';
-                                console.log('[showView] Set heights based on dashboard-section:', dashboardSection.scrollHeight, 'px');
-                                console.log('[showView] View offsetHeight now:', view.offsetHeight);
-                                return;
-                            }
-                        }
-                    }
-                    if (dashboard && dashboard.scrollHeight > 0) {
-                        view.style.minHeight = dashboard.scrollHeight + 'px';
-                        console.log('[showView] Set view minHeight to', dashboard.scrollHeight, 'px');
-                        console.log('[showView] View offsetHeight now:', view.offsetHeight);
-                    } else {
-                        console.warn('[showView] Dashboard scrollHeight is 0, cannot fix height');
-                    }
-                }, 50);
             } catch (e) { 
                 console.error('Error rendering Player Analysis view:', e); 
             }

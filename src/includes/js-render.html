@@ -2622,7 +2622,6 @@
 
     // Render Player Analysis view
     const renderInsightsPlayerAnalysis = () => {
-        console.log('[renderInsightsPlayerAnalysis] Called. window.calculatedSeasonStats:', window.calculatedSeasonStats);
         if (window.DEBUG) console.debug('renderInsightsPlayerAnalysis called', { hasStats: !!window.calculatedSeasonStats, playerCount: window.calculatedSeasonStats && window.calculatedSeasonStats.playerSpotlights ? window.calculatedSeasonStats.playerSpotlights.length : 0 });
         const stats = window.calculatedSeasonStats;
         const table = document.getElementById('insights-player-analysis-table');
@@ -2648,13 +2647,10 @@
 
         // Populate Superlatives
         const superlatives = stats.superlatives || {};
-        console.log('[renderInsightsPlayerAnalysis] Superlatives:', superlatives);
-        console.log('[renderInsightsPlayerAnalysis] Stats keys:', Object.keys(stats).slice(0, 10));
 
         // Top Gun
         const topGunEl = document.getElementById('top-gun-name');
         const topGunDetailEl = document.getElementById('top-gun-detail');
-        console.log('[renderInsightsPlayerAnalysis] topGunEl found:', !!topGunEl, ', superlatives.topGun:', superlatives.topGun);
         if (topGunEl && superlatives.topGun) {
             topGunEl.textContent = superlatives.topGun.name;
             topGunDetailEl.textContent = `${superlatives.topGun.value} goals scored`;
@@ -2697,7 +2693,6 @@
         }
 
         // Populate Player Performance Table
-        console.log('[renderInsightsPlayerAnalysis] About to call renderPlayerAnalysisTable');
         renderPlayerAnalysisTable('goals'); // Default sort by goals
         // Defensive: ensure the table shows an empty state if no players were found
         if (table && (!stats.playerSpotlights || stats.playerSpotlights.length === 0)) {
@@ -2708,17 +2703,13 @@
 
     // Helper function to render player analysis table with different sorts
     const renderPlayerAnalysisTable = (sortBy) => {
-        console.log('[renderPlayerAnalysisTable] Called with sortBy:', sortBy);
         const stats = window.calculatedSeasonStats;
-        console.log('[renderPlayerAnalysisTable] stats:', stats);
-        console.log('[renderPlayerAnalysisTable] stats.playerSpotlights:', stats?.playerSpotlights);
         if (!stats || !stats.playerSpotlights) {
             console.warn('[renderPlayerAnalysisTable] No stats or playerSpotlights');
             return;
         }
 
         let sortedPlayers = stats.playerSpotlights ? [...stats.playerSpotlights] : [];
-        console.log('[renderPlayerAnalysisTable] sortedPlayers count:', sortedPlayers.length);
 
         switch (sortBy) {
             case 'goals':
@@ -2738,7 +2729,6 @@
         }
 
         const table = document.getElementById('insights-player-analysis-table');
-        console.log('[renderPlayerAnalysisTable] table element found:', !!table);
         if (!table) {
             console.error('[renderPlayerAnalysisTable] Table element not found!');
             return;
@@ -2776,7 +2766,6 @@
                 </tr>
             `;
             });
-            console.log('[renderPlayerAnalysisTable] HTML generated, length:', html.length);
         } catch (e) {
             console.error('Error rendering player analysis table:', e);
             table.innerHTML = '<thead><tr><th>Player</th><th>Games</th><th>Goals</th><th>Versatility</th><th>Top Positions</th></tr></thead>' +
@@ -2786,21 +2775,6 @@
 
         html += '</tbody>';
         table.innerHTML = html;
-        console.log('[renderPlayerAnalysisTable] Table HTML set. Final length:', table.innerHTML.length);
-        
-        // DEBUG: Check parent visibility chain
-        const view = document.getElementById('insights-player-analysis-view');
-        if (view) {
-            const computed = getComputedStyle(view);
-            console.log('[renderPlayerAnalysisTable] View element check:', {
-                hasHiddenClass: view.classList.contains('hidden'),
-                display: computed.display,
-                visibility: computed.visibility,
-                height: computed.height,
-                offsetHeight: view.offsetHeight,
-                scrollHeight: view.scrollHeight
-            });
-        }
     };
 
     // Function to set player analysis sort
