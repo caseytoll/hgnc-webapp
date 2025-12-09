@@ -2738,7 +2738,11 @@
         }
 
         const table = document.getElementById('insights-player-analysis-table');
-        if (!table) return;
+        console.log('[renderPlayerAnalysisTable] table element found:', !!table);
+        if (!table) {
+            console.error('[renderPlayerAnalysisTable] Table element not found!');
+            return;
+        }
 
         if (sortedPlayers.length === 0) {
             table.innerHTML = '<thead><tr><th>Player</th><th>Games</th><th>Goals</th><th>Versatility</th><th>Top Positions</th></tr></thead>' +
@@ -2772,6 +2776,7 @@
                 </tr>
             `;
             });
+            console.log('[renderPlayerAnalysisTable] HTML generated, length:', html.length);
         } catch (e) {
             console.error('Error rendering player analysis table:', e);
             table.innerHTML = '<thead><tr><th>Player</th><th>Games</th><th>Goals</th><th>Versatility</th><th>Top Positions</th></tr></thead>' +
@@ -2781,6 +2786,7 @@
 
         html += '</tbody>';
         table.innerHTML = html;
+        console.log('[renderPlayerAnalysisTable] Table HTML set. Final length:', table.innerHTML.length);
     };
 
     // Function to set player analysis sort
