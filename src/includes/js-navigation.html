@@ -28,9 +28,9 @@
             if (!window._LINEUP_MODULE_LOADED) {
                 console.log('[Navigation] Lazy-loading lineup module...');
                 
-                // Dynamic script injection - only loads 8KB module when needed
+                // Dynamic script injection - module loads on-demand
                 var script = document.createElement('script');
-                script.textContent = <?!= include('js-lineup-lazy').getContent() ?>;
+                script.innerHTML = `<?!= include('js-lineup-lazy') ?>`;
                 document.head.appendChild(script);
                 
                 // Wait for module to initialize
@@ -38,7 +38,7 @@
                     showView(viewId);
                     window.loadLineupStats(viewType);
                     setLoading(false);
-                }, 50);
+                }, 100);
             } else {
                 // Module already loaded - instant show
                 showView(viewId);
