@@ -574,7 +574,14 @@
                 return;
             }
             // Sub-views are now siblings, just show the sub-view
-            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
+            var view = document.getElementById('insights-player-analysis-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+            }
             try { renderInsightsPlayerAnalysis(); } catch (e) { console.error('Error rendering Player Analysis view:', e); }
             return;
         }
