@@ -5,7 +5,7 @@
     var navigationHistory = [];
     var maxHistoryLength = 20;
     
-    // Navigate to lineup analytics (LAZY-LOADED MODULE - NO PAGE NAVIGATION)
+    // Navigate to lineup analytics (INSTANT - NO PAGE NAVIGATION)
     function navigateToLineupPage(viewType) {
         try {
             // Validate we have team data
@@ -15,40 +15,33 @@
                 return;
             }
             
-            // Show loading state
-            setLoading(true, 'Loading lineup analytics...');
-            
             // Determine target view ID
             var viewId = '';
             if (viewType === 'defensive-units') viewId = 'insights-lineup-defensive-units-view';
             else if (viewType === 'attacking-units') viewId = 'insights-lineup-attacking-units-view';
             else if (viewType === 'position-pairings') viewId = 'insights-lineup-position-pairings-view';
             
-            // Lazy-load lineup module if not already loaded
-            if (!window._LINEUP_MODULE_LOADED) {
-                console.log('[Navigation] Lazy-loading lineup module...');
-                
-                // Dynamic script injection - module loads on-demand
-                var script = document.createElement('script');
-                script.innerHTML = `<?!= include('js-lineup-lazy') ?>`;
-                document.head.appendChild(script);
-                
-                // Wait for module to initialize
-                setTimeout(function() {
-                    showView(viewId);
-                    window.loadLineupStats(viewType);
-                    setLoading(false);
-                }, 100);
-            } else {
-                // Module already loaded - instant show
-                showView(viewId);
+            // Show view immediately
+            showView(viewId);
+            
+            // Lazy-load stats computation if not already loaded
+            if (!window.loadLineupStats) {
+                console.log('[Navigation] Initializing lineup stats module...');
+                // Module is already embedded in page via include, just needs init
+                if (window.initLineupModule) {
+                    window.initLineupModule();
+                }
+            }
+            
+            // Load/render stats
+            if (window.loadLineupStats) {
                 window.loadLineupStats(viewType);
-                setLoading(false);
+            } else {
+                showToast('Lineup stats not available');
             }
             
         } catch (e) {
             console.error('Failed to show lineup:', e);
-            setLoading(false);
             showToast('Error loading lineup: ' + e.message);
         }
     }
