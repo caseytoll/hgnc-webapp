@@ -593,9 +593,16 @@
                 renderInsightsPlayerAnalysis(); 
                 // Fix height collapse after rendering
                 setTimeout(function() {
+                    console.log('[showView] setTimeout executing, dashboard:', !!dashboard);
+                    if (dashboard) {
+                        console.log('[showView] Dashboard scrollHeight:', dashboard.scrollHeight, 'offsetHeight:', dashboard.offsetHeight);
+                    }
                     if (dashboard && dashboard.scrollHeight > 0) {
                         view.style.minHeight = dashboard.scrollHeight + 'px';
                         console.log('[showView] Set view minHeight to', dashboard.scrollHeight, 'px');
+                        console.log('[showView] View offsetHeight now:', view.offsetHeight);
+                    } else {
+                        console.warn('[showView] Dashboard scrollHeight is 0, cannot fix height');
                     }
                 }, 50);
             } catch (e) { 
