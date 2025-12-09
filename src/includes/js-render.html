@@ -2708,10 +2708,17 @@
 
     // Helper function to render player analysis table with different sorts
     const renderPlayerAnalysisTable = (sortBy) => {
-        const stats = calculatedSeasonStats;
-        if (!stats || !stats.playerSpotlights) return;
+        console.log('[renderPlayerAnalysisTable] Called with sortBy:', sortBy);
+        const stats = window.calculatedSeasonStats;
+        console.log('[renderPlayerAnalysisTable] stats:', stats);
+        console.log('[renderPlayerAnalysisTable] stats.playerSpotlights:', stats?.playerSpotlights);
+        if (!stats || !stats.playerSpotlights) {
+            console.warn('[renderPlayerAnalysisTable] No stats or playerSpotlights');
+            return;
+        }
 
         let sortedPlayers = stats.playerSpotlights ? [...stats.playerSpotlights] : [];
+        console.log('[renderPlayerAnalysisTable] sortedPlayers count:', sortedPlayers.length);
 
         switch (sortBy) {
             case 'goals':
