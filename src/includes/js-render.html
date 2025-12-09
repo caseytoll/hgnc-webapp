@@ -2622,11 +2622,13 @@
 
     // Render Player Analysis view
     const renderInsightsPlayerAnalysis = () => {
-        if (window.DEBUG) console.debug('renderInsightsPlayerAnalysis called', { hasStats: !!calculatedSeasonStats, playerCount: calculatedSeasonStats && calculatedSeasonStats.playerSpotlights ? calculatedSeasonStats.playerSpotlights.length : 0 });
-        const stats = calculatedSeasonStats;
+        console.log('[renderInsightsPlayerAnalysis] Called. window.calculatedSeasonStats:', window.calculatedSeasonStats);
+        if (window.DEBUG) console.debug('renderInsightsPlayerAnalysis called', { hasStats: !!window.calculatedSeasonStats, playerCount: window.calculatedSeasonStats && window.calculatedSeasonStats.playerSpotlights ? window.calculatedSeasonStats.playerSpotlights.length : 0 });
+        const stats = window.calculatedSeasonStats;
         const table = document.getElementById('insights-player-analysis-table');
         
         if (!stats) {
+            console.warn('[renderInsightsPlayerAnalysis] No stats available');
             // Show empty state for superlatives
             ['top-gun-name', 'iron-woman-name', 'swiss-army-name', 'leader-name'].forEach(id => {
                 const el = document.getElementById(id);
