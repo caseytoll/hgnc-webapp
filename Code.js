@@ -141,6 +141,7 @@ function include(filename) {
     'js-core-logic': 'src/includes/js-core-logic.html',
     'js-render': 'src/includes/js-render.html',
     'js-validation': 'src/includes/js-validation.html',
+    'js-lineup-lazy': 'src/includes/js-lineup-lazy.html',
     'src/includes/inline-scripts-pre-main': 'src/includes/inline-scripts-pre-main.html',
     'src/includes/main-views': 'src/includes/main-views.html',
     'src/includes/js-dom-ready-init': 'src/includes/js-dom-ready-init.html'
