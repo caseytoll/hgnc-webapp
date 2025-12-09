@@ -2787,6 +2787,20 @@
         html += '</tbody>';
         table.innerHTML = html;
         console.log('[renderPlayerAnalysisTable] Table HTML set. Final length:', table.innerHTML.length);
+        
+        // DEBUG: Check parent visibility chain
+        const view = document.getElementById('insights-player-analysis-view');
+        if (view) {
+            const computed = getComputedStyle(view);
+            console.log('[renderPlayerAnalysisTable] View element check:', {
+                hasHiddenClass: view.classList.contains('hidden'),
+                display: computed.display,
+                visibility: computed.visibility,
+                height: computed.height,
+                offsetHeight: view.offsetHeight,
+                scrollHeight: view.scrollHeight
+            });
+        }
     };
 
     // Function to set player analysis sort
