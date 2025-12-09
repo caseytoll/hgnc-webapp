@@ -92,7 +92,7 @@
           });
         })();
       </script>
-    </div><!-- End insights-view -->
+    </div>
 
     <!-- TEAM PERFORMANCE DASHBOARD SUB-VIEW -->
     <div id="insights-team-performance-view" class="view hidden">
@@ -943,7 +943,19 @@
         </div>
       </div>
     </div>
-  </main>
+
+    </div><!-- End insights-view -->
+
+    <!-- FIXTURE VIEW -->
+    <div id="fixture-view" class="view hidden">
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Games</h2><button id="show-add-game-modal" class="icon-btn hidden">➕</button>
+        </div>
+        <div id="game-list"></div>
+      </section>
+    </div>
+
   <div id="edit-team-modal" class="modal-overlay hidden" onclick=
   "closeModal(event, 'edit-team-modal')">
     <div class="modal-content">
@@ -1076,16 +1088,6 @@
         "hideModal('share-lineup-modal')">Close</button>
       </div>
     </div>
-  </div>
-
-  <!-- FIXTURE VIEW -->
-  <div id="fixture-view" class="view hidden">
-    <section class="card">
-      <div class="card-header">
-        <h2 class="card-title">Games</h2><button id="show-add-game-modal" class="icon-btn hidden">➕</button>
-      </div>
-      <div id="game-list"></div>
-    </section>
   </div>
 
   <div id="season-summary-view" class="view hidden">
