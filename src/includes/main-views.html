@@ -789,63 +789,63 @@
             <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
           </div>
 
-      <section class="card" style="background: transparent; box-shadow: none;">
-        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player Analysis</h3>
-        <p class="card-subtitle" style="display: none;">Individual player performance metrics and versatility analysis</p>
+          <section class="card" style="background: transparent; box-shadow: none;">
+            <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player Analysis</h3>
+            <p class="card-subtitle" style="display: none;">Individual player performance metrics and versatility analysis</p>
 
-        <!-- Player Superlatives Section -->
-        <div class="dashboard-section">
-          <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Superlatives</h4>
-          <div class="superlatives-grid">
-            <div class="superlative-card" id="superlative-top-gun">
-              <div class="superlative-icon">🏆</div>
-              <div class="superlative-content">
-                <h5 class="superlative-title">Top Gun</h5>
-                <p class="superlative-value" id="top-gun-name">—</p>
-                <p class="superlative-detail" id="top-gun-detail">Most goals scored</p>
+            <!-- Player Superlatives Section -->
+            <div class="dashboard-section">
+              <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Superlatives</h4>
+              <div class="superlatives-grid">
+                <div class="superlative-card" id="superlative-top-gun">
+                  <div class="superlative-icon">🏆</div>
+                  <div class="superlative-content">
+                    <h5 class="superlative-title">Top Gun</h5>
+                    <p class="superlative-value" id="top-gun-name">—</p>
+                    <p class="superlative-detail" id="top-gun-detail">Most goals scored</p>
+                  </div>
+                </div>
+                <div class="superlative-card" id="superlative-iron-woman">
+                  <div class="superlative-icon">💪</div>
+                  <div class="superlative-content">
+                    <h5 class="superlative-title">Iron Woman</h5>
+                    <p class="superlative-value" id="iron-woman-name">—</p>
+                    <p class="superlative-detail" id="iron-woman-detail">Most quarters played</p>
+                  </div>
+                </div>
+                <div class="superlative-card" id="superlative-swiss-army">
+                  <div class="superlative-icon">🔧</div>
+                  <div class="superlative-content">
+                    <h5 class="superlative-title">Swiss Army Knife</h5>
+                    <p class="superlative-value" id="swiss-army-name">—</p>
+                    <p class="superlative-detail" id="swiss-army-detail">Most versatile player</p>
+                  </div>
+                </div>
+                <div class="superlative-card" id="superlative-leader">
+                  <div class="superlative-icon">👑</div>
+                  <div class="superlative-content">
+                    <h5 class="superlative-title">Team Leader</h5>
+                    <p class="superlative-value" id="leader-name">—</p>
+                    <p class="superlative-detail" id="leader-detail">Most captaincies</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="superlative-card" id="superlative-iron-woman">
-              <div class="superlative-icon">💪</div>
-              <div class="superlative-content">
-                <h5 class="superlative-title">Iron Woman</h5>
-                <p class="superlative-value" id="iron-woman-name">—</p>
-                <p class="superlative-detail" id="iron-woman-detail">Most quarters played</p>
-              </div>
-            </div>
-            <div class="superlative-card" id="superlative-swiss-army">
-              <div class="superlative-icon">🔧</div>
-              <div class="superlative-content">
-                <h5 class="superlative-title">Swiss Army Knife</h5>
-                <p class="superlative-value" id="swiss-army-name">—</p>
-                <p class="superlative-detail" id="swiss-army-detail">Most versatile player</p>
-              </div>
-            </div>
-            <div class="superlative-card" id="superlative-leader">
-              <div class="superlative-icon">👑</div>
-              <div class="superlative-content">
-                <h5 class="superlative-title">Team Leader</h5>
-                <p class="superlative-value" id="leader-name">—</p>
-                <p class="superlative-detail" id="leader-detail">Most captaincies</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Player Performance Table -->
-        <div class="dashboard-section">
-          <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Performance Overview</h4>
-          <div class="sort-tabs">
-            <button id="sort-analysis-goals" class="sort-tab-button active" onclick="setPlayerAnalysisSort('goals')">Total Goals</button>
-            <button id="sort-analysis-quarters" class="sort-tab-button" onclick="setPlayerAnalysisSort('quarters')">Quarters</button>
-            <button id="sort-analysis-versatility" class="sort-tab-button" onclick="setPlayerAnalysisSort('versatility')">Versatility</button>
-            <button id="sort-analysis-games" class="sort-tab-button" onclick="setPlayerAnalysisSort('games')">Games</button>
-          </div>
-          <div class="position-grid-wrapper">
-            <table class="position-grid insights-table" id="insights-player-analysis-table"></table>
-          </div>
-        </div>
-      </section>
+            <!-- Player Performance Table -->
+            <div class="dashboard-section">
+              <h4 class="card-subtitle" style="margin-bottom: 16px;">Player Performance Overview</h4>
+              <div class="sort-tabs">
+                <button id="sort-analysis-goals" class="sort-tab-button active" onclick="setPlayerAnalysisSort('goals')">Total Goals</button>
+                <button id="sort-analysis-quarters" class="sort-tab-button" onclick="setPlayerAnalysisSort('quarters')">Quarters</button>
+                <button id="sort-analysis-versatility" class="sort-tab-button" onclick="setPlayerAnalysisSort('versatility')">Versatility</button>
+                <button id="sort-analysis-games" class="sort-tab-button" onclick="setPlayerAnalysisSort('games')">Games</button>
+              </div>
+              <div class="position-grid-wrapper">
+                <table class="position-grid insights-table" id="insights-player-analysis-table"></table>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -860,24 +860,24 @@
             </div>
             <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
           </div>
-      <section class="card" style="background: transparent; box-shadow: none;">
-        <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player
-        +/- by Position</h3>
-        <p class="card-subtitle hidden" id="insights-pm-subtitle">Note: "Avg +/-" sort only shows players with 3 or more Qtrs in that position.</p>
-        <div class="sort-tabs">
-          <button id="sort-pm-total" class="sort-tab-button active"
-          onclick="setInsightsPlusMinusSort('total')">Total
-          +/-</button> <button id="sort-pm-avg" class=
-          "sort-tab-button" onclick=
-          "setInsightsPlusMinusSort('avg')">Avg +/-</button>
-          <button id="sort-pm-qtrs" class="sort-tab-button"
-          onclick="setInsightsPlusMinusSort('quarters')">Qtrs</button>
-        </div>
-        <div class="position-grid-wrapper">
-          <table class="position-grid insights-table" id=
-          "insights-player-plusminus-table"></table>
-        </div>
-      </section>
+          <section class="card" style="background: transparent; box-shadow: none;">
+            <h3 class="card-title" style="margin-bottom: 12px; display: none;">Player
+            +/- by Position</h3>
+            <p class="card-subtitle hidden" id="insights-pm-subtitle">Note: "Avg +/-" sort only shows players with 3 or more Qtrs in that position.</p>
+            <div class="sort-tabs">
+              <button id="sort-pm-total" class="sort-tab-button active"
+              onclick="setInsightsPlusMinusSort('total')">Total
+              +/-</button> <button id="sort-pm-avg" class=
+              "sort-tab-button" onclick=
+              "setInsightsPlusMinusSort('avg')">Avg +/-</button>
+              <button id="sort-pm-qtrs" class="sort-tab-button"
+              onclick="setInsightsPlusMinusSort('quarters')">Qtrs</button>
+            </div>
+            <div class="position-grid-wrapper">
+              <table class="position-grid insights-table" id=
+              "insights-player-plusminus-table"></table>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -893,12 +893,12 @@
             </div>
             <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
           </div>
+          <section class="card">
+            <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
+            <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+            <div id="lineup-defensive-units-table"></div>
+          </section>
         </div>
-        <section class="card">
-          <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
-          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
-          <div id="lineup-defensive-units-table"></div>
-        </section>
       </div>
     </div>
 
@@ -913,12 +913,12 @@
             </div>
             <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
           </div>
+          <section class="card">
+            <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
+            <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+            <div id="lineup-attacking-units-table"></div>
+          </section>
         </div>
-        <section class="card">
-          <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
-          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
-          <div id="lineup-attacking-units-table"></div>
-        </section>
       </div>
     </div>
 
@@ -933,12 +933,12 @@
             </div>
             <button class="back-button" onclick="showView('insights-view')" aria-label="Back to Insights">← Back</button>
           </div>
+          <section class="card">
+            <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
+            <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
+            <div id="lineup-position-pairings-content"></div>
+          </section>
         </div>
-        <section class="card">
-          <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
-          <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
-          <div id="lineup-position-pairings-content"></div>
-        </section>
       </div>
     </div>
   </main>
