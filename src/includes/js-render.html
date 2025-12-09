@@ -2648,16 +2648,19 @@
 
         // Populate Superlatives
         const superlatives = stats.superlatives || {};
+        console.log('[renderInsightsPlayerAnalysis] Superlatives:', superlatives);
+        console.log('[renderInsightsPlayerAnalysis] Stats keys:', Object.keys(stats).slice(0, 10));
 
         // Top Gun
         const topGunEl = document.getElementById('top-gun-name');
         const topGunDetailEl = document.getElementById('top-gun-detail');
+        console.log('[renderInsightsPlayerAnalysis] topGunEl found:', !!topGunEl, ', superlatives.topGun:', superlatives.topGun);
         if (topGunEl && superlatives.topGun) {
             topGunEl.textContent = superlatives.topGun.name;
             topGunDetailEl.textContent = `${superlatives.topGun.value} goals scored`;
         } else {
-            topGunEl.textContent = '—';
-            topGunDetailEl.textContent = 'No scoring data';
+            if (topGunEl) topGunEl.textContent = '—';
+            if (topGunDetailEl) topGunDetailEl.textContent = 'No scoring data';
         }
 
         // Iron Woman
@@ -2667,8 +2670,8 @@
             ironWomanEl.textContent = superlatives.ironWoman.name;
             ironWomanDetailEl.textContent = `${superlatives.ironWoman.value} quarters played`;
         } else {
-            ironWomanEl.textContent = '—';
-            ironWomanDetailEl.textContent = 'No quarter data';
+            if (ironWomanEl) ironWomanEl.textContent = '—';
+            if (ironWomanDetailEl) ironWomanDetailEl.textContent = 'No quarter data';
         }
 
         // Swiss Army Knife
@@ -2678,8 +2681,8 @@
             swissArmyEl.textContent = superlatives.swissArmyKnife.name;
             swissArmyDetailEl.textContent = `${superlatives.swissArmyKnife.value} positions played`;
         } else {
-            swissArmyEl.textContent = '—';
-            swissArmyDetailEl.textContent = 'No versatility data';
+            if (swissArmyEl) swissArmyEl.textContent = '—';
+            if (swissArmyDetailEl) swissArmyDetailEl.textContent = 'No versatility data';
         }
 
         // Team Leader
@@ -2689,11 +2692,12 @@
             leaderEl.textContent = superlatives.leader.name;
             leaderDetailEl.textContent = `${superlatives.leader.value} captaincies`;
         } else {
-            leaderEl.textContent = '—';
-            leaderDetailEl.textContent = 'No captaincy data';
+            if (leaderEl) leaderEl.textContent = '—';
+            if (leaderDetailEl) leaderDetailEl.textContent = 'No captaincy data';
         }
 
         // Populate Player Performance Table
+        console.log('[renderInsightsPlayerAnalysis] About to call renderPlayerAnalysisTable');
         renderPlayerAnalysisTable('goals'); // Default sort by goals
         // Defensive: ensure the table shows an empty state if no players were found
         if (table && (!stats.playerSpotlights || stats.playerSpotlights.length === 0)) {
