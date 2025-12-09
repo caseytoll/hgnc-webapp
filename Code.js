@@ -1384,11 +1384,11 @@ function computeLineupStats(sheetName) {
   
   Logger.log('[computeLineupStats] Processing ' + games.length + ' games');
   games.forEach(function(game, idx) {
-    if (game.lineup && game.lineup.length > 0) {
-      Logger.log('[computeLineupStats] Game ' + idx + ' has lineup with ' + game.lineup.length + ' quarters');
-      Logger.log('[computeLineupStats] Sample quarter: ' + JSON.stringify(game.lineup[0]));
+    if (game.quarters && game.quarters.length > 0) {
+      Logger.log('[computeLineupStats] Game ' + idx + ' has ' + game.quarters.length + ' quarters');
+      Logger.log('[computeLineupStats] Sample quarter positions: ' + JSON.stringify(game.quarters[0].positions));
     } else {
-      Logger.log('[computeLineupStats] Game ' + idx + ' has NO lineup data');
+      Logger.log('[computeLineupStats] Game ' + idx + ' has NO quarter data');
     }
   });
   
@@ -1421,8 +1421,8 @@ function invalidateLineupCache(sheetName) {
 function calculateDefensiveUnitStatsFromData(games) {
   var stats = {};
   games.forEach(function(game) {
-    if (!game.lineup || game.lineup.length === 0) return;
-    game.lineup.forEach(function(quarter) {
+    if (!game.quarters || game.quarters.length === 0) return;
+    game.quarters.forEach(function(quarter) {
       var positions = quarter.positions || {};
       var gk = positions.GK; var gd = positions.GD; var wd = positions.WD; var c = positions.C;
       if (!gk || !gd || !wd || !c) return;
@@ -1431,8 +1431,10 @@ function calculateDefensiveUnitStatsFromData(games) {
         stats[key] = { gk: gk, gd: gd, wd: wd, c: c, quarters: 0, totalGoalsAgainst: 0, totalPlusMinus: 0 };
       }
       stats[key].quarters++;
-      stats[key].totalGoalsAgainst += parseInt(quarter.opponentScore) || 0;
-      var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
+      var ourScore = (parseInt(quarter.ourGsGoals) || 0) + (parseInt(quarter.ourGaGoals) || 0);
+      var opponentScore = (parseInt(quarter.opponentGsGoals) || 0) + (parseInt(quarter.opponentGaGoals) || 0);
+      stats[key].totalGoalsAgainst += opponentScore;
+      var plusMinus = ourScore - opponentScore;
       stats[key].totalPlusMinus += plusMinus;
     });
   });
@@ -1447,8 +1449,8 @@ function calculateDefensiveUnitStatsFromData(games) {
 function calculateAttackingUnitStatsFromData(games) {
   var stats = {};
   games.forEach(function(game) {
-    if (!game.lineup || game.lineup.length === 0) return;
-    game.lineup.forEach(function(quarter) {
+    if (!game.quarters || game.quarters.length === 0) return;
+    game.quarters.forEach(function(quarter) {
       var positions = quarter.positions || {};
       var gs = positions.GS; var ga = positions.GA; var wa = positions.WA; var c = positions.C;
       if (!gs || !ga || !wa || !c) return;
@@ -1457,8 +1459,10 @@ function calculateAttackingUnitStatsFromData(games) {
         stats[key] = { gs: gs, ga: ga, wa: wa, c: c, quarters: 0, totalGoalsFor: 0, totalPlusMinus: 0 };
       }
       stats[key].quarters++;
-      stats[key].totalGoalsFor += parseInt(quarter.ourScore) || 0;
-      var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
+      var ourScore = (parseInt(quarter.ourGsGoals) || 0) + (parseInt(quarter.ourGaGoals) || 0);
+      var opponentScore = (parseInt(quarter.opponentGsGoals) || 0) + (parseInt(quarter.opponentGaGoals) || 0);
+      stats[key].totalGoalsFor += ourScore;
+      var plusMinus = ourScore - opponentScore;
       stats[key].totalPlusMinus += plusMinus;
     });
   });
@@ -1473,20 +1477,25 @@ function calculateAttackingUnitStatsFromData(games) {
 function calculatePositionPairingStatsFromData(games) {
   var stats = {};
   games.forEach(function(game) {
-    if (!game.lineup || game.lineup.length === 0) return;
-    game.lineup.forEach(function(quarter) {
+    if (!game.quarters || game.quarters.length === 0) return;
+    game.quarters.forEach(function(quarter) {
       var positions = quarter.positions || {};
       var posKeys = Object.keys(positions);
+      var ourScore = (parseInt(quarter.ourGsGoals) || 0) + (parseInt(quarter.ourGaGoals) || 0);
+      var opponentScore = (parseInt(quarter.opponentGsGoals) || 0) + (parseInt(quarter.opponentGaGoals) || 0);
+      var plusMinus = ourScore - opponentScore;
+      
       for (var i = 0; i < posKeys.length; i++) {
         for (var j = i + 1; j < posKeys.length; j++) {
           var p1 = positions[posKeys[i]]; var p2 = positions[posKeys[j]];
           if (!p1 || !p2) continue;
+          // Skip "Off" positions
+          if (posKeys[i].indexOf('Off') === 0 || posKeys[j].indexOf('Off') === 0) continue;
           var key = [p1, p2].sort().join('|');
           if (!stats[key]) {
             stats[key] = { player1: p1, player2: p2, quarters: 0, totalPlusMinus: 0 };
           }
           stats[key].quarters++;
-          var plusMinus = (parseInt(quarter.ourScore) || 0) - (parseInt(quarter.opponentScore) || 0);
           stats[key].totalPlusMinus += plusMinus;
         }
       }
