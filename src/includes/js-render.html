@@ -322,13 +322,31 @@
         }
         
         var finalHtml = html.join('');
+        // Ensure container is visible before inserting content
+        listEl.classList.remove('hidden');
+        listEl.style.removeProperty('display');
+        listEl.style.setProperty('visibility', 'visible', 'important');
         listEl.innerHTML = finalHtml;
         
         // Cache the rendered HTML
         window._cachedGameListHTML = finalHtml;
         window._cachedGameListHash = gamesHash;
         
-        console.log('[renderGameList] Rendered', games.length, 'games, HTML length:', finalHtml.length);
+        // Post-render visibility diagnostics
+        try {
+            const rect = listEl.getBoundingClientRect();
+            const styles = window.getComputedStyle(listEl);
+            console.log('[renderGameList] Rendered', games.length, 'games, HTML length:', finalHtml.length, {
+                childCount: listEl.childElementCount,
+                hiddenClass: listEl.classList.contains('hidden'),
+                display: styles.display,
+                visibility: styles.visibility,
+                height: rect.height,
+                width: rect.width
+            });
+        } catch (e) {
+            console.warn('[renderGameList] Visibility diagnostics failed:', e);
+        }
         
         // 🔍 ALIGNMENT DIAGNOSTICS - Run after DOM updates
         setTimeout(() => {
