@@ -10,14 +10,15 @@
 
 **New to the project?** Start here in order:
 
-1. **[README.md](../README.md)** (10 min) - Project overview and setup
-2. **[LESSONS_LEARNED.md](./LESSONS_LEARNED.md)** (15 min) ⭐ - Critical insights from past work
-3. **[getting-started/QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md)** (10 min) - Daily reference
-4. **[getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md)** (30 min) - **READ BEFORE CODING**
+1. **[START_HERE.md](./START_HERE.md)** (5 min) ⭐⭐⭐ - **CRITICAL RULES - READ FIRST**
+2. **[README.md](../README.md)** (10 min) - Project overview and setup
+3. **[LESSONS_LEARNED.md](./LESSONS_LEARNED.md)** (15 min) ⭐ - Critical insights from past work
+4. **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy wrong again
+5. **[getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md)** (30 min) - **READ BEFORE CODING**
 
 **Before making CSS changes:** Read [standards/CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md)
 
-**Before deploying:** Check [deployment/DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md)
+**Before deploying:** Check [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
 
 ---
 
