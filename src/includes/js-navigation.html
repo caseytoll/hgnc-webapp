@@ -652,6 +652,21 @@
                             console.log('  - view:', view.clientHeight);
                             console.log('  - dashboard:', dashboard ? dashboard.clientHeight : 'N/A');
                             
+                            // Check if content actually exists
+                            var table = document.getElementById('insights-player-analysis-table');
+                            var cards = dashboard ? dashboard.querySelectorAll('.superlative-card') : [];
+                            var dashboardSection = dashboard ? dashboard.querySelector('.dashboard-section') : null;
+                            
+                            console.log('[showView] PA: Content check:');
+                            console.log('  - Table exists:', !!table);
+                            console.log('  - Table innerHTML length:', table ? table.innerHTML.length : 0);
+                            console.log('  - Table rows:', table ? table.querySelectorAll('tr').length : 0);
+                            console.log('  - Cards found:', cards.length);
+                            console.log('  - Dashboard section:', !!dashboardSection);
+                            console.log('  - View computed display:', view ? window.getComputedStyle(view).display : 'N/A');
+                            console.log('  - Dashboard computed display:', dashboard ? window.getComputedStyle(dashboard).display : 'N/A');
+                            console.log('  - Table computed display:', table ? window.getComputedStyle(table).display : 'N/A');
+                            
                             // EMERGENCY FIX: Remove ALL height constraints from parent chain
                             console.log('[showView] PA: Removing parent height constraints...');
                             html.style.height = 'auto';
@@ -660,9 +675,6 @@
                             
                             // Force view to have explicit pixel height based on content
                             if (dashboard) {
-                                var cards = dashboard.querySelectorAll('.superlative-card');
-                                var table = document.getElementById('insights-player-analysis-table');
-                                
                                 console.log('[showView] PA: Cards scrollHeight:', cards.length > 0 ? cards[0].scrollHeight : 0);
                                 console.log('[showView] PA: Table scrollHeight:', table ? table.scrollHeight : 0);
                                 

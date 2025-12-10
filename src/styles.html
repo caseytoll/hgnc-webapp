@@ -2167,16 +2167,15 @@
     min-height: 100vh;
 }
 
-/* Fix for player analysis view height collapse */
+/* Fix for player analysis view height collapse - let content define height naturally */
 #insights-player-analysis-view {
-    min-height: 100vh !important;
-    height: auto !important;
     display: block !important;
     position: relative !important;
+    height: auto !important;
+    padding-bottom: 60px;
 }
 
 #insights-player-analysis-view .insights-dashboard {
-    min-height: 100vh !important;
     height: auto !important;
     display: grid !important;
     grid-template-columns: 1fr;
@@ -2186,12 +2185,14 @@
 }
 
 #insights-player-analysis-view .dashboard-section {
-    min-height: 50px !important;
     height: auto !important;
 }
 
 #insights-player-analysis-view .superlatives-grid {
-    min-height: 100px !important;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
 #insights-player-analysis-view .superlative-card {
@@ -2199,7 +2200,8 @@
 }
 
 #insights-player-analysis-view #insights-player-analysis-table {
-    min-height: 300px !important;
+    display: table !important;
+    width: 100%;
 }
 
 /* Insights Menu Styles */
