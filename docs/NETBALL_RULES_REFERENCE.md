@@ -1,5 +1,6 @@
 # Netball Rules Reference Guide
 
+**Type**: Reference document (stable, does not require frequent updates)  
 **Last Updated**: 9 December 2025  
 **Source**: Netball Australia, Netball Victoria, International Netball Federation  
 **Purpose**: Comprehensive reference for team management, coaching, and analytics

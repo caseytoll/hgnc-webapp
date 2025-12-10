@@ -1,8 +1,8 @@
 # HGNC WebApp - Complete Documentation Index
 
-**Last Updated:** December 8, 2025  
-**Total Documents:** 46 active + 11 archived  
-**Total Lines:** ~15,700 lines
+**Last Updated:** December 10, 2025  
+**Total Documents:** 70 markdown files (10 root + 36 organized + 24 archived)  
+**Total Lines:** 22,159 lines of documentation
 
 ---
 
@@ -78,9 +78,10 @@ docs/
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
-| [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Current workflow | 20 min | ⭐⭐⭐ |
-| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | Step-by-step deploy guide | 15 min | ⭐⭐⭐ |
-| [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Pre/during/post deploy | 15 min | ⭐⭐⭐ |
+| [deployment/README.md](./deployment/README.md) | **Which deployment doc to use?** | 5 min | ⭐⭐⭐ |
+| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | Daily deployment workflow | 15 min | ⭐⭐⭐ |
+| [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Architecture & understanding | 20 min | ⭐⭐ |
+| [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Major releases & planning | 15 min | ⭐⭐ |
 | [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) | GitHub Actions CI/CD | 30 min | ⭐⭐ |
 | [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) | GH Actions configuration | 20 min | ⭐⭐ |
 | [RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) | Example release notes | 10 min | ⭐ |
@@ -101,6 +102,7 @@ docs/
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
 | [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) | Cumulative insights | 20 min | ⭐⭐⭐ |
+| [DOCUMENTATION_MAINTENANCE.md](./DOCUMENTATION_MAINTENANCE.md) | How to keep docs current | 15 min | ⭐⭐ |
 | [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md) | CSS specificity deep-dive | 45 min | ⭐⭐⭐ |
 | [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) | Insights page debug | 30 min | ⭐⭐ |
 | [CHANGELOG.md](./CHANGELOG.md) | Version history | Scan | ⭐⭐ |
