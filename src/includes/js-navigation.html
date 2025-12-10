@@ -568,6 +568,7 @@
         }
         
         if (viewId === 'insights-player-analysis-view') {
+            console.log('[showView] PA: Starting player analysis view setup');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
@@ -575,17 +576,48 @@
             }
             // Sub-views are now siblings, just show the sub-view
             var view = document.getElementById('insights-player-analysis-view');
+            if (!view) {
+                console.error('[showView] PA: View element not found!');
+                return;
+            }
             view.classList.remove('hidden');
+            view.style.display = 'block';
             view.style.visibility = 'visible';
+            view.style.opacity = '1';
+            view.style.zIndex = '1000';
+            console.log('[showView] PA: View styles set, checking dashboard');
+            
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
             if (dashboard) {
+                console.log('[showView] PA: Dashboard found, unhiding');
                 dashboard.classList.remove('hidden');
                 dashboard.style.visibility = 'visible';
-                dashboard.style.setProperty('display', 'grid', 'important');
+                dashboard.style.display = 'grid';
+                dashboard.style.opacity = '1';
+            } else {
+                console.error('[showView] PA: Dashboard NOT found!');
             }
+            
+            // Also unhide all children to ensure nothing is hidden
+            var allChildren = view.querySelectorAll('*');
+            var hiddenCount = 0;
+            allChildren.forEach(function(child) {
+                if (child.classList && child.classList.contains('hidden')) {
+                    child.classList.remove('hidden');
+                    hiddenCount++;
+                }
+            });
+            console.log('[showView] PA: Removed hidden class from ' + hiddenCount + ' child elements');
+            
             try { 
+                console.log('[showView] PA: Calling renderInsightsPlayerAnalysis');
                 renderInsightsPlayerAnalysis(); 
+                console.log('[showView] PA: Render complete');
+                // Scroll into view
+                setTimeout(function() {
+                    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
             } catch (e) { 
                 console.error('Error rendering Player Analysis view:', e); 
             }
