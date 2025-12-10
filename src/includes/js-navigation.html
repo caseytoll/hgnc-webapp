@@ -675,10 +675,26 @@
                             
                             // Force view to have explicit pixel height based on content
                             if (dashboard) {
-                                console.log('[showView] PA: Cards scrollHeight:', cards.length > 0 ? cards[0].scrollHeight : 0);
-                                console.log('[showView] PA: Table scrollHeight:', table ? table.scrollHeight : 0);
-                                
-                                // Calculate minimum height from content
+                            console.log('[showView] PA: Cards scrollHeight:', cards.length > 0 ? cards[0].scrollHeight : 0);
+                            console.log('[showView] PA: Table scrollHeight:', table ? table.scrollHeight : 0);
+                            
+                            // Check individual cell heights
+                            if (table) {
+                                var firstRow = table.querySelector('tr');
+                                var firstCell = firstRow ? firstRow.querySelector('td, th') : null;
+                                console.log('[showView] PA: First row scrollHeight:', firstRow ? firstRow.scrollHeight : 'N/A');
+                                console.log('[showView] PA: First cell scrollHeight:', firstCell ? firstCell.scrollHeight : 'N/A');
+                                console.log('[showView] PA: First cell innerHTML:', firstCell ? firstCell.innerHTML : 'N/A');
+                                console.log('[showView] PA: First cell computed fontSize:', firstCell ? window.getComputedStyle(firstCell).fontSize : 'N/A');
+                                console.log('[showView] PA: First cell computed visibility:', firstCell ? window.getComputedStyle(firstCell).visibility : 'N/A');
+                                console.log('[showView] PA: First cell computed opacity:', firstCell ? window.getComputedStyle(firstCell).opacity : 'N/A');
+                                console.log('[showView] PA: Table computed width:', window.getComputedStyle(table).width);
+                                console.log('[showView] PA: Table computed position:', window.getComputedStyle(table).position);
+                            }
+                            
+                            // Check if view is actually in the visible DOM tree
+                            console.log('[showView] PA: View offsetParent:', view.offsetParent ? view.offsetParent.tagName : 'NULL (element is hidden!)');
+                            console.log('[showView] PA: Dashboard offsetParent:', dashboard ? (dashboard.offsetParent ? dashboard.offsetParent.tagName : 'NULL') : 'N/A');                                // Calculate minimum height from content
                                 var minHeight = 800; // Default fallback
                                 if (table && table.scrollHeight > 0) {
                                     minHeight = Math.max(minHeight, table.scrollHeight + 400);
