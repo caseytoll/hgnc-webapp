@@ -4333,98 +4333,6 @@
         console.log('[renderLineupDefensiveUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
         console.log('[renderLineupDefensiveUnits] HTML set, container has', container.children.length, 'children');
-        
-        // DEBUG: Add bright red background to make container impossible to miss
-        container.style.backgroundColor = 'red';
-        container.style.padding = '20px';
-        container.style.minHeight = '200px';
-        
-        // Force visibility AND display on all parents
-        var parentView = container.closest('.view');
-        var parentDashboard = container.closest('.insights-dashboard');
-        var parentSection = container.closest('.dashboard-section');
-        var parentCard = container.closest('.card');
-        
-        if (parentView) {
-            parentView.style.setProperty('visibility', 'visible', 'important');
-            parentView.style.setProperty('display', 'block', 'important');
-            parentView.style.setProperty('opacity', '1', 'important');
-            parentView.classList.remove('hidden');
-        }
-        if (parentDashboard) {
-            parentDashboard.style.setProperty('visibility', 'visible', 'important');
-            parentDashboard.style.setProperty('display', 'grid', 'important');
-            parentDashboard.style.setProperty('opacity', '1', 'important');
-            parentDashboard.classList.remove('hidden');
-        }
-        if (parentSection) {
-            parentSection.style.setProperty('visibility', 'visible', 'important');
-            parentSection.style.setProperty('display', 'block', 'important');
-            parentSection.style.setProperty('opacity', '1', 'important');
-        }
-        if (parentCard) {
-            parentCard.style.setProperty('visibility', 'visible', 'important');
-            parentCard.style.setProperty('display', 'block', 'important');
-            parentCard.style.setProperty('opacity', '1', 'important');
-            parentCard.classList.remove('hidden');
-        }
-        container.style.setProperty('visibility', 'visible', 'important');
-        container.style.setProperty('display', 'block', 'important');
-        container.style.setProperty('opacity', '1', 'important');
-        
-        console.log('[renderLineupDefensiveUnits] Container visibility:', {
-            display: window.getComputedStyle(container).display,
-            visibility: window.getComputedStyle(container).visibility,
-            hasHiddenClass: container.classList.contains('hidden'),
-            parentDashboard: container.closest('.insights-dashboard'),
-            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
-            parentView: container.closest('.view'),
-            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
-        });
-        
-        // ENHANCED DIAGNOSTICS
-        var parentCard = container.closest('.card');
-        var parentSection = container.closest('.dashboard-section');
-        var parentView = container.closest('.view');
-        var table = container.querySelector('table');
-        
-        console.log('[renderLineupDefensiveUnits] FULL DIAGNOSTIC:', {
-            container: {
-                id: container.id,
-                display: window.getComputedStyle(container).display,
-                visibility: window.getComputedStyle(container).visibility,
-                opacity: window.getComputedStyle(container).opacity,
-                position: window.getComputedStyle(container).position,
-                zIndex: window.getComputedStyle(container).zIndex,
-                top: window.getComputedStyle(container).top,
-                left: window.getComputedStyle(container).left,
-                width: window.getComputedStyle(container).width,
-                height: window.getComputedStyle(container).height
-            },
-            table: table ? {
-                display: window.getComputedStyle(table).display,
-                visibility: window.getComputedStyle(table).visibility,
-                opacity: window.getComputedStyle(table).opacity,
-                width: window.getComputedStyle(table).width,
-                height: window.getComputedStyle(table).height
-            } : 'not found',
-            card: parentCard ? {
-                display: window.getComputedStyle(parentCard).display,
-                visibility: window.getComputedStyle(parentCard).visibility,
-                opacity: window.getComputedStyle(parentCard).opacity,
-                height: window.getComputedStyle(parentCard).height,
-                hasHidden: parentCard.classList.contains('hidden')
-            } : 'not found',
-            view: parentView ? {
-                id: parentView.id,
-                display: window.getComputedStyle(parentView).display,
-                visibility: window.getComputedStyle(parentView).visibility,
-                opacity: window.getComputedStyle(parentView).opacity,
-                position: window.getComputedStyle(parentView).position,
-                zIndex: window.getComputedStyle(parentView).zIndex,
-                hasHidden: parentView.classList.contains('hidden')
-            } : 'not found'
-        });
     }
 
     // ===== PHASE 2: ATTACKING UNIT INSIGHTS =====
@@ -4469,49 +4377,6 @@
         console.log('[renderLineupAttackingUnits] Setting HTML, length:', html.length);
         container.innerHTML = html;
         console.log('[renderLineupAttackingUnits] HTML set, container has', container.children.length, 'children');
-        
-        // Force visibility AND display on all parents
-        var parentView = container.closest('.view');
-        var parentDashboard = container.closest('.insights-dashboard');
-        var parentSection = container.closest('.dashboard-section');
-        var parentCard = container.closest('.card');
-        
-        if (parentView) {
-            parentView.style.setProperty('visibility', 'visible', 'important');
-            parentView.style.setProperty('display', 'block', 'important');
-            parentView.style.setProperty('opacity', '1', 'important');
-            parentView.classList.remove('hidden');
-        }
-        if (parentDashboard) {
-            parentDashboard.style.setProperty('visibility', 'visible', 'important');
-            parentDashboard.style.setProperty('display', 'grid', 'important');
-            parentDashboard.style.setProperty('opacity', '1', 'important');
-            parentDashboard.classList.remove('hidden');
-        }
-        if (parentSection) {
-            parentSection.style.setProperty('visibility', 'visible', 'important');
-            parentSection.style.setProperty('display', 'block', 'important');
-            parentSection.style.setProperty('opacity', '1', 'important');
-        }
-        if (parentCard) {
-            parentCard.style.setProperty('visibility', 'visible', 'important');
-            parentCard.style.setProperty('display', 'block', 'important');
-            parentCard.style.setProperty('opacity', '1', 'important');
-            parentCard.classList.remove('hidden');
-        }
-        container.style.setProperty('visibility', 'visible', 'important');
-        container.style.setProperty('display', 'block', 'important');
-        container.style.setProperty('opacity', '1', 'important');
-        
-        console.log('[renderLineupAttackingUnits] Container visibility:', {
-            display: window.getComputedStyle(container).display,
-            visibility: window.getComputedStyle(container).visibility,
-            hasHiddenClass: container.classList.contains('hidden'),
-            parentDashboard: container.closest('.insights-dashboard'),
-            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
-            parentView: container.closest('.view'),
-            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
-        });
     }
 
     // ===== PHASE 3: POSITION PAIRINGS =====
@@ -4615,48 +4480,5 @@
         console.log('[renderLineupPositionPairings] Setting HTML, length:', html.length);
         container.innerHTML = html;
         console.log('[renderLineupPositionPairings] HTML set, container has', container.children.length, 'children');
-        
-        // Force visibility AND display on all parents
-        var parentView = container.closest('.view');
-        var parentDashboard = container.closest('.insights-dashboard');
-        var parentSection = container.closest('.dashboard-section');
-        var parentCard = container.closest('.card');
-        
-        if (parentView) {
-            parentView.style.setProperty('visibility', 'visible', 'important');
-            parentView.style.setProperty('display', 'block', 'important');
-            parentView.style.setProperty('opacity', '1', 'important');
-            parentView.classList.remove('hidden');
-        }
-        if (parentDashboard) {
-            parentDashboard.style.setProperty('visibility', 'visible', 'important');
-            parentDashboard.style.setProperty('display', 'grid', 'important');
-            parentDashboard.style.setProperty('opacity', '1', 'important');
-            parentDashboard.classList.remove('hidden');
-        }
-        if (parentSection) {
-            parentSection.style.setProperty('visibility', 'visible', 'important');
-            parentSection.style.setProperty('display', 'block', 'important');
-            parentSection.style.setProperty('opacity', '1', 'important');
-        }
-        if (parentCard) {
-            parentCard.style.setProperty('visibility', 'visible', 'important');
-            parentCard.style.setProperty('display', 'block', 'important');
-            parentCard.style.setProperty('opacity', '1', 'important');
-            parentCard.classList.remove('hidden');
-        }
-        container.style.setProperty('visibility', 'visible', 'important');
-        container.style.setProperty('display', 'block', 'important');
-        container.style.setProperty('opacity', '1', 'important');
-        
-        console.log('[renderLineupPositionPairings] Container visibility:', {
-            display: window.getComputedStyle(container).display,
-            visibility: window.getComputedStyle(container).visibility,
-            hasHiddenClass: container.classList.contains('hidden'),
-            parentDashboard: container.closest('.insights-dashboard'),
-            dashboardHasHiddenClass: container.closest('.insights-dashboard')?.classList.contains('hidden'),
-            parentView: container.closest('.view'),
-            viewHasHiddenClass: container.closest('.view')?.classList.contains('hidden')
-        });
     }
 </script>
