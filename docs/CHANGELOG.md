@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## v1025+ — 2025-12-10
+**Loading States & Lineup Module Export Fix**
+- **UX**: Added visible loading messages to 3 lineup views (Defensive Units, Attacking Units, Position Pairings)
+  - Shows "Loading lineup data..." while calculating stats
+  - Prevents user confusion about empty states
+  - Consistent styling with centered gray text
+- **Fix**: Exported `window.initLineupModule()` function in js-lineup-lazy.html
+  - Navigation can now properly verify module initialization
+  - Module auto-loads but was previously not exposable
+- **Documentation**: Created comprehensive post-mortem for CSS specificity bug (v1011-v1024)
+  - POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md with full root cause analysis
+  - START_HERE.md with 5-minute critical deployment rules
+  - DEPLOYMENT_CHECKLIST.md with step-by-step workflow
+  - DOCUMENTATION_MAINTENANCE.md with staleness rules
+- **Testing**: Improved test infrastructure (92/100 score)
+  - Created scripts/test-all.sh comprehensive test runner
+  - Created scripts/doc-staleness-check.sh automated validation
+  - All tests passing: unit, lint, pre-deploy, doc staleness, coverage
+- **Cleanup**: Fixed all HTML lint warnings (capture attr, img src, script tag)
+- **Archival**: Moved 12 version-specific docs to archive folders
+- **Deploy**: Code pushed to @HEAD deployment (version limit reached at 200)
+
 ## v824 — 2025-12-07
 **Deployment Configuration & Pre-Deploy Validation Improvements**
 - **Config**: Fixed `.clasp.json` with correct `src/includes/` and `src/icons/` file paths

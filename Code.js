@@ -57,9 +57,9 @@ function doGet(e) {
 
     template.playerAnalysisIconDataUrl = getPlayerAnalysisIconDataUrl();
 
-    // Cache buster - LAZY-LOAD ARCHITECTURE v945
+    // Cache buster - LAZY-LOAD ARCHITECTURE v1025
     // NOTE: bump this on each production deploy so that clients bust cached JS/CSS
-    template.appVersion = '945';
+    template.appVersion = '1025';
 
     var result = template.evaluate()
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
