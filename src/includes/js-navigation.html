@@ -576,17 +576,30 @@
             // Sub-views are now siblings, just show the sub-view
             var paView = document.getElementById('insights-player-analysis-view');
             paView.classList.remove('hidden');
-            console.log('[showView] PA: Removed hidden class');
+            
+            // Ensure main-content is scrollable
+            var mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                mainContent.style.overflow = 'auto';
+                mainContent.style.height = 'auto';
+            }
             
             // Ensure dashboard is also visible
             var dashboard = paView.querySelector('.insights-dashboard');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
                 dashboard.style.display = 'grid';
-                console.log('[showView] PA: Dashboard visibility set');
             }
             
+            console.log('[showView] PA: View shown, now rendering');
             renderInsightsPlayerAnalysis();
+            
+            // Scroll to top
+            try {
+                window.scrollTo(0, 0);
+                if (paView.scrollIntoView) paView.scrollIntoView(true);
+            } catch (e) {}
+            
             console.log('[showView] PA: After render complete');
             return;
         }
