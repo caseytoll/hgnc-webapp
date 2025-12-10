@@ -418,6 +418,28 @@
             
             // DIAGNOSTIC: Log view dimensions
             setTimeout(function() {
+                var main = document.getElementById('main-content');
+                if (main) {
+                    console.log('[DIAGNOSTIC] main-content children count:', main.children.length);
+                    var totalOffset = 0;
+                    for (var i = 0; i < main.children.length; i++) {
+                        var child = main.children[i];
+                        var childStyles = window.getComputedStyle(child);
+                        var isHidden = child.classList.contains('hidden');
+                        console.log('[DIAGNOSTIC] Child ' + i + ' (' + child.id + '):', {
+                            offsetHeight: child.offsetHeight,
+                            scrollHeight: child.scrollHeight,
+                            isHidden: isHidden,
+                            display: childStyles.display,
+                            marginTop: childStyles.marginTop,
+                            marginBottom: childStyles.marginBottom
+                        });
+                        totalOffset += child.offsetHeight;
+                        if (child.id === 'fixture-view') break;
+                    }
+                    console.log('[DIAGNOSTIC] Total offset before fixture-view:', totalOffset);
+                }
+                
                 var view = document.getElementById('fixture-view');
                 var styles = window.getComputedStyle(view);
                 var body = document.body;
