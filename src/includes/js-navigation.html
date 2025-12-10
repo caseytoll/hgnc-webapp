@@ -587,6 +587,18 @@
             view.style.zIndex = '1000';
             view.style.minHeight = '100vh';
             view.style.height = 'auto';
+            view.style.position = 'relative';
+            view.style.left = '0';
+            view.style.top = '0';
+            
+            // CRITICAL: Ensure parent is also in render tree
+            var main = document.getElementById('main-content');
+            if (main) {
+                main.style.position = 'relative';
+                main.style.display = 'block';
+                main.style.visibility = 'visible';
+            }
+            
             console.log('[showView] PA: View styles set, checking dashboard');
             
             // Unhide the dashboard inside this view
