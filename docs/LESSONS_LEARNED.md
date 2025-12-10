@@ -2,7 +2,7 @@
 
 **Purpose:** Living document capturing key learnings from development sessions to prevent repeating mistakes and build on successes.
 
-**Last Updated:** December 10, 2025 (Added: CSS specificity conflicts, Deployment URL verification, Computed styles diagnostic)
+**Last Updated:** December 11, 2025 (Added: Deployment URL permanence, Version limit management, Critical safeguards)
 
 ---
 
@@ -22,6 +22,44 @@
 - Append new learnings chronologically
 - Group related learnings under same heading
 - Link to detailed documentation for deep dives
+
+---
+
+## Deployment & Infrastructure
+
+### Deployment URLs Are Permanent and Irreversible (2025-12-11) 🔴 CRITICAL
+
+**Lesson:** `clasp undeploy` permanently deletes a deployment URL with NO recovery mechanism. This is fundamentally different from deleting a version.
+
+**Context:** During v1025 deployment, we hit Google Apps Script's 200 version limit. Attempted to use `clasp undeploy` to free space, which deleted the stable production URL instead.
+
+**The Mistake:**
+```bash
+clasp undeploy AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug
+
+# Result: URL PERMANENTLY GONE
+# Users accessing this URL: 404 errors
+# Recovery: IMPOSSIBLE
+# Impact: Had to migrate users to new URL with different ID
+```
+
+**Key Distinction:**
+- **VERSIONS** (Immutable snapshots) - Cannot delete, 200 max, use web interface
+- **DEPLOYMENTS** (URLs pointing to versions) - Can delete permanently, 20 max
+
+**Why it was confused:**
+- Both are managed by clasp
+- Similar-sounding names
+- Documentation could be clearer
+- No warning about permanence
+
+**Prevention:**
+1. Never use `clasp undeploy` on production URLs without explicit user approval
+2. When hitting version limit: use @HEAD URL or delete old versions through web interface
+3. Maintain registry of critical URLs in `docs/DEPLOYMENT_URLS.md`
+4. Use safeguard script: `./scripts/check-deployments.sh`
+
+**Reference:** `docs/DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md` (full post-mortem)
 
 ---
 

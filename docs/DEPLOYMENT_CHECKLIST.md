@@ -271,6 +271,67 @@ clasp deploy -d "Test deployment - {PURPOSE}"
 
 ---
 
+## ⚠️ DANGER ZONE: Critical Commands
+
+### DO NOT USE `clasp undeploy` on Production URLs
+
+**Command:**
+```bash
+clasp undeploy <deployment-id>  # ⚠️ CATASTROPHIC - IRREVERSIBLE
+```
+
+**Why this is dangerous:**
+- Deletes the deployment URL PERMANENTLY
+- Cannot be recovered or restored
+- Users accessing the URL will get 404 errors
+- Requires migration to new URL
+
+**When it happened to us:**
+- Date: December 11, 2025
+- Command: `clasp undeploy AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug`
+- Result: Production URL permanently deleted
+- Impact: Users lost access to known good URL
+- Recovery: Migrated to new URL (different ID)
+
+**What to do if hitting version limit (200):**
+
+❌ **WRONG:**
+```bash
+clasp undeploy <url>  # Doesn't free versions anyway
+```
+
+✅ **RIGHT - Option A (Use @HEAD):**
+```bash
+# Deploy to @HEAD URL - no version created
+clasp push
+# Users access: AKfycbyzIhkw5F5HJm7x1W3rGSdQHZefDvB2-U9M04RzvuRh
+```
+
+✅ **RIGHT - Option B (Clean up versions through web interface):**
+1. Go to: https://script.google.com/home
+2. Select your project
+3. Project Settings → Versions
+4. Delete old versions (v1-v100)
+5. Try deployment again
+
+✅ **RIGHT - Option C (Request user approval for migration):**
+```bash
+# If truly necessary: migrate users to new URL first
+# Wait 2 weeks for migration
+# Then delete old deployment with explicit approval
+```
+
+**Golden Rule:**
+Never delete a deployment URL without:
+1. Explicit user approval
+2. Documentation in DEPLOYMENT_URLS.md
+3. Waiting 2+ weeks for user migration
+4. Having alternative deployment URLs available
+
+**Reference:** See `docs/DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md` for full incident details
+
+---
+
 ## Success Metrics
 
 **Good deployment (target for every deployment):**
@@ -278,6 +339,7 @@ clasp deploy -d "Test deployment - {PURPOSE}"
 - ✅ User hard refreshed and confirmed version
 - ✅ Issue verified as fixed with evidence
 - ✅ No other features broken (smoke tested)
+- ✅ Did not delete any production URLs
 - ✅ 1-3 deployments max for the fix
 
 **Bad deployment (what to avoid):**
