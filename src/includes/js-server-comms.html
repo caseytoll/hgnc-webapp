@@ -627,7 +627,7 @@
             .loadAuthToken();
     }
 
-    function saveNewAuthToken() {
+    function saveTokenFromAdmin() {
         var newToken = document.getElementById('admin-auth-token').value.trim();
         setLoading(true, "Saving new token...");
         google.script.run

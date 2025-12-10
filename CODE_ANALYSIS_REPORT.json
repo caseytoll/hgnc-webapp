@@ -1,0 +1,321 @@
+{
+  "analysis_metadata": {
+    "app_name": "HGNC Netball Team Management WebApp",
+    "analyzed_date": "2025-12-10",
+    "app_version": "v985",
+    "framework": "Google Apps Script",
+    "total_files_analyzed": 12
+  },
+  "critical_issues": [
+    {
+      "issue_id": "CRIT-001",
+      "severity": "CRITICAL",
+      "title": "Function Name Mismatch: saveTokenFromAdmin vs saveNewAuthToken",
+      "description": "In js-startup.html line 131, the code references 'saveTokenFromAdmin()' but the actual function in js-server-comms.html is named 'saveNewAuthToken()'. This will cause a runtime error.",
+      "file_location": "src/includes/js-startup.html:131 and src/includes/js-server-comms.html:632",
+      "impact": "Admin cannot save authentication tokens. Throws 'saveTokenFromAdmin is not defined' error.",
+      "fix": "Option A: Rename function in js-server-comms.html from 'saveNewAuthToken' to 'saveTokenFromAdmin'. Option B: Change call in js-startup.html to 'saveNewAuthToken()'. Recommend Option A."
+    }
+  ],
+  "high_priority_issues": [
+    {
+      "issue_id": "HIGH-001",
+      "severity": "HIGH",
+      "title": "Undefined CSS Variable: --ok-color",
+      "description": "In js-server-comms.html line 636, code references 'var(--ok-color)' which is not defined in styles.html.",
+      "file_location": "src/includes/js-server-comms.html:636",
+      "current_code": "document.getElementById('admin-token-status').style.color = 'var(--ok-color)';",
+      "impact": "Success message color will not display properly",
+      "fix": "Change 'var(--ok-color)' to 'var(--success-color)' which is defined in styles.html"
+    },
+    {
+      "issue_id": "HIGH-002",
+      "severity": "HIGH",
+      "title": "Duplicate getDisplayName Function Definition",
+      "description": "getDisplayName() is defined identically in both js-render.html and js-helpers.html, causing code duplication.",
+      "file_location": "js-render.html:4-20 and js-helpers.html:18-31",
+      "impact": "Code duplication, maintenance difficulty, confusion about which version is used",
+      "fix": "Remove duplicate from js-render.html, keep in js-helpers.html (utility functions file)"
+    },
+    {
+      "issue_id": "HIGH-003",
+      "severity": "HIGH",
+      "title": "Null Pointer Dereference Risk in updateTotalScoreDisplay",
+      "description": "In js-navigation.html line 205, game object is accessed without null checking before accessing game.opponent property.",
+      "file_location": "src/includes/js-navigation.html:205",
+      "current_code": "document.getElementById('total-score-opponent-name').textContent = game.opponent;",
+      "impact": "Could throw 'Cannot read property opponent of undefined' if game is null/undefined",
+      "fix": "Add guard clause: if (!game || !game.opponent) return; before accessing game properties"
+    },
+    {
+      "issue_id": "HIGH-004",
+      "severity": "HIGH",
+      "title": "Missing Modal Close After Token Save",
+      "description": "In js-startup.html line 131, saveTokenButton onclick handler does not close the admin modal after successful save.",
+      "file_location": "src/includes/js-startup.html:131",
+      "current_behavior": "After token is saved successfully, admin panel remains open",
+      "fix": "Add hideModal call or ensure saveNewAuthToken() function closes the view internally"
+    }
+  ],
+  "medium_priority_issues": [
+    {
+      "issue_id": "MED-001",
+      "severity": "MEDIUM",
+      "title": "Unchecked Optional Chaining in Element Caching",
+      "description": "In js-core-logic.html lines 63-65, optional chaining uses fallback but assumes cachedElements exists globally.",
+      "file_location": "src/includes/js-core-logic.html:63,94,95",
+      "current_code": "cachedElements.forms?.newPlayerName || document.getElementById('new-player-name')",
+      "concern": "If cachedElements is undefined, will throw ReferenceError before reaching fallback",
+      "fix": "Add safety: (window.cachedElements?.forms?.newPlayerName) || document.getElementById(...)"
+    },
+    {
+      "issue_id": "MED-002",
+      "severity": "MEDIUM",
+      "title": "Uninitialized Global Variables appState, players, games",
+      "description": "Global variables appState, players, and games are used without explicit initialization in startup sequence.",
+      "file_location": "js-core-logic.html, js-server-comms.html",
+      "impact": "Race conditions or undefined reference errors if code executes before initialization",
+      "fix": "Add explicit initialization in js-startup.html: window.appState = {}; window.players = []; window.games = [];"
+    },
+    {
+      "issue_id": "MED-003",
+      "severity": "MEDIUM",
+      "title": "Potential Race Condition in Lazy Lineup Module",
+      "description": "In js-navigation.html navigateToLineupPage(), code checks for window.loadLineupStats but doesn't guarantee initialization is complete.",
+      "file_location": "src/includes/js-navigation.html:30-40",
+      "concern": "Module might not be fully ready between existence check and function call",
+      "fix": "Add ready flag or use callback/promise pattern to ensure full initialization"
+    },
+    {
+      "issue_id": "MED-004",
+      "severity": "MEDIUM",
+      "title": "Hard-coded Owner Email in Code",
+      "description": "Default owner email is hard-coded in Code.js line 35 as 'caseytoll78@gmail.com'.",
+      "file_location": "Code.js:35",
+      "current_code": "var ownerEmail = props.getProperty('OWNER_EMAIL') || 'caseytoll78@gmail.com';",
+      "impact": "Deployment to different owner requires code change",
+      "fix": "Make owner email configurable via environment or require explicit setup on first deployment"
+    },
+    {
+      "issue_id": "MED-005",
+      "severity": "MEDIUM",
+      "title": "Unvalidated Game Status Before Opponent Assignment",
+      "description": "In js-core-logic.html line 159, status value is used without validation before conditional assignment.",
+      "file_location": "src/includes/js-core-logic.html:159",
+      "current_code": "var opponent = (status === 'bye') ? 'BYE' : opponentInput.value.trim();",
+      "concern": "If status has unexpected value, opponent assignment may be incorrect",
+      "fix": "Add explicit validation: if (!['bye', 'match'].includes(status)) { ... }"
+    },
+    {
+      "issue_id": "MED-006",
+      "severity": "MEDIUM",
+      "title": "Extensive Debug Logging Not Guarded by DEBUG Flag",
+      "description": "Console.log statements throughout code are not wrapped in window.DEBUG checks.",
+      "file_location": "Multiple files: js-navigation.html, js-server-comms.html, js-startup.html, Code.js",
+      "impact": "Excessive console output in production, performance impact",
+      "fix": "Wrap debug logs: if (window.DEBUG) { console.log(...) }"
+    },
+    {
+      "issue_id": "MED-007",
+      "severity": "MEDIUM",
+      "title": "Inconsistent Error Message Styles",
+      "description": "Error messages use different capitalization and wording conventions throughout codebase.",
+      "file_location": "Multiple files",
+      "recommendation": "Create error message constants for consistency: const ERRORS = { NO_TEAM_SELECTED: 'Please select a team first' }"
+    }
+  ],
+  "low_priority_issues": [
+    {
+      "issue_id": "LOW-001",
+      "severity": "LOW",
+      "title": "Magic Strings for View IDs",
+      "description": "View IDs are used as magic strings (e.g., 'insights-view', 'fixture-view') throughout code.",
+      "file_location": "src/includes/js-navigation.html:233 (showView function)",
+      "recommendation": "Define VIEW_IDS constant for maintainability"
+    },
+    {
+      "issue_id": "LOW-002",
+      "severity": "LOW",
+      "title": "Variable Shadowing in Nested Loops",
+      "description": "Loop variable 'i' is reused in nested loops without different variable names.",
+      "file_location": "src/includes/js-render.html:95,109",
+      "fix": "Use forEach or different variable names (i, j, k)"
+    },
+    {
+      "issue_id": "LOW-003",
+      "severity": "LOW",
+      "title": "Checkbox Debug Logging",
+      "description": "In updatePlayer() function, checkbox state is logged extensively.",
+      "file_location": "src/includes/js-core-logic.html:97-100",
+      "recommendation": "Wrap in DEBUG flag or remove before final release"
+    },
+    {
+      "issue_id": "LOW-004",
+      "severity": "LOW",
+      "title": "Array.find Polyfill Exists But Native .find() Also Used",
+      "description": "Code defines arrayFind() helper but also uses native .find() in some places.",
+      "file_location": "src/includes/js-helpers.html:805",
+      "recommendation": "Ensure consistent use of arrayFind() throughout for older browser support"
+    }
+  ],
+  "verified_working_references": [
+    {
+      "category": "Google Script Runs",
+      "status": "✅ All Valid",
+      "examples": [
+        "saveTeamData (js-server-comms.html:27 -> Code.js:919)",
+        "loadMasterTeamList (js-server-comms.html:132 -> Code.js:805)",
+        "loadTeamData (js-server-comms.html:139 -> Code.js:900)",
+        "createNewTeam (js-server-comms.html:384 -> Code.js:836)",
+        "updateTeam (js-server-comms.html:408 -> Code.js:854)",
+        "deleteTeam (js-server-comms.html:428 -> Code.js:878)",
+        "saveAuthToken (js-server-comms.html:648 -> Code.js:275)"
+      ]
+    },
+    {
+      "category": "Include Files",
+      "status": "✅ All Found",
+      "examples": [
+        "styles -> src/styles.html",
+        "js-startup -> src/includes/js-startup.html",
+        "js-helpers -> src/includes/js-helpers.html",
+        "js-navigation -> src/includes/js-navigation.html",
+        "js-server-comms -> src/includes/js-server-comms.html",
+        "js-core-logic -> src/includes/js-core-logic.html",
+        "js-render -> src/includes/js-render.html",
+        "js-validation -> src/includes/js-validation.html",
+        "js-lineup-lazy -> src/includes/js-lineup-lazy.html"
+      ]
+    },
+    {
+      "category": "Element IDs",
+      "status": "✅ All Valid",
+      "examples": [
+        "main-logo (index.html:66, referenced js-startup.html:59)",
+        "loading-overlay (index.html:69, referenced js-navigation.html:194)",
+        "new-player-name (index.html:204, referenced js-core-logic.html:63)",
+        "admin-save-token-btn (main-views.html:522, referenced js-startup.html:131)"
+      ]
+    },
+    {
+      "category": "CSS Classes",
+      "status": "✅ All Valid",
+      "examples": [
+        "hidden (global utility class)",
+        "view (styles.html)",
+        "dark-mode (styles.html and js-startup.html)",
+        "modal-overlay (styles.html and index.html)"
+      ]
+    }
+  ],
+  "green_lights": [
+    {
+      "feature": "All Include Paths",
+      "status": "✅ PASS",
+      "description": "All 12 included files exist and are properly referenced"
+    },
+    {
+      "feature": "Server-Side Function Calls",
+      "status": "✅ PASS",
+      "description": "All google.script.run calls match Code.js function definitions"
+    },
+    {
+      "feature": "HTML Structure",
+      "status": "✅ PASS",
+      "description": "HTML is well-formed with proper nesting and closed tags"
+    },
+    {
+      "feature": "Google Apps Script APIs",
+      "status": "✅ PASS",
+      "description": "No deprecated APIs detected. All current as of 2025"
+    },
+    {
+      "feature": "Accessibility",
+      "status": "✅ PASS",
+      "description": "ARIA labels, live regions, and skip links properly implemented"
+    },
+    {
+      "feature": "CSS Variables & Theming",
+      "status": "✅ PASS",
+      "description": "Excellent use of CSS custom properties for light/dark mode support"
+    },
+    {
+      "feature": "Data Cloning",
+      "status": "✅ PASS",
+      "description": "Proper use of JSON deep cloning to prevent reference mutations"
+    },
+    {
+      "feature": "Error Handling",
+      "status": "✅ PASS",
+      "description": "Good use of withSuccessHandler/withFailureHandler for async operations"
+    },
+    {
+      "feature": "Lazy Loading",
+      "status": "✅ PASS",
+      "description": "Module lazy-loading properly implemented for performance"
+    },
+    {
+      "feature": "PWA Support",
+      "status": "✅ PASS",
+      "description": "Service worker, manifest, and offline support properly configured"
+    }
+  ],
+  "recommendations": {
+    "immediate_fixes": [
+      {
+        "priority": 1,
+        "action": "Fix CRIT-001: saveTokenFromAdmin function name mismatch",
+        "impact": "CRITICAL - Admin feature broken",
+        "time_estimate": "5 minutes"
+      },
+      {
+        "priority": 2,
+        "action": "Fix HIGH-001: Change --ok-color to --success-color",
+        "impact": "Visual feedback broken",
+        "time_estimate": "2 minutes"
+      },
+      {
+        "priority": 3,
+        "action": "Fix HIGH-003: Add null checks in updateTotalScoreDisplay",
+        "impact": "Potential runtime errors",
+        "time_estimate": "10 minutes"
+      },
+      {
+        "priority": 4,
+        "action": "Fix HIGH-002: Remove duplicate getDisplayName function",
+        "impact": "Code quality",
+        "time_estimate": "5 minutes"
+      }
+    ],
+    "testing_checklist": [
+      "Test admin token save end-to-end",
+      "Test all navigation paths with showView()",
+      "Test all google.script.run calls with network simulation",
+      "Verify dark mode toggle functionality",
+      "Test team nickname display (Montmorency -> Monty)",
+      "Test PWA installation on iOS and Android",
+      "Test offline functionality with service worker"
+    ],
+    "code_quality_improvements": [
+      "Add JSDoc comments to major functions",
+      "Extract magic string view IDs into constants",
+      "Wrap DEBUG logs with window.DEBUG checks",
+      "Initialize global variables explicitly in js-startup.html",
+      "Add error message constants for consistency",
+      "Consider TypeScript for better type safety"
+    ]
+  },
+  "summary": {
+    "critical_issues": 1,
+    "high_priority_issues": 4,
+    "medium_priority_issues": 7,
+    "low_priority_issues": 4,
+    "total_issues": 16,
+    "overall_health": "⚠️ GOOD with 1 CRITICAL issue requiring immediate fix",
+    "blockers": [
+      "saveTokenFromAdmin function name mismatch will cause admin feature to crash"
+    ],
+    "confidence_level": "HIGH - Comprehensive code review completed",
+    "recommendation": "FIX CRITICAL ISSUE IMMEDIATELY, then address HIGH priority items before next deployment"
+  }
+}

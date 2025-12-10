@@ -1,30 +1,6 @@
 <script>
     // === RENDER FUNCTIONS ===
     
-    // Team nickname mapping (duplicate from helpers for safety)
-    // Uses substring replacement to handle all variants (e.g., "Montmorency 11 White" → "Monty 11 White")
-    var TEAM_NICKNAMES_RENDER = {
-        'Montmorency': 'Monty'
-    };
-    
-    function getDisplayName(fullName) {
-        if (!fullName) return fullName;
-        var trimmed = String(fullName).trim();
-        
-        // Check if any nickname base matches the start of the team name
-        for (var base in TEAM_NICKNAMES_RENDER) {
-            if (trimmed.indexOf(base) === 0) {
-                // Replace the base name with nickname, preserving the rest
-                var displayName = TEAM_NICKNAMES_RENDER[base] + trimmed.substring(base.length);
-                console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + displayName + '"');
-                return displayName;
-            }
-        }
-        
-        console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + trimmed + '" (no match)');
-        return trimmed;
-    }
-    
     // Expose showView to the global window object for console access
     if (typeof showView === 'function') {
         window.showView = showView;
