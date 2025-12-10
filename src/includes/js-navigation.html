@@ -574,8 +574,14 @@
                 return;
             }
             // Sub-views are now siblings, just show the sub-view
-            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
+            var paView = document.getElementById('insights-player-analysis-view');
+            paView.classList.remove('hidden');
+            console.log('[showView] PA view classList:', paView.classList.toString());
+            console.log('[showView] PA view computed display:', window.getComputedStyle(paView).display);
+            console.log('[showView] PA view offsetHeight:', paView.offsetHeight);
+            console.log('[showView] PA view scrollHeight:', paView.scrollHeight);
             renderInsightsPlayerAnalysis();
+            console.log('[showView] After render - PA view offsetHeight:', paView.offsetHeight);
             return;
         }
 
