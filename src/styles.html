@@ -12,12 +12,17 @@
     max-width: 100%;
   }
 
+  html {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
   html, body {
     overflow-x: hidden;
     max-width: 100vw;
     width: 100%;
-    min-height: 100%;
-    height: auto;
+    min-height: 100vh !important;
+    height: auto !important;
   }
 
   /* Prevent any element from causing horizontal scroll */
@@ -619,14 +624,14 @@
   main {
     display: block;
     width: 100%;
-    min-height: 100%;
-    height: auto;
+    min-height: 100vh !important;
+    height: auto !important;
   }
 
   #main-content {
     width: 100%;
-    min-height: 100%;
-    height: auto;
+    min-height: 100vh !important;
+    height: auto !important;
   }
 
   .view {

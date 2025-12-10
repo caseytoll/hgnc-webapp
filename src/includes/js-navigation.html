@@ -627,24 +627,58 @@
                 setTimeout(function() {
                     var view = document.getElementById('insights-player-analysis-view');
                     var dashboard = view ? view.querySelector('.insights-dashboard') : null;
+                    
+                    // Force multiple reflows to trigger layout calculation
+                    if (view) {
+                        view.style.display = 'none';
+                        void view.offsetHeight;
+                        view.style.display = 'block';
+                        void view.offsetHeight;
+                        
+                        // Force parent recalculation too
+                        var main = document.getElementById('main-content');
+                        if (main) {
+                            main.style.minHeight = '100vh';
+                            void main.offsetHeight;
+                        }
+                        
+                        var body = document.body;
+                        body.style.minHeight = '100vh';
+                        void body.offsetHeight;
+                    }
+                    
+                    if (dashboard) {
+                        dashboard.style.display = 'none';
+                        void dashboard.offsetHeight;
+                        dashboard.style.display = 'grid';
+                        void dashboard.offsetHeight;
+                    }
+                    
+                    // Re-check after forced reflows
                     var superlatives = view ? view.querySelectorAll('.superlative-card') : [];
                     var table = document.getElementById('insights-player-analysis-table');
                     var tableRows = table ? table.querySelectorAll('tr') : [];
                     
-                    console.log('[showView] PA: POST-RENDER CHECK:');
+                    console.log('[showView] PA: POST-RENDER CHECK (after reflows):');
                     console.log('[showView] PA: - View exists:', !!view);
                     console.log('[showView] PA: - View clientHeight:', view ? view.clientHeight : 'N/A');
+                    console.log('[showView] PA: - View scrollHeight:', view ? view.scrollHeight : 'N/A');
                     console.log('[showView] PA: - Dashboard exists:', !!dashboard);
                     console.log('[showView] PA: - Dashboard clientHeight:', dashboard ? dashboard.clientHeight : 'N/A');
+                    console.log('[showView] PA: - Dashboard scrollHeight:', dashboard ? dashboard.scrollHeight : 'N/A');
                     console.log('[showView] PA: - Superlative cards found:', superlatives.length);
                     console.log('[showView] PA: - Table rows:', tableRows.length);
                     console.log('[showView] PA: - Top Gun text:', document.getElementById('top-gun-name') ? document.getElementById('top-gun-name').textContent : 'N/A');
                     
-                    // Force layout recalculation
-                    if (view) {
-                        view.style.display = 'none';
-                        void view.offsetHeight; // Force reflow
-                        view.style.display = 'block';
+                    if (view && view.clientHeight === 0) {
+                        console.error('[showView] PA: STILL ZERO HEIGHT! Trying nuclear option...');
+                        // Nuclear option: completely replace the view's style
+                        view.setAttribute('style', 'display: block !important; visibility: visible !important; min-height: 100vh !important; height: auto !important; opacity: 1 !important; position: relative !important;');
+                        if (dashboard) {
+                            dashboard.setAttribute('style', 'display: grid !important; visibility: visible !important; min-height: 100vh !important; height: auto !important; opacity: 1 !important; grid-template-columns: 1fr !important; gap: 16px !important; padding: 24px 8px 0 8px !important;');
+                        }
+                        void view.offsetHeight;
+                        console.log('[showView] PA: After nuclear option, clientHeight:', view.clientHeight);
                     }
                     
                     view.scrollIntoView({ behavior: 'smooth', block: 'start' });
