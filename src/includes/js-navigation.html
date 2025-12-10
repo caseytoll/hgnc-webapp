@@ -332,17 +332,6 @@
         }
         
         console.log('[showView] All views hidden, now routing based on viewId:', viewId);
-
-        // Force target view visible before branch rendering to avoid stale display/visibility
-        var targetView = document.getElementById(viewId);
-        if (targetView) {
-            targetView.classList.remove('hidden');
-            targetView.style.removeProperty('display');
-            targetView.style.setProperty('display', 'block', 'important');
-            targetView.style.setProperty('visibility', 'visible', 'important');
-        } else {
-            console.warn('[showView] Target view not found:', viewId);
-        }
             
         // --- 3. Handle navigation bar visibility and active states ---
         if (viewId === 'team-selector-view') {
