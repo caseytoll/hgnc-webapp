@@ -78,6 +78,7 @@ docs/
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
 | [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Current workflow | 20 min | ⭐⭐⭐ |
+| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | Step-by-step deploy guide | 15 min | ⭐⭐⭐ |
 | [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Pre/during/post deploy | 15 min | ⭐⭐⭐ |
 | [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) | GitHub Actions CI/CD | 30 min | ⭐⭐ |
 | [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) | GH Actions configuration | 20 min | ⭐⭐ |
@@ -99,6 +100,7 @@ docs/
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
 | [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) | Cumulative insights | 20 min | ⭐⭐⭐ |
+| [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md) | CSS specificity deep-dive | 45 min | ⭐⭐⭐ |
 | [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) | Insights page debug | 30 min | ⭐⭐ |
 | [CHANGELOG.md](./CHANGELOG.md) | Version history | Scan | ⭐⭐ |
 

@@ -6,6 +6,37 @@
 
 ## 🔴 NON-NEGOTIABLES (User Has to Remind Me Repeatedly)
 
+### 0. VERIFY Deployment URL BEFORE Starting Work (Added 2025-12-10)
+**User should NEVER have to say**: "I'm not seeing any changes"
+
+**FIRST QUESTION in any debugging session**:
+```
+"What URL are you using to access the app?"
+```
+
+**Two deployment types**:
+1. **Stable Production**: `AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug`
+   - User's bookmarked URL
+   - Requires `-i` flag to update
+   
+2. **Numbered (@1234)**: Created by `clasp deploy` without `-i`
+   - Creates orphan deployments user never sees
+   - AVOID unless creating a test deployment
+
+**Every deployment after confirmation**:
+```bash
+clasp deploy -i AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug -d "v{X} - {description}"
+```
+
+**After deployment, ALWAYS instruct**:
+```
+"Please hard refresh (Cmd+Shift+R) and check console for version number."
+```
+
+**Why this matters**: Deploying to wrong URL = user never sees changes = wasted time debugging "fixes that don't work"
+
+**What happened**: v1011-v1016 deployed to @1012, @1013, etc. while user accessed stable URL. 6 wasted deployments.
+
 ### 1. ALWAYS Use Stable Deployment URL
 **Production ID**: `AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug`  
 **Current Version**: @453 (v365.53)
@@ -90,7 +121,11 @@ At the start of EVERY session, EVERY feature request:
 Before writing ANY code, answer these:
 
 - [ ] **Am I using the correct deployment command?** (See above, with `-i` flag)
+- [ ] **Have I confirmed the deployment URL user is accessing?** (Ask first!)
 - [ ] **Have I seen the actual data structure?** (Don't assume API shapes)
+- [ ] **If adding CSS with !important, have I checked for conflicts?** (Search codebase)
+- [ ] **Will this affect multiple elements?** (Test ALL, not just the problematic one)
+- [ ] **Am I checking computed styles in diagnostics?** (Not just CSS classes)
 - [ ] **Is this the simplest solution?** (Fade vs 3D flip)
 - [ ] **What happens if this fails?** (Add try-catch now, not later)
 - [ ] **Does HTML validate?** (Check closing tags)

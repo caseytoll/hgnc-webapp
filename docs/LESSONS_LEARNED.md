@@ -2,7 +2,7 @@
 
 **Purpose:** Living document capturing key learnings from development sessions to prevent repeating mistakes and build on successes.
 
-**Last Updated:** December 9, 2025 (Added: Google Apps Script 50KB limit, Browser caching, SPA routing)
+**Last Updated:** December 10, 2025 (Added: CSS specificity conflicts, Deployment URL verification, Computed styles diagnostic)
 
 ---
 
@@ -26,6 +26,69 @@
 ---
 
 ## CSS & Layout
+
+### CSS Specificity Conflicts Override .hidden Class (2025-12-10) ⚠️ CRITICAL
+
+**Lesson:** When two CSS rules have equal specificity and both use `!important`, the rule that appears LAST in the stylesheet wins, regardless of semantic intent.
+
+**Context:** All "hidden" views were rendering visibly with `display: block`, taking 13,707px of vertical space, pushing content far down the page. The `.view` class had `display: block !important` at line 629, which came AFTER `.hidden { display: none !important; }` at line 506.
+
+**Root Cause:**
+```css
+/* Line 506 - Defined first */
+.hidden {
+  display: none !important;  /* Equal specificity: 1 class */
+}
+
+/* Line 629 - Defined LATER (123 lines after) */
+.view {
+  display: block !important;  /* Equal specificity: 1 class */
+  /* ↑ WINS because it comes last in cascade */
+}
+```
+
+**Why It Was Missed:**
+- Assumed `.hidden` class meant element had `display: none`
+- Checked if element had `.hidden` class (it did)
+- Didn't check COMPUTED styles until v1023 (12 versions later)
+- Diagnostic logging focused on DOM structure, not CSS cascade
+
+**The Fix:**
+```css
+/* Higher specificity: 2 classes vs 1 class */
+.view.hidden {
+  display: none !important;  /* Overrides .view because more specific */
+}
+```
+
+**Prevention Rules:**
+1. **ALWAYS check computed styles in diagnostics**, not just classes:
+   ```javascript
+   const computed = window.getComputedStyle(element);
+   console.log('Has .hidden class:', element.classList.contains('hidden'));
+   console.log('Computed display:', computed.display);  // ← CRITICAL CHECK
+   ```
+
+2. **Before adding `!important`, check for conflicts:**
+   - Search codebase for existing rules on same elements
+   - Check if target element has multiple classes that might conflict
+   - Verify no other rules with `!important` on same property
+
+3. **Prefer specificity over `!important`:**
+   - `.view.hidden` (2 classes) beats `.view` (1 class)
+   - `.view.hidden` (2 classes) beats `.hidden` (1 class)
+   - Don't use `!important` unless absolutely necessary
+
+4. **Test ALL elements affected by CSS changes:**
+   - Changed `.view` class → test all 20 views, not just one
+   - Check both visible and hidden states
+   - Verify no layout shifts in unrelated views
+
+**Cost:** 13 versions (v1011-v1024), ~3 hours, 6 wasted deployments to wrong URL
+
+**Detailed Doc:** [`docs/POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md`](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md)
+
+---
 
 ### Flexbox Alignment (2025-12-08)
 
@@ -112,6 +175,52 @@
 ---
 
 ## Deployment & Caching
+
+### Verify Deployment URL BEFORE Debugging (2025-12-10) ⚠️ CRITICAL
+
+**Lesson:** Always confirm which deployment URL the user is accessing in the FIRST message, before making any code changes or deployments.
+
+**Context:** Agent deployed 6 versions (v1012-v1017) to numbered deployments (@1012, @1013, etc.) while user accessed stable production URL which wasn't being updated. User repeatedly reported "no changes" because they never saw the deployments.
+
+**Two Deployment Types:**
+1. **Numbered deployments** (e.g., @1012): Created by `clasp deploy` without `-i` flag
+   - Each creates a new URL: `AKfycby...` (different from production)
+   - User must have this specific URL to see it
+   - Creates "orphan" deployments if user isn't accessing them
+
+2. **Stable deployment** (production): Updated by `clasp deploy -i <URL>`
+   - Always same URL: `AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug`
+   - User bookmarks this URL
+   - Must use `-i` flag to update it
+
+**Required First Question:**
+```
+Agent: "What URL are you using to access the app?"
+User: "https://script.google.com/macros/s/AKfycbw8nTMiBtx3SMw.../exec"
+Agent: "That's the stable production URL. I'll use -i flag for all deployments."
+```
+
+**Correct Deployment Command:**
+```bash
+# ALWAYS use this for production:
+clasp deploy -i AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug -d "v1024 - Description"
+
+# NEVER do this (creates orphan numbered deployment):
+clasp deploy -d "Description"  # ❌ Missing -i flag
+```
+
+**Verification After Deployment:**
+```
+Agent: "Deployed as @1024. Please hard refresh (Cmd+Shift+R) and check console for version number."
+User: [provides console output showing v1024]
+Agent: "Confirmed! Now testing the fix..."
+```
+
+**Cost:** 6 wasted deployments, user frustration, false "fix didn't work" reports
+
+**Detailed Doc:** [`docs/POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md`](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md#issue-3-deployment-url-confusion-v1011-v1016)
+
+---
 
 ### Cache Busting is Critical (2025-12-08)
 

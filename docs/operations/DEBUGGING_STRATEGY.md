@@ -1,6 +1,96 @@
-# Blank Insights Page - Root Cause Analysis & Comprehensive Fix Strategy
+# Debugging Strategy - Layout & Display Issues
 
-## Executive Summary
+**Last Updated:** December 10, 2025 (Added: CSS Specificity Diagnostics)
+
+---
+
+## ⚠️ CRITICAL: Always Check Computed Styles First
+
+**Rule:** Before assuming an element's display state based on its CSS classes, ALWAYS check the computed styles.
+
+### Why This Matters
+
+CSS cascade and specificity can cause an element to have unexpected styles even when it has the "correct" classes:
+
+```javascript
+// ❌ WRONG - Assumes class = behavior
+if (element.classList.contains('hidden')) {
+  console.log('Element is hidden');  // MAY BE FALSE!
+}
+
+// ✅ RIGHT - Verify actual computed style
+const computed = window.getComputedStyle(element);
+console.log('Element computed display:', computed.display);
+if (computed.display === 'none') {
+  console.log('Element is actually hidden');
+}
+```
+
+### Standard Diagnostic Template
+
+For ANY "element not showing" or "element showing when it shouldn't" issue:
+
+```javascript
+function diagnoseElementDisplay(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) {
+    console.error('[DIAG] Element not found:', elementId);
+    return;
+  }
+  
+  const computed = window.getComputedStyle(el);
+  
+  console.log('[DIAG]', elementId, ':', {
+    // Classes (what we THINK is happening)
+    hasHiddenClass: el.classList.contains('hidden'),
+    allClasses: Array.from(el.classList),
+    
+    // Computed styles (what's ACTUALLY happening)
+    computedDisplay: computed.display,
+    computedVisibility: computed.visibility,
+    computedOpacity: computed.opacity,
+    
+    // Dimensions (actual rendered size)
+    offsetHeight: el.offsetHeight,
+    offsetWidth: el.offsetWidth,
+    scrollHeight: el.scrollHeight,
+    
+    // Position
+    offsetTop: el.offsetTop,
+    offsetLeft: el.offsetLeft
+  });
+}
+
+// Use it:
+diagnoseElementDisplay('fixture-view');
+```
+
+### Real-World Example: CSS Specificity Override
+
+**Scenario (Dec 10, 2025):** All hidden views were rendering visibly, taking 13,707px vertical space.
+
+**What we saw:**
+```javascript
+element.classList.contains('hidden')  // true ✓
+```
+
+**What we missed (until v1023):**
+```javascript
+window.getComputedStyle(element).display  // "block" ❌
+// Should have been "none"!
+```
+
+**Root cause:** `.view { display: block !important; }` came AFTER `.hidden { display: none !important; }` in stylesheet, so it won!
+
+**Cost:** 12 versions debugging DOM structure when it was CSS cascade all along.
+
+**Lesson:** Computed styles check should be in FIRST diagnostic, not version 12.
+
+---
+
+## Blank Insights Page - Historical Analysis
+
+### Executive Summary (Historical)
 
 **Root Cause:** The `.view` container (parent of insights dashboard) has `offsetHeight: 0` despite having valid CSS rules. This creates a circular dependency in CSS height calculation where:
 1. Parent `.view` has `height: auto` → waits for child to determine size

@@ -3,10 +3,126 @@
 This document captures key learnings and patterns for maintaining consistent, mobile-first CSS in the HGNC webapp.
 
 ## Table of Contents
+- [CSS Specificity & !important Rules](#css-specificity--important-rules)
 - [Flexbox Alignment Patterns](#flexbox-alignment-patterns)
 - [Mobile-First Development](#mobile-first-development)
 - [Cache Busting Strategy](#cache-busting-strategy)
 - [Debugging CSS Issues](#debugging-css-issues)
+
+---
+
+## CSS Specificity & !important Rules
+
+### Understanding the Cascade
+
+**Critical Rule:** When two CSS rules have equal specificity and both use `!important`, the rule that appears LAST in the stylesheet wins.
+
+**Example of the problem:**
+```css
+/* styles.html line 506 */
+.hidden {
+  display: none !important;  /* Specificity: 0,0,1,0 (1 class) */
+}
+
+/* styles.html line 629 (123 lines later) */
+.view {
+  display: block !important;  /* Specificity: 0,0,1,0 (1 class) */
+  /* ↑ WINS because same specificity but defined later */
+}
+```
+
+**Result:** An element with both classes `<div class="view hidden">` will have `display: block` (NOT hidden!).
+
+### Specificity Hierarchy
+
+```
+Highest  →  Inline styles: style="..."
+         →  ID selectors: #id
+         →  Class selectors: .class
+         →  Element selectors: div
+Lowest   →  Order in stylesheet (last wins if equal)
+```
+
+**Calculating specificity:**
+- `.view.hidden` = 0,0,2,0 (2 classes) beats `.view` = 0,0,1,0 (1 class)
+- `.view.hidden` = 0,0,2,0 (2 classes) beats `.hidden` = 0,0,1,0 (1 class)
+- `#main .view` = 0,1,1,0 (1 ID + 1 class) beats `.view.hidden` = 0,0,2,0
+
+### !important Anti-Patterns
+
+**❌ DON'T: Use !important to fix specific view issues globally**
+```css
+/* Trying to fix one view, breaks all views */
+.view:not(.hidden) {
+  display: block !important;  /* Forces ALL visible views to block */
+  width: 100%;                /* Overrides flex/grid layouts */
+}
+```
+
+**✅ DO: Use higher specificity instead of !important**
+```css
+/* Target specific view with higher specificity */
+.view.insights-view {
+  display: grid;  /* No !important needed */
+}
+```
+
+### Before Adding !important
+
+**Required checklist:**
+
+1. **Search for conflicts:**
+   ```bash
+   grep -n "display.*!important" src/styles.html
+   grep -n ".view" src/styles.html
+   ```
+
+2. **Check computed styles:**
+   ```javascript
+   const el = document.querySelector('.view.hidden');
+   console.log('Computed display:', window.getComputedStyle(el).display);
+   // Should be "none", but might be "block" due to conflict!
+   ```
+
+3. **Try higher specificity first:**
+   ```css
+   /* Instead of: */
+   .hidden { display: none !important; }
+   
+   /* Try: */
+   .view.hidden { display: none; }  /* Higher specificity, no !important */
+   ```
+
+4. **Test ALL affected elements:**
+   - If changing `.view`, test all 20+ view elements
+   - Check both visible and hidden states
+   - Verify no layout shifts
+
+### The .view.hidden Pattern (Learned Dec 10, 2025)
+
+**Problem:** `.view { display: block !important; }` overrode `.hidden { display: none !important; }`
+
+**Solution:**
+```css
+.hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Higher specificity wins */
+.view.hidden {
+  display: none !important;  /* 2 classes beats 1 class */
+  visibility: hidden !important;
+}
+
+.view {
+  display: block !important;  /* Only affects non-hidden views now */
+}
+```
+
+**Why it works:** `.view.hidden` (2 classes) has higher specificity than `.view` (1 class).
+
+**Cost of not knowing this:** 13 versions, 3 hours, 13,707px of invisible vertical space.
 
 ---
 
