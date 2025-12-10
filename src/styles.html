@@ -2162,12 +2162,17 @@
 /* Fix for player analysis view height collapse */
 #insights-player-analysis-view {
     min-height: 100vh !important;
+    height: auto !important;
     display: block !important;
 }
 
 #insights-player-analysis-view .insights-dashboard {
     min-height: 100vh !important;
+    height: auto !important;
     display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 24px 8px 0 8px;
 }
 
 /* Insights Menu Styles */

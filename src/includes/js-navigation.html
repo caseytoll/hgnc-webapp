@@ -585,17 +585,9 @@
             view.style.visibility = 'visible';
             view.style.opacity = '1';
             view.style.zIndex = '1000';
+            view.style.minHeight = '100vh';
+            view.style.height = 'auto';
             console.log('[showView] PA: View styles set, checking dashboard');
-            
-            // Log computed styles
-            var computedStyle = window.getComputedStyle(view);
-            console.log('[showView] PA: View computed display:', computedStyle.display);
-            console.log('[showView] PA: View computed visibility:', computedStyle.visibility);
-            console.log('[showView] PA: View computed opacity:', computedStyle.opacity);
-            console.log('[showView] PA: View computed height:', computedStyle.height);
-            console.log('[showView] PA: View computed width:', computedStyle.width);
-            console.log('[showView] PA: View clientHeight:', view.clientHeight);
-            console.log('[showView] PA: View clientWidth:', view.clientWidth);
             
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
@@ -605,12 +597,12 @@
                 dashboard.style.visibility = 'visible';
                 dashboard.style.display = 'grid';
                 dashboard.style.opacity = '1';
-                
-                // Log dashboard computed styles
-                var dashboardComputed = window.getComputedStyle(dashboard);
-                console.log('[showView] PA: Dashboard computed display:', dashboardComputed.display);
-                console.log('[showView] PA: Dashboard computed height:', dashboardComputed.height);
-                console.log('[showView] PA: Dashboard clientHeight:', dashboard.clientHeight);
+                dashboard.style.minHeight = '100vh';
+                dashboard.style.height = 'auto';
+                dashboard.style.gridTemplateColumns = '1fr';
+                dashboard.style.gap = '16px';
+                dashboard.style.padding = '24px 8px 0 8px';
+                console.log('[showView] PA: Dashboard explicit dimensions set');
             } else {
                 console.error('[showView] PA: Dashboard NOT found!');
             }
