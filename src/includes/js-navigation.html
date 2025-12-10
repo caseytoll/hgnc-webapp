@@ -398,10 +398,36 @@
             document.getElementById('players-view').classList.remove('hidden');
             renderPlayerList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
+            
+            // DIAGNOSTIC: Log view dimensions
+            setTimeout(function() {
+                var view = document.getElementById('players-view');
+                var styles = window.getComputedStyle(view);
+                console.log('[showView] players-view dimensions:', {
+                    offsetHeight: view.offsetHeight,
+                    scrollHeight: view.scrollHeight,
+                    paddingTop: styles.paddingTop,
+                    marginTop: styles.marginTop,
+                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child'
+                });
+            }, 100);
         } else if (viewId === 'fixture-view') {
             document.getElementById('fixture-view').classList.remove('hidden');
             renderGameList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
+            
+            // DIAGNOSTIC: Log view dimensions
+            setTimeout(function() {
+                var view = document.getElementById('fixture-view');
+                var styles = window.getComputedStyle(view);
+                console.log('[showView] fixture-view dimensions:', {
+                    offsetHeight: view.offsetHeight,
+                    scrollHeight: view.scrollHeight,
+                    paddingTop: styles.paddingTop,
+                    marginTop: styles.marginTop,
+                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child'
+                });
+            }, 100);
         } else if (viewId === 'insights-view') {
             // Show the menu, hide any sub-views and dashboards ONLY in currently visible views
             var dashboards = document.querySelectorAll('.insights-dashboard');
