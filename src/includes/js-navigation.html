@@ -576,12 +576,18 @@
             // Sub-views are now siblings, just show the sub-view
             var paView = document.getElementById('insights-player-analysis-view');
             paView.classList.remove('hidden');
-            console.log('[showView] PA view classList:', paView.classList.toString());
-            console.log('[showView] PA view computed display:', window.getComputedStyle(paView).display);
-            console.log('[showView] PA view offsetHeight:', paView.offsetHeight);
-            console.log('[showView] PA view scrollHeight:', paView.scrollHeight);
+            console.log('[showView] PA: Removed hidden class');
+            
+            // Ensure dashboard is also visible
+            var dashboard = paView.querySelector('.insights-dashboard');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.display = 'grid';
+                console.log('[showView] PA: Dashboard visibility set');
+            }
+            
             renderInsightsPlayerAnalysis();
-            console.log('[showView] After render - PA view offsetHeight:', paView.offsetHeight);
+            console.log('[showView] PA: After render complete');
             return;
         }
 
