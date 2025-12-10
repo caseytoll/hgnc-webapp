@@ -508,6 +508,12 @@
     visibility: hidden !important;
   }
 
+  /* Ensure .view.hidden stays hidden despite .view display rules */
+  .view.hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
   .error-banner {
     padding: var(--space-3);
     margin: var(--space-2) 0;
