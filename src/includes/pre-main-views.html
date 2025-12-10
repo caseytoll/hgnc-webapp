@@ -1,0 +1,79 @@
+  <div id="team-selector-view" class="view">
+      <section class="card team-selector-card">
+        <div class="card-header team-selector-header">
+          <h2 class="card-title">Select a Team</h2>
+          <div class="team-header-actions">
+            <button id="toggle-edit-mode" class="btn-edit-teams hidden" onclick="toggleTeamEditMode()" aria-label="Edit Teams">Edit</button>
+            <button id="show-add-team-modal" class="btn-create-team hidden" aria-label="Create New Team">➕</button>
+          </div>
+        </div>
+        <div id="team-list-container" class="team-list-modern"></div>
+      </section>
+    </div>
+    <div id="players-view" class="view hidden">
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Player List</h2><button id=
+          "show-add-player-modal" class=
+          "icon-btn hidden">➕</button>
+        </div>
+        <div id="player-list"></div>
+      </section>
+    </div>
+    <div id="insights-offense-hub-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-view')">← Back to Insights</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Team Manager</h2>
+        </div>
+        <div class="hub-tabs" role="tablist" aria-label="Offensive leaderboards" style="display:flex;gap:8px;margin:10px 0;">
+          <button id="offense-hub-tab-singles" class="hub-tab" role="tab" tabindex="0" aria-selected="false" onclick="setOffenseHubTab('singles')">Singles</button>
+          <button id="offense-hub-tab-pairs" class="hub-tab" role="tab" tabindex="0" aria-selected="false" onclick="setOffenseHubTab('pairs')">Pairs</button>
+          <!-- Show Top 3 / Show All toggle (per-tab) -->
+          <button id="offense-show-all-toggle" class="hub-tab" aria-pressed="false" title="Toggle show all results" style="margin-left:auto;">Show Top 3</button>
+        </div>
+
+        <div id="offense-tab-singles" style="display:block;">
+          <div class="card-subsection">
+            <h3 class="card-subtitle">Single Player Leaders</h3>
+            <div class="sort-tabs">
+              <button id="sort-single-impact" class="sort-tab-button active" onclick="setInsightsSort('single', 'impact')">Total Impact</button>
+              <button id="sort-single-avg" class="sort-tab-button" onclick="setInsightsSort('single', 'avg')">Efficiency (Avg)</button>
+              <button id="sort-single-qtrs" class="sort-tab-button" onclick="setInsightsSort('single', 'quarters')">Qtrs</button>
+            </div>
+            <div id="leaderboard-list-total"></div>
+            <div id="leaderboard-list-per-qtr" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <div id="offense-tab-pairs" style="display:none;">
+          <div class="card-subsection">
+            <h3 class="card-subtitle">GS/GA Pairs (Goals Scored)</h3>
+            <p class="card-subtitle hidden" id="insights-offense-subtitle">Note: "Efficiency" sort only shows pairs with 3 or more Qtrs played.</p>
+            <div class="sort-tabs">
+              <button id="sort-offense-impact" class="sort-tab-button active" onclick="setInsightsSort('offense', 'impact')">Total Impact</button>
+              <button id="sort-offense-avg" class="sort-tab-button" onclick="setInsightsSort('offense', 'avg')">Efficiency (Avg)</button>
+              <button id="sort-offense-qtrs" class="sort-tab-button" onclick="setInsightsSort('offense', 'quarters')">Qtrs</button>
+            </div>
+            <div id="insights-offense-combos"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div id="player-goals-detail-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-offense-hub-view')">← Back to Offensive Hub</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <h2 class="card-title" id="player-goals-detail-title">Player Goal Details</h2>
+        <div id="player-goals-detail-content"></div>
+      </section>
+    </div>
+    <div id="pair-goals-detail-view" class="view hidden">
+      <button class="back-button" onclick="showView('insights-offense-hub-view')">← Back to Offensive Hub</button>
+      <button class="back-button" onclick="showTeamSelector()" style="margin-left: 10px;">🏠 Home</button>
+      <section class="card">
+        <h2 class="card-title" id="pair-goals-detail-title">Pair Goal Details</h2>
+        <div id="pair-goals-detail-content"></div>
+      </section>
+    </div>
