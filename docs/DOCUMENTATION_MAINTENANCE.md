@@ -179,9 +179,9 @@ Before adding any new document:
 - `scripts/doc-reminder.sh` - Shows documentation overview
 - `scripts/pre-deploy-verify.sh` - Checks deployment best practices
 - `scripts/pre-commit` (existing) - Pre-commit validations
+- `scripts/doc-staleness-check.sh` - Fails if non-reference docs (outside archive/) are older than 90 days (override with STALE_DAYS)
 
 **Planned:**
-- `scripts/doc-staleness-check.sh` - Warn if doc >90 days old (not reference)
 - `scripts/archive-old-docs.sh` - Auto-suggest archiving version-specific docs
 
 ---

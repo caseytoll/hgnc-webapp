@@ -8,6 +8,8 @@
 
 ## Pre-Deployment (BEFORE any code changes)
 
+**Official reference:** Apps Script deployments overview: https://developers.google.com/apps-script/concepts/deployments
+
 ### Step 1: Verify Deployment URL
 
 **FIRST QUESTION:**

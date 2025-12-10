@@ -136,11 +136,11 @@
       </select> <label for="edit-team-name">Team Name</label>
       <input type="text" id="edit-team-name" placeholder=
       "e.g., U11"> <label for="edit-team-photo">Team Photo (Optional)</label>
-      <input type="file" id="edit-team-photo" accept="image/*" capture="environment" 
+      <input type="file" id="edit-team-photo" accept="image/*" 
       onchange="handleTeamPhotoUpload(this)">
       <div id="team-photo-preview" style="margin-top: 8px; display: none;">
-        <!-- img src intentionally omitted - set dynamically via JavaScript when file is selected -->
-        <img id="team-photo-preview-img" alt="Team photo preview" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <!-- img src set dynamically via JavaScript when file is selected -->
+        <img id="team-photo-preview-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Team photo preview" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color);">
       </div>
       <label for="edit-team-ladder-name">External
       Ladder Name (Match Exact Text)</label> <input type="text" id=
@@ -293,7 +293,6 @@
     })();
   </script>
 <?!= include('src/includes/js-dom-ready-init'); ?>
-</script>
   <script>
     // Ensure the Team Performance icon has a fallback when data: URLs are blocked or the image fails to load.
     (function(){

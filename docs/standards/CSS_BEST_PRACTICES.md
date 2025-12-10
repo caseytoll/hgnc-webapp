@@ -259,6 +259,10 @@ Before marking mobile work as complete:
 
 ## Cache Busting Strategy
 
+**Official references:**
+- Apps Script HTML best practices (cache static content): https://developers.google.com/apps-script/guides/html/best-practices#cache_static_content
+- Apps Script HTML service limits (50KB compiled output): https://developers.google.com/apps-script/guides/html/limits
+
 ### appVersion Must Be Updated
 
 **Critical**: Google Apps Script caches CSS/JS aggressively. Clients won't see changes without cache busting.

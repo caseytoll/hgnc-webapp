@@ -88,6 +88,11 @@
 
 **Detailed Doc:** [`docs/POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md`](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md)
 
+**Official references (read before CSS changes):**
+- Google Apps Script HTML best practices (cache/static assets): https://developers.google.com/apps-script/guides/html/best-practices#cache_static_content
+- Apps Script HTML limits (50KB compiled output): https://developers.google.com/apps-script/guides/html/limits
+- CSS cascade refresher (MDN): https://developer.mozilla.org/en-US/docs/Web/CSS/Cascade
+
 ---
 
 ### Flexbox Alignment (2025-12-08)
