@@ -619,12 +619,14 @@
   main {
     display: block;
     width: 100%;
-    height: 100%;
+    min-height: 100%;
+    height: auto;
   }
 
   #main-content {
     width: 100%;
-    height: 100%;
+    min-height: 100%;
+    height: auto;
   }
 
   .view {
@@ -2165,6 +2167,7 @@
     min-height: 100vh !important;
     height: auto !important;
     display: block !important;
+    position: relative !important;
 }
 
 #insights-player-analysis-view .insights-dashboard {
@@ -2174,6 +2177,24 @@
     grid-template-columns: 1fr;
     gap: 16px;
     padding: 24px 8px 0 8px;
+    position: relative !important;
+}
+
+#insights-player-analysis-view .dashboard-section {
+    min-height: 50px !important;
+    height: auto !important;
+}
+
+#insights-player-analysis-view .superlatives-grid {
+    min-height: 100px !important;
+}
+
+#insights-player-analysis-view .superlative-card {
+    min-height: 80px !important;
+}
+
+#insights-player-analysis-view #insights-player-analysis-table {
+    min-height: 300px !important;
 }
 
 /* Insights Menu Styles */
