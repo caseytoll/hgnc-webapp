@@ -1,5 +1,6 @@
 # HGNC WebApp - Feature & Bug Status Report
-**Current State: December 7, 2025**
+**Current State: December 11, 2025 (v1025+)**  
+**Previous: December 7, 2025**
 
 ---
 
@@ -58,6 +59,21 @@
 ---
 
 ## 🔧 RECENT FIXES (Last 2 Weeks)
+
+### v1025 (2025-12-10/11) - CSS Specificity Fix & Documentation Excellence
+- ✅ **Fixed:** All blank views (Player Analysis, Defensive Units, Attacking Units, Position Pairings)
+  - Root cause: CSS cascade - `.view { display: block !important; }` overriding `.hidden`
+  - Solution: Added `.view.hidden { display: none !important; }` with proper specificity
+  - Full analysis: [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](../POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md)
+- ✅ **Fixed:** Exported `window.initLineupModule()` function in js-lineup-lazy.html
+- ✅ **Fixed:** All HTML lint warnings (3 issues: capture attr, img src, orphaned script)
+- ✅ **Added:** Visible loading messages to Defensive/Attacking Units and Position Pairings
+- ✅ **Created:** DESIGN_SYSTEM.md - Comprehensive design token documentation (952 lines)
+- ✅ **Created:** First-day onboarding guide (ONBOARDING_FIRST_DAY.md)
+- ✅ **Updated:** QUICK_FIX_GUIDE.md with v1025 actual issues and solutions
+- ✅ **Documented:** Deployment URL deletion incident with safeguards (2,500+ lines)
+- ✅ **Tests:** All passing (unit, lint, pre-deploy, staleness, coverage)
+- ✅ **Version:** Hit 200-version limit - created new @HEAD deployment
 
 ### v823 (2025-12-07) - Project Structure & Code Cleanup
 - ✅ Reorganized project structure:

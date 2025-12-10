@@ -6,19 +6,18 @@ A Google Apps Script web application for managing netball teams, tracking player
 
 ## 🚨 For AI Agents & Developers: START HERE FIRST
 
-**Before doing ANY work on this project, read:**
+**New to this project?** Follow this 30-minute onboarding:
 
-1. **[`docs/START_HERE.md`](./docs/START_HERE.md)** (5 min) - Critical rules that prevent wasting hours
-2. **[`docs/DEPLOYMENT_CHECKLIST.md`](./docs/DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy to wrong URL again
-3. **[`docs/LESSONS_LEARNED.md`](./docs/LESSONS_LEARNED.md)** (15 min) - Patterns from past mistakes
+1. **[`docs/ONBOARDING_FIRST_DAY.md`](./docs/ONBOARDING_FIRST_DAY.md)** (30 min) ⭐ - Complete first-day checklist
+2. **[`docs/START_HERE.md`](./docs/START_HERE.md)** (5 min) - Critical rules that prevent wasting hours
+3. **[`docs/DEPLOYMENT_CHECKLIST.md`](./docs/DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy to wrong URL again
+4. **[`docs/LESSONS_LEARNED.md`](./docs/LESSONS_LEARNED.md)** (15 min) - Patterns from past mistakes
 
-**These 30 minutes of reading will save you 3+ hours of debugging.**
-
-Common mistakes if you skip this:
-- ❌ Deploy to wrong URL, user never sees changes (happened 6 times on Dec 10, 2025)
-- ❌ Check CSS classes but not computed styles (wasted 12 versions on Dec 10, 2025)
-- ❌ Add `!important` without checking conflicts (broke all views on Dec 10, 2025)
-- ❌ Forget to instruct hard refresh (user sees cached version for hours)
+**After onboarding, you'll:**
+- ✅ Understand 4 critical rules that prevent errors
+- ✅ Know how to deploy without breaking production
+- ✅ Understand common pitfalls to avoid
+- ✅ Know where to find answers to any question
 
 **[Full documentation index →](./docs/DOCUMENTATION_INDEX.md)**
 

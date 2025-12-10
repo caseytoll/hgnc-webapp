@@ -1,288 +1,311 @@
-# Quick Fix Guide - Lineup Analytics Issues (v943)
+# Quick Fix Guide - Common Issues & Solutions (v1025+)
 
-## Problem 1: Back Button Doesn't Work
+**For other troubleshooting strategies, see:** [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md)
 
-**Symptom:** Clicking "← Back" on defensive/attacking/position pairings view doesn't return to insights
+---
+
+## Problem 1: User Doesn't See Recent Changes After Deployment
+
+**Symptom:** "I deployed but users still see the old version"
+
+**Cause:** Browser caching (AppCache, Service Worker, or HTTP cache)
 
 **Quick Fix (1 minute):**
-```html
-<!-- File: lineup.html, lines 50, 70, 90 -->
-<!-- Change FROM: -->
-<button onclick="window.location.href=window.APP_URL + '?view=insights'">← Back</button>
+1. Tell user to **hard refresh**: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
+2. If still broken after hard refresh, user should open in **incognito/private window**
+3. If still broken, check version in console: 
+   ```javascript
+   // User should run this in browser console
+   console.log('App Version:', window.appVersion);
+   ```
 
-<!-- Change TO: -->
-<button onclick="window.location.href=window.APP_URL + '#insights-view'">← Back</button>
-```
+**If version number is correct but feature isn't working:**
+- Issue is code bug, not caching
+- Check DEBUGGING_STRATEGY.md for systematic approach
 
-**Then Deploy:**
-```bash
-cd /Users/casey-work/HGNC\ WebApp/hgnc-webapp
-git add lineup.html
-git commit -m "v943: Fix back button to use hash routing"
-clasp push && clasp deploy -i AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug -d "Back button hash fix"
-```
-
-**Test:**
-1. Go to any team's Insights
-2. Click "Defensive Units" card
-3. Click "← Back" button
-4. Should return to Insights dashboard
+**Prevention:** Always tell users: "Deployed to version X. Please hard refresh (Cmd+Shift+R) and check console for version number."
 
 ---
 
-## Problem 2: Lineup Stats Are Empty (No Data Showing)
+## Problem 2: Blank View (View Shows But Content Missing)
 
-**Symptom:** 
-- Page loads without errors
-- Tables appear but show "No defensive unit data available"
-- Console shows: `{defensiveUnitStats: {}, attackingUnitStats: {}, positionPairingStats: {}}`
+**Symptom:** View renders but content is missing/blank
 
-**Diagnosis Steps (5 minutes):**
+**Examples:**
+- Player Analysis page loads but shows nothing
+- Defensive Units view exists but shows empty
+- Schedule view blank
 
-### Step 1: Check if games have lineup data
+**Quick Diagnosis (2 minutes):**
+
+Open browser console (`F12`) and run:
 ```javascript
-// In browser console while on main app:
-console.log('Games:', window.games);
-console.log('First game:', window.games[0]);
-if (window.games[0]) {
-  console.log('Has lineup?', window.games[0].lineup);
-  console.log('First quarter:', window.games[0].lineup?.[0]);
-}
+// Check which view is currently visible
+const visibleView = document.querySelector('.view:not(.hidden)');
+console.log('Visible view:', visibleView?.id);
+
+// Check if view exists in DOM
+const analysisView = document.getElementById('player-analysis-view');
+console.log('View exists:', !!analysisView);
+
+// Check if view is hidden
+const computed = window.getComputedStyle(analysisView);
+console.log('Computed display:', computed.display);
+console.log('Computed visibility:', computed.visibility);
 ```
 
-**Expected Output (if working):**
-```javascript
-{
-  lineup: [
-    {
-      positions: {GK: "Player1", GD: "Player2", WD: "Player3", C: "Player4"},
-      ourScore: 15,
-      opponentScore: 12
-    },
-    // ... more quarters
-  ]
-}
-```
+**If view is hidden but shouldn't be:**
+- Issue is CSS specificity/cascade
+- **Reference:** [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md)
+- Add `!important` to `.view.active` rule in styles.html
+- Or check `.view.hidden { display: none !important; }` is present (line ~5300)
 
-### Step 2: Check server calculation (if game data exists)
-Add logging to Code.js:
-
-```javascript
-// File: Code.js, function getLineupStats() - line 1342
-function getLineupStats(sheetName) {
-  try {
-    var ss = getSpreadsheet();
-    var teamSheet = ss.getSheetByName(sheetName);
-    if (!teamSheet) {
-      throw new Error('Team data sheet not found: ' + sheetName);
-    }
-    var teamDataJSON = teamSheet.getRange('A1').getValue();
-    var teamData = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
-    var games = teamData.games || [];
-    
-    // ADD THIS LOGGING:
-    Logger.log('[getLineupStats] Sheet: ' + sheetName);
-    Logger.log('[getLineupStats] Games found: ' + games.length);
-    if (games.length > 0 && games[0].lineup) {
-      Logger.log('[getLineupStats] First game has lineup: ' + games[0].lineup.length + ' quarters');
-      Logger.log('[getLineupStats] First quarter positions: ' + JSON.stringify(games[0].lineup[0].positions));
-    }
-    
-    // ... rest of function
-```
-
-### Step 3: Deploy and check logs
-```bash
-# Deploy with logging
-clasp push && clasp deploy -i AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug -d "Debug lineup stats"
-
-# Check logs
-clasp logs
-```
-
-**If logs show "Games found: 0":**
-- Games don't have lineup data
-- Need to add lineup entries to each game
-- See "How to Add Lineup Data" below
-
-**If logs show "First quarter positions: undefined":**
-- Data structure mismatch
-- Position names might be different (check what's actually in JSON)
-- May need to adjust calculation functions to match real structure
+**If view is visible but content empty:**
+- Issue is likely JavaScript not rendering data
+- Check console for errors: Look for red text in browser console
+- Check if data exists: `console.log(window.games); console.log(window.players);`
 
 ---
 
-## Problem 3: How to Add Lineup Data to Games
+## Problem 3: CSS Changed But App Looks Wrong
 
-**If games exist but don't have lineup info:**
+**Symptom:** "I changed CSS but now three other views are broken"
 
-### Option A: Manually in Spreadsheet
-1. Open team's data sheet in Google Sheets
-2. Edit the game's JSON object (cell A1 of team data sheet)
-3. Add `lineup` array with quarters:
+**Root Cause:** CSS cascade/specificity issues
 
-```json
-{
-  "games": [
-    {
-      "id": "game_1",
-      "opponent": "Team A",
-      "lineup": [
-        {
-          "quarter": 1,
-          "positions": {
-            "GK": "Alice",
-            "GD": "Bob", 
-            "WD": "Charlie",
-            "C": "Diana"
-          },
-          "ourScore": 10,
-          "opponentScore": 8
-        },
-        {
-          "quarter": 2,
-          "positions": {
-            "GK": "Alice",
-            "GD": "Eve",
-            "WD": "Charlie", 
-            "C": "Diana"
-          },
-          "ourScore": 5,
-          "opponentScore": 3
-        }
-      ]
-    }
-  ]
-}
-```
+**Quick Prevention:**
+1. **ALWAYS test all views** after CSS changes
+2. **Before** making CSS changes, read: [CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md)
+3. **Use:** `!important` ONLY when necessary (style resets, display overrides)
+4. **Test:** All 20 views render correctly
 
-### Option B: Add UI in Main App
-(Not yet implemented - would need to create form in insights view)
+**Quick Fix if Already Broken:**
+1. Check what changed: `git diff src/styles.html`
+2. Most likely: A `.view` or `.hidden` rule got updated
+3. Review the rule with highest specificity wins
+4. If unsure: Reference [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md) - this exact problem happened in v1011-v1024
 
 ---
 
-## Problem 4: Attacking Units and Position Pairings Views Don't Work
+## Problem 4: Deployed to Wrong URL
 
-**Check:**
-1. Can you access the views at all? (links clickable?)
-2. Do they show empty state like Defensive Units?
-3. Any console errors?
+**Symptom:** "User accessing old URL and not seeing new version"
 
-**If views not showing:**
-Check lineup.html exists and is being served:
-```bash
-# Verify file exists
-cat /Users/casey-work/HGNC\ WebApp/hgnc-webapp/lineup.html | head -50
+**Why This is Critical:**
+- Some deployment URLs are permanent and cannot be undeployed safely
+- Using `clasp undeploy` PERMANENTLY DELETES a URL with no recovery
 
-# Check it's in deployed files
-clasp status
-```
+**Quick Prevention:**
+1. **ALWAYS use:** `clasp deploy -i <DEPLOYMENT_ID> -d "description"`
+2. **NEVER use:** `clasp deploy -d "description"` (creates orphan)
+3. **Reference:** [DEPLOYMENT_URLS.md](./DEPLOYMENT_URLS.md) - Registry of all URLs
+4. **Before deploying:** Run `./scripts/check-deployments.sh` to see all active URLs
 
-**If empty data like Defensive Units:**
-Same issue - no lineup data in games. See "Problem 2" above.
+**If Already Deployed to Wrong URL:**
+1. **DO NOT use `clasp undeploy`** - This is permanent deletion
+2. Create new deployment to correct URL: 
+   ```bash
+   clasp deploy -i <CORRECT_URL_ID> -d "v1025+ actual fix"
+   ```
+3. Tell user to use new URL going forward
+4. **Document in:** [DEPLOYMENT_URLS.md](./DEPLOYMENT_URLS.md) - Add note about old URL
+
+**Reference:** [DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md](./DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md) - Full incident analysis of why permanent deletion is dangerous
 
 ---
 
-## Problem 5: "Container not found" Error in Console
+## Problem 5: Console Shows Errors
 
-**Cause:** Old cached JavaScript still running
-- Browser has old version of code
-- New version has different function names
+**Common Errors:**
+
+### Error: "Cannot read property 'X' of undefined"
+**Likely Cause:** Data not loaded yet or not returned from server
 
 **Fix:**
-1. Hard refresh browser: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
-2. Or open in incognito/private window
-3. Or clear browser cache for script.google.com
-
-**If still persists after hard refresh:**
-- Deploy new version with bumped version number
-- Current appVersion: '943' (in Code.js line 67)
-- Only increment if you made code changes
-
----
-
-## Console Commands for Debugging
-
-### Check current state:
 ```javascript
-// What's in localStorage?
-console.log(JSON.parse(localStorage.getItem('appState')));
+// Add null checks before accessing properties
+// WRONG:
+const score = game.score.value;  // Breaks if game or score is undefined
 
-// What URL are we on?
-console.log(window.location.href);
-console.log(window.location.hash);
-
-// What's the current view?
-console.log(document.querySelector('.view:not(.hidden)'));
+// RIGHT:
+const score = game?.score?.value || 0;  // Safe
 ```
 
-### Check if server functions exist:
+### Error: "View container not found"
+**Likely Cause:** HTML structure missing or navigation called before page loaded
+
+**Fix:**
+1. Hard refresh browser: `Cmd+Shift+R`
+2. Or open in incognito window
+3. Or check that index.html includes all views in src/includes/
+
+---
+
+## Problem 6: Performance Issues / Slow Rendering
+
+**Symptom:** App feels sluggish, takes 2-3 seconds to switch views
+
+**Quick Diagnosis:**
+1. Open DevTools Performance tab (`F12` → Perf tab)
+2. Record while clicking a view button
+3. Look for long tasks (yellow = 50-200ms, red = 200ms+)
+
+**Common Causes:**
+1. **Large render function** - js-render.html is 3,956 lines
+   - Current workaround: Already well-optimized, cached at startup
+   - Future: Could split into smaller modules
+
+2. **Network latency** - Waiting for server response
+   - Check: Open DevTools Network tab
+   - Look for slow requests to server functions
+
+3. **DOM queries in loops**
+   - Already optimized in current code
+   - Avoid: `document.getElementById()` inside loops
+
+**Fix:** Reference [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) Performance section
+
+---
+
+## Problem 7: Modal or Toast Not Showing
+
+**Symptom:** Action triggered but no feedback (no modal, no toast)
+
+**Likely Causes:**
+1. Modal is there but off-screen (CSS positioning)
+2. Toast hidden behind other elements (z-index issue)
+3. JavaScript function not called (event listener missing)
+
+**Quick Fix:**
 ```javascript
-// This should complete without error if function exists:
-google.script.run.getLineupStats('data_team_1762633769992')
-  .getLineupStats('data_team_1762633769992')
-  .then(result => console.log('Stats:', result))
-  .catch(err => console.error('Error:', err));
+// Debug modals - check if they exist and are visible
+const modal = document.getElementById('modal-id');
+console.log('Modal exists:', !!modal);
+console.log('Modal hidden:', modal?.classList.contains('hidden'));
+console.log('Modal z-index:', window.getComputedStyle(modal).zIndex);
+
+// Should see: true, false, 9999 (or similar high number)
 ```
 
-### Check lineup data:
+**If modal exists but hidden:**
+- Check CSS: `.modal.hidden { display: none; }` is working
+- Or check: `.modal { z-index: 9999; }` is set high enough
+
+---
+
+## Problem 8: Form Input Not Updating
+
+**Symptom:** User types in form but data doesn't save
+
+**Quick Diagnosis:**
+1. Check if input has `value` binding or `onchange` handler
+2. Check if input is being cleared after save
+3. Verify server function is actually being called
+
+**Test in Console:**
 ```javascript
-// If you have access to game data:
-if (window.games && window.games[0]) {
-  console.log('Game 0 lineup:', window.games[0].lineup);
-  if (window.games[0].lineup?.[0]) {
-    console.log('Q1 positions:', window.games[0].lineup[0].positions);
-    console.log('Q1 score:', `${window.games[0].lineup[0].ourScore}-${window.games[0].lineup[0].opponentScore}`);
-  }
-}
+// Get the input element
+const input = document.querySelector('input[id="player-name"]');
+
+// Try to change it
+input.value = 'Test Name';
+
+// Trigger change event
+input.dispatchEvent(new Event('change', { bubbles: true }));
+
+// Check if it was saved
+console.log('Updated value:', input.value);
 ```
 
 ---
 
-## Cheat Sheet: View IDs
+## Problem 9: Dark Mode Not Working
 
-Use these IDs for routing/navigation:
+**Symptom:** App stays in light mode even when system prefers dark mode
 
-```
-Main App:
-- #team-selector-view
-- #fixture-view
-- #players-view
-- #insights-view
-- #netball-ladder-view
+**Quick Fix:**
+```javascript
+// Check what the browser reports
+console.log('System dark mode:', window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-Lineup Analytics (separate page):
-- #insights-lineup-defensive-units-view (default)
-- #insights-lineup-attacking-units-view
-- #insights-lineup-position-pairings-view
+// Check what app is using
+console.log('App dark mode:', document.documentElement.getAttribute('data-theme'));
 
-Back to insights from lineup:
-- window.location.href = window.APP_URL + '#insights-view'
+// Force dark mode for testing
+document.documentElement.setAttribute('data-theme', 'dark');
 ```
 
----
-
-## File Locations Quick Reference
-
-| Problem | File | Lines |
-|---------|------|-------|
-| Back button | lineup.html | 50, 70, 90 |
-| Server-side calc | Code.js | 1342-1453 |
-| Navigation logic | src/includes/js-navigation.html | ~40-45 |
-| Lineup page init | lineup.html | 110-180 |
-| Render functions | lineup.html | 190-328 |
+**If dark mode CSS not applying:**
+- Check styles.html has dark mode rules (search for `data-theme="dark"`)
+- Current code has full dark mode support
+- Reference: [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) - Dark mode section
 
 ---
 
-## Deployment Checklist
+## Problem 10: Missing Data or Player Not Showing Up
 
-Before deploying lineup fixes:
-- [ ] Tested locally in browser console
-- [ ] Changes committed to git
-- [ ] Ran `clasp push --force`
-- [ ] Deployed with meaningful description
-- [ ] Hard refreshed browser (Cmd+Shift+R)
-- [ ] Tested in incognito window if still broken
-- [ ] Checked console.log output for errors
+**Symptom:** "I added a player but they don't appear in the list"
+
+**Likely Cause:** Data not synced to server or cached locally
+
+**Quick Fix:**
+1. Hard refresh (`Cmd+Shift+R`)
+2. Check if player exists in data sheet (open Google Sheet directly)
+3. If exists in sheet but not in app:
+   - Close and reopen app (forces fresh data load)
+   - Or clear localStorage: 
+     ```javascript
+     localStorage.clear();
+     location.reload();
+     ```
+
+**If player doesn't exist in sheet:**
+- Add via app and save
+- Then refresh
 
 ---
+
+## Quick Console Debugging Commands
+
+Copy and paste these into browser console (`F12`):
+
+```javascript
+// Check app version (should match Code.js appVersion)
+console.log('✅ Version:', window.appVersion);
+
+// Check all data loaded
+console.log('✅ Teams:', window.teams?.length);
+console.log('✅ Players:', window.players?.length);
+console.log('✅ Games:', window.games?.length);
+
+// Check current view
+const active = document.querySelector('.view:not(.hidden)');
+console.log('✅ Current view:', active?.id);
+
+// Check dark mode
+console.log('✅ Dark mode:', document.documentElement.getAttribute('data-theme'));
+
+// All good if all say true / have values
+```
+
+---
+
+## Before Asking for Help
+
+**Checklist:**
+- [ ] Hard refreshed: `Cmd+Shift+R`
+- [ ] Checked browser console for errors: `F12`
+- [ ] Opened in incognito window (rules out extensions)
+- [ ] Verified deployment URL is correct
+- [ ] Checked console.log shows expected data
+- [ ] Tested on different browser if possible
+
+**Then refer to:**
+1. [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md) - Systematic approach
+2. [START_HERE.md](./START_HERE.md) - Critical rules
+3. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) - Has this happened before?
+
+---
+
+**Last Updated:** December 11, 2025 (v1025+)  
+**Questions?** Check [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) for full navigation

@@ -1,5 +1,6 @@
 # HGNC WebApp - Complete Project Status Summary
-**As of December 7, 2025**
+**Last Updated:** December 11, 2025 (v1025+)  
+**Previous Update:** December 7, 2025 (v823)
 
 ---
 
@@ -147,6 +148,30 @@ hgnc-webapp/
 
 ### Phase 7: Performance Optimizations
 - ✅ Hash-based change detection for stats (games + players)
+
+### Phase 8: CSS & Documentation Excellence (v1011-v1025)
+- ✅ **v1011-v1024:** CSS specificity bug investigation and fix
+  - Root cause: `.view { display: block !important; }` cascade overriding `.view.hidden`
+  - Solution: Added `.view.hidden { display: none !important; }` with higher specificity
+  - Cost: 14 versions to debug, comprehensive post-mortem created
+  - Learning: [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](../POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md)
+  - Prevention: [CSS_BEST_PRACTICES.md](../standards/CSS_BEST_PRACTICES.md) updated
+
+- ✅ **v1025:** Blank views fix and comprehensive documentation
+  - Fixed: Exported `window.initLineupModule()` function (module was auto-loading but not exposed)
+  - Fixed: All HTML lint warnings (capture attribute, img src, orphaned script tag)
+  - Added: Visible loading messages to 3 lineup views
+  - Created: Comprehensive design system documentation (952 lines, DESIGN_SYSTEM.md)
+  - Created: Critical incident documentation for deployment URL deletion (2,500+ lines)
+  - Added: First-day onboarding checklist (ONBOARDING_FIRST_DAY.md)
+  - Updated: QUICK_FIX_GUIDE.md with v1025 common issues
+  - Verified: All tests passing (unit, lint, pre-deploy, doc staleness, coverage)
+
+- ✅ **Version Status:**
+  - Current: v1025
+  - Total Deployed: 825+ versions
+  - Latest 2 weeks: 40+ versions
+  - Hit 200-version limit: Hit in Dec 11, incident documented and safeguards created
 - ✅ In-memory stats cache with instant restore
 - ✅ IndexedDB persistence (survives page refresh)
 - ✅ Smart cache invalidation (only on data mutations)
