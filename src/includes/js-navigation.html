@@ -568,23 +568,31 @@
         }
         
         if (viewId === 'insights-player-analysis-view') {
+            console.log('[showView] Handling insights-player-analysis-view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            console.log('[showView] Player Analysis - teamID:', teamID);
             if (!teamID) {
                 showView('team-selector-view');
                 return;
             }
             // Sub-views are now siblings, just show the sub-view
             var view = document.getElementById('insights-player-analysis-view');
+            console.log('[showView] Player Analysis - view element:', view ? 'FOUND' : 'NOT FOUND');
             view.classList.remove('hidden');
             view.style.visibility = 'visible';
+            console.log('[showView] Player Analysis - view unhidden and visibility set');
             // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
+            console.log('[showView] Player Analysis - dashboard element:', dashboard ? 'FOUND' : 'NOT FOUND');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
                 dashboard.style.visibility = 'visible';
+                console.log('[showView] Player Analysis - dashboard unhidden and visibility set');
             }
             try { 
+                console.log('[showView] Player Analysis - calling renderInsightsPlayerAnalysis()');
                 renderInsightsPlayerAnalysis(); 
+                console.log('[showView] Player Analysis - renderInsightsPlayerAnalysis() completed');
             } catch (e) { 
                 console.error('Error rendering Player Analysis view:', e); 
             }
