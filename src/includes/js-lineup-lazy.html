@@ -212,6 +212,12 @@
       console.log('[LineupCache] Invalidated');
     }
   };
+
+  // Init function (called by navigation, but module auto-loads)
+  window.initLineupModule = function() {
+    console.log('[LineupModule] initLineupModule called (module already loaded)');
+    return true;
+  };
   
   // Compact render functions (minimal HTML generation)
   function renderDefensiveUnits(stats) {
