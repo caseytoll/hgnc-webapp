@@ -2598,8 +2598,11 @@
 
     // Render Player Analysis view
     const renderInsightsPlayerAnalysis = () => {
+        console.log('[renderInsightsPlayerAnalysis] START');
         const stats = window.calculatedSeasonStats;
+        console.log('[renderInsightsPlayerAnalysis] Stats:', stats ? 'FOUND' : 'NOT FOUND');
         const table = document.getElementById('insights-player-analysis-table');
+        console.log('[renderInsightsPlayerAnalysis] Table element:', table ? 'FOUND' : 'NOT FOUND');
         
         if (!stats) {
             console.warn('[renderInsightsPlayerAnalysis] No stats available');
@@ -2622,10 +2625,12 @@
 
         // Populate Superlatives
         const superlatives = stats.superlatives || {};
+        console.log('[renderInsightsPlayerAnalysis] Superlatives:', superlatives);
 
         // Top Gun
         const topGunEl = document.getElementById('top-gun-name');
         const topGunDetailEl = document.getElementById('top-gun-detail');
+        console.log('[renderInsightsPlayerAnalysis] Top Gun elements:', topGunEl ? 'FOUND' : 'NOT FOUND');
         if (topGunEl && superlatives.topGun) {
             topGunEl.textContent = superlatives.topGun.name;
             topGunDetailEl.textContent = `${superlatives.topGun.value} goals scored`;
@@ -2668,7 +2673,9 @@
         }
 
         // Populate Player Performance Table
+        console.log('[renderInsightsPlayerAnalysis] Calling renderPlayerAnalysisTable');
         renderPlayerAnalysisTable('goals'); // Default sort by goals
+        console.log('[renderInsightsPlayerAnalysis] Table render complete');
         // Defensive: ensure the table shows an empty state if no players were found
         if (table && (!stats.playerSpotlights || stats.playerSpotlights.length === 0)) {
             table.innerHTML = '<thead><tr><th>Player</th><th>Games</th><th>Goals</th><th>Versatility</th><th>Top Positions</th></tr></thead>' +
@@ -2678,11 +2685,13 @@
 
     // Helper function to render player analysis table with different sorts
     const renderPlayerAnalysisTable = (sortBy) => {
+        console.log('[renderPlayerAnalysisTable] START with sortBy:', sortBy);
         const stats = window.calculatedSeasonStats;
         if (!stats || !stats.playerSpotlights) {
             console.warn('[renderPlayerAnalysisTable] No stats or playerSpotlights');
             return;
         }
+        console.log('[renderPlayerAnalysisTable] Found', stats.playerSpotlights.length, 'players');
 
         let sortedPlayers = stats.playerSpotlights ? [...stats.playerSpotlights] : [];
 
@@ -2749,7 +2758,9 @@
         }
 
         html += '</tbody>';
+        console.log('[renderPlayerAnalysisTable] Setting table HTML, length:', html.length);
         table.innerHTML = html;
+        console.log('[renderPlayerAnalysisTable] Table HTML set, table rows:', table.querySelectorAll('tr').length);
     };
 
     // Function to set player analysis sort

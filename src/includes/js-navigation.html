@@ -622,10 +622,33 @@
                 console.log('[showView] PA: Calling renderInsightsPlayerAnalysis');
                 renderInsightsPlayerAnalysis(); 
                 console.log('[showView] PA: Render complete');
-                // Scroll into view
+                
+                // Verify content was actually rendered
                 setTimeout(function() {
+                    var view = document.getElementById('insights-player-analysis-view');
+                    var dashboard = view ? view.querySelector('.insights-dashboard') : null;
+                    var superlatives = view ? view.querySelectorAll('.superlative-card') : [];
+                    var table = document.getElementById('insights-player-analysis-table');
+                    var tableRows = table ? table.querySelectorAll('tr') : [];
+                    
+                    console.log('[showView] PA: POST-RENDER CHECK:');
+                    console.log('[showView] PA: - View exists:', !!view);
+                    console.log('[showView] PA: - View clientHeight:', view ? view.clientHeight : 'N/A');
+                    console.log('[showView] PA: - Dashboard exists:', !!dashboard);
+                    console.log('[showView] PA: - Dashboard clientHeight:', dashboard ? dashboard.clientHeight : 'N/A');
+                    console.log('[showView] PA: - Superlative cards found:', superlatives.length);
+                    console.log('[showView] PA: - Table rows:', tableRows.length);
+                    console.log('[showView] PA: - Top Gun text:', document.getElementById('top-gun-name') ? document.getElementById('top-gun-name').textContent : 'N/A');
+                    
+                    // Force layout recalculation
+                    if (view) {
+                        view.style.display = 'none';
+                        void view.offsetHeight; // Force reflow
+                        view.style.display = 'block';
+                    }
+                    
                     view.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
+                }, 200);
             } catch (e) { 
                 console.error('Error rendering Player Analysis view:', e); 
             }
