@@ -1,12 +1,63 @@
 # Development Principles & Learnings
-**Last Updated**: 2025-11-24  
+**Last Updated**: 2025-12-11  
 **Purpose**: Living document reviewed before implementing ANY change
 
 ---
 
 ## 🔴 NON-NEGOTIABLES (User Has to Remind Me Repeatedly)
 
-### 0. VERIFY Deployment URL BEFORE Starting Work (Added 2025-12-10)
+### 0. ALWAYS Expose Cross-Module Functions to Window (Added 2025-12-11)
+**What happened**: 6 critical issues found where functions were called but not accessible
+- `hideView()` completely undefined despite onclick handlers
+- `renderInsights()` and `renderPlayerList()` defined but not exposed to window
+- Naming mismatches: `deleteTeam()` vs `executeDeleteTeam()`
+
+**JavaScript Scope Reality**:
+```javascript
+// ❌ BAD: Arrow functions are NOT automatically global
+const myFunction = () => { };
+// This function is NOT accessible from other modules!
+
+// ✅ GOOD: Explicitly expose to window
+const myFunction = () => { };
+window.myFunction = myFunction;  // NOW accessible everywhere
+```
+
+**RULE**: After defining ANY function that other modules call:
+```javascript
+const renderPlayerList = () => { /* ... */ };
+window.renderPlayerList = renderPlayerList;  // ← REQUIRED!
+```
+
+**Why this matters**: Arrow functions don't auto-hoist like traditional functions. Without explicit window exposure, other modules get "function is undefined" errors.
+
+**Related**: See [POST_MORTEM: Code Interaction Issues](../postmortems/CODE_INTERACTION_ISSUES_2025_12_11.md)
+
+### 0.1 Document Module Contracts (Added 2025-12-11)
+**EVERY JavaScript module file must have a header comment**:
+
+```javascript
+/**
+ * MODULE: js-render.html
+ * PURPOSE: Rendering functions for all views
+ * 
+ * EXPORTS TO WINDOW:
+ * - renderInsights()
+ * - renderPlayerList()  
+ * - renderGameList()
+ * 
+ * DEPENDS ON (from other modules):
+ * - window.appState (js-helpers.html)
+ * - window.calculatedSeasonStats (js-helpers.html)
+ * - showView() (js-navigation.html)
+ */
+```
+
+**Why this matters**: With 13 JavaScript modules loaded via `<?!= include() ?>`, it's impossible to know what each exports without documentation. This header makes dependencies explicit.
+
+**What happened**: Functions were called from other modules without knowing if they were properly exposed. Documentation would have caught this immediately.
+
+### 0.2 VERIFY Deployment URL BEFORE Starting Work (Added 2025-12-10)
 **User should NEVER have to say**: "I'm not seeing any changes"
 
 **FIRST QUESTION in any debugging session**:
@@ -290,7 +341,99 @@ function getDisplayName(fullName) {
 
 ---
 
-## ⚡ CRITICAL PATTERNS FROM 365 VERSIONS
+## ⚡ CRITICAL PATTERNS FROM 365+ VERSIONS
+
+### 0. Module System & Function Exposure (Added 2025-12-11)
+
+**Context**: 6 critical issues found where functions were called but not accessible across modules.
+
+#### JavaScript Scope Reality
+
+**The Problem**: Arrow functions don't auto-hoist like traditional functions.
+
+```javascript
+// ❌ BAD: This is NOT automatically global
+const myFunction = () => { };
+// Other modules calling myFunction() will get "undefined"
+
+// ✅ GOOD: Explicitly expose to window
+const myFunction = () => { };
+window.myFunction = myFunction;
+```
+
+#### Function Definition Patterns
+
+Know when to use each pattern:
+
+**Pattern 1: Traditional Function (Auto-Hoisted)**
+```javascript
+function myFunction() { }
+// ✅ Can be called before definition
+// ✅ Accessible within same file
+// ❌ NOT automatically global to other modules
+```
+**Use for**: Helper functions within a single file
+
+**Pattern 2: Const Arrow Function (Must Expose)**
+```javascript
+const myFunction = () => { };
+window.myFunction = myFunction;  // ← REQUIRED!
+// ✅ Modern ES6 syntax
+// ❌ NOT hoisted
+// ❌ NOT global without window assignment
+```
+**Use for**: Main render functions, public APIs
+
+**Pattern 3: Direct Window Assignment**
+```javascript
+window.myFunction = function() { };
+// ✅ Immediately global
+// ✅ Clear public API intent
+```
+**Use for**: Wrappers, onclick handlers, utilities
+
+#### Naming Conventions (Standardized 2025-12-11)
+
+**CRUD Operations**: Direct verbs
+```javascript
+✅ addTeam()     ✅ updateTeam()    ✅ deleteTeam()
+❌ executeAddTeam()  ❌ doDeletePlayer()  // Don't prefix
+```
+
+**Modals**: show/hide prefix
+```javascript
+✅ showAddTeamModal()    ✅ hideEditPlayerModal()
+```
+
+**Renders**: render prefix
+```javascript
+✅ renderPlayerList()  ✅ renderInsights()
+```
+
+**Navigation**: show/hide prefix
+```javascript
+✅ showView(viewId)   ✅ hideView(viewId)
+```
+
+**Why**: Inconsistent naming caused bugs where `deletePlayer()` was called but actual function was `executeDeletePlayer()`.
+
+#### Pre-Deployment Verification
+
+**Check ALL onclick handlers have targets**:
+```bash
+grep -r 'onclick=' index.html src/includes/ | grep -o 'onclick="[^"]*"'
+# Then verify each function exists
+```
+
+**Check arrow functions are exposed**:
+```javascript
+// After defining:
+const myFunction = () => { };
+// MUST add:
+window.myFunction = myFunction;
+```
+
+**Related**: See [CODE_INTERACTION_AUDIT_2025_12_11.md](../CODE_INTERACTION_AUDIT_2025_12_11.md) and [POST_MORTEM](../postmortems/CODE_INTERACTION_ISSUES_2025_12_11.md)
 
 ### 1. DATA PERSISTENCE: Static-Until-Game Pattern
 **Context**: This is a sports stats app. Data only changes when:

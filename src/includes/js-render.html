@@ -194,6 +194,8 @@
         listEl.innerHTML = html.join('');
         // Note: add-player button visibility handled prior to early return to support owners with empty rosters
     }
+    // Expose renderPlayerList to window for external calls
+    window.renderPlayerList = renderPlayerList;
 
     const renderGameList = () => {
         const listEl = document.getElementById('game-list');
@@ -2127,6 +2129,8 @@
     const renderInsights = () => {
         renderNewInsightsDashboard();
     };
+    // Expose renderInsights to window for external calls
+    window.renderInsights = renderInsights;
 
     // Render function for the test insights view
     const renderInsightsTest = () => {

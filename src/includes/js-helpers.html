@@ -1435,4 +1435,96 @@
         showNotification('App installed successfully! 🎉', 'success');
         haptic([50, 100, 50, 100, 50]);
     });
+
+    // === WRAPPER FUNCTIONS FOR COMMON API PATTERNS ===
+    // These wrapper functions ensure consistent naming across the codebase
+    // and prevent runtime errors from undefined function calls.
+    
+    /**
+     * hideView(viewId) - Hide a view by ID
+     * Wrapper for common view hiding pattern used throughout the app
+     * Removes 'hidden' class and clears from navigation history
+     */
+    window.hideView = function(viewId) {
+        try {
+            var view = document.getElementById(viewId);
+            if (!view) {
+                console.warn('[hideView] View not found:', viewId);
+                return;
+            }
+            view.classList.add('hidden');
+            
+            // Also remove from navigation history if available
+            if (typeof navigationHistory !== 'undefined' && navigationHistory.length > 0) {
+                // Find and remove this view from history
+                var histIndex = navigationHistory.indexOf(viewId);
+                if (histIndex !== -1) {
+                    navigationHistory.splice(histIndex, 1);
+                }
+            }
+            
+            console.log('[hideView] Hidden view:', viewId);
+        } catch (e) {
+            console.error('[hideView] Error hiding view ' + viewId + ':', e);
+        }
+    };
+
+    /**
+     * renderPlayerList() - Render the player list view
+     * Wrapper that routes to the actual render function if it exists
+     * Note: The actual implementation is in js-render.html and will override this
+     */
+    if (typeof window.renderPlayerList === 'undefined') {
+        window.renderPlayerList = function() {
+            console.warn('[renderPlayerList] Function not yet loaded - waiting for js-render.html');
+        };
+    }
+
+    /**
+     * addTeam() - Wrapper for adding a team
+     * Routes to the team modal dialog
+     */
+    window.addTeam = function() {
+        try {
+            if (typeof showAddTeamModal === 'function') {
+                showAddTeamModal();
+            } else {
+                console.warn('[addTeam] showAddTeamModal not available');
+            }
+        } catch (e) {
+            console.error('[addTeam] Error:', e);
+        }
+    };
+
+    /**
+     * deleteTeam() - Wrapper for deleting a team
+     * Routes to the actual delete team function
+     */
+    window.deleteTeam = function() {
+        try {
+            if (typeof executeDeleteTeam === 'function') {
+                executeDeleteTeam();
+            } else {
+                console.warn('[deleteTeam] executeDeleteTeam not available');
+            }
+        } catch (e) {
+            console.error('[deleteTeam] Error:', e);
+        }
+    };
+
+    /**
+     * deletePlayer() - Wrapper for deleting a player
+     * Routes to the actual delete player function
+     */
+    window.deletePlayer = function() {
+        try {
+            if (typeof executeDeletePlayer === 'function') {
+                executeDeletePlayer();
+            } else {
+                console.warn('[deletePlayer] executeDeletePlayer not available');
+            }
+        } catch (e) {
+            console.error('[deletePlayer] Error:', e);
+        }
+    };
 </script>

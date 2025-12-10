@@ -1,10 +1,10 @@
 # HGNC WebApp - Complete Documentation Index
 
 **Last Updated:** December 11, 2025  
-**Total Documents:** 80+ markdown files (18 root + 38 organized + 24+ archived)  
+**Total Documents:** 87 markdown files (6 root + 55 organized + 26 archived)  
 **Total Lines:** 28,000+ lines of documentation
 
-📊 **Quality Assessment:** [DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md](./DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md) - Score: 96-98/100 ✅
+📊 **Quality Assessment:** [operations/DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md](./operations/DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md) - Score: 95/100 ✅ (Improved from 82/100)
 
 ---
 
@@ -12,18 +12,18 @@
 
 **New to the project?** Start here in order:
 
-1. **[ONBOARDING_FIRST_DAY.md](./ONBOARDING_FIRST_DAY.md)** (30 min) ⭐⭐⭐ - **NEW - START HERE!** Complete first-day checklist
-2. **[START_HERE.md](./START_HERE.md)** (5 min) ⭐⭐⭐ - **CRITICAL RULES - READ FIRST**
+1. **[START_HERE.md](./START_HERE.md)** (5 min) ⭐⭐⭐ - **CRITICAL RULES - READ FIRST**
+2. **[getting-started/ONBOARDING_FIRST_DAY.md](./getting-started/ONBOARDING_FIRST_DAY.md)** (30 min) ⭐⭐⭐ - **Complete first-day checklist**
 3. **[README.md](../README.md)** (10 min) - Project overview and setup
 4. **[LESSONS_LEARNED.md](./LESSONS_LEARNED.md)** (15 min) ⭐ - Critical insights from past work
-5. **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy wrong again
+5. **[deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy wrong again
 6. **[getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md)** (30 min) - **READ BEFORE CODING**
 
 **Before making CSS changes:** Read [standards/CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md)
 
 **Before working on UI/design:** Review [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) - complete design token documentation
 
-**Before deploying:** Check [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
+**Before deploying:** Check [deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md)
 
 ---
 
@@ -32,18 +32,20 @@
 ```
 docs/
 ├── README.md ⭐ (if you're reading this, start with main README.md)
+├── START_HERE.md ⭐⭐⭐ CRITICAL RULES - READ FIRST
 ├── LESSONS_LEARNED.md ⭐ Cumulative learnings (append-only)
-├── DOCUMENTATION_INDEX.md (this file)
+├── DESIGN_SYSTEM.md ⭐⭐⭐ Design tokens & components
 ├── CHANGELOG.md (version history)
+├── DOCUMENTATION_INDEX.md (this file)
 │
-├── getting-started/      - Onboarding & daily reference
-├── standards/            - Code conventions & best practices
-├── testing/              - QA procedures & test suites
-├── deployment/           - Shipping workflows & checklists
-├── operations/           - Maintenance & debugging
-├── postmortems/          - Root cause analyses
-├── templates/            - Document templates for consistency
-└── archive/              - Historical snapshots (dated)
+├── getting-started/      - Onboarding & daily reference (9 files + README)
+├── standards/            - Code conventions & best practices (3 files + README)
+├── testing/              - QA procedures & test suites (9 files + README)
+├── deployment/           - Shipping workflows & checklists (13 files + README)
+├── operations/           - Maintenance & debugging (15 files + README)
+├── postmortems/          - Root cause analyses (3 files + README)
+├── templates/            - Document templates for consistency (3 files + README)
+└── archive/              - Historical snapshots (26 files + INDEX)
 ```
 
 ---
@@ -54,81 +56,93 @@ docs/
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
-| [ONBOARDING_FIRST_DAY.md](./ONBOARDING_FIRST_DAY.md) | **NEW** First day 30-min checklist | 30 min | ⭐⭐⭐ |
-| [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) | Daily reference cheat sheet | 10 min | ⭐⭐⭐ |
-| [QUICK_FIX_GUIDE.md](./QUICK_FIX_GUIDE.md) | **UPDATED** Common issues & quick fixes | 10 min | ⭐⭐⭐ |
-| [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) | Patterns, non-negotiables | 30 min | ⭐⭐⭐ |
-| [CONTRIBUTING.md](./getting-started/CONTRIBUTING.md) | Contribution guidelines | 15 min | ⭐⭐ |
-| [MOBILE_FIRST_DEVELOPMENT.md](./getting-started/MOBILE_FIRST_DEVELOPMENT.md) | Mobile-first approach | 10 min | ⭐⭐ |
-| [GOOGLE_APPS_SCRIPT_CACHING.md](./getting-started/GOOGLE_APPS_SCRIPT_CACHING.md) | Cache behavior & gotchas | 10 min | ⭐⭐ |
-| [IMPLEMENTATION_FRAMEWORK.md](./getting-started/IMPLEMENTATION_FRAMEWORK.md) | Development framework | 20 min | ⭐ |
+| [getting-started/README.md](./getting-started/README.md) | **Navigation hub for onboarding** | 5 min | ⭐⭐⭐ |
+| [getting-started/ONBOARDING_FIRST_DAY.md](./getting-started/ONBOARDING_FIRST_DAY.md) | First day 30-min checklist | 30 min | ⭐⭐⭐ |
+| [getting-started/QUICK_FIX_GUIDE.md](./getting-started/QUICK_FIX_GUIDE.md) | Common issues & quick fixes | 10 min | ⭐⭐⭐ |
+| [getting-started/QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) | Daily reference cheat sheet | 10 min | ⭐⭐⭐ |
+| [getting-started/GITHUB_ACTIONS_QUICK_START.md](./getting-started/GITHUB_ACTIONS_QUICK_START.md) | Quick GH Actions setup | 10 min | ⭐⭐⭐ |
+| [getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) | Patterns, non-negotiables | 30 min | ⭐⭐⭐ |
+| [getting-started/CONTRIBUTING.md](./getting-started/CONTRIBUTING.md) | Contribution guidelines | 15 min | ⭐⭐ |
+| [getting-started/DEBUGGING_STRATEGY.md](./getting-started/DEBUGGING_STRATEGY.md) | Debugging methodology | 20 min | ⭐⭐⭐ |
+| [getting-started/MOBILE_FIRST_DEVELOPMENT.md](./getting-started/MOBILE_FIRST_DEVELOPMENT.md) | Mobile-first approach | 10 min | ⭐⭐ |
+| [getting-started/GOOGLE_APPS_SCRIPT_CACHING.md](./getting-started/GOOGLE_APPS_SCRIPT_CACHING.md) | Cache behavior & gotchas | 10 min | ⭐⭐ |
+| [getting-started/IMPLEMENTATION_FRAMEWORK.md](./getting-started/IMPLEMENTATION_FRAMEWORK.md) | Development framework | 20 min | ⭐ |
 
 ### 📏 Standards & Best Practices
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
-| [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | **NEW** Design tokens, components, patterns | 60 min | ⭐⭐⭐ |
-| [CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) | CSS patterns & anti-patterns | 30 min | ⭐⭐⭐ |
-| [ICON_IMAGES_STANDARDIZATION.md](./standards/ICON_IMAGES_STANDARDIZATION.md) | Icon implementation guide | 15 min | ⭐⭐ |
-| [GIT_HOOKS.md](./standards/GIT_HOOKS.md) | Git workflow automation | 10 min | ⭐ |
+| [standards/README.md](./standards/README.md) | **Standards overview & usage** | 5 min | ⭐⭐⭐ |
+| [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) | Design tokens, components, patterns | 60 min | ⭐⭐⭐ |
+| [standards/CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) | CSS patterns & anti-patterns | 30 min | ⭐⭐⭐ |
+| [standards/ICON_IMAGES_STANDARDIZATION.md](./standards/ICON_IMAGES_STANDARDIZATION.md) | Icon implementation guide | 15 min | ⭐⭐ |
+| [standards/GIT_HOOKS.md](./standards/GIT_HOOKS.md) | Git workflow automation | 10 min | ⭐ |
 
 ### 🧪 Testing
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
-| [TESTING_README.md](./testing/TESTING_README.md) | Test suite overview | 20 min | ⭐⭐⭐ |
-| [SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) | Specialized test details | 30 min | ⭐⭐ |
-| [ERROR_HANDLING.md](./testing/ERROR_HANDLING.md) | Error handling patterns | 15 min | ⭐⭐ |
-| [SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) | Smoke test checklist | 10 min | ⭐⭐ |
-| [COVERAGE_METRICS.md](./testing/COVERAGE_METRICS.md) | Test coverage tracking | 10 min | ⭐ |
+| [testing/README.md](./testing/README.md) | **Testing overview & navigation** | 10 min | ⭐⭐⭐ |
+| [testing/TESTING_README.md](./testing/TESTING_README.md) | Test suite overview | 20 min | ⭐⭐⭐ |
+| [testing/SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) | Specialized test details | 30 min | ⭐⭐ |
+| [testing/ERROR_HANDLING.md](./testing/ERROR_HANDLING.md) | Error handling patterns | 15 min | ⭐⭐ |
+| [testing/SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) | Smoke test checklist | 10 min | ⭐⭐ |
+| [testing/COVERAGE_METRICS.md](./testing/COVERAGE_METRICS.md) | Test coverage tracking | 10 min | ⭐ |
 
 ### 🚀 Deployment
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
 | [deployment/README.md](./deployment/README.md) | **Which deployment doc to use?** | 5 min | ⭐⭐⭐ |
-| [GITHUB_ACTIONS_QUICK_START.md](./GITHUB_ACTIONS_QUICK_START.md) | **NEW** Quick GH Actions setup | 10 min | ⭐⭐⭐ |
-| [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) | Daily deployment workflow | 15 min | ⭐⭐⭐ |
-| [DEPLOYMENT_URLS.md](./DEPLOYMENT_URLS.md) | **NEW** All deployment URLs + FAQ | 10 min | ⭐⭐⭐ |
-| [DEPLOYMENT_URL_MANAGEMENT.md](./DEPLOYMENT_URL_MANAGEMENT.md) | **NEW** Concepts & decision trees | 20 min | ⭐⭐⭐ |
-| [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Architecture & understanding | 20 min | ⭐⭐ |
-| [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Major releases & planning | 15 min | ⭐⭐ |
-| [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) | GitHub Actions CI/CD | 30 min | ⭐⭐ |
-| [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) | GH Actions configuration | 20 min | ⭐⭐ |
-| [SERVICE_WORKER_DEPLOYMENT.md](./SERVICE_WORKER_DEPLOYMENT.md) | **NEW** Service worker caching strategy | 15 min | ⭐⭐ |
-| [RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) | Example release notes | 10 min | ⭐ |
+| [deployment/DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md) | Daily deployment workflow | 15 min | ⭐⭐⭐ |
+| [deployment/DEPLOYMENT_URLS.md](./deployment/DEPLOYMENT_URLS.md) | All deployment URLs + FAQ | 10 min | ⭐⭐⭐ |
+| [deployment/DEPLOYMENT_URL_MANAGEMENT.md](./deployment/DEPLOYMENT_URL_MANAGEMENT.md) | Concepts & decision trees | 20 min | ⭐⭐⭐ |
+| [deployment/DEPLOYMENT_INCIDENT_INDEX.md](./deployment/DEPLOYMENT_INCIDENT_INDEX.md) | Incident documentation hub | 10 min | ⭐⭐⭐ |
+| [deployment/DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md](./deployment/DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md) | Critical incident analysis | 45 min | ⭐⭐⭐ |
+| [deployment/SERVICE_WORKER_DEPLOYMENT.md](./deployment/SERVICE_WORKER_DEPLOYMENT.md) | Service worker caching strategy | 15 min | ⭐⭐ |
+| [deployment/DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) | Architecture & understanding | 20 min | ⭐⭐ |
+| [deployment/SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) | Major releases & planning | 15 min | ⭐⭐ |
+| [deployment/CI_DEPLOY.md](./deployment/CI_DEPLOY.md) | GitHub Actions CI/CD | 30 min | ⭐⭐ |
+| [deployment/GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) | GH Actions configuration | 20 min | ⭐⭐ |
+| [deployment/RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) | Example release notes | 10 min | ⭐ |
 
 ### 🔧 Operations & Maintenance
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
-| [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md) | Debugging methodology | 20 min | ⭐⭐⭐ |
-| [ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) | Large file management | 10 min | ⭐⭐ |
-| [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) | Current project state | 30 min | ⭐⭐ |
-| [FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) | Feature completion status | 20 min | ⭐⭐ |
-| [VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) | Metrics & health score | 20 min | ⭐ |
-| [PR_FIX_INSIGHTS.md](./operations/PR_FIX_INSIGHTS.md) | PR patterns & insights | 15 min | ⭐ |
+| [operations/README.md](./operations/README.md) | **Operations navigation hub** | 5 min | ⭐⭐⭐ |
+| [operations/CODE_INTERACTION_AUDIT_2025_12_11.md](./operations/CODE_INTERACTION_AUDIT_2025_12_11.md) | Code interaction audit | 20 min | ⭐⭐ |
+| [operations/PROJECT_HEALTH_ASSESSMENT.md](./operations/PROJECT_HEALTH_ASSESSMENT.md) | Project health metrics | 25 min | ⭐⭐ |
+| [operations/DOCUMENTATION_AUDIT_2025_12_11.md](./operations/DOCUMENTATION_AUDIT_2025_12_11.md) | Documentation audit | 15 min | ⭐ |
+| [operations/DOCUMENTATION_MAINTENANCE.md](./operations/DOCUMENTATION_MAINTENANCE.md) | How to keep docs current | 15 min | ⭐⭐ |
+| [operations/DOCUMENTATION_REVIEW_COMPLETE.md](./operations/DOCUMENTATION_REVIEW_COMPLETE.md) | Review completion report | 10 min | ⭐ |
+| [operations/DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md](./operations/DOCUMENTATION_REVIEW_SUMMARY_2025_12_11.md) | Doc review findings | 15 min | ⭐ |
+| [operations/LEARNING_SESSION_2025_12_11.md](./operations/LEARNING_SESSION_2025_12_11.md) | Learning session notes | 20 min | ⭐ |
+| [operations/ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) | Large file management | 10 min | ⭐⭐ |
+| [operations/PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) | Current project state | 30 min | ⭐⭐ |
+| [operations/FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) | Feature completion status | 20 min | ⭐⭐ |
+| [operations/VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) | Metrics & health score | 20 min | ⭐ |
+| [operations/PR_FIX_INSIGHTS.md](./operations/PR_FIX_INSIGHTS.md) | PR patterns & insights | 15 min | ⭐ |
 
 ### 📖 Learning from History
 
 | Document | Purpose | Time | Priority |
 |----------|---------|------|----------|
+| [postmortems/README.md](./postmortems/README.md) | **Post-mortem navigation & guidelines** | 10 min | ⭐⭐⭐ |
 | [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) | Cumulative insights | 20 min | ⭐⭐⭐ |
-| [DEPLOYMENT_INCIDENT_INDEX.md](./DEPLOYMENT_INCIDENT_INDEX.md) | **NEW** Incident documentation hub | 10 min | ⭐⭐⭐ |
-| [DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md](./DEPLOYMENT_URL_DELETION_INCIDENT_2025_12_11.md) | **NEW** Critical incident analysis | 45 min | ⭐⭐⭐ |
-| [LEARNING_SESSION_2025_12_11.md](./LEARNING_SESSION_2025_12_11.md) | **NEW** Meta-analysis of learning | 30 min | ⭐⭐ |
-| [DOCUMENTATION_MAINTENANCE.md](./DOCUMENTATION_MAINTENANCE.md) | How to keep docs current | 15 min | ⭐⭐ |
-| [POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md) | CSS specificity deep-dive | 45 min | ⭐⭐⭐ |
-| [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) | Insights page debug | 30 min | ⭐⭐ |
+| [postmortems/CODE_INTERACTION_ISSUES_2025_12_11.md](./postmortems/CODE_INTERACTION_ISSUES_2025_12_11.md) | Code interaction root cause analysis | 45 min | ⭐⭐⭐ |
+| [postmortems/POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md](./postmortems/POST_MORTEM_CSS_SPECIFICITY_2025_12_10.md) | CSS specificity deep-dive | 45 min | ⭐⭐⭐ |
+| [postmortems/POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) | Insights page debug | 30 min | ⭐⭐ |
 | [CHANGELOG.md](./CHANGELOG.md) | Version history | Scan | ⭐⭐ |
 
 ### 📝 Templates
 
 | Template | When to Use |
 |----------|-------------|
-| [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md) | After each dev session |
-| [POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md) | After significant issues |
-| [FEATURE_TEMPLATE.md](./templates/FEATURE_TEMPLATE.md) | Documenting new features |
+| [templates/README.md](./templates/README.md) | **Template usage guidelines** |
+| [templates/SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md) | After each dev session |
+| [templates/POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md) | After significant issues |
+| [templates/FEATURE_TEMPLATE.md](./templates/FEATURE_TEMPLATE.md) | Documenting new features |
 
 ---
 
@@ -138,35 +152,35 @@ docs/
 
 **Read before starting:**
 1. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) - Don't repeat past mistakes
-2. [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) - Patterns
-3. [CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) (if CSS work)
+2. [getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) - Patterns
+3. [standards/CSS_BEST_PRACTICES.md](./standards/CSS_BEST_PRACTICES.md) (if CSS work)
 
 **During development:**
-- [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - Quick answers
-- [TESTING_README.md](./testing/TESTING_README.md) - How to test
+- [getting-started/QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - Quick answers
+- [testing/TESTING_README.md](./testing/TESTING_README.md) - How to test
 
 **Before deploying:**
-- [SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) - Pre-deploy steps
-- [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - How to ship
+- [deployment/SHIPPING_CHECKLIST.md](./deployment/SHIPPING_CHECKLIST.md) - Pre-deploy steps
+- [deployment/DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - How to ship
 
 **After session:**
 - Update [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) if you learned something valuable
-- Create session summary from [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md)
+- Create session summary from [templates/SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md)
 
 ### 🐛 Developer - Fixing Bugs
 
 **Read first:**
 1. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) - Has this been solved before?
-2. [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md) - Systematic approach
-3. [POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) - Example methodology
+2. [getting-started/DEBUGGING_STRATEGY.md](./getting-started/DEBUGGING_STRATEGY.md) - Systematic approach
+3. [postmortems/POST_MORTEM_2025_12_06.md](./postmortems/POST_MORTEM_2025_12_06.md) - Example methodology
 
 **During debugging:**
-- Add diagnostic logging (see [DEBUGGING_STRATEGY.md](./operations/DEBUGGING_STRATEGY.md))
+- Add diagnostic logging (see [getting-started/DEBUGGING_STRATEGY.md](./getting-started/DEBUGGING_STRATEGY.md))
 - Document findings in code comments
 - Test on both desktop and mobile
 
 **After fixing:**
-- Create post-mortem from [POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md)
+- Create post-mortem from [templates/POST_MORTEM_TEMPLATE.md](./templates/POST_MORTEM_TEMPLATE.md)
 - Extract lesson to [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
 - Update [CHANGELOG.md](./CHANGELOG.md)
 
@@ -175,37 +189,37 @@ docs/
 **Day 1 (2-3 hours):**
 1. [README.md](../README.md) (30 min) - Project overview
 2. [LESSONS_LEARNED.md](./LESSONS_LEARNED.md) (20 min) - What we've learned
-3. [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) (1 hour) - Current state
-4. [DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) (30 min) - How we work
+3. [operations/PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md) (1 hour) - Current state
+4. [getting-started/DEVELOPMENT-PRINCIPLES.md](./getting-started/DEVELOPMENT-PRINCIPLES.md) (30 min) - How we work
 
 **Week 1:**
-- [VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) - Codebase structure
+- [operations/VISUAL_PROJECT_OVERVIEW.md](./operations/VISUAL_PROJECT_OVERVIEW.md) - Codebase structure
 - [CHANGELOG.md](./CHANGELOG.md) - Scan recent versions
-- [TESTING_README.md](./testing/TESTING_README.md) - Testing approach
+- [testing/TESTING_README.md](./testing/TESTING_README.md) - Testing approach
 
 ### 👤 Product Manager / QA
 
 **Current state:**
-1. [QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - What's deployed
-2. [FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) - What works/doesn't
+1. [getting-started/QUICK_REFERENCE.md](./getting-started/QUICK_REFERENCE.md) - What's deployed
+2. [operations/FEATURE_BUG_STATUS.md](./operations/FEATURE_BUG_STATUS.md) - What works/doesn't
 
 **Testing:**
-- [SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) - Manual test checklist
-- [SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) - Test suite details
+- [testing/SMOKE_TEST_COVERAGE.md](./testing/SMOKE_TEST_COVERAGE.md) - Manual test checklist
+- [testing/SPECIALIZED_TESTING.md](./testing/SPECIALIZED_TESTING.md) - Test suite details
 
 **Releases:**
-- [RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) - Example format
+- [deployment/RELEASE_NOTES_v243.md](./deployment/RELEASE_NOTES_v243.md) - Example format
 - [CHANGELOG.md](./CHANGELOG.md) - Recent changes
 
 ### 🚀 DevOps / Infrastructure
 
 **Setup:**
-1. [CI_DEPLOY.md](./deployment/CI_DEPLOY.md) - GCP & GitHub Actions
-2. [GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) - Workflow config
+1. [deployment/CI_DEPLOY.md](./deployment/CI_DEPLOY.md) - GCP & GitHub Actions
+2. [deployment/GITHUB_ACTIONS_SETUP.md](./deployment/GITHUB_ACTIONS_SETUP.md) - Workflow config
 
 **Operations:**
-- [DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - Deploy process
-- [ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) - File management
+- [deployment/DEPLOYMENT_WORKFLOW_v2.md](./deployment/DEPLOYMENT_WORKFLOW_v2.md) - Deploy process
+- [operations/ARCHIVE_POLICY.md](./operations/ARCHIVE_POLICY.md) - File management
 
 ---
 
@@ -214,12 +228,12 @@ docs/
 ### After Every Development Session
 - [ ] Extract key learnings to [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
 - [ ] Update [CHANGELOG.md](./CHANGELOG.md)
-- [ ] Create session summary (optional, using [SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md))
+- [ ] Create session summary (optional, using [templates/SESSION_TEMPLATE.md](./templates/SESSION_TEMPLATE.md))
 
 ### Monthly
 - [ ] Review and consolidate similar learnings in [LESSONS_LEARNED.md](./LESSONS_LEARNED.md)
 - [ ] Archive session summaries older than 30 days
-- [ ] Update [PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md)
+- [ ] Update [operations/PROJECT_STATUS_SUMMARY.md](./operations/PROJECT_STATUS_SUMMARY.md)
 
 ### Quarterly
 - [ ] Archive outdated snapshots
@@ -231,22 +245,15 @@ docs/
 
 ## 🗄️ Archived Documentation
 
-Historical snapshots moved to `archive/` for reference:
+Historical snapshots moved to `archive/` for reference. See [archive/INDEX.md](./archive/INDEX.md) for complete archive documentation.
 
-### archive/2025-12-07-deployment-push/
-- DEPLOYMENT_READY.md
-- READY_TO_DEPLOY.md
-- READY_TO_PUSH.md
-- DEPLOYMENT_COMPLETE.md
+**Archive Organization:**
+- `archive/2025-12-07/` - December 7 snapshots
+- `archive/2025-12-07-deployment-push/` - Deployment docs from Dec 7
+- `archive/2025-12-07-session/` - Session notes from Dec 7
+- `archive/2025-12-09/` - December 9 snapshots
 
-### archive/2025-12-07-session/
-- SESSION_SUMMARY.md
-- REVIEW_SUMMARY.md
-- FINAL_IMPLEMENTATION_REPORT.md
-- IMPLEMENTATION_COMPLETE.md
-- HIGH_PRIORITY_IMPLEMENTATION.md
-- IMPROVEMENTS_SUMMARY.md
-- DOCUMENTATION_ENHANCEMENT_SUMMARY.md
+**Total Archived Files:** 26 markdown documents
 
 **Access:** Available for historical reference, but not actively maintained.
 
