@@ -2607,6 +2607,12 @@
         const table = document.getElementById('insights-player-analysis-table');
         console.log('[renderInsightsPlayerAnalysis] Table element:', table ? 'FOUND' : 'NOT FOUND');
         
+        // TEST: Write to page to verify render is being called
+        const testEl = document.querySelector('#insights-player-analysis-view .dashboard-title');
+        if (testEl) {
+            console.log('[renderInsightsPlayerAnalysis] TEST: Found title element, adding test text');
+        }
+        
         if (!stats) {
             console.warn('[renderInsightsPlayerAnalysis] No stats available');
             // Show empty state for superlatives

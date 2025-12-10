@@ -587,7 +587,8 @@
             if (dashboard) {
                 dashboard.classList.remove('hidden');
                 dashboard.style.visibility = 'visible';
-                console.log('[showView] Player Analysis - dashboard unhidden and visibility set');
+                dashboard.style.setProperty('display', 'grid', 'important');
+                console.log('[showView] Player Analysis - dashboard unhidden, visibility set, and display set to grid');
             }
             try { 
                 console.log('[showView] Player Analysis - calling renderInsightsPlayerAnalysis()');
