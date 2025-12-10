@@ -623,66 +623,75 @@
                 renderInsightsPlayerAnalysis(); 
                 console.log('[showView] PA: Render complete');
                 
-                // Verify content was actually rendered
-                setTimeout(function() {
-                    var view = document.getElementById('insights-player-analysis-view');
-                    var dashboard = view ? view.querySelector('.insights-dashboard') : null;
-                    
-                    // Force multiple reflows to trigger layout calculation
-                    if (view) {
-                        view.style.display = 'none';
-                        void view.offsetHeight;
-                        view.style.display = 'block';
-                        void view.offsetHeight;
+                // CRITICAL FIX: Wait for browser paint cycle before checking dimensions
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        var view = document.getElementById('insights-player-analysis-view');
+                        var dashboard = view ? view.querySelector('.insights-dashboard') : null;
                         
-                        // Force parent recalculation too
-                        var main = document.getElementById('main-content');
-                        if (main) {
-                            main.style.minHeight = '100vh';
-                            void main.offsetHeight;
-                        }
+                        console.log('[showView] PA: POST-PAINT CHECK:');
+                        console.log('[showView] PA: - View exists:', !!view);
+                        console.log('[showView] PA: - View clientHeight:', view ? view.clientHeight : 'N/A');
+                        console.log('[showView] PA: - View scrollHeight:', view ? view.scrollHeight : 'N/A');
+                        console.log('[showView] PA: - Dashboard exists:', !!dashboard);
+                        console.log('[showView] PA: - Dashboard clientHeight:', dashboard ? dashboard.clientHeight : 'N/A');
+                        console.log('[showView] PA: - Dashboard scrollHeight:', dashboard ? dashboard.scrollHeight : 'N/A');
                         
-                        var body = document.body;
-                        body.style.minHeight = '100vh';
-                        void body.offsetHeight;
-                    }
-                    
-                    if (dashboard) {
-                        dashboard.style.display = 'none';
-                        void dashboard.offsetHeight;
-                        dashboard.style.display = 'grid';
-                        void dashboard.offsetHeight;
-                    }
-                    
-                    // Re-check after forced reflows
-                    var superlatives = view ? view.querySelectorAll('.superlative-card') : [];
-                    var table = document.getElementById('insights-player-analysis-table');
-                    var tableRows = table ? table.querySelectorAll('tr') : [];
-                    
-                    console.log('[showView] PA: POST-RENDER CHECK (after reflows):');
-                    console.log('[showView] PA: - View exists:', !!view);
-                    console.log('[showView] PA: - View clientHeight:', view ? view.clientHeight : 'N/A');
-                    console.log('[showView] PA: - View scrollHeight:', view ? view.scrollHeight : 'N/A');
-                    console.log('[showView] PA: - Dashboard exists:', !!dashboard);
-                    console.log('[showView] PA: - Dashboard clientHeight:', dashboard ? dashboard.clientHeight : 'N/A');
-                    console.log('[showView] PA: - Dashboard scrollHeight:', dashboard ? dashboard.scrollHeight : 'N/A');
-                    console.log('[showView] PA: - Superlative cards found:', superlatives.length);
-                    console.log('[showView] PA: - Table rows:', tableRows.length);
-                    console.log('[showView] PA: - Top Gun text:', document.getElementById('top-gun-name') ? document.getElementById('top-gun-name').textContent : 'N/A');
-                    
-                    if (view && view.clientHeight === 0) {
-                        console.error('[showView] PA: STILL ZERO HEIGHT! Trying nuclear option...');
-                        // Nuclear option: completely replace the view's style
-                        view.setAttribute('style', 'display: block !important; visibility: visible !important; min-height: 100vh !important; height: auto !important; opacity: 1 !important; position: relative !important;');
-                        if (dashboard) {
-                            dashboard.setAttribute('style', 'display: grid !important; visibility: visible !important; min-height: 100vh !important; height: auto !important; opacity: 1 !important; grid-template-columns: 1fr !important; gap: 16px !important; padding: 24px 8px 0 8px !important;');
+                        if (view && view.clientHeight === 0) {
+                            console.error('[showView] PA: ZERO HEIGHT AFTER PAINT! Parent chain issue...');
+                            
+                            // Check parent chain heights
+                            var main = document.getElementById('main-content');
+                            var body = document.body;
+                            var html = document.documentElement;
+                            
+                            console.log('[showView] PA: Parent heights:');
+                            console.log('  - html:', html.clientHeight);
+                            console.log('  - body:', body.clientHeight);
+                            console.log('  - main:', main ? main.clientHeight : 'N/A');
+                            console.log('  - view:', view.clientHeight);
+                            console.log('  - dashboard:', dashboard ? dashboard.clientHeight : 'N/A');
+                            
+                            // EMERGENCY FIX: Remove ALL height constraints from parent chain
+                            console.log('[showView] PA: Removing parent height constraints...');
+                            html.style.height = 'auto';
+                            body.style.height = 'auto';
+                            if (main) main.style.height = 'auto';
+                            
+                            // Force view to have explicit pixel height based on content
+                            if (dashboard) {
+                                var cards = dashboard.querySelectorAll('.superlative-card');
+                                var table = document.getElementById('insights-player-analysis-table');
+                                
+                                console.log('[showView] PA: Cards scrollHeight:', cards.length > 0 ? cards[0].scrollHeight : 0);
+                                console.log('[showView] PA: Table scrollHeight:', table ? table.scrollHeight : 0);
+                                
+                                // Calculate minimum height from content
+                                var minHeight = 800; // Default fallback
+                                if (table && table.scrollHeight > 0) {
+                                    minHeight = Math.max(minHeight, table.scrollHeight + 400);
+                                }
+                                
+                                dashboard.style.minHeight = minHeight + 'px';
+                                view.style.minHeight = minHeight + 'px';
+                                
+                                console.log('[showView] PA: Set explicit minHeight:', minHeight + 'px');
+                            }
+                            
+                            // Final check after emergency fixes
+                            setTimeout(function() {
+                                console.log('[showView] PA: FINAL CHECK after emergency fix:');
+                                console.log('  - View clientHeight:', view.clientHeight);
+                                console.log('  - Dashboard clientHeight:', dashboard ? dashboard.clientHeight : 'N/A');
+                                
+                                if (view) view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }, 100);
+                        } else {
+                            console.log('[showView] PA: ✅ View has height! Scrolling...');
+                            if (view) view.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }
-                        void view.offsetHeight;
-                        console.log('[showView] PA: After nuclear option, clientHeight:', view.clientHeight);
-                    }
-                    
-                    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 200);
+                    });
+                });
             } catch (e) { 
                 console.error('Error rendering Player Analysis view:', e); 
             }
