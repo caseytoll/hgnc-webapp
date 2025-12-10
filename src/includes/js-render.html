@@ -2598,20 +2598,8 @@
 
     // Render Player Analysis view
     const renderInsightsPlayerAnalysis = () => {
-        console.log('[renderInsightsPlayerAnalysis] CALLED', { 
-            hasStats: !!window.calculatedSeasonStats, 
-            hasSuperatives: !!(window.calculatedSeasonStats && window.calculatedSeasonStats.superlatives),
-            playerCount: window.calculatedSeasonStats && window.calculatedSeasonStats.playerSpotlights ? window.calculatedSeasonStats.playerSpotlights.length : 0 
-        });
         const stats = window.calculatedSeasonStats;
         const table = document.getElementById('insights-player-analysis-table');
-        console.log('[renderInsightsPlayerAnalysis] Table element:', table ? 'FOUND' : 'NOT FOUND');
-        
-        // TEST: Write to page to verify render is being called
-        const testEl = document.querySelector('#insights-player-analysis-view .dashboard-title');
-        if (testEl) {
-            console.log('[renderInsightsPlayerAnalysis] TEST: Found title element, adding test text');
-        }
         
         if (!stats) {
             console.warn('[renderInsightsPlayerAnalysis] No stats available');
@@ -2634,12 +2622,10 @@
 
         // Populate Superlatives
         const superlatives = stats.superlatives || {};
-        console.log('[renderInsightsPlayerAnalysis] Superlatives:', superlatives);
 
         // Top Gun
         const topGunEl = document.getElementById('top-gun-name');
         const topGunDetailEl = document.getElementById('top-gun-detail');
-        console.log('[renderInsightsPlayerAnalysis] Top Gun - element:', topGunEl ? 'FOUND' : 'NOT FOUND', ', data:', superlatives.topGun);
         if (topGunEl && superlatives.topGun) {
             topGunEl.textContent = superlatives.topGun.name;
             topGunDetailEl.textContent = `${superlatives.topGun.value} goals scored`;
@@ -2692,13 +2678,11 @@
 
     // Helper function to render player analysis table with different sorts
     const renderPlayerAnalysisTable = (sortBy) => {
-        console.log('[renderPlayerAnalysisTable] CALLED with sortBy:', sortBy);
         const stats = window.calculatedSeasonStats;
         if (!stats || !stats.playerSpotlights) {
             console.warn('[renderPlayerAnalysisTable] No stats or playerSpotlights');
             return;
         }
-        console.log('[renderPlayerAnalysisTable] Players available:', stats.playerSpotlights.length);
 
         let sortedPlayers = stats.playerSpotlights ? [...stats.playerSpotlights] : [];
 
