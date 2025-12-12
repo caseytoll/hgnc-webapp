@@ -209,26 +209,36 @@
     function addGameFromModal() {
         if (!isOwner()) return;
         var opponentInput = document.getElementById('new-game-opponent');
+        var roundInput = document.getElementById('new-game-round');
         var dateInput = document.getElementById('new-game-date');
         var timeInput = document.getElementById('new-game-time');
+        var courtInput = document.getElementById('new-game-court');
         var venueInput = document.getElementById('new-game-venue');
+        var statusSelect = document.getElementById('new-game-status');
 
-        var opponent = (opponentInput && opponentInput.value.trim()) || '';
+        var round = parseInt(roundInput && roundInput.value, 10) || 0;
         var date = dateInput ? dateInput.value : '';
         var time = timeInput ? timeInput.value : '';
+        var court = courtInput ? courtInput.value.trim() : '';
         var venue = venueInput ? venueInput.value.trim() : '';
+        var venueLat = venueInput && venueInput.dataset.lat ? venueInput.dataset.lat : null;
+        var venueLng = venueInput && venueInput.dataset.lng ? venueInput.dataset.lng : null;
+        var status = statusSelect ? statusSelect.value : 'normal';
+        var opponent = (status === 'bye') ? 'BYE' : ((opponentInput && opponentInput.value.trim()) || '');
 
-        if (!date) {
-            showCustomAlert('Input Error', 'Please select a date.');
+        if (!round || !date) {
+            showCustomAlert('Input Error', 'Please fill in Round and Date.');
             return;
         }
-        if (!opponent) {
+        if (!opponent && status !== 'bye') {
             showCustomAlert('Input Error', 'Please enter an opponent.');
             return;
         }
 
-        var newGame = createGame(opponent, 0, date, 'scheduled', time || null, null);
+        var newGame = createGame(opponent, round, date, status, time || null, court || null);
         newGame.venue = venue || null;
+        newGame.venueLat = venueLat;
+        newGame.venueLng = venueLng;
         // Defaults to satisfy renderers
         newGame.quarters = [
             { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
