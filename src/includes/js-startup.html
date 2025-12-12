@@ -82,7 +82,7 @@
                         var addTeamButton = document.getElementById('show-add-team-modal');
                         if (addTeamButton) {
                             addTeamButton.classList.remove('hidden');
-                            addTeamButton.onclick = showAddTeamModal;
+                            addTeamButton.onclick = function() { showAddTeamModal(); };
                         }
 
                         // Show "Toggle Edit Mode" button (teams) so owners can edit
@@ -106,7 +106,7 @@
                         var addGameButton = document.getElementById('show-add-game-modal');
                         if (addGameButton) {
                             addGameButton.classList.remove('hidden');
-                            addGameButton.onclick = showAddGameModal;
+                            addGameButton.onclick = function() { showAddGameModal(); };
                         }
 
                         // Show game-detail edit tab button
