@@ -64,7 +64,8 @@
             
             // Basic button assignments
             document.getElementById('add-player-button').onclick = addPlayer;
-            document.getElementById('add-game-button').onclick = addGameFromModal;
+            document.getElementById('add-game-button').onclick = addOrUpdateGame;
+            document.getElementById('add-game-modal-button').onclick = addGameFromModal;
             
             // --- *** Modified: Show all admin buttons if user is owner but extract into named function *** ---
             console.log('🔑 App Version: v1039 - FORCE CACHE BUST - Add game form working | User is owner:', isOwner());
