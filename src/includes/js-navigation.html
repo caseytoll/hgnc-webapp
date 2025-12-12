@@ -1283,7 +1283,15 @@
     }
     
     function showModal(modalId) {
-        document.getElementById(modalId).classList.remove('hidden');
+        var el = document.getElementById(modalId);
+        if (!el) return;
+        el.classList.remove('hidden');
+        if (modalId === 'add-game-modal') {
+            var statusEl = document.getElementById('new-game-status');
+            if (statusEl) {
+                toggleOpponentField(statusEl.value);
+            }
+        }
     }
     
     function hideModal(modalId) {
