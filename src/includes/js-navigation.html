@@ -1295,6 +1295,7 @@
     }
     
     function showModal(modalId) {
+        console.log('[showModal] Called with modalId:', modalId);
         // First, hide all modals to prevent overlap
         var allModals = document.querySelectorAll('.modal-overlay');
         for (var i = 0; i < allModals.length; i++) {
@@ -1303,8 +1304,10 @@
         
         // Then show the requested modal
         var el = document.getElementById(modalId);
+        console.log('[showModal] Found element:', !!el, 'for modalId:', modalId);
         if (!el) return;
         el.classList.remove('hidden');
+        console.log('[showModal] Showed modal:', modalId);
         
         if (modalId === 'add-game-modal') {
             var statusEl = document.getElementById('add-modal-game-status');

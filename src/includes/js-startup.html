@@ -110,7 +110,10 @@
                             addGameButton.classList.remove('hidden');
                             // FIX: Force visibility visible since .hidden class uses visibility: hidden !important
                             addGameButton.style.visibility = 'visible';
-                            addGameButton.onclick = function() { showModal('add-game-modal'); };
+                            addGameButton.onclick = function() { 
+                                console.log('[AddGame] Button clicked, calling showModal...');
+                                showModal('add-game-modal'); 
+                            };
                             var computedStyles = window.getComputedStyle(addGameButton);
                             console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', computedStyles.display, 'visibility:', computedStyles.visibility, 'opacity:', computedStyles.opacity, 'position:', computedStyles.position, 'width:', computedStyles.width, 'height:', computedStyles.height);
                         }
