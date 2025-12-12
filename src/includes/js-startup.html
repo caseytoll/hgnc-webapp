@@ -109,7 +109,8 @@
                         if (addGameButton) {
                             addGameButton.classList.remove('hidden');
                             addGameButton.onclick = function() { if (typeof showGameEditor === 'function') showGameEditor('add'); };
-                            console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', window.getComputedStyle(addGameButton).display);
+                            var computedStyles = window.getComputedStyle(addGameButton);
+                            console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', computedStyles.display, 'visibility:', computedStyles.visibility, 'opacity:', computedStyles.opacity, 'position:', computedStyles.position, 'width:', computedStyles.width, 'height:', computedStyles.height);
                         }
 
                         // Show game-detail edit tab button
