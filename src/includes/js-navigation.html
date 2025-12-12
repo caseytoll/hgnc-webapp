@@ -1289,6 +1289,7 @@
         if (modalId === 'add-game-modal') {
             var statusEl = document.getElementById('new-game-status');
             if (statusEl) {
+                statusEl.value = 'normal';
                 toggleOpponentField(statusEl.value);
             }
         }
