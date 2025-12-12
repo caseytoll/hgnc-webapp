@@ -1469,13 +1469,6 @@
             return;
         }
         
-        // Check if it's a pull-down at top of page (refresh gesture)
-        if (swipeDistanceY > pullToRefreshThreshold && 
-            touchStartScrollY === 0 &&
-            Math.abs(swipeDistanceX) < maxVerticalMovement) {
-            handlePullToRefresh();
-        }
-    }
 
     function handlePullToRefresh() {
         haptic([50, 100, 50]); // Triple vibration pattern
