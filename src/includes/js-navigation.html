@@ -1096,15 +1096,30 @@
         toggleOpponentField('normal');
         if (deleteZone) deleteZone.classList.add('hidden');
 
-        // For add flow, show game-detail view with edit tab active
+        // For add flow, show game-detail view with edit content visible
         showView('game-detail-view');
         
         // Update header for add mode
         var gameDetailTitle = document.getElementById('game-detail-title');
         if (gameDetailTitle) gameDetailTitle.textContent = 'Add New Game';
         
-        // Show the edit tab (this handles showing edit-content and hiding other sections)
-        showGameDetailTab('edit');
+        // Manually toggle tabs and content (don't use showGameDetailTab which calls populateGameEditForm)
+        document.getElementById('show-home-tab-game').classList.remove('active');
+        document.getElementById('show-availability-tab').classList.remove('active');
+        document.getElementById('show-lineup-tab').classList.remove('active');
+        document.getElementById('show-scoring-tab').classList.remove('active');
+        var editTab = document.getElementById('show-edit-tab');
+        if (editTab) {
+            editTab.classList.add('active');
+            editTab.classList.remove('hidden'); // Ensure edit tab button is visible
+        }
+        
+        // Show edit content, hide other sections
+        var editContent = document.getElementById('edit-content');
+        if (editContent) editContent.classList.remove('hidden');
+        document.getElementById('availability-content').classList.add('hidden');
+        document.getElementById('game-lineup-content').classList.add('hidden');
+        document.getElementById('scoring-content').classList.add('hidden');
     }
 
     function cancelGameEdit() {
