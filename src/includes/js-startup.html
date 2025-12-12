@@ -72,6 +72,7 @@
             function applyOwnerModeUI() {
                 try {
                     var readOnlyBanner = document.getElementById('read-only-banner');
+                    console.log('[applyOwnerModeUI] isOwner():', isOwner(), 'readOnlyBanner found:', !!readOnlyBanner);
                     if (isOwner()) {
                         // Hide read-only banner for owners
                         if (readOnlyBanner) {
@@ -104,9 +105,11 @@
 
                         // Show "Add Game" button
                         var addGameButton = document.getElementById('show-add-game-modal');
+                        console.log('[applyOwnerModeUI] addGameButton found:', !!addGameButton, 'had hidden class:', addGameButton ? addGameButton.classList.contains('hidden') : 'N/A');
                         if (addGameButton) {
                             addGameButton.classList.remove('hidden');
                             addGameButton.onclick = function() { if (typeof showGameEditor === 'function') showGameEditor('add'); };
+                            console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', window.getComputedStyle(addGameButton).display);
                         }
 
                         // Show game-detail edit tab button
