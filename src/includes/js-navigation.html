@@ -1295,9 +1295,17 @@
     }
     
     function showModal(modalId) {
+        // First, hide all modals to prevent overlap
+        var allModals = document.querySelectorAll('.modal-overlay');
+        for (var i = 0; i < allModals.length; i++) {
+            allModals[i].classList.add('hidden');
+        }
+        
+        // Then show the requested modal
         var el = document.getElementById(modalId);
         if (!el) return;
         el.classList.remove('hidden');
+        
         if (modalId === 'add-game-modal') {
             var statusEl = document.getElementById('add-modal-game-status');
             if (statusEl) {
