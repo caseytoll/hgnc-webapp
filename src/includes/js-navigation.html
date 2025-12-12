@@ -1056,29 +1056,15 @@
             return;
         }
 
-        // Add game flow (still needed for the add button on schedule)
         gameEditReturnView = 'fixture-view';
-        appState.currentGame.editingId = null;
-
-        var titleEl = document.getElementById('game-edit-title');
-        var submitBtn = document.getElementById('add-game-button');
-        if (titleEl) titleEl.textContent = 'Add Game';
-        if (submitBtn) submitBtn.textContent = 'Add';
-
-        var dateInput = document.getElementById('new-game-date');
-        var roundInput = document.getElementById('new-game-round');
-        var timeInput = document.getElementById('new-game-time');
-        var courtInput = document.getElementById('new-game-court');
-        var venueInput = document.getElementById('new-game-venue');
-        var statusSelect = document.getElementById('new-game-status');
-        var opponentInput = document.getElementById('new-game-opponent');
-        var deleteZone = document.getElementById('delete-game-zone');
-
+        
+            // Add game flow - CREATE A BLANK GAME OBJECT FIRST
+            // Calculate default values
         var today = new Date();
         var yyyy = today.getFullYear();
         var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
         var dd = es5PadStart(String(today.getDate()), 2, '0');
-        if (dateInput) dateInput.value = yyyy + "-" + mm + "-" + dd;
+            var defaultDate = yyyy + "-" + mm + "-" + dd;
 
         var maxRound = 0;
         games.forEach(function(g) {
@@ -1086,40 +1072,41 @@
                 maxRound = g.round;
             }
         });
-        if (roundInput) roundInput.value = maxRound + 1;
-
-        if (statusSelect) statusSelect.value = 'normal';
-        if (opponentInput) opponentInput.value = "";
-        if (timeInput) timeInput.value = "";
-        if (courtInput) courtInput.value = "";
-        if (venueInput) venueInput.value = "";
-        toggleOpponentField('normal');
-        if (deleteZone) deleteZone.classList.add('hidden');
-
-        // For add flow, show game-detail view with edit content visible
-        showView('game-detail-view');
+            var nextRound = maxRound + 1;
         
-        // Update header for add mode
-        var gameDetailTitle = document.getElementById('game-detail-title');
-        if (gameDetailTitle) gameDetailTitle.textContent = 'Add New Game';
+            // Create a new blank game object
+            var newGameId = 'temp_' + Date.now();
+            var newGame = {
+                id: newGameId,
+                round: nextRound,
+                date: defaultDate,
+                time: '',
+                court: '',
+                venue: '',
+                opponent: '',
+                status: 'normal',
+                availablePlayerIDs: players.filter(function(p){ return !p.isFillIn; }).map(function(p) { return p.id; }),
+                isTemporary: true  // Flag to identify this as unsaved
+            };
         
-        // Manually toggle tabs and content (don't use showGameDetailTab which calls populateGameEditForm)
-        document.getElementById('show-home-tab-game').classList.remove('active');
-        document.getElementById('show-availability-tab').classList.remove('active');
-        document.getElementById('show-lineup-tab').classList.remove('active');
-        document.getElementById('show-scoring-tab').classList.remove('active');
-        var editTab = document.getElementById('show-edit-tab');
-        if (editTab) {
-            editTab.classList.add('active');
-            editTab.classList.remove('hidden'); // Ensure edit tab button is visible
-        }
+            // Add to games array temporarily
+            games.push(newGame);
+            currentGameId = newGameId;
+            appState.currentGame.editingId = newGameId;
         
-        // Show edit content, hide other sections
-        var editContent = document.getElementById('edit-content');
-        if (editContent) editContent.classList.remove('hidden');
-        document.getElementById('availability-content').classList.add('hidden');
-        document.getElementById('game-lineup-content').classList.add('hidden');
-        document.getElementById('scoring-content').classList.add('hidden');
+            // Now use the standard flow to show game detail with edit tab
+            showGameDetail(newGameId);
+            showGameDetailTab('edit');
+        
+            // Update title to indicate "Add" mode
+            var titleEl = document.getElementById('game-edit-title');
+            if (titleEl) titleEl.textContent = 'Add Game';
+            var submitBtn = document.getElementById('add-game-button');
+            if (submitBtn) submitBtn.textContent = 'Add';
+        
+            // Hide delete zone for new games
+            var deleteZone = document.getElementById('delete-game-zone');
+            if (deleteZone) deleteZone.classList.add('hidden');
     }
 
     function cancelGameEdit() {
