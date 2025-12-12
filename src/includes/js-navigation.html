@@ -1086,6 +1086,14 @@
                 opponent: '',
                 status: 'normal',
                 availablePlayerIDs: players.filter(function(p){ return !p.isFillIn; }).map(function(p) { return p.id; }),
+                // Ensure downstream renderers have required structure
+                quarters: [
+                    { players: [] },
+                    { players: [] },
+                    { players: [] },
+                    { players: [] }
+                ],
+                lineupLocked: false,
                 isTemporary: true  // Flag to identify this as unsaved
             };
         
