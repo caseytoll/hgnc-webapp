@@ -65,10 +65,10 @@ const { navigateWithRetry, clickWithRetry, formatErrorMessage } = require('./tes
               try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) {}
               // Duplicate the wiring as a fallback for frames which don't export applyOwnerModeUI
               try { var readOnlyBanner = document.getElementById('read-only-banner'); if (readOnlyBanner) readOnlyBanner.classList.add('hidden'); } catch(e) {}
-              try { var addTeamButton = document.getElementById('show-add-team-modal'); if (addTeamButton) { addTeamButton.classList.remove('hidden'); addTeamButton.onclick = function() { showAddTeamModal(); }; } } catch(e) {}
-              try { var toggleEditButton = document.getElementById('toggle-edit-mode'); if (toggleEditButton) { toggleEditButton.classList.remove('hidden'); toggleEditButton.onclick = function() { toggleTeamEditMode(); }; toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit'; } } catch(e) {}
+              try { var addTeamButton = document.getElementById('show-add-team-modal'); if (addTeamButton) { addTeamButton.classList.remove('hidden'); addTeamButton.onclick = function() { if (typeof showAddTeamModal === 'function') showAddTeamModal(); }; } } catch(e) {}
+              try { var toggleEditButton = document.getElementById('toggle-edit-mode'); if (toggleEditButton) { toggleEditButton.classList.remove('hidden'); toggleEditButton.onclick = function() { if (typeof toggleTeamEditMode === 'function') toggleTeamEditMode(); }; toggleEditButton.textContent = isTeamEditMode ? 'Done' : 'Edit'; } } catch(e) {}
               try { var addPlayerButton = document.getElementById('show-add-player-modal'); if (addPlayerButton) { addPlayerButton.classList.remove('hidden'); addPlayerButton.onclick = function() { showModal('add-player-modal'); }; } } catch(e) {}
-              try { var addGameButton = document.getElementById('show-add-game-modal'); if (addGameButton) { addGameButton.classList.remove('hidden'); addGameButton.onclick = function() { showAddGameModal(); }; } } catch(e) {}
+              try { var addGameButton = document.getElementById('show-add-game-modal'); if (addGameButton) { addGameButton.classList.remove('hidden'); addGameButton.onclick = function() { if (typeof showGameEditor === 'function') showGameEditor('add'); }; } } catch(e) {}
             }, OWNER_EMAIL);
           } catch(e) {
             // Not all frames will include our app; ignore any evaluation errors
