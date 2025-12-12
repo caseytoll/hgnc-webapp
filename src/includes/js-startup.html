@@ -67,7 +67,7 @@
             document.getElementById('add-game-button').onclick = addOrUpdateGame;
             
             // --- *** Modified: Show all admin buttons if user is owner but extract into named function *** ---
-            console.log('🔑 App Version: v1024 - Fix .view.hidden CSS specificity issue | User is owner:', isOwner());
+            console.log('🔑 App Version: v1035 - Fix add-game button visibility (hidden property) | User is owner:', isOwner());
             
             function applyOwnerModeUI() {
                 try {
@@ -108,6 +108,8 @@
                         console.log('[applyOwnerModeUI] addGameButton found:', !!addGameButton, 'had hidden class:', addGameButton ? addGameButton.classList.contains('hidden') : 'N/A');
                         if (addGameButton) {
                             addGameButton.classList.remove('hidden');
+                            // FIX: Force visibility visible since .hidden class uses visibility: hidden !important
+                            addGameButton.style.visibility = 'visible';
                             addGameButton.onclick = function() { if (typeof showGameEditor === 'function') showGameEditor('add'); };
                             var computedStyles = window.getComputedStyle(addGameButton);
                             console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', computedStyles.display, 'visibility:', computedStyles.visibility, 'opacity:', computedStyles.opacity, 'position:', computedStyles.position, 'width:', computedStyles.width, 'height:', computedStyles.height);
