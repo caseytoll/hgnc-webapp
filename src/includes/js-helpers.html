@@ -438,6 +438,10 @@
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
     
     window.getCurrentLocationForModal = function() {
         if (!navigator.geolocation) {
