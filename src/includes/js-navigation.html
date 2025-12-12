@@ -1096,21 +1096,15 @@
         toggleOpponentField('normal');
         if (deleteZone) deleteZone.classList.add('hidden');
 
-        // For add flow, show game-detail view with only edit-content visible
+        // For add flow, show game-detail view with edit tab active
         showView('game-detail-view');
         
         // Update header for add mode
         var gameDetailTitle = document.getElementById('game-detail-title');
         if (gameDetailTitle) gameDetailTitle.textContent = 'Add New Game';
         
-        var editContent = document.getElementById('edit-content');
-        if (editContent) editContent.classList.remove('hidden');
-        var availability = document.getElementById('availability-content');
-        var lineup = document.getElementById('game-lineup-content');
-        var scoring = document.getElementById('scoring-content');
-        if (availability) availability.classList.add('hidden');
-        if (lineup) lineup.classList.add('hidden');
-        if (scoring) scoring.classList.add('hidden');
+        // Show the edit tab (this handles showing edit-content and hiding other sections)
+        showGameDetailTab('edit');
     }
 
     function cancelGameEdit() {
