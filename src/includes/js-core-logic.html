@@ -159,6 +159,8 @@
         var venueLng = venueInput && venueInput.dataset.lng ? venueInput.dataset.lng : null;
         var status = statusInput.value;
         var opponent = (status === 'bye') ? "BYE" : opponentInput.value.trim();
+        var normalizedOpponent = (opponent || '').toLowerCase();
+        var targetEditingId = (appState && appState.currentGame && appState.currentGame.editingId) || editingGameId || null;
         
         if (!round || !date) {
             showCustomAlert("Input Error", "Please fill in Round and Date.");
@@ -168,9 +170,18 @@
             showCustomAlert("Input Error", "Please fill in Opponent name.");
             return;
         }
+
+        // Duplicate guard: same round + opponent (case-insensitive) for this team
+        var duplicate = arrayFind(games, function(g) {
+            return g && g.id !== targetEditingId && g.round === round && ((g.opponent || '').toLowerCase() === normalizedOpponent);
+        });
+        if (duplicate) {
+            showCustomAlert("Duplicate Game", "A game for Round " + round + " vs " + opponent + " already exists.");
+            return;
+        }
         
-        if (editingGameId) {
-            var game = arrayFind(games, function(g) { return g.id === editingGameId; });
+        if (targetEditingId) {
+            var game = arrayFind(games, function(g) { return g.id === targetEditingId; });
             if (game) {
                 game.round = round;
                 game.date = date;
@@ -184,6 +195,8 @@
                 // Invalidate cache
                 game._displayStale = true;
                 game._cachedDate = null;
+                editingGameId = targetEditingId;
+                if (appState && appState.currentGame) appState.currentGame.editingId = targetEditingId;
             }
         } else {
             var newGame = createGame(opponent, round, date, status, time, court);
@@ -192,6 +205,9 @@
             newGame.venueLng = venueLng;
             newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
             games.unshift(newGame);  
+            editingGameId = newGame.id;
+            if (appState && appState.currentGame) appState.currentGame.editingId = newGame.id;
+            currentGameId = newGame.id;
         }
         
         haptic(50); // Haptic feedback
@@ -225,6 +241,7 @@
         var venueLng = venueInput && venueInput.dataset.lng ? venueInput.dataset.lng : null;
         var status = statusSelect ? statusSelect.value : 'normal';
         var opponent = (status === 'bye') ? 'BYE' : ((opponentInput && opponentInput.value.trim()) || '');
+        var normalizedOpponent = (opponent || '').toLowerCase();
 
         if (!round || !date) {
             showCustomAlert('Input Error', 'Please fill in Round and Date.');
@@ -232,6 +249,15 @@
         }
         if (!opponent && status !== 'bye') {
             showCustomAlert('Input Error', 'Please enter an opponent.');
+            return;
+        }
+
+        // Duplicate guard for new games created via modal
+        var duplicate = arrayFind(games, function(g) {
+            return g && g.round === round && ((g.opponent || '').toLowerCase() === normalizedOpponent);
+        });
+        if (duplicate) {
+            showCustomAlert('Duplicate Game', 'A game for Round ' + round + ' vs ' + opponent + ' already exists.');
             return;
         }
 
@@ -250,6 +276,8 @@
         newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
 
         games.unshift(newGame);
+        editingGameId = newGame.id;
+        if (appState && appState.currentGame) appState.currentGame.editingId = newGame.id;
         saveCurrentTeamData();
         renderGameList();
         hideModal('add-game-modal');
