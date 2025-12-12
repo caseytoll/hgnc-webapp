@@ -1066,6 +1066,33 @@
         "hideModal('add-player-modal')">Cancel</button> <button id=
         "add-player-button">Add</button>
       </div>
+
+    <!-- Add Game Modal -->
+    <div id="add-game-modal" class="modal-overlay hidden" onclick="closeModal(event, 'add-game-modal')">
+      <div class="modal-content">
+        <h3>Add Game</h3>
+        <div class="form-row">
+          <label for="new-game-opponent">Opponent</label>
+          <input type="text" id="new-game-opponent" placeholder="Team name">
+        </div>
+        <div class="form-row">
+          <label for="new-game-date">Date</label>
+          <input type="date" id="new-game-date">
+        </div>
+        <div class="form-row">
+          <label for="new-game-time">Time</label>
+          <input type="time" id="new-game-time">
+        </div>
+        <div class="form-row">
+          <label for="new-game-venue">Venue</label>
+          <input type="text" id="new-game-venue" placeholder="Location (optional)">
+        </div>
+        <div class="modal-actions">
+          <button onclick="hideModal('add-game-modal')">Cancel</button>
+          <button id="add-game-button">Add</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 

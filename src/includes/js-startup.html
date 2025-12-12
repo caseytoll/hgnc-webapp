@@ -64,7 +64,7 @@
             
             // Basic button assignments
             document.getElementById('add-player-button').onclick = addPlayer;
-            document.getElementById('add-game-button').onclick = addOrUpdateGame;
+            document.getElementById('add-game-button').onclick = addGameFromModal;
             
             // --- *** Modified: Show all admin buttons if user is owner but extract into named function *** ---
             console.log('🔑 App Version: v1039 - FORCE CACHE BUST - Add game form working | User is owner:', isOwner());
@@ -110,7 +110,7 @@
                             addGameButton.classList.remove('hidden');
                             // FIX: Force visibility visible since .hidden class uses visibility: hidden !important
                             addGameButton.style.visibility = 'visible';
-                            addGameButton.onclick = function() { if (typeof showGameEditor === 'function') showGameEditor('add'); };
+                            addGameButton.onclick = function() { showModal('add-game-modal'); };
                             var computedStyles = window.getComputedStyle(addGameButton);
                             console.log('[applyOwnerModeUI] addGameButton after - hidden class:', addGameButton.classList.contains('hidden'), 'display:', computedStyles.display, 'visibility:', computedStyles.visibility, 'opacity:', computedStyles.opacity, 'position:', computedStyles.position, 'width:', computedStyles.width, 'height:', computedStyles.height);
                         }

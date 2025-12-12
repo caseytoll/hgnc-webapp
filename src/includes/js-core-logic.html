@@ -204,6 +204,50 @@
             finishGameEdit();
         }
     }
+
+    // Lightweight Add Game for modal: minimal fields, then navigate to edit
+    function addGameFromModal() {
+        if (!isOwner()) return;
+        var opponentInput = document.getElementById('new-game-opponent');
+        var dateInput = document.getElementById('new-game-date');
+        var timeInput = document.getElementById('new-game-time');
+        var venueInput = document.getElementById('new-game-venue');
+
+        var opponent = (opponentInput && opponentInput.value.trim()) || '';
+        var date = dateInput ? dateInput.value : '';
+        var time = timeInput ? timeInput.value : '';
+        var venue = venueInput ? venueInput.value.trim() : '';
+
+        if (!date) {
+            showCustomAlert('Input Error', 'Please select a date.');
+            return;
+        }
+        if (!opponent) {
+            showCustomAlert('Input Error', 'Please enter an opponent.');
+            return;
+        }
+
+        var newGame = createGame(opponent, 0, date, 'scheduled', time || null, null);
+        newGame.venue = venue || null;
+        // Defaults to satisfy renderers
+        newGame.quarters = [
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 }
+        ];
+        newGame.lineupLocked = false;
+        newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
+
+        games.unshift(newGame);
+        saveCurrentTeamData();
+        renderGameList();
+        hideModal('add-game-modal');
+        showGameDetail(newGame.id);
+        showGameDetailTab('edit');
+    }
+
+    try { window.addGameFromModal = addGameFromModal; } catch(e) {}
     
     function executeDeleteGame() {
         if (!isOwner()) return; // Read-only mode: prevent deletion
