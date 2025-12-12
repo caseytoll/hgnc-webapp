@@ -208,13 +208,13 @@
     // Lightweight Add Game for modal: minimal fields, then navigate to edit
     function addGameFromModal() {
         if (!isOwner()) return;
-        var opponentInput = document.getElementById('new-game-opponent');
-        var roundInput = document.getElementById('new-game-round');
-        var dateInput = document.getElementById('new-game-date');
-        var timeInput = document.getElementById('new-game-time');
-        var courtInput = document.getElementById('new-game-court');
-        var venueInput = document.getElementById('new-game-venue');
-        var statusSelect = document.getElementById('new-game-status');
+        var opponentInput = document.getElementById('add-modal-game-opponent');
+        var roundInput = document.getElementById('add-modal-game-round');
+        var dateInput = document.getElementById('add-modal-game-date');
+        var timeInput = document.getElementById('add-modal-game-time');
+        var courtInput = document.getElementById('add-modal-game-court');
+        var venueInput = document.getElementById('add-modal-game-venue');
+        var statusSelect = document.getElementById('add-modal-game-status');
 
         var round = parseInt(roundInput && roundInput.value, 10) || 0;
         var date = dateInput ? dateInput.value : '';

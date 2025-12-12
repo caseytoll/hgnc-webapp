@@ -438,6 +438,51 @@
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
+    
+    window.getCurrentLocationForModal = function() {
+        if (!navigator.geolocation) {
+            showNotification('Geolocation not supported on this device', 'error');
+            return;
+        }
+        
+        var venueInput = document.getElementById('add-modal-game-venue');
+        if (!venueInput) return;
+        
+        showNotification('Getting your location...', 'info');
+        haptic(50);
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                var lat = position.coords.latitude.toFixed(6);
+                var lng = position.coords.longitude.toFixed(6);
+                
+                // Store coordinates in hidden way, show readable format
+                venueInput.value = 'Current Location';
+                venueInput.dataset.lat = lat;
+                venueInput.dataset.lng = lng;
+                
+                // Try to reverse geocode for better name
+                reverseGeocode(lat, lng, function(placeName) {
+                    if (placeName) {
+                        venueInput.value = placeName;
+                    }
+                });
+                
+                haptic([50, 100, 50]);
+                showNotification('Location added!', 'success');
+            },
+            function(error) {
+                var msg = 'Could not get location';
+                if (error.code === 1) msg = 'Location permission denied';
+                else if (error.code === 2) msg = 'Location unavailable';
+                else if (error.code === 3) msg = 'Location request timeout';
+                
+                showNotification(msg, 'error');
+                haptic(200);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
                 maximumAge: 0
             }
         );

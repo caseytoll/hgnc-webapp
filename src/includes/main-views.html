@@ -1072,26 +1072,26 @@
       <div class="modal-content">
         <h3>Add Game</h3>
         <div class="form-grid" style="row-gap: 12px;">
-          <label for="new-game-round">Round</label>
-          <input type="number" id="new-game-round" placeholder="e.g., 1">
+          <label for="add-modal-game-round">Round</label>
+          <input type="number" id="add-modal-game-round" placeholder="e.g., 1">
 
-          <label for="new-game-date">Date</label>
-          <input type="date" id="new-game-date">
+          <label for="add-modal-game-date">Date</label>
+          <input type="date" id="add-modal-game-date">
 
-          <label for="new-game-time">Game Time</label>
-          <input type="time" id="new-game-time" placeholder="e.g., 14:30">
+          <label for="add-modal-game-time">Game Time</label>
+          <input type="time" id="add-modal-game-time" placeholder="e.g., 14:30">
 
-          <label for="new-game-court">Court</label>
-          <input type="text" id="new-game-court" placeholder="e.g., Court 1">
+          <label for="add-modal-game-court">Court</label>
+          <input type="text" id="add-modal-game-court" placeholder="e.g., Court 1">
 
-          <label for="new-game-venue">Venue 📍</label>
+          <label for="add-modal-game-venue">Venue 📍</label>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="new-game-venue" placeholder="e.g., Smith Park" style="flex: 1;">
-            <button type="button" onclick="getCurrentLocation()" class="icon-button" title="Use current location">📍</button>
+            <input type="text" id="add-modal-game-venue" placeholder="e.g., Smith Park" style="flex: 1;">
+            <button type="button" onclick="getCurrentLocationForModal()" class="icon-button" title="Use current location">📍</button>
           </div>
 
-          <label for="new-game-status">Game Status</label>
-          <select id="new-game-status" onchange="toggleOpponentField(this.value)">
+          <label for="add-modal-game-status">Game Status</label>
+          <select id="add-modal-game-status" onchange="toggleOpponentFieldModal(this.value)">
             <option value="normal">Normal</option>
             <option value="bye">BYE</option>
             <option value="forfeit_us">Forfeited by Us</option>
@@ -1099,8 +1099,8 @@
             <option value="abandoned">Abandoned</option>
           </select>
 
-          <label for="new-game-opponent">Opponent</label>
-          <input type="text" id="new-game-opponent" placeholder="Opponent Name">
+          <label for="add-modal-game-opponent">Opponent</label>
+          <input type="text" id="add-modal-game-opponent" placeholder="Opponent Name">
         </div>
         <div class="modal-actions">
           <button onclick="hideModal('add-game-modal')">Cancel</button>

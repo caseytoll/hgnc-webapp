@@ -1282,15 +1282,27 @@
         }
     }
     
+    function toggleOpponentFieldModal(status) {
+        var opponentInput = document.getElementById('add-modal-game-opponent');
+        var isBye = (status === 'bye');
+        
+        if (opponentInput) {
+            opponentInput.disabled = isBye;
+            if (isBye) {
+                opponentInput.value = "";
+            }
+        }
+    }
+    
     function showModal(modalId) {
         var el = document.getElementById(modalId);
         if (!el) return;
         el.classList.remove('hidden');
         if (modalId === 'add-game-modal') {
-            var statusEl = document.getElementById('new-game-status');
+            var statusEl = document.getElementById('add-modal-game-status');
             if (statusEl) {
                 statusEl.value = 'normal';
-                toggleOpponentField(statusEl.value);
+                toggleOpponentFieldModal(statusEl.value);
             }
         }
     }
