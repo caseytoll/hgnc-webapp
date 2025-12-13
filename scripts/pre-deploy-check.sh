@@ -166,9 +166,14 @@ done
 echo ""
 echo "🔍 Checking HTML structure for tag balance..."
 
-# Count opening and closing tags for critical elements
-closing_view_tag=$(grep -c "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" || echo "0")
-opening_view_tag=$(grep -c "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" || echo "0")
+# Count opening and closing tags for critical elements (search in include files too)
+declare -a combined_files
+combined_files=("$WORKSPACE_DIR/index.html")
+for f in "$WORKSPACE_DIR/src/includes/"*.html; do
+    combined_files+=("$f")
+done
+closing_view_tag=$(cat "${combined_files[@]}" | grep -c "</div><!-- End insights-view -->" || echo "0")
+opening_view_tag=$(cat "${combined_files[@]}" | grep -c "id=\"insights-view\"" || echo "0")
 
 if [ "$closing_view_tag" -eq "$opening_view_tag" ] && [ "$opening_view_tag" -gt 0 ]; then
     report_success "insights-view has proper opening and closing tags"
@@ -305,7 +310,8 @@ critical_elements=(
 )
 
 for element in "${critical_elements[@]}"; do
-    if grep -q "id=\"$element\"" "$WORKSPACE_DIR/index.html"; then
+    # Check both index.html and all include files for the element ID
+    if grep -q "id=\"$element\"" "$WORKSPACE_DIR/index.html" || grep -q "id=\"$element\"" "$WORKSPACE_DIR/src/includes/"*.html; then
         report_success "Element #$element exists"
     else
         report_error "Element #$element not found in HTML"
@@ -319,19 +325,19 @@ else
 fi
 
 # Check that menu buttons have proper onclick handlers
-if grep -q "onclick=\"showView('insights-team-performance-view')\"" "$WORKSPACE_DIR/index.html"; then
+if grep -q "onclick=\"showView('insights-team-performance-view')\"" "$WORKSPACE_DIR/index.html" || grep -q "onclick=\"showView('insights-team-performance-view')\"" "$WORKSPACE_DIR/src/includes/"*.html; then
     report_success "Team Performance button has correct onclick"
 else
     report_error "Team Performance button onclick incorrect or missing"
 fi
 
-if grep -q "onclick=\"showView('insights-offensive-leaders-view')\"" "$WORKSPACE_DIR/index.html"; then
+if grep -q "onclick=\"showView('insights-offensive-leaders-view')\"" "$WORKSPACE_DIR/index.html" || grep -q "onclick=\"showView('insights-offensive-leaders-view')\"" "$WORKSPACE_DIR/src/includes/"*.html; then
     report_success "Offensive Leaders button has correct onclick"
 else
     report_error "Offensive Leaders button onclick incorrect or missing"
 fi
 
-if grep -q "onclick=\"showView('insights-defensive-wall-view')\"" "$WORKSPACE_DIR/index.html"; then
+if grep -q "onclick=\"showView('insights-defensive-wall-view')\"" "$WORKSPACE_DIR/index.html" || grep -q "onclick=\"showView('insights-defensive-wall-view')\"" "$WORKSPACE_DIR/src/includes/"*.html; then
     report_success "Defensive Wall button has correct onclick"
 else
     report_error "Defensive Wall button onclick incorrect or missing"
