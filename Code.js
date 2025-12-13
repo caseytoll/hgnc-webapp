@@ -57,9 +57,9 @@ function doGet(e) {
 
     template.playerAnalysisIconDataUrl = getPlayerAnalysisIconDataUrl();
 
-    // Cache buster - DOCUMENTATION & HEALTH ASSESSMENT v1026
+    // Cache buster - DOCUMENTATION & HEALTH ASSESSMENT v1027
     // NOTE: bump this on each production deploy so that clients bust cached JS/CSS
-    template.appVersion = '1026';
+    template.appVersion = '1027';
 
     var result = template.evaluate()
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);

@@ -1468,28 +1468,6 @@
             goBack();
             return;
         }
-        
-
-    function handlePullToRefresh() {
-        haptic([50, 100, 50]); // Triple vibration pattern
-        var currentView = document.querySelector('.view:not(.hidden)');
-        if (!currentView) return;
-        
-        var viewId = currentView.id;
-        
-        // Refresh based on current view
-        if (viewId === 'fixture-view') {
-            updateAllStatsAndRender();
-        } else if (viewId === 'insights-view') {
-            refreshInsightsData();
-        } else if (viewId === 'netball-ladder-view') {
-            loadNetballLadderApi();
-        } else if (viewId === 'players-view') {
-            renderPlayerList();
-        } else {
-            // Default: just reload team data
-            updateAllStatsAndRender();
-        }
     }
 
     // Initialize swipe gestures on page load
@@ -1505,6 +1483,8 @@
     window.goBack = goBack;
     window.showGameEditor = showGameEditor;
     window.showAddTeamModal = showAddTeamModal;
+    window.updateAllStatsAndRender = updateAllStatsAndRender;
+    window.showShareModal = showShareModal;
 </script>
 <script>
 // Expose showView to the global window object for console access

@@ -1102,6 +1102,24 @@
             }, 200);
         }
     }
+
+    // Simple notification wrapper used across the app
+    function showNotification(message, type) {
+        var normalizedType = type || 'info';
+        var titles = {
+            success: 'Success',
+            error: 'Error',
+            warning: 'Notice',
+            info: 'Info'
+        };
+        return showToast({
+            type: normalizedType,
+            title: titles[normalizedType] || titles.info,
+            message: message || '',
+            duration: normalizedType === 'error' ? 5000 : 3500
+        });
+    }
+    window.showNotification = showNotification;
     
     // Convenience functions
     function showSuccessToast(title, message, duration) {
