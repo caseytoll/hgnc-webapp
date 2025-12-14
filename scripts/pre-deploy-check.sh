@@ -167,8 +167,9 @@ echo ""
 echo "🔍 Checking HTML structure for tag balance..."
 
 # Count opening and closing tags for critical elements (search in include files too)
-closing_view_tag=$(grep -c "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html || echo "0")
-opening_view_tag=$(grep -c "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html || echo "0")
+# Use grep -o and wc -l to get reliable totals even when searching multiple files
+closing_view_tag=$(grep -o "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html 2>/dev/null | wc -l | tr -d ' ')
+opening_view_tag=$(grep -o "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$closing_view_tag" -eq "$opening_view_tag" ] && [ "$opening_view_tag" -gt 0 ]; then
     report_success "insights-view has proper opening and closing tags"
