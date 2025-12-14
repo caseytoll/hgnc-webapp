@@ -2,20 +2,6 @@
 
 ## [Unreleased]
 
-## v1028 — 2025-12-14
-**Pre-deploy validation and runtime fixes**
-- **Fixes**:
-  - Add `showNotification()` wrapper and expose on window to centralize toasts
-  - Expose `updateAllStatsAndRender` and `showShareModal` on `window` to avoid missing global references
-  - Fix pre-deploy tag counting logic to be robust across multiple files
-- **Files Modified**:
-  - `src/includes/js-helpers.html` (+showNotification wrapper)
-  - `src/includes/js-navigation.html` (expose globals)
-  - `scripts/pre-deploy-check.sh` (robust grep counting for tag checks)
-
-**Notes**:
-- Changes ensure pre-deploy checks pass and resolve runtime ReferenceErrors caused by functions not being globally available.
-
 ## v1027 — 2025-12-11
 **Code Interaction Fixes & Root Cause Analysis**
 - **Critical Fixes** (6 issues resolved):

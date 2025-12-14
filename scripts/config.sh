@@ -4,7 +4,7 @@
 
 # Primary deployment ID (Apps Script deployment)
 # Using v843 deployment ID - this is the modifiable deployment
-: "${DEPLOYMENT_ID:=AKfycbwO67aBAg_wg4CmR4CyiRypxW7cNX3B04PY_f7FqaqtNP2TQf0_D4_y2aYy44b1z0RgUA}"
+: "${DEPLOYMENT_ID:=AKfycbw8nTMiBtx3SMw-s9cV3UhbTMqOwBH2aHEj1tswEQ2gb1uyiE9e2Ci4eHPqcpJ_gwo0ug}"
 
 # Public execution URL (derived if not provided)
 : "${APP_URL_PUBLIC:=https://script.google.com/macros/s/$DEPLOYMENT_ID/exec}"

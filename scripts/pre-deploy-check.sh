@@ -167,9 +167,8 @@ echo ""
 echo "🔍 Checking HTML structure for tag balance..."
 
 # Count opening and closing tags for critical elements (search in include files too)
-# Use grep -o and wc to return a single numeric count even when multiple files are matched
-closing_view_tag=$(grep -o "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html 2>/dev/null | wc -l || echo "0")
-opening_view_tag=$(grep -o "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html 2>/dev/null | wc -l || echo "0")
+closing_view_tag=$(grep -c "</div><!-- End insights-view -->" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html || echo "0")
+opening_view_tag=$(grep -c "id=\"insights-view\"" "$WORKSPACE_DIR/index.html" "$WORKSPACE_DIR/src/includes/"*.html || echo "0")
 
 if [ "$closing_view_tag" -eq "$opening_view_tag" ] && [ "$opening_view_tag" -gt 0 ]; then
     report_success "insights-view has proper opening and closing tags"
@@ -179,7 +178,7 @@ fi
 
 # Check for common HTML structure issues
 if grep -q "<div id=\"main-content\">" "$WORKSPACE_DIR/index.html"; then
-    closing_main=$(grep -o "</div><!-- End main-content -->" "$WORKSPACE_DIR/index.html" 2>/dev/null | wc -l || grep -o "id=\"main-content\"" "$WORKSPACE_DIR/index.html" 2>/dev/null | wc -l || echo "0")
+    closing_main=$(grep -c "</div><!-- End main-content -->" "$WORKSPACE_DIR/index.html" || grep -c "id=\"main-content\"" "$WORKSPACE_DIR/index.html" || echo "0")
     if [ "$closing_main" -gt 0 ]; then
         report_success "main-content container properly structured"
     else
