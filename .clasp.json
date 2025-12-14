@@ -10,13 +10,17 @@
     ,"Code.js"
     ,"index.html"
     ,"styles.html"
+    ,"lineup.html"
     ,"src/includes/inline-scripts-pre-main.html"
+    ,"src/includes/js-core-logic.html"
+    ,"src/includes/js-helpers.html"
     ,"src/includes/js-lineup-lazy.html"
     ,"src/includes/js-navigation.html"
     ,"src/includes/js-render.html"
     ,"src/includes/js-server-comms.html"
     ,"src/includes/js-startup.html"
     ,"src/includes/main-views.html"
+    ,"src/includes/pre-main-views.html"
     ,"src/styles.html"
   ]
 }
