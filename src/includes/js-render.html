@@ -330,76 +330,6 @@
         window._cachedGameListHTML = finalHtml;
         window._cachedGameListHash = gamesHash;
         
-        console.log('[renderGameList] Rendered', games.length, 'games, HTML length:', finalHtml.length);
-        
-        // 🔍 ALIGNMENT DIAGNOSTICS - Run after DOM updates
-        setTimeout(() => {
-            const opponents = document.querySelectorAll('.game-opponent');
-            console.log('🔍 DIAGNOSTIC: Found', opponents.length, '.game-opponent elements');
-            
-            if (opponents.length > 0) {
-                const firstOpponent = opponents[0];
-                const computed = window.getComputedStyle(firstOpponent);
-                const rect = firstOpponent.getBoundingClientRect();
-                console.log('🎨 First .game-opponent computed styles:', {
-                    alignSelf: computed.alignSelf,
-                    textAlign: computed.textAlign,
-                    flexShrink: computed.flexShrink,
-                    flexGrow: computed.flexGrow,
-                    marginLeft: computed.marginLeft,
-                    marginRight: computed.marginRight,
-                    display: computed.display,
-                    width: computed.width,
-                    actualWidth: rect.width + 'px',
-                    left: rect.left + 'px',
-                    whiteSpace: computed.whiteSpace
-                });
-                
-                const parent = firstOpponent.closest('.game-row-line2');
-                if (parent) {
-                    const parentComputed = window.getComputedStyle(parent);
-                    const parentRect = parent.getBoundingClientRect();
-                    console.log('📏 Parent .game-row-line2 computed styles:', {
-                        display: parentComputed.display,
-                        justifyContent: parentComputed.justifyContent,
-                        alignItems: parentComputed.alignItems,
-                        gap: parentComputed.gap,
-                        width: parentRect.width + 'px',
-                        paddingLeft: parentComputed.paddingLeft,
-                        paddingRight: parentComputed.paddingRight
-                    });
-                    
-                    // Log all children with detailed positions
-                    const children = Array.from(parent.children);
-                    console.log('👶 Children of .game-row-line2 (detailed):', children.map((child, idx) => {
-                        const childRect = child.getBoundingClientRect();
-                        const childComputed = window.getComputedStyle(child);
-                        return {
-                            index: idx,
-                            class: child.className,
-                            width: childRect.width.toFixed(0) + 'px',
-                            left: childRect.left.toFixed(0) + 'px',
-                            flexGrow: childComputed.flexGrow,
-                            flexShrink: childComputed.flexShrink,
-                            flexBasis: childComputed.flexBasis,
-                            text: child.textContent.substring(0, 25)
-                        };
-                    }));
-                }
-                
-                const round = document.querySelector('.game-round');
-                if (round) {
-                    const roundComputed = window.getComputedStyle(round);
-                    const roundRect = round.getBoundingClientRect();
-                    console.log('🔢 .game-round computed styles:', {
-                        marginRight: roundComputed.marginRight,
-                        display: roundComputed.display,
-                        width: roundRect.width.toFixed(0) + 'px',
-                        left: roundRect.left.toFixed(0) + 'px'
-                    });
-                }
-            }
-        }, 100);
     };
 
     // === REPLACED LEADERBOARD RENDER WITH NEW HUB ===
@@ -1607,7 +1537,6 @@
 
         try {
             // Populate Average Goals For/Against
-            console.log('[renderNewInsightsDashboardContent] DEBUG: avgGoalsFor =', avgGoalsFor, 'avgGoalsAgainst =', avgGoalsAgainst);
             var perfAvgFor = document.getElementById('perf-avg-for');
             if (perfAvgFor) {
                 perfAvgFor.textContent = avgGoalsFor;
@@ -1619,18 +1548,15 @@
             }
 
             // Quarter Analysis - Best Quarter
-            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.quarterDiffs =', stats.quarterDiffs);
             const maxDiff = Math.max(...stats.quarterDiffs);
             const bestQuarterIndex = stats.quarterDiffs.indexOf(maxDiff);
-            console.log('[renderNewInsightsDashboardContent] DEBUG: bestQuarterIndex =', bestQuarterIndex);
-            
+
             var perfBestQtr = document.getElementById('perf-best-qtr');
             if (perfBestQtr) {
                 perfBestQtr.textContent = `Q${bestQuarterIndex + 1}`;
             }
 
             // Calculate Top Defender (lowest avg goals against, min 3 quarters in GD/GK)
-            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allDefenders =', stats.allDefenders);
             var topDefender = null;
             if (stats.allDefenders && stats.allDefenders.length > 0) {
                 // Filter for defenders with at least 3 quarters
@@ -1653,7 +1579,6 @@
 
         try {
             // Calculate and Populate Average Goals For Singles
-            console.log('[renderNewInsightsDashboardContent] DEBUG: calculatedLeaderboardPerQtr =', calculatedLeaderboardPerQtr);
             var aveGoalsForSingles = 0;
             var singlesScoringCount = 0;
             if (calculatedLeaderboardPerQtr) {
@@ -1686,7 +1611,6 @@
             }
 
             // Calculate and Populate Average Goals For Pairs
-            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allOffenseCombos =', stats.allOffenseCombos);
             var aveGoalsForPairs = 0;
             var pairsScoringCount = 0;
             if (stats.allOffenseCombos) {
@@ -1703,7 +1627,6 @@
             }
 
             // Calculate and Populate Average Goals Against Pairs
-            console.log('[renderNewInsightsDashboardContent] DEBUG: stats.allDefenseCombos =', stats.allDefenseCombos);
             var aveGoalsAgainstPairs = 0;
             var pairsDefensiveCount = 0;
             if (stats.allDefenseCombos) {
@@ -3467,11 +3390,7 @@
             console.error('renderGameAvailability: Container not found');
             return;
         }
-        
-        console.log('renderGameAvailability: Container found, display:', container.style.display, 'computed:', window.getComputedStyle(container).display);
-        console.log('renderGameAvailability: game =', game);
-        console.log('renderGameAvailability: players =', players);
-        
+
         let captainOptions = '<option value="">Select Captain...</option>';
         const availablePlayers = players.filter(function(p) { return game.availablePlayerIDs.indexOf(p.id) !== -1; });
         
@@ -3499,11 +3418,9 @@
             '</div>'
             );
         }).join('');
-        
-        console.log('renderGameAvailability: Generated HTML:', html);
+
         container.innerHTML = html;
-        console.log('renderGameAvailability: HTML set successfully, container innerHTML length:', container.innerHTML.length);
-        
+
         container.innerHTML += 
             '<div class="availability-footer">' +
                 '<label for="game-captain-select" style="font-weight: 600; margin-bottom: 8px;">Game Captain</label>' +
@@ -3894,59 +3811,43 @@
     }
 
     window.showPlayerGoalsDetail = function(playerName) {
-        console.log('showPlayerGoalsDetail called with:', playerName);
         if (!window.appState) window.appState = {};
         appState.playerGoalsDetail = { playerName: playerName };
-        console.log('Set appState.playerGoalsDetail:', appState.playerGoalsDetail);
         showView('player-goals-detail-view');
-        // Explicitly call render after view is shown
         renderPlayerGoalsDetail();
     }
 
     window.renderPlayerGoalsDetail = function() {
-        console.log('renderPlayerGoalsDetail called');
-        console.log('appState:', appState);
-        console.log('appState.playerGoalsDetail:', appState ? appState.playerGoalsDetail : 'no appState');
-        
         if (!appState.playerGoalsDetail || !appState.playerGoalsDetail.playerName) {
             console.warn('No player name in appState, redirecting to hub');
             showView('insights-offense-hub-view');
             return;
         }
-        
+
         var playerName = appState.playerGoalsDetail.playerName;
-        console.log('Rendering player goals for:', playerName);
-        console.log('Total games in system:', games.length);
-        
         document.getElementById('player-goals-detail-title').textContent = playerName + ' - Goal Details';
-        
+
         var gameDetails = [];
         games.forEach(function(game, gameIdx) {
-            console.log('Checking game', gameIdx, ':', game.opponent, 'isPast:', isGameInPast(game));
             if (!isGameInPast(game)) return;
-            
+
             var gameGoals = 0;
             var quarterBreakdown = [0, 0, 0, 0];
-            
+
             game.quarters.forEach(function(quarter, qIdx) {
                 var gsPlayer = quarter.positions["GS"];
                 var gaPlayer = quarter.positions["GA"];
-                console.log('  Q' + (qIdx+1) + ' - GS:', gsPlayer, 'GA:', gaPlayer);
                 var goals = 0;
-                
+
                 if (gsPlayer === playerName) {
                     goals = quarter.ourGsGoals || 0;
-                    console.log('    Player scored as GS:', goals);
                 } else if (gaPlayer === playerName) {
                     goals = quarter.ourGaGoals || 0;
-                    console.log('    Player scored as GA:', goals);
                 }
-                
+
                 gameGoals += goals;
                 quarterBreakdown[qIdx] = goals;
             });
-            
-            console.log('  Total goals in game:', gameGoals);
             if (gameGoals > 0) {
                 gameDetails.push({
                     game: game,

@@ -17,12 +17,9 @@
             if (trimmed.indexOf(base) === 0) {
                 // Replace the base name with nickname, preserving the rest
                 var displayName = TEAM_NICKNAMES[base] + trimmed.substring(base.length);
-                console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + displayName + '"');
                 return displayName;
             }
         }
-        
-        console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + trimmed + '" (no match)');
         return trimmed;
     }
     
@@ -647,9 +644,7 @@
     function loadStatsFromLocalStorage() {
         try {
             var key = 'insights_' + appState.currentTeam.teamID;
-            console.log('[DEBUG] loadStatsFromLocalStorage: trying key', key);
             var data = localStorage.getItem(key);
-            console.log('[DEBUG] loadStatsFromLocalStorage: data exists?', !!data);
             if (data) {
                 var parsed = JSON.parse(data);
                 var cached = parsed.cache;

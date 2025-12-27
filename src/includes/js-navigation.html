@@ -398,82 +398,10 @@
             document.getElementById('players-view').classList.remove('hidden');
             renderPlayerList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
-            
-            // DIAGNOSTIC: Log view dimensions
-            setTimeout(function() {
-                var view = document.getElementById('players-view');
-                var styles = window.getComputedStyle(view);
-                console.log('[showView] players-view dimensions:', {
-                    offsetHeight: view.offsetHeight,
-                    scrollHeight: view.scrollHeight,
-                    paddingTop: styles.paddingTop,
-                    marginTop: styles.marginTop,
-                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child'
-                });
-            }, 100);
         } else if (viewId === 'fixture-view') {
             document.getElementById('fixture-view').classList.remove('hidden');
             renderGameList();
             try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
-            
-            // DIAGNOSTIC: Log view dimensions
-            setTimeout(function() {
-                var main = document.getElementById('main-content');
-                if (main) {
-                    console.log('[DIAGNOSTIC] main-content children count:', main.children.length);
-                    var totalOffset = 0;
-                    for (var i = 0; i < main.children.length; i++) {
-                        var child = main.children[i];
-                        var childStyles = window.getComputedStyle(child);
-                        var isHidden = child.classList.contains('hidden');
-                        console.log('[DIAGNOSTIC] Child ' + i + ' (' + child.id + '):', {
-                            offsetHeight: child.offsetHeight,
-                            scrollHeight: child.scrollHeight,
-                            isHidden: isHidden,
-                            display: childStyles.display,
-                            marginTop: childStyles.marginTop,
-                            marginBottom: childStyles.marginBottom
-                        });
-                        totalOffset += child.offsetHeight;
-                        if (child.id === 'fixture-view') break;
-                    }
-                    console.log('[DIAGNOSTIC] Total offset before fixture-view:', totalOffset);
-                }
-                
-                var view = document.getElementById('fixture-view');
-                var styles = window.getComputedStyle(view);
-                var body = document.body;
-                var bodyRect = body.getBoundingClientRect();
-                var viewRect = view.getBoundingClientRect();
-                console.log('[showView] fixture-view dimensions:', {
-                    offsetHeight: view.offsetHeight,
-                    scrollHeight: view.scrollHeight,
-                    paddingTop: styles.paddingTop,
-                    marginTop: styles.marginTop,
-                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child',
-                    viewTop: viewRect.top,
-                    viewY: viewRect.y,
-                    bodyScrollTop: body.scrollTop,
-                    windowScrollY: window.scrollY,
-                    viewOffsetTop: view.offsetTop
-                });
-                
-                // Check all parent elements
-                var parent = view.parentElement;
-                var depth = 0;
-                while (parent && depth < 5) {
-                    var pRect = parent.getBoundingClientRect();
-                    var pStyles = window.getComputedStyle(parent);
-                    console.log('[showView] Parent ' + depth + ' (' + (parent.id || parent.tagName) + '):', {
-                        offsetTop: parent.offsetTop,
-                        top: pRect.top,
-                        paddingTop: pStyles.paddingTop,
-                        marginTop: pStyles.marginTop
-                    });
-                    parent = parent.parentElement;
-                    depth++;
-                }
-            }, 100);
         } else if (viewId === 'insights-view') {
             // Show the menu, hide any sub-views and dashboards ONLY in currently visible views
             var dashboards = document.querySelectorAll('.insights-dashboard');
