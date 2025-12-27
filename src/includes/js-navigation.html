@@ -135,10 +135,11 @@
     }
 
     function updateTotalScoreDisplay(game) {
+        if (!game) return;
         var scores = getGameTotalScores(game);
         document.getElementById('total-score-us').textContent = scores.ourScore;
         document.getElementById('total-score-opponent').textContent = scores.opponentScore;
-        document.getElementById('total-score-opponent-name').textContent = game.opponent;
+        document.getElementById('total-score-opponent-name').textContent = game.opponent || '';
     }
     
     function setLoading(isLoading, message) {
@@ -147,9 +148,6 @@
         if (overlay) {
             overlay.querySelector('span').textContent = message;
             overlay.classList.toggle('hidden', !isLoading);
-            console.log('setLoading:', isLoading, 'message:', message, 'hasHiddenClass:', overlay.classList.contains('hidden'));
-        } else {
-            console.warn('setLoading: overlay element not found!');
         }
     }
     
@@ -330,9 +328,7 @@
             if (auToHide) auToHide.classList.add('hidden');
             if (ppToHide) ppToHide.classList.add('hidden');
         }
-        
-        console.log('[showView] All views hidden, now routing based on viewId:', viewId);
-            
+
         // --- 3. Handle navigation bar visibility and active states ---
         if (viewId === 'team-selector-view') {
             // Hide all navigation bars on team selector
@@ -500,7 +496,6 @@
         } else if (viewId === 'player-detail-view') {
             // Ensure stats are calculated before rendering player detail
             if (statsNeedUpdate || !calculatedPlayerTable) {
-                console.log('[showView] Stats not ready for player detail, updating...');
                 updateAllStats();
                 statsNeedUpdate = false;
             }
@@ -581,7 +576,6 @@
 
         // LINEUP ANALYTICS VIEWS
         if (viewId === 'insights-lineup-defensive-units-view') {
-            console.log('[showView] Routing to defensive units view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
@@ -589,21 +583,16 @@
             }
             var view = document.getElementById('insights-lineup-defensive-units-view');
             view.classList.remove('hidden');
-            // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
-            console.log('[showView] Dashboard found:', !!dashboard, 'Dashboard hidden?', dashboard ? dashboard.classList.contains('hidden') : 'N/A');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
-                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
-                console.log('[showView] Dashboard unhidden, still hidden?', dashboard.classList.contains('hidden'));
+                dashboard.style.visibility = 'visible';
             }
-            console.log('[showView] Calling renderLineupDefensiveUnits');
             try { renderLineupDefensiveUnits(); } catch (e) { console.error('Error rendering Defensive Units view:', e); }
             return;
         }
 
         if (viewId === 'insights-lineup-attacking-units-view') {
-            console.log('[showView] Routing to attacking units view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
@@ -611,19 +600,16 @@
             }
             var view = document.getElementById('insights-lineup-attacking-units-view');
             view.classList.remove('hidden');
-            // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
-                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+                dashboard.style.visibility = 'visible';
             }
-            console.log('[showView] Calling renderLineupAttackingUnits');
             try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
             return;
         }
 
         if (viewId === 'insights-lineup-position-pairings-view') {
-            console.log('[showView] Routing to position pairings view');
             var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
             if (!teamID) {
                 showView('team-selector-view');
@@ -631,13 +617,11 @@
             }
             var view = document.getElementById('insights-lineup-position-pairings-view');
             view.classList.remove('hidden');
-            // Unhide the dashboard inside this view
             var dashboard = view.querySelector('.insights-dashboard');
             if (dashboard) {
                 dashboard.classList.remove('hidden');
-                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+                dashboard.style.visibility = 'visible';
             }
-            console.log('[showView] Calling renderLineupPositionPairings');
             try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
             return;
         }
