@@ -3,8 +3,8 @@ name: Runtime Smoke Test (Production exec)
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # Removed pull_request trigger - this workflow tests production, not PR code
+  # PRs should not fail based on production state
   workflow_dispatch:
   schedule:
     - cron: '0 1 * * *' # Run daily at 01:00 UTC
