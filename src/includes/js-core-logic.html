@@ -95,22 +95,13 @@
         var fillInCheckbox = document.getElementById('edit-player-fill-in');
         var newName = nameInput.value.trim();
         var newFavPosition = favPositionInput.value || null;
-        
-        // Debug: log checkbox state
-        console.log('[updatePlayer] fillInCheckbox element:', fillInCheckbox);
-        console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'null');
-        console.log('[updatePlayer] fillInCheckbox.value:', fillInCheckbox ? fillInCheckbox.value : 'null');
-        
         var isFillIn = fillInCheckbox && fillInCheckbox.checked === true;
-        console.log('[updatePlayer] isFillIn (final):', isFillIn);
 
         if (newName) {
             haptic(50); // Haptic feedback
-            var oldFillIn = player.isFillIn;
             player.name = newName;
             player.favoritePosition = newFavPosition;
             player.isFillIn = isFillIn;
-            console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', oldFillIn, '→', player.isFillIn, 'isFavorite:', player.isFavorite);
             saveCurrentTeamData();
             renderPlayerList();
             hideModal('edit-player-modal');
@@ -119,6 +110,7 @@
         }
     }    function executeDeletePlayer() {
         if (!isOwner()) return; // Read-only mode: prevent deletion
+        var editingPlayerId = appState.editing.playerId;
         if (!editingPlayerId) return;
         var player = arrayFind(players, function(p) { return p.id === editingPlayerId; });
         
@@ -344,9 +336,8 @@
         if (!game) return;
         
         game.captainPlayerID = playerId || null;
-        saveCurrentTeamData();
         updateAllStats();
-        saveCurrentTeamData(); // Save again with updated stats
+        saveCurrentTeamData();
     }
 
     /**
@@ -379,9 +370,8 @@
             quarter.positions['Off_' + offCounter] = playerName;
         }
         
-        saveCurrentTeamData();
         updateAllStats();
-        saveCurrentTeamData(); // Save again with updated stats
+        saveCurrentTeamData();
         renderGameDetailLineup();
     }
 
@@ -401,10 +391,9 @@
         // Invalidate score cache
         game._cachedScores = null;
         game._displayStale = true;
-        
-        saveCurrentTeamData();
+
         updateAllStats();
-        saveCurrentTeamData(); // Save again with updated stats
+        saveCurrentTeamData();
         renderGameDetailScoring();
         updateTotalScoreDisplay(game);
     }
