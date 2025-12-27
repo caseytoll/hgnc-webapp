@@ -1445,12 +1445,14 @@
     var pullToRefreshThreshold = 100; // Distance to pull down for refresh
 
     function handleTouchStart(e) {
+        if (!e.changedTouches || e.changedTouches.length === 0) return;
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
         touchStartScrollY = window.scrollY || window.pageYOffset;
     }
 
     function handleTouchEnd(e) {
+        if (!e.changedTouches || e.changedTouches.length === 0) return;
         touchEndX = e.changedTouches[0].screenX;
         touchEndY = e.changedTouches[0].screenY;
         handleSwipe();

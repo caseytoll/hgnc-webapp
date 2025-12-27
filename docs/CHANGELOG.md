@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v1029 — 2025-12-27
+**iPhone Performance Optimizations**
+- **Performance**: Debounced scroll event listener with `requestAnimationFrame` for smooth 60fps scrolling on iPhone
+- **Fix**: Added bounds check on `changedTouches` array in touch handlers to prevent crashes when no touches available
+- **Enhancement**: Added `{ passive: true }` option to scroll listener for improved scroll performance
+
 ## v1028 — 2025-12-27
 **Code Quality Improvements**
 - **Fix**: `executeDeletePlayer()` now properly uses `appState.editing.playerId` instead of relying on global variable

@@ -223,10 +223,19 @@
             initTooltips();
             initLazyImages();
             
-            // Initialize scroll progress indicator if present
+            // Initialize scroll progress indicator if present (debounced for iPhone performance)
             var scrollIndicator = document.querySelector('.scroll-indicator');
             if (scrollIndicator) {
-                window.addEventListener('scroll', updateScrollIndicator);
+                var scrollTicking = false;
+                window.addEventListener('scroll', function() {
+                    if (!scrollTicking) {
+                        requestAnimationFrame(function() {
+                            updateScrollIndicator();
+                            scrollTicking = false;
+                        });
+                        scrollTicking = true;
+                    }
+                }, { passive: true });
                 updateScrollIndicator();
             }
             
