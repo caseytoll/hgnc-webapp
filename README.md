@@ -9,9 +9,9 @@ A Google Apps Script web application for managing netball teams, tracking player
 **New to this project?** Follow this 30-minute onboarding:
 
 1. **[`docs/ONBOARDING_FIRST_DAY.md`](./docs/ONBOARDING_FIRST_DAY.md)** (30 min) ⭐ - Complete first-day checklist
-2. **[`docs/START_HERE.md`](./docs/START_HERE.md)** (5 min) - Critical rules that prevent wasting hours
+2. **[`docs/getting-started/START_HERE.md`](./docs/getting-started/START_HERE.md)** (5 min) - Critical rules that prevent wasting hours
 3. **[`docs/DEPLOYMENT_CHECKLIST.md`](./docs/DEPLOYMENT_CHECKLIST.md)** (10 min) - Never deploy to wrong URL again
-4. **[`docs/LESSONS_LEARNED.md`](./docs/LESSONS_LEARNED.md)** (15 min) - Patterns from past mistakes
+4. **[`docs/operations/LESSONS_LEARNED.md`](./docs/operations/LESSONS_LEARNED.md)** (15 min) - Patterns from past mistakes
 
 **After onboarding, you'll:**
 - ✅ Understand 4 critical rules that prevent errors
@@ -192,7 +192,7 @@ npm run test:screenshot-compare
 ### Quick Links
 
 **New to the project?** Read these in order:
-1. [LESSONS_LEARNED.md](docs/LESSONS_LEARNED.md) - Critical insights from past work
+1. [LESSONS_LEARNED.md](docs/operations/LESSONS_LEARNED.md) - Critical insights from past work
 2. [QUICK_REFERENCE.md](docs/getting-started/QUICK_REFERENCE.md) - Daily reference
 3. [DEVELOPMENT-PRINCIPLES.md](docs/getting-started/DEVELOPMENT-PRINCIPLES.md) - **Read before coding**
 

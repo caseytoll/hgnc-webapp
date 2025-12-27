@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v1028 — 2025-12-27
+**Code Quality Improvements**
+- **Fix**: `executeDeletePlayer()` now properly uses `appState.editing.playerId` instead of relying on global variable
+- **Optimization**: Removed redundant double `saveCurrentTeamData()` calls in `updateGameCaptain()`, `updatePlayerPosition()`, and `updateQuarterValue()` - reduces unnecessary API calls to Google Sheets
+- **Cleanup**: Removed debug `console.log` statements from `updatePlayer()` function
+
 ## v1027 — 2025-12-11
 **Code Interaction Fixes & Root Cause Analysis**
 - **Critical Fixes** (6 issues resolved):
