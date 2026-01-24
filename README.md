@@ -1,6 +1,6 @@
 # HGNC Team Manager
 
-> **Handover & Troubleshooting:** See `HANDOVER_SESSION.md` for the latest project status, troubleshooting steps (including Vite parse errors), and onboarding notes for new developers.
+> **Developer Guide:** See `CLAUDE.md` for project status, troubleshooting, and developer notes.
 
 A mobile-first web application for managing Hazel Glen Netball Club team rosters, game schedules, lineups, and statistics. Optimized for mobile devices and installable as a Progressive Web App (PWA).
 
@@ -50,11 +50,9 @@ npm run dev -- --host
 Alternatively, try `http://127.0.0.1:3000/` instead of `localhost`.
 
 ### Troubleshooting Vite Parse Errors
-If you see a Vite error about "invalid JS syntax" in `src/js/app.js`, see the `HANDOVER_SESSION.md` for step-by-step fixes. This is usually caused by missing closing braces or encoding issues.
+If you see a Vite error about "invalid JS syntax" in `src/js/app.js`, check brace balance with `node --check src/js/app.js`. This is usually caused by missing closing braces or encoding issues.
 
 ### Project Structure
-
-See also: `HANDOVER_SESSION.md` for handoff and onboarding notes.
 
 ```
 webapp-local-dev/
