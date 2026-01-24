@@ -4,26 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Recent Changes (2026-01-24)
 
-**Captain Selection:**
-- Tap a player in a position slot to mark as captain (shows "C" badge)
-- Captain stored at game level: `game.captain = "Player Name"`
-- Light theme: improved badge visibility with darker purple + shadow
+**Deployment:**
+- Migrated to Cloudflare Pages (500 builds/month, unlimited bandwidth)
+- Production URL: https://hgnc-team-manager.pages.dev
+- Netlify deprecated (credit costs ~15/deploy, site pause risk)
 
-**Shared Lineup Card:**
-- Captain displays below match info ("Captain: Name")
-- New format: players listed alphabetically, positions shown per quarter
-- See `docs/examples/Example Lineup.pdf` for reference
-
-**Netlify:**
-- Auto-deploys DISABLED to conserve credits (was burning through free tier)
-- Manual deploy workflow documented below
-- Credits reset February 23
-
-**Documentation:**
-- Consolidated all docs into single CLAUDE.md
-- Removed HANDOFF.md and HANDOVER_SESSION.md
-
-**Status:** All features working. 173 tests passing. Ready for next feature.
+**Status:** All features working. 173 tests passing. Cloudflare Pages live.
 
 ---
 
@@ -31,12 +17,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Resource | URL |
 |----------|-----|
-| Production | https://hgnc-team-manager.netlify.app |
+| Production | https://hgnc-team-manager.pages.dev |
 | GitHub | https://github.com/caseytoll/hgnc-webapp |
 | Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
 | Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
 
-**Deploy:** Auto-deploys OFF. See "Netlify Deployment" section below for manual deploy steps.
+**Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --commit-dirty=true`
 
 ---
 
@@ -67,18 +53,22 @@ npm test                 # Run tests in watch mode
 npm run test:run         # Run tests once
 npm run test:coverage    # Tests with coverage
 npx vitest src/js/utils.test.js  # Run single test file
+npm run preview          # Preview production build locally
 ```
 
 ---
 
 ## Architecture
 
-**Tech:** Vanilla JS (ES modules), Vite, Vitest, Google Apps Script backend
+**Tech:** Vanilla JS (ES modules), Vite 7.x, Vitest, Google Apps Script backend
+
+**Prerequisites:** Node.js 18+, npm 9+
 
 **Key files:**
-- `src/js/app.js` - Main application logic
+- `src/js/app.js` - Main application logic, global `state` object
 - `src/js/api.js` - Data source abstraction (mock/API toggle)
 - `src/js/config.js` - API endpoint URL
+- `src/js/stats-calculations.js` - Stats dashboard calculations
 - `src/js/share-utils.js` - Lineup card generation, sharing
 - `src/css/styles.css` - All styles with CSS custom properties
 
@@ -123,27 +113,28 @@ npx vitest src/js/utils.test.js  # Run single test file
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS
 **Production:** Direct calls to Apps Script (Google handles CORS)
 
+**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData
+
 ---
 
-## Netlify Deployment
+## Deployment
 
-**Free tier:** 300 credits/month. Auto-deploys DISABLED to conserve credits.
+### Cloudflare Pages (Primary)
 
-**To deploy changes:**
-1. Push to `master` (saves code, won't auto-deploy)
-2. Go to Netlify → Deploys tab
-3. Click **"Activate builds"**
-4. Click **"Trigger deploy"** → **"Clear cache and deploy site"**
-5. Wait ~10 seconds for deploy
-6. Go to **Site configuration** → **Build & deploy** → **Build settings** → **Stop builds**
-
-**If credits run low:** Switch to Netlify CLI (zero credits):
+500 builds/month, unlimited bandwidth, free:
 ```bash
-npm install -g netlify-cli && netlify login && netlify link
-npm run build && netlify deploy --prod
+npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --commit-dirty=true
 ```
 
-**Check usage:** Netlify dashboard → Billing (resets monthly)
+Setup (one-time, already done):
+```bash
+npm install -g wrangler && wrangler login
+```
+
+### Netlify (Deprecated)
+
+Legacy deployment - avoid due to credit costs (~15 credits/deploy, 300/month free).
+Old URL: https://hgnc-team-manager.netlify.app
 
 ---
 
