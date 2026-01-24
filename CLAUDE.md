@@ -4,11 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Recent Changes (2026-01-25)
 
-**Stats Page - Goal Scorer Breakdown:**
-- Fixed goal breakdown not showing when clicking on scorers
-- Goals now aggregated per game (shows GS/GA goals and total)
+**Bug Fixes:**
+- Fixed broken import: `saveToStorage()` → `saveToLocalStorage()`, removed undefined `updateQuickStats()`
+- Standardized opponent score fields: `opponentScore` → `oppGsGoals`/`oppGaGoals` everywhere
+- Fixed goal breakdown not showing for live API data (parseInt for string values)
+
+**Performance:**
+- Lineup builder now uses Sets for O(1) player lookups instead of O(n²) array.includes()
+
+**Stats Page:**
+- Goals aggregated per game (shows GS/GA goals and total)
 - Added `scoringQuarters` count
-- Fixed: Google Sheet API returns numbers as strings - now using `parseInt()` in `calculateMockStats`
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
