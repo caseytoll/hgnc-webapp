@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hgnc-team-manager-v1';
+const CACHE_NAME = 'hgnc-team-manager-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

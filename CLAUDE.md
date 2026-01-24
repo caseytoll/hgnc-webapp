@@ -5,16 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Recent Changes (2026-01-25)
 
 **Bug Fixes:**
-- Fixed broken import: `saveToStorage()` → `saveToLocalStorage()`, removed undefined `updateQuickStats()`
-- Standardized opponent score fields: `opponentScore` → `oppGsGoals`/`oppGaGoals` everywhere
-- Fixed goal breakdown not showing for live API data (parseInt for string values)
-
-**Performance:**
-- Lineup builder now uses Sets for O(1) player lookups instead of O(n²) array.includes()
-
-**Stats Page:**
-- Goals aggregated per game (shows GS/GA goals and total)
-- Added `scoringQuarters` count
+- Fixed production "no data" issue: bumped service worker cache version (v1 → v2)
+- Added console logging in `loadTeams()` for debugging API calls
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
@@ -75,10 +67,13 @@ npm run preview          # Preview production build locally
 - `src/js/app.js` - Main application logic, global `state` object
 - `src/js/api.js` - Data source abstraction (mock/API toggle)
 - `src/js/config.js` - API endpoint URL, `useMockData` toggle
+- `src/js/utils.js` - Utility functions (escapeHtml, formatters, localStorage wrappers)
 - `src/js/mock-data.js` - Mock data AND `calculateMockStats()` used for all data sources
 - `src/js/stats-calculations.js` - Advanced stats (leaderboards, combos, analytics)
 - `src/js/share-utils.js` - Lineup card generation, sharing
 - `src/css/styles.css` - All styles with CSS custom properties
+
+**Test files:** `*.test.js` alongside source files (172 tests total)
 
 **Patterns:**
 - Single HTML file with `<div class="view">` sections
@@ -101,7 +96,7 @@ npm run preview          # Preview production build locally
 
 // Lineup (per game)
 {
-  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, opponentScore },
+  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals },
   Q2: { ... }, Q3: { ... }, Q4: { ... }
 }
 ```
@@ -158,6 +153,8 @@ node --check src/js/app.js
 **Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API. Also: set `useMockData: true` in `src/js/config.js`.
 
 **Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
+
+**Production shows stale/no data:** Service worker caches aggressively. After deploy, bump `CACHE_NAME` version in `public/sw.js` (e.g., `v2` → `v3`), rebuild, and redeploy. Users may need to hard refresh (Cmd+Shift+R) or unregister the service worker in DevTools.
 
 ---
 
