@@ -405,41 +405,79 @@ export function generateLineupCardHTML(game, teamName) {
     return '';
   }
 
-  const { round, opponent, lineup, date } = game;
+  const { round, opponent, lineup, date, captain } = game;
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
 
-  // Get player name (first name only, max 8 chars)
-  const getPlayerName = (q, pos) => {
-    const name = lineup[q]?.[pos] || '-';
-    if (name === '-') return '-';
-    const firstName = name.split(' ')[0];
+  // Collect all unique players from the lineup
+  const playersSet = new Set();
+  quarters.forEach(q => {
+    if (lineup[q]) {
+      positions.forEach(pos => {
+        const player = lineup[q][pos];
+        if (player) {
+          playersSet.add(player);
+        }
+      });
+    }
+  });
+
+  // Sort players alphabetically by first name
+  const players = Array.from(playersSet).sort((a, b) => {
+    const nameA = a.split(' ')[0].toLowerCase();
+    const nameB = b.split(' ')[0].toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  // Get player's first name (max 8 chars)
+  const getFirstName = (fullName) => {
+    const firstName = fullName.split(' ')[0];
     return firstName.length > 8 ? firstName.substring(0, 7) + '.' : firstName;
   };
 
-  // Build position rows
-  const positionRows = positions.map(pos => `
+  // Get player's position in a quarter (or "Off" if not playing)
+  const getPlayerPosition = (playerName, quarter) => {
+    if (!lineup[quarter]) return 'Off';
+    for (const pos of positions) {
+      if (lineup[quarter][pos] === playerName) {
+        return pos;
+      }
+    }
+    return 'Off';
+  };
+
+  // Get captain first name for display
+  const getCaptainName = () => {
+    if (!captain) return null;
+    return captain.split(' ')[0];
+  };
+
+  // Build player rows (players down the side, positions under each quarter)
+  const playerRows = players.map(player => `
     <tr>
-      <td class="pos-cell">${pos}</td>
-      ${quarters.map(q => `<td class="player-cell">${getPlayerName(q, pos)}</td>`).join('')}
+      <td class="player-name-cell">${getFirstName(player)}</td>
+      ${quarters.map(q => `<td class="pos-cell">${getPlayerPosition(player, q)}</td>`).join('')}
     </tr>
   `).join('');
+
+  const captainName = getCaptainName();
 
   return `
     <div class="lineup-card-header">
       <div class="lineup-card-team">${teamName}</div>
       <div class="lineup-card-match">Round ${round} vs ${opponent}</div>
       ${date ? `<div class="lineup-card-date">${date}</div>` : ''}
+      ${captainName ? `<div class="lineup-card-captain">Captain: ${captainName}</div>` : ''}
     </div>
     <table class="lineup-card-table">
       <thead>
         <tr>
-          <th></th>
+          <th>Name</th>
           ${quarters.map(q => `<th>${q}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
-        ${positionRows}
+        ${playerRows}
       </tbody>
     </table>
     <div class="lineup-card-footer">Team Manager</div>

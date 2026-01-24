@@ -531,7 +531,7 @@ describe('generateLineupCardHTML', () => {
     expect(result).not.toContain('Alexandria');
   });
 
-  it('should show dash for missing players', () => {
+  it('should show Off for quarters where player is not assigned', () => {
     const partialLineup = {
       round: 1,
       opponent: 'Test',
@@ -543,7 +543,9 @@ describe('generateLineupCardHTML', () => {
       }
     };
     const result = generateLineupCardHTML(partialLineup, 'Team');
-    expect(result).toContain('>-<');
+    // Emma plays GS in Q1, Off in other quarters
+    expect(result).toContain('>GS<');
+    expect(result).toContain('>Off<');
   });
 
   it('should include footer with app name', () => {
