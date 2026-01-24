@@ -14,8 +14,8 @@ export function calculateMockStats(team) {
     };
   }
 
-  // Filter to completed games only (status 'normal' with scores)
-  const games = team.games.filter(g => g.status === 'normal' && g.scores);
+  // Filter to completed games only (status 'normal' or has scores)
+  const games = team.games.filter(g => (g.status === 'normal' || g.scores) && g.status !== 'bye' && g.status !== 'abandoned');
 
   if (games.length === 0) {
     return {
