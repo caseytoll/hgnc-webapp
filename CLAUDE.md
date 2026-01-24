@@ -7,10 +7,18 @@ This file provides guidance to Claude Code when working with this repository.
 **Captain Selection:**
 - Tap a player in a position slot to mark as captain (shows "C" badge)
 - Captain stored at game level: `game.captain = "Player Name"`
-- Captain displays on shared lineup card
-- Lineup card: players listed alphabetically, positions shown per quarter
+- Light theme: improved badge visibility with darker purple + shadow
 
-**Functions added:** `handlePositionClick()`, `toggleCaptain()`, updated `generateLineupCardHTML()`
+**Shared Lineup Card:**
+- Captain displays below match info ("Captain: Name")
+- New format: players listed alphabetically, positions shown per quarter (matches old Google Sheets format)
+- See `docs/examples/Example Lineup.pdf` for reference
+
+**Documentation:**
+- Consolidated all docs into CLAUDE.md
+- Removed redundant HANDOFF.md and HANDOVER_SESSION.md
+
+**Files changed:** `app.js`, `share-utils.js`, `api.js`, `styles.css`
 
 ---
 
