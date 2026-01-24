@@ -1,0 +1,61 @@
+Date,Round,Match ID,Team 1,Team 2,Team 1 Score,Team 2 Score,Result,Status
+7/26/2025,Round 1,2410258,DC Rockets,DC Nova,8,0,Win,ENDED
+7/26/2025,Round 1,2410242,Montmorency 11 Swoopers,DC Gravity,11,4,Win,ENDED
+7/26/2025,Round 1,2410311,DC Galaxy,Eltham Lions,10,4,Win,ENDED
+7/26/2025,Round 1,2410285,Montmorency 11 White,HG 11 Flames,3,13,Loss,ENDED
+8/2/2025,Round 2,2410321,Eltham Lions,DC Nova,8,7,Win,ENDED
+8/2/2025,Round 2,2410346,HG 11 Flames,DC Galaxy,11,7,Win,ENDED
+8/2/2025,Round 2,2410379,DC Gravity,DC Rockets,0,9,Loss,ENDED
+8/2/2025,Round 2,2410389,Montmorency 11 Swoopers,Montmorency 11 White,8,4,Win,ENDED
+8/9/2025,Round 3,2410400,DC Rockets,Montmorency 11 Swoopers,19,3,Win,ENDED
+8/9/2025,Round 3,2410425,Eltham Lions,DC Gravity,11,5,Win,ENDED
+8/9/2025,Round 3,2410459,DC Nova,HG 11 Flames,2,9,Loss,ENDED
+8/9/2025,Round 3,2410469,Montmorency 11 White,DC Galaxy,6,8,Loss,ENDED
+8/16/2025,Round 4,2443487,HG 11 Flames,DC Gravity,14,5,Win,ENDED
+8/16/2025,Round 4,2443511,DC Galaxy,DC Nova,7,2,Win,ENDED
+8/16/2025,Round 4,2443540,Montmorency 11 Swoopers,Eltham Lions,11,3,Win,ENDED
+8/16/2025,Round 4,2443548,DC Rockets,Montmorency 11 White,7,5,Win,ENDED
+8/23/2025,Round 5,2443566,DC Gravity,DC Galaxy,8,8,Draw,ENDED
+8/23/2025,Round 5,2443627,Montmorency 11 White,DC Nova,13,5,Win,ENDED
+8/23/2025,Round 5,2443619,Eltham Lions,DC Rockets,7,7,Draw,ENDED
+8/23/2025,Round 5,2443590,HG 11 Flames,Montmorency 11 Swoopers,12,4,Win,ENDED
+8/30/2025,Round 6,2443645,Eltham Lions,Montmorency 11 White,5,11,Loss,ENDED
+8/30/2025,Round 6,2443669,DC Nova,DC Gravity,17,7,Win,ENDED
+8/30/2025,Round 6,2443698,DC Galaxy,Montmorency 11 Swoopers,12,8,Win,ENDED
+8/30/2025,Round 6,2443706,DC Rockets,HG 11 Flames,14,6,Win,ENDED
+9/6/2025,Round 7,2443724,Montmorency 11 Swoopers,DC Nova,3,9,Loss,ENDED
+9/6/2025,Round 7,2443748,DC Galaxy,DC Rockets,3,16,Loss,ENDED
+9/6/2025,Round 7,2443777,Montmorency 11 White,DC Gravity,14,1,Win,ENDED
+9/6/2025,Round 7,2443785,HG 11 Flames,Eltham Lions,16,6,Win,ENDED
+10/11/2025,Round 8,2443864,Eltham Lions,DC Galaxy,2,9,Loss,ENDED
+10/11/2025,Round 8,2443856,DC Gravity,Montmorency 11 Swoopers,6,3,Win,ENDED
+10/11/2025,Round 8,2443803,DC Nova,DC Rockets,4,11,Loss,ENDED
+10/11/2025,Round 8,2443827,HG 11 Flames,Montmorency 11 White,5,9,Loss,ENDED
+10/18/2025,Round 9,2443882,DC Galaxy,HG 11 Flames,7,11,Loss,ENDED
+10/18/2025,Round 9,2443906,DC Nova,Eltham Lions,17,5,Win,ENDED
+10/18/2025,Round 9,2443935,DC Rockets,DC Gravity,21,2,Win,ENDED
+10/18/2025,Round 9,2443943,Montmorency 11 White,Montmorency 11 Swoopers,12,3,Win,ENDED
+10/25/2025,Round 10,2443961,DC Gravity,Eltham Lions,5,10,Loss,ENDED
+10/25/2025,Round 10,2443985,Montmorency 11 Swoopers,DC Rockets,7,20,Loss,ENDED
+10/25/2025,Round 10,2444014,DC Galaxy,Montmorency 11 White,2,12,Loss,ENDED
+10/25/2025,Round 10,2444022,HG 11 Flames,DC Nova,8,5,Win,ENDED
+11/8/2025,Round 11,2444040,Eltham Lions,Montmorency 11 Swoopers,0,0,N/A,ENDED
+11/8/2025,Round 11,2444064,DC Gravity,HG 11 Flames,0,0,N/A,ENDED
+11/8/2025,Round 11,2444093,Montmorency 11 White,DC Rockets,0,0,N/A,ENDED
+11/8/2025,Round 11,2444101,DC Nova,DC Galaxy,0,0,N/A,ENDED
+11/15/2025,Round 12,2444143,Montmorency 11 Swoopers,HG 11 Flames,6,21,Loss,ENDED
+11/15/2025,Round 12,2444180,DC Rockets,Eltham Lions,12,3,Win,ENDED
+11/15/2025,Round 12,2444172,DC Galaxy,DC Gravity,11,1,Win,ENDED
+11/15/2025,Round 12,2444119,DC Nova,Montmorency 11 White,4,10,Loss,ENDED
+11/22/2025,Round 13,2444198,DC Gravity,DC Nova,7,18,Loss,ENDED
+11/22/2025,Round 13,2444222,Montmorency 11 Swoopers,DC Galaxy,7,12,Loss,ENDED
+11/22/2025,Round 13,2444251,HG 11 Flames,DC Rockets,8,8,Draw,ENDED
+11/22/2025,Round 13,2444259,Montmorency 11 White,Eltham Lions,30,2,Win,ENDED
+11/29/2025,Round 14,2518979,Montmorency 11 Swoopers,DC Nova,0,0,N/A,ENDED
+11/29/2025,Round 14,2518982,DC Galaxy,DC Rockets,0,0,N/A,ENDED
+11/29/2025,Round 14,2518985,Montmorency 11 White,DC Gravity,0,0,N/A,ENDED
+11/29/2025,Round 14,2518989,HG 11 Flames,Eltham Lions,0,0,N/A,ENDED
+12/6/2025,Round 15,2519018,HG 11 Flames,Montmorency 11 White,0,0,N/A,
+12/6/2025,Round 15,2519021,DC Gravity,Montmorency 11 Swoopers,0,0,N/A,
+12/6/2025,Round 15,2519023,Eltham Lions,DC Galaxy,0,0,N/A,
+12/6/2025,Round 15,2519025,DC Nova,DC Rockets,0,0,N/A,

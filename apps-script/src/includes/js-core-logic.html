@@ -1,0 +1,2024 @@
+<script>
+    // === CORE LOGIC ===
+    // Ensure calculatedSeasonStats is global and available everywhere
+    window.calculatedSeasonStats = null;
+    
+    /**
+     * Check if a game has already occurred (past games only)
+     * Includes games with entered data regardless of time
+     * @param {Object} game - Game object with date and optional time
+     * @returns {boolean} - True if game is in the past or has been played
+     */
+    function isGameInPast(game) {
+        if (!game || !game.date) return false;
+        
+        // Fast path: If game has quarter data entered, it's been played - count it immediately
+        if (game.quarters && game.quarters.length > 0) {
+            for (var i = 0; i < game.quarters.length; i++) {
+                var q = game.quarters[i];
+                if ((q.ourGsGoals > 0) || (q.ourGaGoals > 0) || 
+                    (q.opponentGsGoals > 0) || (q.opponentGaGoals > 0)) {
+                    return true;
+                }
+            }
+        }
+        
+        // Slow path: Parse date only if no quarter data
+        try {
+            // Parse date in format YYYY-MM-DD
+            var dateParts = game.date.split('-');
+            if (dateParts.length !== 3) return false;
+            
+            var gameDate = new Date(
+                parseInt(dateParts[0], 10), // year
+                parseInt(dateParts[1], 10) - 1, // month (0-indexed)
+                parseInt(dateParts[2], 10) // day
+            );
+            
+            // If time is provided, add it
+            if (game.time) {
+                var timeParts = game.time.split(':');
+                if (timeParts.length === 2) {
+                    gameDate.setHours(parseInt(timeParts[0], 10));
+                    gameDate.setMinutes(parseInt(timeParts[1], 10));
+                } else {
+                    // No valid time, set to end of day to be conservative
+                    gameDate.setHours(23, 59, 59, 999);
+                }
+            } else {
+                // No time specified, set to end of day to be conservative
+                gameDate.setHours(23, 59, 59, 999);
+            }
+            
+            var now = new Date();
+            return gameDate < now;
+        } catch (e) {
+            console.error('Error parsing game date:', e);
+            return false;
+        }
+    }
+    
+    function addPlayer() {
+        if (!isOwner()) return;
+        var nameInput = cachedElements.forms?.newPlayerName || document.getElementById('new-player-name');
+        var favPositionSelect = cachedElements.forms?.newPlayerFavPosition || document.getElementById('new-player-fav-position');
+        var fillInCheckbox = document.getElementById('new-player-fill-in');
+        var name = nameInput.value.trim();
+        var favPosition = favPositionSelect.value || null;
+        var isFillIn = fillInCheckbox ? fillInCheckbox.checked : false;
+
+        if (name) {
+            haptic(50); // Haptic feedback
+            var newPlayer = createPlayer(name);
+            newPlayer.favoritePosition = favPosition;
+            newPlayer.isFillIn = isFillIn;
+            newPlayer.isFavorite = false; // Favorites not set on add
+            players.push(newPlayer);
+            saveCurrentTeamData();  
+            renderPlayerList();
+            hideModal('add-player-modal');
+            nameInput.value = "";
+            favPositionSelect.value = "";
+            if (fillInCheckbox) fillInCheckbox.checked = false;
+        } else {
+            showCustomAlert("Input Error", "Player name cannot be empty.");
+        }
+    }    function updatePlayer() {
+        if (!isOwner()) return;
+        var editingPlayerId = appState.editing.playerId;
+        if (!editingPlayerId) return;
+        var player = arrayFind(players, function(p) { return p.id === editingPlayerId; });
+        if (!player) return;
+        
+        var nameInput = cachedElements.forms?.editPlayerName || document.getElementById('edit-player-name');
+        var favPositionInput = cachedElements.forms?.editPlayerFavPosition || document.getElementById('edit-player-fav-position');
+        var fillInCheckbox = document.getElementById('edit-player-fill-in');
+        var newName = nameInput.value.trim();
+        var newFavPosition = favPositionInput.value || null;
+        
+        // Debug: log checkbox state
+        console.log('[updatePlayer] fillInCheckbox element:', fillInCheckbox);
+        console.log('[updatePlayer] fillInCheckbox.checked:', fillInCheckbox ? fillInCheckbox.checked : 'null');
+        console.log('[updatePlayer] fillInCheckbox.value:', fillInCheckbox ? fillInCheckbox.value : 'null');
+        
+        var isFillIn = fillInCheckbox && fillInCheckbox.checked === true;
+        console.log('[updatePlayer] isFillIn (final):', isFillIn);
+
+        if (newName) {
+            haptic(50); // Haptic feedback
+            var oldFillIn = player.isFillIn;
+            player.name = newName;
+            player.favoritePosition = newFavPosition;
+            player.isFillIn = isFillIn;
+            console.log('[updatePlayer] Saved player:', player.name, 'isFillIn:', oldFillIn, '→', player.isFillIn, 'isFavorite:', player.isFavorite);
+            saveCurrentTeamData();
+            renderPlayerList();
+            hideModal('edit-player-modal');
+        } else {
+            showCustomAlert("Input Error", "Player name cannot be empty.");
+        }
+    }    function executeDeletePlayer() {
+        if (!isOwner()) return; // Read-only mode: prevent deletion
+        if (!editingPlayerId) return;
+        var player = arrayFind(players, function(p) { return p.id === editingPlayerId; });
+        
+        if (player) {
+            var playerToDelete = player;
+            showCustomConfirm(
+                "Confirm Deletion",
+                "Are you sure you want to permanently delete **" + playerToDelete.name + "**? This cannot be undone.",
+                function() { // On Confirm
+                    players = players.filter(function(p) { return p.id !== playerToDelete.id; });
+                    saveCurrentTeamData();  
+                    renderPlayerList();
+                    hideModal('edit-player-modal');
+                },
+                function() { // On Cancel
+                    // Keep modal open or simply close it if preferred
+                }
+            );
+        }
+    }
+
+    function addOrUpdateGame() {
+        if (!isOwner()) return; // Read-only mode: prevent creation/updates
+        var opponentInput = document.getElementById('new-game-opponent');
+        var roundInput = document.getElementById('new-game-round');
+        var dateInput = document.getElementById('new-game-date');
+        var timeInput = document.getElementById('new-game-time');
+        var courtInput = document.getElementById('new-game-court');
+        var venueInput = document.getElementById('new-game-venue');
+        var statusInput = document.getElementById('new-game-status');
+        
+        var round = parseInt(roundInput.value, 10) || 0;
+        var date = dateInput.value;
+        var time = timeInput.value;
+        var court = courtInput.value.trim();
+        var venue = venueInput ? venueInput.value.trim() : '';
+        var venueLat = venueInput && venueInput.dataset.lat ? venueInput.dataset.lat : null;
+        var venueLng = venueInput && venueInput.dataset.lng ? venueInput.dataset.lng : null;
+        var status = statusInput.value;
+        var opponent = (status === 'bye') ? "BYE" : opponentInput.value.trim();
+        var normalizedOpponent = (opponent || '').toLowerCase();
+        var targetEditingId = (appState && appState.currentGame && appState.currentGame.editingId) || editingGameId || null;
+        
+        if (!round || !date) {
+            showCustomAlert("Input Error", "Please fill in Round and Date.");
+            return;
+        }
+        if (!opponent && status !== 'bye') {
+            showCustomAlert("Input Error", "Please fill in Opponent name.");
+            return;
+        }
+
+        // Duplicate guard: same round + opponent (case-insensitive) for this team
+        var duplicate = arrayFind(games, function(g) {
+            return g && g.id !== targetEditingId && g.round === round && ((g.opponent || '').toLowerCase() === normalizedOpponent);
+        });
+        if (duplicate) {
+            showCustomAlert("Duplicate Game", "A game for Round " + round + " vs " + opponent + " already exists.");
+            return;
+        }
+        
+        if (targetEditingId) {
+            var game = arrayFind(games, function(g) { return g.id === targetEditingId; });
+            if (game) {
+                game.round = round;
+                game.date = date;
+                game.time = time || null;
+                game.court = court || null;
+                game.venue = venue || null;
+                game.venueLat = venueLat;
+                game.venueLng = venueLng;
+                game.status = status;
+                game.opponent = opponent;
+                // Invalidate cache
+                game._displayStale = true;
+                game._cachedDate = null;
+                editingGameId = targetEditingId;
+                if (appState && appState.currentGame) appState.currentGame.editingId = targetEditingId;
+            }
+        } else {
+            var newGame = createGame(opponent, round, date, status, time, court);
+            newGame.venue = venue || null;
+            newGame.venueLat = venueLat;
+            newGame.venueLng = venueLng;
+            newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
+            games.unshift(newGame);  
+            editingGameId = newGame.id;
+            if (appState && appState.currentGame) appState.currentGame.editingId = newGame.id;
+            currentGameId = newGame.id;
+        }
+        
+        haptic(50); // Haptic feedback
+        saveCurrentTeamData();  
+        renderGameList();
+        if (currentGameId) {
+            showGameDetail(currentGameId);
+            showGameDetailTab('availability');
+        } else {
+            finishGameEdit();
+        }
+    }
+
+    // Lightweight Add Game for modal: minimal fields, then navigate to edit
+    function addGameFromModal() {
+        if (!isOwner()) return;
+        var opponentInput = document.getElementById('add-modal-game-opponent');
+        var roundInput = document.getElementById('add-modal-game-round');
+        var dateInput = document.getElementById('add-modal-game-date');
+        var timeInput = document.getElementById('add-modal-game-time');
+        var courtInput = document.getElementById('add-modal-game-court');
+        var venueInput = document.getElementById('add-modal-game-venue');
+        var statusSelect = document.getElementById('add-modal-game-status');
+
+        var round = parseInt(roundInput && roundInput.value, 10) || 0;
+        var date = dateInput ? dateInput.value : '';
+        var time = timeInput ? timeInput.value : '';
+        var court = courtInput ? courtInput.value.trim() : '';
+        var venue = venueInput ? venueInput.value.trim() : '';
+        var venueLat = venueInput && venueInput.dataset.lat ? venueInput.dataset.lat : null;
+        var venueLng = venueInput && venueInput.dataset.lng ? venueInput.dataset.lng : null;
+        var status = statusSelect ? statusSelect.value : 'normal';
+        var opponent = (status === 'bye') ? 'BYE' : ((opponentInput && opponentInput.value.trim()) || '');
+        var normalizedOpponent = (opponent || '').toLowerCase();
+
+        if (!round || !date) {
+            showCustomAlert('Input Error', 'Please fill in Round and Date.');
+            return;
+        }
+        if (!opponent && status !== 'bye') {
+            showCustomAlert('Input Error', 'Please enter an opponent.');
+            return;
+        }
+
+        // Duplicate guard for new games created via modal
+        var duplicate = arrayFind(games, function(g) {
+            return g && g.round === round && ((g.opponent || '').toLowerCase() === normalizedOpponent);
+        });
+        if (duplicate) {
+            showCustomAlert('Duplicate Game', 'A game for Round ' + round + ' vs ' + opponent + ' already exists.');
+            return;
+        }
+
+        var newGame = createGame(opponent, round, date, status, time || null, court || null);
+        newGame.venue = venue || null;
+        newGame.venueLat = venueLat;
+        newGame.venueLng = venueLng;
+        // Defaults to satisfy renderers
+        newGame.quarters = [
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 },
+            { ourGsGoals: 0, ourGaGoals: 0, opponentGsGoals: 0, opponentGaGoals: 0 }
+        ];
+        newGame.lineupLocked = false;
+        newGame.availablePlayerIDs = players.filter(function(p){ return !p.isFillIn; }).map(function(p){ return p.id; });
+
+        games.unshift(newGame);
+        editingGameId = newGame.id;
+        if (appState && appState.currentGame) appState.currentGame.editingId = newGame.id;
+        saveCurrentTeamData();
+        renderGameList();
+        hideModal('add-game-modal');
+        showGameDetail(newGame.id);
+        showGameDetailTab('edit');
+    }
+
+    try { window.addGameFromModal = addGameFromModal; } catch(e) {}
+    
+    function executeDeleteGame() {
+        if (!isOwner()) return; // Read-only mode: prevent deletion
+        var gameId = appState.currentGame.editingId || editingGameId;
+        if (!gameId) return;
+        var game = arrayFind(games, function(g) { return g.id === gameId; });
+        if (!game) return;
+        
+        var gameName = "Round " + game.round + ": vs " + game.opponent;
+        
+        showCustomConfirm(
+            "Confirm Deletion",
+            "Are you sure you want to permanently delete this game?\n\n**" + gameName + "**",
+            function() { // On Confirm
+                games = games.filter(function(g) { return g.id !== gameId; });
+                appState.currentGame.editingId = null;
+                editingGameId = null;
+                saveCurrentTeamData();
+                renderGameList();
+                showView('fixture-view');
+            },
+            function() { // On Cancel
+                //
+            }
+        );
+    }
+
+    /**
+     * Update player availability for a game
+     */
+    function updatePlayerAvailability(playerId, isChecked) {
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        if (!game.availablePlayerIDs) {
+            game.availablePlayerIDs = [];
+        }
+        
+        var index = game.availablePlayerIDs.indexOf(playerId);
+        if (isChecked && index === -1) {
+            game.availablePlayerIDs.push(playerId);
+        } else if (!isChecked && index !== -1) {
+            game.availablePlayerIDs.splice(index, 1);
+        }
+        
+        saveCurrentTeamData();
+        updateAllStats();
+        renderGameAvailability();
+    }
+
+    /**
+     * Update game captain
+     */
+    function updateGameCaptain(playerId) {
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        game.captainPlayerID = playerId || null;
+        saveCurrentTeamData();
+        updateAllStats();
+        saveCurrentTeamData(); // Save again with updated stats
+    }
+
+    /**
+     * Update player position in a specific quarter
+     */
+    function updatePlayerPosition(gameId, quarterIndex, playerName, newPosition) {
+        var game = arrayFind(games, function(g) { return g.id === gameId; });
+        if (!game || !game.quarters[quarterIndex]) return;
+        
+        var quarter = game.quarters[quarterIndex];
+        
+        // Remove player from their current position
+        for (var pos in quarter.positions) {
+            if (quarter.positions.hasOwnProperty(pos)) {
+                if (quarter.positions[pos] === playerName) {
+                    quarter.positions[pos] = null;
+                }
+            }
+        }
+        
+        // Assign to new position
+        if (newPosition && newPosition !== '' && newPosition !== 'Off') {
+            quarter.positions[newPosition] = playerName;
+        } else if (newPosition === 'Off') {
+            // Create unique off position
+            var offCounter = 1;
+            while (quarter.positions['Off_' + offCounter]) {
+                offCounter++;
+            }
+            quarter.positions['Off_' + offCounter] = playerName;
+        }
+        
+        saveCurrentTeamData();
+        updateAllStats();
+        saveCurrentTeamData(); // Save again with updated stats
+        renderGameDetailLineup();
+    }
+
+    /**
+     * Update quarter score value (increment/decrement)
+     */
+    function updateQuarterValue(gameId, quarterIndex, field, delta) {
+        var game = arrayFind(games, function(g) { return g.id === gameId; });
+        if (!game || !game.quarters[quarterIndex]) return;
+        
+        var quarter = game.quarters[quarterIndex];
+        var currentValue = quarter[field] || 0;
+        var newValue = Math.max(0, currentValue + delta); // Don't allow negative scores
+        
+        quarter[field] = newValue;
+        
+        // Invalidate score cache
+        game._cachedScores = null;
+        game._displayStale = true;
+        
+        saveCurrentTeamData();
+        updateAllStats();
+        saveCurrentTeamData(); // Save again with updated stats
+        renderGameDetailScoring();
+        updateTotalScoreDisplay(game);
+    }
+
+    // === COMPUTED PROPERTIES ===
+    var leaderboardCache = { total: null, perQuarter: null, lastGameCount: 0 };
+    
+    function calculateLeaderboard_Total() {
+        // Return cached result if games haven't changed
+        if (leaderboardCache.total && leaderboardCache.lastGameCount === games.length) {
+            return leaderboardCache.total;
+        }
+        
+        var goalsByPlayer = {};
+        games.forEach(function(game) {
+            // Only count games that have already occurred
+            if (!isGameInPast(game)) {
+                return;
+            }
+            
+            game.quarters.forEach(function(quarter) {
+                var gsPlayer = quarter.positions["GS"];
+                var gaPlayer = quarter.positions["GA"];
+                if (gsPlayer) {
+                    goalsByPlayer[gsPlayer] = (goalsByPlayer[gsPlayer] || 0) + (quarter.ourGsGoals || 0);
+                }
+                if (gaPlayer) {
+                    goalsByPlayer[gaPlayer] = (goalsByPlayer[gaPlayer] || 0) + (quarter.ourGaGoals || 0);
+                }
+            });
+        });
+        var result = Object.keys(goalsByPlayer)
+            .map(function(name) {
+                return { name: name, goals: goalsByPlayer[name] };
+            })
+            .sort(function(a, b) { return b.goals - a.goals; });
+        
+        leaderboardCache.total = result;
+        leaderboardCache.lastGameCount = games.length;
+        return result;
+    }
+    
+    function calculateLeaderboard_PerQuarter() {
+        // Return cached result if games haven't changed
+        if (leaderboardCache.perQuarter && leaderboardCache.lastGameCount === games.length) {
+            return leaderboardCache.perQuarter;
+        }
+        
+        var playerStats = {};
+        players.forEach(function(p) {
+            playerStats[p.name] = { goals: 0, quarters: 0, avg: 0 };
+        });
+
+        games.forEach(function(game) {
+            // Only count games that have already occurred
+            if (!isGameInPast(game)) {
+                return;
+            }
+            
+            game.quarters.forEach(function(quarter) {
+                var gsPlayer = quarter.positions["GS"];
+                var gaPlayer = quarter.positions["GA"];
+                
+                if (gsPlayer && playerStats[gsPlayer]) {
+                    playerStats[gsPlayer].goals += (quarter.ourGsGoals || 0);
+                    playerStats[gsPlayer].quarters += 1;
+                }
+                if (gaPlayer && playerStats[gaPlayer]) {
+                    playerStats[gaPlayer].goals += (quarter.ourGaGoals || 0);
+                    playerStats[gaPlayer].quarters += 1;
+                }
+            });
+        });
+        
+        var result = Object.keys(playerStats)
+            .map(function(name) {
+                var stats = playerStats[name];
+                stats.avg = (stats.quarters > 0) ? (stats.goals / stats.quarters) : 0;
+                stats.name = name;
+                return stats;
+            })
+            .sort(function(a, b) { return b.avg - a.avg; });
+        
+        leaderboardCache.perQuarter = result;
+        return result;
+    }
+
+    function validateGameLineup() {
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return { captain: "Error", quarters: [] };
+        
+        var errors = { captain: null, quarters: [] };
+        
+        if (!game.captainPlayerID) {
+            errors.captain = "Captain not set";
+        }
+        
+        var availablePlayers = players.filter(function(p) { return game.availablePlayerIDs.indexOf(p.id) !== -1; });
+        
+        game.quarters.forEach(function(quarter, qIndex) {
+            var qErrors = { q: qIndex, missing: [], unassigned: [] };
+            var assignedOnCourt = [];
+            var assignedPlayers = [];
+            
+            var quarterPositions = quarter.positions;
+            for (var pos in quarterPositions) {
+                if (quarterPositions.hasOwnProperty(pos)) {
+                    var pName = quarterPositions[pos];
+                    assignedPlayers.push(pName);
+                    if (pos.startsWith("Off_")) continue;  
+                    assignedOnCourt.push(pos);
+                }
+            }
+            
+            POSITIONS.forEach(function(p) {
+                if (assignedOnCourt.indexOf(p) === -1) {
+                    qErrors.missing.push(p);
+                }
+            });
+            
+            availablePlayers.forEach(function(player) {
+                if (assignedPlayers.indexOf(player.name) === -1) {
+                    qErrors.unassigned.push(player.name);
+                }
+            });
+            
+            if (qErrors.missing.length > 0 || qErrors.unassigned.length > 0) {
+                errors.quarters.push(qErrors);
+            }
+        });
+        
+        return errors;
+    }
+    
+    // === DIFFICULTY RATING CALCULATIONS (No changes here) ===
+
+    /**
+     * Calculates a simple Difficulty Rating (DR) for each external team.
+     */
+    function calculateOpponentDR() {
+        var ladder = netballLadderData;
+        if (ladder.length === 0) return;
+
+        var maxPts = Math.max.apply(null, ladder.map(function(t) { return parseFloat(t.PTS); }));
+        var maxPct = Math.max.apply(null, ladder.map(function(t) { return parseFloat(t.goalAverage); }));
+
+        var minPts = 0;
+        var minPct = 50.0; // Assumed baseline for percentage
+
+        netballLadderData.forEach(function(team) {
+            var pts = parseFloat(team.PTS);
+            var pct = parseFloat(team.goalAverage);
+
+            // Normalize Points (60% weight)
+            var normalizedPts = (pts - minPts) / (maxPts - minPts);
+            
+            // Normalize Percentage (40% weight)
+            var normalizedPct = (pct - minPct) / (maxPct - minPct);
+            
+            // Final DR ratio (0.0 to 1.0)
+            var difficultyRating = (0.6 * normalizedPts) + (0.4 * normalizedPct);
+            
+            team.difficultyRatingRaw = difficultyRating;
+            team.difficultyRatingScore = Math.round(difficultyRating * 100);
+        });
+    }
+
+        /**
+     * Finds your team's rank and the division leader from external data.
+     */
+    function extractExternalLadderInsights() {
+        if (netballLadderData.length === 0) {
+            externalLadderInsights = { rank: 'N/A', points: 'N/A', topTeam: 'N/A', topPct: 'N/A' };
+            return;
+        }
+        
+        // 1. Find the currently selected team (your team) from the master list
+        var currentTeam = arrayFind(masterTeamList, function(t) { 
+            return t.sheetName === appState.currentTeam.sheetName; 
+        });
+
+        // 2. Determine the exact external name to search for (using the new field)
+        var externalSearchName = currentTeam ? currentTeam.ladderName : null; 
+        
+        var yourTeam = arrayFind(netballLadderData, function(team) {
+            // Trim to prevent whitespace errors and ensure the external name is not null
+            if (externalSearchName && team.name) {
+                 return team.name.trim() === externalSearchName.trim();
+            }
+            return false;
+        });
+
+        var rank = yourTeam ? yourTeam.rk : 'N/A';
+        var pts = yourTeam ? yourTeam.PTS : 'N/A';
+        
+        // 3. Get the top team
+        var topTeam = netballLadderData[0];
+        var topTeamName = topTeam ? topTeam.name : 'N/A';
+        var topTeamPct = topTeam ? parseFloat(topTeam.goalAverage).toFixed(2) + '%' : 'N/A'; 
+
+        externalLadderInsights = {
+            rank: rank,
+            points: pts,
+            topTeam: topTeamName,
+            topPct: topTeamPct
+        };
+    }
+
+    // === END DIFFICULTY RATING CALCULATIONS ===
+
+
+    function calculatePlayerStatsTable() {
+        var playerStats = {};
+        players.forEach(function(p) {
+            playerStats[p.id] = {
+                id: p.id,
+                name: p.name,
+                gamesPlayed: 0,
+                captain: 0,
+                GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0, Off: 0
+            };
+        });
+
+        games.forEach(function(game) {
+            // Only count games that have already occurred
+            if (!isGameInPast(game)) {
+                return;
+            }
+            
+            if (game.status === 'bye') return;
+
+            if (game.captainPlayerID && playerStats[game.captainPlayerID]) {
+                playerStats[game.captainPlayerID].captain++;
+            }
+
+            (game.availablePlayerIDs || []).forEach(function(pId) {
+                if (playerStats[pId]) {
+                    playerStats[pId].gamesPlayed++;
+                }
+            });
+
+            game.quarters.forEach(function(quarter) {
+                var quarterPositions = quarter.positions;
+                for (var pos in quarterPositions) {
+                    if (quarterPositions.hasOwnProperty(pos)) {
+                        var pName = quarterPositions[pos];
+                        var player = arrayFind(players, function(p) { return p.name === pName; });
+                        if (player && playerStats[player.id]) {
+                            var cleanPos = pos;
+                            if (pos.startsWith("Off_")) {
+                                cleanPos = "Off";
+                            }
+                            if (playerStats[player.id][cleanPos] !== undefined) {
+                                playerStats[player.id][cleanPos]++;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        
+        var statsArray = [];
+        for (var key in playerStats) {
+            if (playerStats.hasOwnProperty(key)) {
+                statsArray.push(playerStats[key]);
+            }
+        }
+        return statsArray.sort(function(a,b) { return a.name.localeCompare(b.name); });
+    }
+    
+    function calculatePlayerPlusMinusTable() {
+        var playerStats = {};
+        // Initialize stats object for all players
+        players.forEach(function(p) {
+            playerStats[p.id] = {
+                id: p.id,
+                name: p.name,
+                // Using full objects for safety, even though only total and qtrs are used
+                GS: { total: 0, qtrs: 0 },
+                GA: { total: 0, qtrs: 0 },
+                WA: { total: 0, qtrs: 0 },
+                C:  { total: 0, qtrs: 0 },
+                WD: { total: 0, qtrs: 0 },
+                GD: { total: 0, qtrs: 0 },
+                GK: { total: 0, qtrs: 0 }
+            };
+        });
+
+        games.forEach(function(game) {
+            // Only count games that have already occurred
+            if (!isGameInPast(game)) {
+                return;
+            }
+            
+            // Only count 'normal' games for +/-
+            if (game.status !== 'normal') return;
+
+            game.quarters.forEach(function(quarter) {
+                // Calculate this quarter's +/-
+                var ourScore = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var oppScore = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = ourScore - oppScore;
+
+                var quarterPositions = quarter.positions;
+                for (var pos in quarterPositions) {
+                    if (quarterPositions.hasOwnProperty(pos)) {
+                        var pName = quarterPositions[pos];
+                        var player = arrayFind(players, function(p) { return p.name === pName; });
+                        
+                        if (player && playerStats[player.id]) {
+                            var cleanPos = pos;
+                            if (pos.startsWith("Off_")) {
+                                cleanPos = "Off";
+                            }
+                            
+                            // Check if it's one of the 7 court positions
+                            if (playerStats[player.id][cleanPos]) {
+                                playerStats[player.id][cleanPos].total += quarterPlusMinus;
+                                playerStats[player.id][cleanPos].qtrs += 1;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        // Convert the object to an array for sorting
+        var statsArray = [];
+        for (var key in playerStats) {
+            if (playerStats.hasOwnProperty(key)) {
+                var stat = playerStats[key];
+                // Check total quarters instead of checking each position individually
+                var hasQuarters = stat.GS.qtrs + stat.GA.qtrs + stat.WA.qtrs + 
+                                  stat.C.qtrs + stat.WD.qtrs + stat.GD.qtrs + stat.GK.qtrs > 0;
+                if (hasQuarters) {
+                    statsArray.push(stat);
+                }
+            }
+        }
+        return statsArray.sort(function(a,b) { return a.name.localeCompare(b.name); });
+    }
+    
+
+    function calculateSeasonStats() {
+        var wins = 0;
+        var losses = 0;
+        var draws = 0;
+        var totalGoalsFor = 0;
+        var totalGoalsAgainst = 0;
+        var gameCount = 0;
+        var normalGameCount = 0;
+        var quarterDiffs = [0, 0, 0, 0];
+        
+        var playerStats = {};
+        var gsGaPairs = {};
+        var gdGkPairs = {};
+        var individualDefenders = {};
+
+        for (var i = 0; i < players.length; i++) {
+            var p = players[i];
+            playerStats[p.id] = {
+                id: p.id,
+                name: p.name,
+                gamesPlayed: 0,
+                captain: 0,
+                totalGoals: 0,
+                positionCounts: {},
+                totalQuarters: 0,
+                versatility: 0
+            };
+            individualDefenders[p.name] = { goalsAgainst: 0, quarters: 0, totalGoalsAgainst: 0 };
+        }
+
+        for (var gameIdx = 0; gameIdx < games.length; gameIdx++) {
+            var game = games[gameIdx];
+            // Only count games that have already occurred
+            if (!isGameInPast(game)) {
+                continue;
+            }
+            
+            if (game.status === 'bye') {
+                continue;
+            }
+            
+            gameCount++;
+            
+            if (game.captainPlayerID && playerStats[game.captainPlayerID]) {
+                playerStats[game.captainPlayerID].captain++;
+            }
+            
+            var availableIds = game.availablePlayerIDs || [];
+            for (var k = 0; k < availableIds.length; k++) {
+                var pId = availableIds[k];
+                if (playerStats[pId]) playerStats[pId].gamesPlayed++;
+            }
+            
+            if (game.status === 'forfeit_opp') {
+                wins++;
+            } else if (game.status === 'forfeit_us') {
+                losses++;
+            } else if (game.status === 'abandoned') {
+                draws++;
+            } else if (game.status === 'normal') {
+                normalGameCount++;
+                var scores = getGameTotalScores(game);
+                totalGoalsFor += scores.ourScore;
+                totalGoalsAgainst += scores.opponentScore;
+                
+                if (scores.ourScore > scores.opponentScore) wins++;
+                else if (scores.ourScore < scores.opponentScore) losses++;
+                else if (scores.ourScore === scores.opponentScore) draws++;
+                
+                for (var qIdx = 0; qIdx < game.quarters.length; qIdx++) {
+                    var q = game.quarters[qIdx];
+                    var qOurScore = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+                    var qOppScore = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+                    quarterDiffs[qIdx] += (qOurScore - qOppScore);
+                    
+                    var gsPlayer = q.positions["GS"];
+                    var gaPlayer = q.positions["GA"];
+                    var gdPlayer = q.positions["GD"];
+                    var gkPlayer = q.positions["GK"];
+                    
+                    if (gsPlayer && gaPlayer) {
+                        var pair = [gsPlayer, gaPlayer].sort().join(' & ');
+                        if (!gsGaPairs[pair]) gsGaPairs[pair] = { goals: 0, quarters: 0, totalGoals: 0 };
+                        gsGaPairs[pair].goals += qOurScore;
+                        gsGaPairs[pair].quarters++;
+                        gsGaPairs[pair].totalGoals += qOurScore;
+                    }
+                    
+                    if (gdPlayer && gkPlayer) {
+                        var pair = [gdPlayer, gkPlayer].sort().join(' & ');
+                        if (!gdGkPairs[pair]) gdGkPairs[pair] = { goals: 0, quarters: 0, totalGoals: 0 };
+                        gdGkPairs[pair].goals += qOppScore;
+                        gdGkPairs[pair].quarters++;
+                        gdGkPairs[pair].totalGoals += qOppScore;
+                    }
+                    
+                    if (gdPlayer && individualDefenders[gdPlayer]) {
+                        individualDefenders[gdPlayer].goalsAgainst += qOppScore;
+                        individualDefenders[gdPlayer].quarters++;
+                        individualDefenders[gdPlayer].totalGoalsAgainst += qOppScore;
+                    }
+                    if (gkPlayer && individualDefenders[gkPlayer]) {
+                        individualDefenders[gkPlayer].goalsAgainst += qOppScore;
+                        individualDefenders[gkPlayer].quarters++;
+                        individualDefenders[gkPlayer].totalGoalsAgainst += qOppScore;
+                    }
+                }
+            }
+            
+            for (var pIdx = 0; pIdx < players.length; pIdx++) {
+                var player = players[pIdx];
+                for (var qIdx = 0; qIdx < game.quarters.length; qIdx++) {
+                    var quarter = game.quarters[qIdx];
+                    var playedQuarter = false;
+                    var quarterPositions = quarter.positions;
+                    for (var pos in quarterPositions) {
+                        if (quarterPositions.hasOwnProperty(pos)) {
+                            var pName = quarterPositions[pos];
+                            if (pName === player.name) {
+                                playedQuarter = true;
+                                var cleanPos = pos;
+                                if (pos.startsWith("Off_")) {
+                                    cleanPos = "Off";
+                                }
+                                var pStats = playerStats[player.id];
+                                pStats.positionCounts[cleanPos] = (pStats.positionCounts[cleanPos] || 0) + 1;
+                                
+                                if (game.status === 'normal') {
+                                    if (cleanPos === "GS") {
+                                        pStats.totalGoals += (quarter.ourGsGoals || 0);
+                                    } else if (cleanPos === "GA") {
+                                        pStats.totalGoals += (quarter.ourGaGoals || 0);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if(playedQuarter && game.availablePlayerIDs && game.availablePlayerIDs.indexOf(player.id) !== -1) {
+                         playerStats[player.id].totalQuarters++;
+                    }
+                }
+            }
+        }
+        
+        var allPlayerStats = [];
+        var keys = Object.keys(playerStats);
+        for (var i = 0, len = keys.length; i < len; i++) {
+            allPlayerStats.push(playerStats[keys[i]]);
+        }
+
+        for (var i = 0, len = allPlayerStats.length; i < len; i++) {
+            var p = allPlayerStats[i];
+            var courtPositionKeys = Object.keys(p.positionCounts).filter(function(pos) { return pos !== 'Off'; });
+            var uniquePositions = {};
+            for (var j = 0, klen = courtPositionKeys.length; j < klen; j++) {
+                uniquePositions[courtPositionKeys[j]] = true;
+            }
+            p.versatility = Object.keys(uniquePositions).length;
+        }
+        
+        var topGun = allPlayerStats.slice(0).sort(function(a,b) { return b.totalGoals - a.totalGoals; })[0];
+        var ironWoman = allPlayerStats.slice(0).sort(function(a,b) { return b.totalQuarters - a.totalQuarters; })[0];
+        var swissArmyKnife = allPlayerStats.slice(0).sort(function(a,b) { return b.versatility - a.versatility; })[0];
+        var leader = allPlayerStats.slice(0).sort(function(a,b) { return b.captain - a.captain; })[0];
+        
+        var maxDiff = quarterDiffs[0];
+        var minDiff = quarterDiffs[0];
+        var maxIdx = 0;
+        var minIdx = 0;
+        for (var i = 1; i < 4; i++) {
+            if (quarterDiffs[i] > maxDiff) { maxDiff = quarterDiffs[i]; maxIdx = i; }
+            if (quarterDiffs[i] < minDiff) { minDiff = quarterDiffs[i]; minIdx = i; }
+        }
+        
+        var playerSpotlights = allPlayerStats.map(function(p) {
+            var topPositions = Object.keys(p.positionCounts)
+                .map(function(pos) { return { pos: pos, count: p.positionCounts[pos] }; })
+                .sort(function(a, b) { return b.count - a.count; })
+                .slice(0, 3);
+            var scoringQuarters = (p.positionCounts['GS'] || 0) + (p.positionCounts['GA'] || 0);
+            return {
+                name: p.name,
+                gamesPlayed: p.gamesPlayed,
+                totalGoals: p.totalGoals,
+                totalQuarters: p.totalQuarters,
+                scoringQuarters: scoringQuarters,
+                versatility: p.versatility,
+                topPositions: topPositions
+            };
+        }).sort(function(a,b) { return a.name.localeCompare(b.name); });
+        
+        var allOffenseCombos = Object.keys(gsGaPairs)
+            .map(function(pair) {
+                var stats = gsGaPairs[pair];
+                return { name: pair, avg: stats.quarters > 0 ? (stats.goals / stats.quarters) : 0, quarters: stats.quarters, total: stats.totalGoals };
+            })
+            .filter(function(p) { return p.quarters > 0; });
+        
+        var allDefenseCombos = Object.keys(gdGkPairs)
+            .map(function(pair) {
+                var stats = gdGkPairs[pair];
+                return { name: pair, avg: stats.quarters > 0 ? (stats.goals / stats.quarters) : 0, quarters: stats.quarters, total: stats.totalGoals };
+            })
+            .filter(function(p) { return p.quarters > 0; });
+        
+        var allDefenders = Object.keys(individualDefenders)
+            .map(function(name) {
+                var stats = individualDefenders[name];
+                return { name: name, avg: stats.quarters > 0 ? (stats.goalsAgainst / stats.quarters) : 0, quarters: stats.quarters, total: stats.totalGoalsAgainst };
+            })
+            .filter(function(p) { return p.quarters > 0; });
+
+        return {
+            gameCount: gameCount,
+            normalGameCount: normalGameCount,
+            // FIX: Use appState.currentTeam.name
+            teamName: appState.currentTeam.name.split(' - ')[0],
+            teamSeason: appState.currentTeam.name.split(' - ')[1],
+            teamRecord: wins + "-" + losses + "-" + draws,
+            wins: wins,        // Add this
+            losses: losses,    // Add this  
+            draws: draws,      // Add this
+            goalsFor: totalGoalsFor,
+            goalsAgainst: totalGoalsAgainst,
+            bestQuarter: "Q" + (maxIdx + 1) + " (+" + maxDiff + ")",
+            worstQuarter: "Q" + (minIdx + 1) + " (" + minDiff + ")",
+            quarterDiffs: quarterDiffs, 
+            superlatives: {
+                topGun: (topGun && topGun.totalGoals > 0) ? { name: topGun.name, value: topGun.totalGoals } : null,
+                ironWoman: (ironWoman && ironWoman.totalQuarters > 0) ? { name: ironWoman.name, value: ironWoman.totalQuarters } : null,
+                swissArmyKnife: (swissArmyKnife && swissArmyKnife.versatility > 0) ? { name: swissArmyKnife.name, value: swissArmyKnife.versatility } : null,
+                leader: (leader && leader.captain > 0) ? { name: leader.name, value: leader.captain } : null
+            },
+            allOffenseCombos: allOffenseCombos,
+            allDefenseCombos: allDefenseCombos,
+            allDefenders: allDefenders,
+            playerSpotlights: playerSpotlights
+        };
+    }
+
+    // Stats calculation state
+    var statsCalculationPromise = null;
+    var statsCalculated = false;
+
+    function updateAllStats() {
+        var startTime = performance.now();
+        
+        // Check if cache is valid
+        if (isCacheValid()) {
+            cacheMetrics.hits++;
+            
+            // Restore from cache
+            calculatedSeasonStats = statsCache.stats;
+            calculatedPlayerTable = statsCache.playerTable;
+            calculatedLeaderboardTotal = statsCache.leaderboardTotal;
+            calculatedLeaderboardPerQtr = statsCache.leaderboardPerQtr;
+            calculatedPlayerPlusMinus = statsCache.playerPlusMinus;
+            
+            statsCalculated = true;
+            
+            try {
+                window.calculatedSeasonStats = calculatedSeasonStats;
+            } catch (e) {
+                console.warn('Unable to set window.calculatedSeasonStats', e);
+            }
+            
+            return;
+        }
+        
+        cacheMetrics.misses++;
+        
+        // Mark as in progress
+        statsCalculated = false;
+        
+        calculateOpponentDR(); 
+        
+        calculatedSeasonStats = calculateSeasonStats();
+        calculatedPlayerTable = calculatePlayerStatsTable();
+        calculatedLeaderboardTotal = calculateLeaderboard_Total();
+        calculatedLeaderboardPerQtr = calculateLeaderboard_PerQuarter();
+        calculatedPlayerPlusMinus = calculatePlayerPlusMinusTable();
+        
+        extractExternalLadderInsights(); 
+        
+        // Mark as complete
+        statsCalculated = true;
+        
+        // Calculate lineup and grouping statistics
+        var lineupStats = calculateLineupStats();
+        var defensiveUnitStats = calculateDefensiveUnitStats();
+        var attackingUnitStats = calculateAttackingUnitStats();
+        var positionPairingStats = calculatePositionPairingStats();
+        
+        // Update cache
+        statsCache = {
+            timestamp: Date.now(),
+            gamesHash: generateGamesHash(),
+            playersHash: generatePlayersHash(),
+            stats: calculatedSeasonStats,
+            playerTable: calculatedPlayerTable,
+            leaderboardTotal: calculatedLeaderboardTotal,
+            leaderboardPerQtr: calculatedLeaderboardPerQtr,
+            playerPlusMinus: calculatedPlayerPlusMinus,
+            lineupStats: lineupStats,
+            defensiveUnitStats: defensiveUnitStats,
+            attackingUnitStats: attackingUnitStats,
+            positionPairingStats: positionPairingStats
+        };
+        
+        // Keep a canonical global reference for other modules
+        try {
+            window.calculatedSeasonStats = calculatedSeasonStats;
+            window.lineupStats = lineupStats;
+            window.defensiveUnitStats = defensiveUnitStats;
+            window.attackingUnitStats = attackingUnitStats;
+            window.positionPairingStats = positionPairingStats;
+        } catch (e) {
+            console.warn('Unable to set window stats', e);
+        }
+
+        // Save to localStorage
+        if (appState.currentTeam.teamID) {
+            try {
+                localStorage.setItem('insights_' + appState.currentTeam.teamID, JSON.stringify({cache: statsCache}));
+            } catch (e) {
+                console.warn('Failed to save stats cache to localStorage:', e);
+            }
+        }
+
+        // If the test snapshot populator is available, update snapshot cards now.
+        if (typeof populateTestSnapshotCards === 'function') {
+            try { populateTestSnapshotCards(calculatedSeasonStats); } catch (e) { console.warn('populateTestSnapshotCards error', e); }
+        }
+
+        // Force re-render of insights dashboard after stats calculation
+        if (typeof renderNewInsightsDashboard === 'function') {
+            try { renderNewInsightsDashboard(); } catch (e) { console.warn('Error rendering insights dashboard after stats update', e); }
+        }
+    }
+    
+    // Lazy load stats - ensures stats are calculated before use
+    function ensureStatsCalculated() {
+        if (statsCalculated && calculatedSeasonStats && Object.keys(calculatedSeasonStats).length > 0) {
+            return Promise.resolve();
+        }
+        
+        // If already calculating, return existing promise
+        if (statsCalculationPromise) {
+            return statsCalculationPromise;
+        }
+        
+        // First try to load from cache before calculating
+        statsCalculationPromise = loadCachedStatsFromDB().then(function() {
+            if (statsCalculated && calculatedSeasonStats && Object.keys(calculatedSeasonStats).length > 0) {
+                statsCalculationPromise = null;
+                return;
+            }
+            
+            // Cache load failed or invalid, calculate from scratch
+            console.log("Cache load failed, calculating stats from scratch");
+            updateAllStats();
+            
+            // Save calculated stats to server for future loads
+            if (statsCalculated && calculatedSeasonStats && Object.keys(calculatedSeasonStats).length > 0) {
+                console.log("Saving calculated stats to server");
+                saveCurrentTeamData();
+            }
+            
+            statsCalculationPromise = null;
+        }).catch(function(e) {
+            console.warn("Error loading cached stats, calculating from scratch:", e);
+            updateAllStats();
+            
+            // Save calculated stats to server for future loads
+            if (statsCalculated && calculatedSeasonStats && Object.keys(calculatedSeasonStats).length > 0) {
+                console.log("Saving calculated stats to server after error recovery");
+                saveCurrentTeamData();
+            }
+            
+            statsCalculationPromise = null;
+        });
+        
+        return statsCalculationPromise;
+    }
+
+    /**
+     * Generate suggested lineup based on:
+     * - Club rotation policy (min 2 quarters per position)
+     * - Equal court time across quarters and season
+     * - Performance metrics (goals for/against, +/-, pairs)
+     * - Availability
+     */
+    function generateSuggestedLineup() {
+        try {
+            console.log('Generating suggested lineup...');
+            
+            // Get all players
+            const availablePlayers = players.slice();
+            
+            if (availablePlayers.length < 7) {
+                showToast('Need at least 7 players to generate a lineup');
+                return null;
+            }
+            
+            // Calculate player statistics for each position
+            const playerPositionStats = {};
+            availablePlayers.forEach(function(player) {
+                playerPositionStats[player.id] = {
+                    id: player.id,
+                    name: player.name,
+                    positions: {
+                        GS: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        GA: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        WA: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        C: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        WD: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        GD: { qtrs: 0, goalsFor: 0, plusMinus: 0 },
+                        GK: { qtrs: 0, goalsFor: 0, plusMinus: 0 }
+                    },
+                    totalQuarters: 0,
+                    totalOffQuarters: 0,  // Track season-long off time
+                    versatility: 0
+                };
+            });
+            
+            // Calculate total games to determine expected quarters
+            const totalGames = games.filter(function(g) { 
+                return g.status === 'normal' && isGameInPast(g); 
+            }).length;
+            
+            // Analyze historical performance and off time
+            games.forEach(function(game) {
+                // Only use past games for statistics
+                if (!isGameInPast(game)) {
+                    return;
+                }
+                
+                if (game.status !== 'normal') return;
+                
+                // Track which players played each quarter to calculate off time
+                const playersInQuarters = { Q1: [], Q2: [], Q3: [], Q4: [] };
+                
+                game.quarters.forEach(function(quarter, qIndex) {
+                    const ourScore = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                    const oppScore = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                    const quarterPlusMinus = ourScore - oppScore;
+                    const qKey = 'Q' + (qIndex + 1);
+                    
+                    ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
+                        const playerName = quarter.positions[pos];
+                        if (!playerName) return;
+                        
+                        const player = arrayFind(availablePlayers, function(p) { return p.name === playerName; });
+                        if (!player || !playerPositionStats[player.id]) return;
+                        
+                        // Track player was on court this quarter
+                        if (playersInQuarters[qKey].indexOf(player.name) === -1) {
+                            playersInQuarters[qKey].push(player.name);
+                        }
+                        
+                        const posStats = playerPositionStats[player.id].positions[pos];
+                        posStats.qtrs++;
+                        if (pos === 'GS' || pos === 'GA') {
+                            posStats.goalsFor += (pos === 'GS' ? quarter.ourGsGoals : quarter.ourGaGoals) || 0;
+                        }
+                        posStats.plusMinus += quarterPlusMinus;
+                        playerPositionStats[player.id].totalQuarters++;
+                    });
+                });
+                
+                // Calculate off quarters for this game (only for players who were available)
+                ['Q1', 'Q2', 'Q3', 'Q4'].forEach(function(qKey) {
+                    availablePlayers.forEach(function(player) {
+                        // Only count as "Off" if player was available for this game
+                        if (game.availablePlayerIDs && game.availablePlayerIDs.indexOf(player.id) === -1) {
+                            return; // Player wasn't available, don't count as off
+                        }
+                        
+                        if (playersInQuarters[qKey].indexOf(player.name) === -1) {
+                            // Player was off this quarter
+                            playerPositionStats[player.id].totalOffQuarters++;
+                        }
+                    });
+                });
+            });
+            
+            // Calculate versatility (number of positions played)
+            Object.keys(playerPositionStats).forEach(function(playerId) {
+                const stats = playerPositionStats[playerId];
+                let positionsPlayed = 0;
+                ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
+                    if (stats.positions[pos].qtrs > 0) positionsPlayed++;
+                });
+                stats.versatility = positionsPlayed;
+            });
+            
+            // Generate lineup for 4 quarters
+            const lineup = generateOptimalLineup(availablePlayers, playerPositionStats);
+            
+            if (lineup) {
+                renderSuggestedLineup(lineup, playerPositionStats);
+                document.getElementById('export-lineup-btn').style.display = 'block';
+                window.currentLineup = lineup; // Store for export
+                showToast('Lineup generated successfully!');
+            }
+            
+            return lineup;
+            
+        } catch (error) {
+            console.error('Error generating lineup:', error);
+            showToast('Error generating lineup: ' + error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Generate optimal lineup using constraint-based optimization
+     */
+    function generateOptimalLineup(availablePlayers, playerStats) {
+        const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+        const quarters = [1, 2, 3, 4];
+        const numPlayers = availablePlayers.length;
+        const playersOffPerQuarter = Math.max(0, numPlayers - 7); // 2 for 9 players, 0 for 7
+        
+        // Initialize lineup structure (player-centric) - start empty, not "Off"
+        const lineup = {};
+        availablePlayers.forEach(function(p) {
+            lineup[p.name] = { Q1: null, Q2: null, Q3: null, Q4: null };
+        });
+        
+        // Track off quarters per player in THIS game
+        const playerGameOffCount = {};
+        availablePlayers.forEach(function(p) {
+            playerGameOffCount[p.name] = 0;
+        });
+        
+        // Track previous position per player (to minimize bib changes)
+        const playerPreviousPosition = {};
+        
+        // Track unique positions played THIS GAME (to limit versatility)
+        const playerUniquePositions = {};
+        availablePlayers.forEach(function(p) {
+            playerUniquePositions[p.name] = [];
+        });
+        
+        // Track weak position quarters (positions with <3 qtrs experience)
+        const playerWeakPositionQuarters = {};
+        availablePlayers.forEach(function(p) {
+            playerWeakPositionQuarters[p.name] = {};
+        });
+        
+        // Find each player's strongest position (by favorite or avg +/-)
+        const playerStrongestPosition = {};
+        availablePlayers.forEach(function(p) {
+            // Use favorite position if set
+            if (p.favoritePosition) {
+                playerStrongestPosition[p.name] = p.favoritePosition;
+                return;
+            }
+            
+            // Otherwise calculate from stats
+            const stats = playerStats[p.id];
+            if (!stats) return;
+            
+            let bestPos = null;
+            let bestAvgPlusMinus = -Infinity;
+            
+            Object.keys(stats.positions).forEach(function(pos) {
+                const posStats = stats.positions[pos];
+                if (posStats.qtrs >= 1) { // Changed from 2 to 1 - need at least 1 quarter
+                    const avgPlusMinus = posStats.plusMinus / posStats.qtrs;
+                    if (avgPlusMinus > bestAvgPlusMinus) {
+                        bestAvgPlusMinus = avgPlusMinus;
+                        bestPos = pos;
+                    }
+                }
+            });
+            
+            playerStrongestPosition[p.name] = bestPos;
+        });
+        
+        // Track position assignments per player (for rotation policy)
+        const playerPositionCount = {};
+        availablePlayers.forEach(function(p) {
+            playerPositionCount[p.id] = {
+                GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0
+            };
+        });
+        
+        // Score function for player-position fit
+        function getPlayerPositionScore(player, position, quarter, quarterAssignments) {
+            const stats = playerStats[player.id];
+            if (!stats) return 0;
+            
+            const posStats = stats.positions[position];
+            let score = 0;
+            
+            // Experience in position (quarters played)
+            const experienceScore = posStats.qtrs * 10;
+            score += experienceScore;
+            
+            // Performance (plus/minus)
+            const avgPlusMinus = posStats.qtrs > 0 ? posStats.plusMinus / posStats.qtrs : 0;
+            score += avgPlusMinus * 5;
+            
+            // Goals for (for attacking positions)
+            if (position === 'GS' || position === 'GA') {
+                const avgGoals = posStats.qtrs > 0 ? posStats.goalsFor / posStats.qtrs : 0;
+                score += avgGoals * 3;
+            }
+            
+            // Versatility bonus (can fill multiple roles)
+            score += stats.versatility * 2;
+            
+            // PENALTY: Playing too many different positions in one game
+            const uniquePositionsThisGame = playerUniquePositions[player.name].length;
+            if (uniquePositionsThisGame >= 2 && playerUniquePositions[player.name].indexOf(position) === -1) {
+                score -= 200; // HUGE penalty for 3rd+ position in one game
+            }
+            
+            // PENALTY: Playing weak position for more than 2 quarters
+            const isWeakPosition = experienceScore < 30; // Less than 3 quarters experience
+            if (isWeakPosition) {
+                const weakQuartersInThisPos = playerWeakPositionQuarters[player.name][position] || 0;
+                if (weakQuartersInThisPos >= 2) {
+                    score -= 300; // MASSIVE penalty - already played 2 qtrs in weak position
+                }
+            }
+            
+            // BONUS: Playing in strongest position (especially after weak position quarters)
+            if (playerStrongestPosition[player.name] === position) {
+                score += 300; // MASSIVE reward for playing in favorite/best position (increased from 150)
+                
+                // Extra bonus if they've done their weak position duty
+                const totalWeakQuarters = Object.values(playerWeakPositionQuarters[player.name]).reduce(function(sum, q) {
+                    return sum + q;
+                }, 0);
+                if (totalWeakQuarters >= 1) {
+                    score += 400; // HUGE bonus - earned the right to play strong position (increased from 200)
+                }
+            }
+            
+            // MASSIVE BONUS: Keep same position as previous quarter to minimize bib changes
+            if (quarter > 1 && playerPreviousPosition[player.name] === position) {
+                score += 400; // Very strong incentive to keep same position (increased from 200)
+            }
+            
+            // Bonus for meeting rotation policy (trying to get 2 qtrs in this position)
+            const currentCount = playerPositionCount[player.id][position];
+            if (currentCount === 0) score += 50; // Encourage trying new positions
+            if (currentCount === 1) score += 30; // Encourage getting to 2
+            
+            // COMPENSATION: If this is a weak assignment (low experience), check if other positions are strong
+            if (experienceScore < 30) { // Less than 3 quarters of experience
+                // Count how many already-assigned players are experienced
+                let experiencedPlayersAssigned = 0;
+                Object.keys(quarterAssignments).forEach(function(assignedPlayerName) {
+                    const assignedPlayer = availablePlayers.find(function(p) { return p.name === assignedPlayerName; });
+                    if (assignedPlayer) {
+                        const assignedPos = quarterAssignments[assignedPlayerName];
+                        const assignedStats = playerStats[assignedPlayer.id];
+                        if (assignedStats && assignedStats.positions[assignedPos]) {
+                            const assignedExp = assignedStats.positions[assignedPos].qtrs;
+                            if (assignedExp >= 3) experiencedPlayersAssigned++;
+                        }
+                    }
+                });
+                // If we have 3+ experienced players already, allow weak assignment
+                if (experiencedPlayersAssigned >= 3) {
+                    score += 100; // Bonus: we can afford a weak position
+                }
+            }
+            
+            return score;
+        }
+        
+        // With 9 players: 1 plays all 4 quarters, 8 play 3 quarters (2 off per quarter)
+        // PRE-ASSIGN off quarters based on season-long off time to ensure fair rotation
+        const quarterOffAssignments = { Q1: [], Q2: [], Q3: [], Q4: [] };
+        
+        if (playersOffPerQuarter === 2) {
+            // Find player with MOST season off time - they play all 4 quarters
+            let alwaysOnPlayer = null;
+            let maxSeasonOff = -1;
+            availablePlayers.forEach(function(player) {
+                const seasonOffQuarters = playerStats[player.id].totalOffQuarters || 0;
+                if (seasonOffQuarters > maxSeasonOff) {
+                    maxSeasonOff = seasonOffQuarters;
+                    alwaysOnPlayer = player.name;
+                }
+            });
+            
+            // Assign off quarters for remaining 8 players (each gets 1 off, spread across quarters)
+            // Sort remaining players by season off time (least to most)
+            const playersToRotate = availablePlayers
+                .filter(function(p) { return p.name !== alwaysOnPlayer; })
+                .map(function(p) {
+                    return {
+                        name: p.name,
+                        seasonOff: playerStats[p.id].totalOffQuarters || 0
+                    };
+                })
+                .sort(function(a, b) { return a.seasonOff - b.seasonOff; });
+            
+            // Distribute off assignments: Q1 gets 2, Q2 gets 2, Q3 gets 2, Q4 gets 2
+            // Prioritize players with LEAST season off time to sit (they need to catch up)
+            quarterOffAssignments.Q1 = [playersToRotate[0].name, playersToRotate[1].name];
+            quarterOffAssignments.Q2 = [playersToRotate[2].name, playersToRotate[3].name];
+            quarterOffAssignments.Q3 = [playersToRotate[4].name, playersToRotate[5].name];
+            quarterOffAssignments.Q4 = [playersToRotate[6].name, playersToRotate[7].name];
+        }
+        
+        // For each quarter, assign 7 players to court, rest go Off
+        quarters.forEach(function(quarter) {
+            const qKey = 'Q' + quarter;
+            const quarterAssignments = {};
+            
+            // PRE-ASSIGN: Always-on player gets their strongest position in later quarters (reward for playing all 4)
+            if (playersOffPerQuarter === 2 && quarter >= 3) {
+                const alwaysOnPlayerName = Object.keys(quarterOffAssignments).length > 0 ? 
+                    availablePlayers.find(function(p) {
+                        return !quarterOffAssignments.Q1.includes(p.name) && 
+                               !quarterOffAssignments.Q2.includes(p.name) &&
+                               !quarterOffAssignments.Q3.includes(p.name) &&
+                               !quarterOffAssignments.Q4.includes(p.name);
+                    }) : null;
+                
+                if (alwaysOnPlayerName && playerStrongestPosition[alwaysOnPlayerName.name]) {
+                    const strongPos = playerStrongestPosition[alwaysOnPlayerName.name];
+                    quarterAssignments[alwaysOnPlayerName.name] = strongPos;
+                    lineup[alwaysOnPlayerName.name][qKey] = strongPos;
+                }
+            }
+            
+            // Mark pre-assigned off players
+            if (quarterOffAssignments[qKey] && quarterOffAssignments[qKey].length > 0) {
+                quarterOffAssignments[qKey].forEach(function(playerName) {
+                    lineup[playerName][qKey] = 'Off';
+                    playerGameOffCount[playerName]++;
+                });
+            }
+            
+            // Assign positions to players NOT marked as Off
+            positions.forEach(function(position) {
+                // Skip if position already pre-assigned
+                if (Object.values(quarterAssignments).indexOf(position) !== -1) {
+                    return;
+                }
+                
+                let bestPlayer = null;
+                let bestScore = -Infinity;
+                let candidateCount = 0;
+                
+                availablePlayers.forEach(function(player) {
+                    // Skip if player already assigned in this quarter
+                    if (quarterAssignments[player.name]) return;
+                    
+                    // Skip if player is pre-assigned to Off this quarter
+                    if (lineup[player.name][qKey] === 'Off') return;
+                    
+                    candidateCount++;
+                    
+                    // Calculate base score (now needs quarterAssignments for compensation logic)
+                    let score = getPlayerPositionScore(player, position, quarter, quarterAssignments);
+                    
+                    // SEASON-LONG off time balancing - prefer players with more season off
+                    const seasonOffQuarters = playerStats[player.id].totalOffQuarters || 0;
+                    const avgSeasonOff = Object.keys(playerStats).reduce(function(sum, id) {
+                        return sum + (playerStats[id].totalOffQuarters || 0);
+                    }, 0) / availablePlayers.length;
+                    const seasonOffDiff = seasonOffQuarters - avgSeasonOff;
+                    score -= seasonOffDiff * 75; // Penalty for being below average (prefer high season off)
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestPlayer = player;
+                    }
+                });
+                
+                if (bestPlayer) {
+                    quarterAssignments[bestPlayer.name] = position;
+                    lineup[bestPlayer.name][qKey] = position;
+                    playerPositionCount[bestPlayer.id][position]++;
+                    playerPreviousPosition[bestPlayer.name] = position;
+                    
+                    // Track unique positions this game
+                    if (playerUniquePositions[bestPlayer.name].indexOf(position) === -1) {
+                        playerUniquePositions[bestPlayer.name].push(position);
+                    }
+                    
+                    // Track weak position quarters
+                    const playerPosStats = playerStats[bestPlayer.id].positions[position];
+                    const isWeakPos = (playerPosStats.qtrs || 0) < 3;
+                    if (isWeakPos) {
+                        playerWeakPositionQuarters[bestPlayer.name][position] = 
+                            (playerWeakPositionQuarters[bestPlayer.name][position] || 0) + 1;
+                    }
+                }
+            });
+            
+            // Mark any unassigned players as Off (edge case for <9 players)
+            availablePlayers.forEach(function(player) {
+                if (!lineup[player.name][qKey]) {
+                    lineup[player.name][qKey] = 'Off';
+                    playerGameOffCount[player.name]++;
+                }
+            });
+        });
+        
+        return lineup;
+    }
+    
+    /**
+     * Render the suggested lineup
+     */
+    function renderSuggestedLineup(lineup, playerStats) {
+        const container = document.getElementById('suggested-lineup-container');
+        if (!container) return;
+        
+        const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+        const playerNames = Object.keys(lineup).sort();
+        
+        let html = '<div style="overflow-x: auto;"><table class="insights-table" style="min-width: 600px;">';
+        
+        // Header
+        html += '<thead><tr><th style="text-align: left; min-width: 150px;">Player</th>';
+        quarters.forEach(function(q) {
+            html += '<th style="min-width: 100px; text-align: center;">' + q + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        
+        // Rows for each player
+        playerNames.forEach(function(playerName) {
+            html += '<tr><td style="font-weight: 600;">' + playerName + '</td>';
+            quarters.forEach(function(q) {
+                const position = lineup[playerName][q] || 'Off';
+                const isOff = position === 'Off';
+                
+                // Get predicted +/- for this position
+                let predictedPlusMinus = '';
+                if (!isOff) {
+                    const player = arrayFind(players, function(p) { return p.name === playerName; });
+                    if (player && playerStats[player.id] && playerStats[player.id].positions[position]) {
+                        const posStats = playerStats[player.id].positions[position];
+                        if (posStats.qtrs > 0) {
+                            const avgPlusMinus = posStats.plusMinus / posStats.qtrs;
+                            const sign = avgPlusMinus >= 0 ? '+' : '';
+                            const color = avgPlusMinus >= 0 ? '#4CAF50' : '#f44336';
+                            predictedPlusMinus = '<span style="font-size: 0.75em; color: ' + color + '; margin-left: 4px;">(' + sign + avgPlusMinus.toFixed(1) + ')</span>';
+                        }
+                    }
+                }
+                
+                const cellStyle = isOff ? 
+                    'color: var(--secondary-text); font-style: italic; text-align: center;' : 
+                    'font-weight: 600; color: var(--primary-color); text-align: center;';
+                html += '<td style="' + cellStyle + '">' + position + predictedPlusMinus + '</td>';
+            });
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table></div>';
+        
+        // Summary statistics
+        html += '<div style="margin-top: 20px; padding: 16px; background: var(--card-bg); border-radius: 8px;">';
+        html += '<h4 style="margin: 0 0 12px 0; font-size: 0.95em;">📊 Lineup Analysis</h4>';
+        
+        // Calculate statistics
+        const stats = {
+            offCounts: {},
+            bibChanges: {},
+            positionCounts: {}
+        };
+        
+        playerNames.forEach(function(playerName) {
+            let offCount = 0;
+            let bibChanges = 0;
+            let prevPos = null;
+            
+            quarters.forEach(function(q) {
+                const pos = lineup[playerName][q];
+                if (pos === 'Off') {
+                    offCount++;
+                } else {
+                    if (prevPos && prevPos !== 'Off' && prevPos !== pos) {
+                        bibChanges++;
+                    }
+                    prevPos = pos;
+                    stats.positionCounts[pos] = (stats.positionCounts[pos] || 0) + 1;
+                }
+            });
+            
+            stats.offCounts[playerName] = offCount;
+            stats.bibChanges[playerName] = bibChanges;
+        });
+        
+        // Display key metrics
+        html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 16px;">';
+        
+        // Off time distribution
+        const totalBibChanges = Object.values(stats.bibChanges).reduce(function(sum, val) { return sum + val; }, 0);
+        html += '<div style="padding: 12px; background: var(--bg-color); border-radius: 6px;">';
+        html += '<div style="font-size: 0.85em; color: var(--secondary-text); margin-bottom: 6px;">Total Bib Changes</div>';
+        html += '<div style="font-size: 1.5em; font-weight: 700; color: var(--primary-color);">' + totalBibChanges + '</div>';
+        html += '<div style="font-size: 0.75em; color: var(--secondary-text); margin-top: 4px;">Lower is better (blocked positions)</div>';
+        html += '</div>';
+        
+        // Off quarters balance (this game)
+        const offCounts = Object.values(stats.offCounts);
+        const minOff = Math.min.apply(Math, offCounts);
+        const maxOff = Math.max.apply(Math, offCounts);
+        html += '<div style="padding: 12px; background: var(--bg-color); border-radius: 6px;">';
+        html += '<div style="font-size: 0.85em; color: var(--secondary-text); margin-bottom: 6px;">Off This Game</div>';
+        html += '<div style="font-size: 1.5em; font-weight: 700; color: var(--primary-color);">' + minOff + ' - ' + maxOff + '</div>';
+        html += '<div style="font-size: 0.75em; color: var(--secondary-text); margin-top: 4px;">Max 1 off per player (9 players)</div>';
+        html += '</div>';
+        
+        // Season off time balance
+        const seasonOffQuarters = playerNames.map(function(name) {
+            const player = arrayFind(players, function(p) { return p.name === name; });
+            return player ? (playerStats[player.id].totalOffQuarters || 0) : 0;
+        });
+        const minSeasonOff = Math.min.apply(Math, seasonOffQuarters);
+        const maxSeasonOff = Math.max.apply(Math, seasonOffQuarters);
+        html += '<div style="padding: 12px; background: var(--bg-color); border-radius: 6px;">';
+        html += '<div style="font-size: 0.85em; color: var(--secondary-text); margin-bottom: 6px;">Season Off Range</div>';
+        html += '<div style="font-size: 1.5em; font-weight: 700; color: var(--primary-color);">' + minSeasonOff + ' - ' + maxSeasonOff + '</div>';
+        html += '<div style="font-size: 0.75em; color: var(--secondary-text); margin-top: 4px;">Balancing court time across season</div>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        // Player details
+        html += '<details style="margin-top: 12px;"><summary style="cursor: pointer; font-weight: 600; padding: 8px; background: var(--bg-color); border-radius: 6px;">View Player Details</summary>';
+        html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; font-size: 0.9em;">';
+        
+        playerNames.forEach(function(playerName) {
+            const offCount = stats.offCounts[playerName];
+            const bibChanges = stats.bibChanges[playerName];
+            const player = arrayFind(players, function(p) { return p.name === playerName; });
+            const seasonOff = player ? (playerStats[player.id].totalOffQuarters || 0) : 0;
+            
+            html += '<div style="display: flex; flex-direction: column; padding: 8px 12px; background: var(--bg-color); border-radius: 6px;">';
+            html += '<span style="font-weight: 600; margin-bottom: 4px;">' + playerName + '</span>';
+            html += '<span style="font-size: 0.85em; color: var(--secondary-text);">';
+            html += 'Game: ' + offCount + ' Off • ' + bibChanges + ' bib change' + (bibChanges === 1 ? '' : 's');
+            html += '<br>Season: ' + seasonOff + ' Off qtrs total';
+            html += '</span>';
+            html += '</div>';
+        });
+        
+        html += '</div></details>';
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    /**
+     * Export lineup to clipboard
+     */
+    function exportLineupToClipboard() {
+        if (!window.currentLineup) {
+            showToast('No lineup to export');
+            return;
+        }
+        
+        const lineup = window.currentLineup;
+        const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+        const playerNames = Object.keys(lineup).sort();
+        
+        let text = 'SUGGESTED LINEUP\n\n';
+        
+        // Header
+        text += 'Player'.padEnd(20) + quarters.map(function(q) { return q.padEnd(8); }).join('') + '\n';
+        text += '-'.repeat(20 + (8 * quarters.length)) + '\n';
+        
+        // Player rows
+        playerNames.forEach(function(playerName) {
+            text += playerName.padEnd(20);
+            quarters.forEach(function(q) {
+                const position = lineup[playerName][q] || 'Off';
+                text += position.padEnd(8);
+            });
+            text += '\n';
+        });
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('Lineup copied to clipboard!');
+            }).catch(function(err) {
+                showToast('Could not copy: ' + err.message);
+            });
+        } else {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Lineup copied to clipboard!');
+            } catch (err) {
+                showToast('Could not copy');
+            }
+            document.body.removeChild(textarea);
+        }
+    }
+
+    // ===== PHASE 1: DEFENSIVE UNIT STATS =====
+    function calculateDefensiveUnitStats() {
+        var defensiveStats = {};
+        var minQuarters = 3; // Minimum quarters for statistical significance
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var gk = positions.GK;
+                var gd = positions.GD;
+                var wd = positions.WD;
+                var c = positions.C;
+                
+                if (!gk || !gd || !wd || !c) return; // Skip incomplete quarters
+                
+                // Create key for defensive unit (sorted for consistency)
+                var defensiveKey = [gk, gd, wd, c].sort().join('|');
+                
+                // Calculate quarter goals against
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                
+                if (!defensiveStats[defensiveKey]) {
+                    defensiveStats[defensiveKey] = {
+                        gk: gk,
+                        gd: gd,
+                        wd: wd,
+                        c: c,
+                        quarters: 0,
+                        goalsAgainst: 0,
+                        goalsFor: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                var ourScore = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var quarterPlusMinus = ourScore - goalsAgainst;
+                
+                defensiveStats[defensiveKey].quarters++;
+                defensiveStats[defensiveKey].goalsAgainst += goalsAgainst;
+                defensiveStats[defensiveKey].goalsFor += ourScore;
+                defensiveStats[defensiveKey].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        // Filter and add averages
+        var filtered = {};
+        for (var key in defensiveStats) {
+            if (defensiveStats.hasOwnProperty(key) && defensiveStats[key].quarters >= minQuarters) {
+                var stat = defensiveStats[key];
+                stat.avgGoalsAgainst = (stat.goalsAgainst / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== PHASE 2: ATTACKING UNIT STATS =====
+    function calculateAttackingUnitStats() {
+        var attackingStats = {};
+        var minQuarters = 3;
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var gs = positions.GS;
+                var ga = positions.GA;
+                var wa = positions.WA;
+                var c = positions.C;
+                
+                if (!gs || !ga || !wa || !c) return;
+                
+                var attackingKey = [gs, ga, wa, c].sort().join('|');
+                
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                if (!attackingStats[attackingKey]) {
+                    attackingStats[attackingKey] = {
+                        gs: gs,
+                        ga: ga,
+                        wa: wa,
+                        c: c,
+                        quarters: 0,
+                        goalsFor: 0,
+                        goalsAgainst: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                attackingStats[attackingKey].quarters++;
+                attackingStats[attackingKey].goalsFor += goalsFor;
+                attackingStats[attackingKey].goalsAgainst += goalsAgainst;
+                attackingStats[attackingKey].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        var filtered = {};
+        for (var key in attackingStats) {
+            if (attackingStats.hasOwnProperty(key) && attackingStats[key].quarters >= minQuarters) {
+                var stat = attackingStats[key];
+                stat.avgGoalsFor = (stat.goalsFor / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== PHASE 3: POSITION PAIRING STATS =====
+    function calculatePositionPairingStats() {
+        var pairingStats = {
+            defensive: {},  // GK-GD, GD-WD, WD-C pairings
+            attacking: {},  // GS-GA, GA-WA, WA-C pairings
+            transition: {}  // WD-WA, C-WA pairings
+        };
+        var minQuarters = 2; // Lower threshold for pairs
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                // Defensive Pairings
+                var gkGd = [positions.GK, positions.GD].sort().join('|');
+                var gdWd = [positions.GD, positions.WD].sort().join('|');
+                var wdC = [positions.WD, positions.C].sort().join('|');
+                
+                [gkGd, gdWd, wdC].forEach(function(pairKey) {
+                    if (!pairingStats.defensive[pairKey]) {
+                        pairingStats.defensive[pairKey] = {
+                            quarters: 0, goalsAgainst: 0, plusMinus: 0, type: 'defensive'
+                        };
+                    }
+                    pairingStats.defensive[pairKey].quarters++;
+                    pairingStats.defensive[pairKey].goalsAgainst += goalsAgainst;
+                    pairingStats.defensive[pairKey].plusMinus += quarterPlusMinus;
+                });
+                
+                // Attacking Pairings
+                var gsGa = [positions.GS, positions.GA].sort().join('|');
+                var gaWa = [positions.GA, positions.WA].sort().join('|');
+                var waC = [positions.WA, positions.C].sort().join('|');
+                
+                [gsGa, gaWa, waC].forEach(function(pairKey) {
+                    if (!pairingStats.attacking[pairKey]) {
+                        pairingStats.attacking[pairKey] = {
+                            quarters: 0, goalsFor: 0, plusMinus: 0, type: 'attacking'
+                        };
+                    }
+                    pairingStats.attacking[pairKey].quarters++;
+                    pairingStats.attacking[pairKey].goalsFor += goalsFor;
+                    pairingStats.attacking[pairKey].plusMinus += quarterPlusMinus;
+                });
+                
+                // Transition Pairings
+                var wdWa = [positions.WD, positions.WA].sort().join('|');
+                var cWa = [positions.C, positions.WA].sort().join('|');
+                
+                [wdWa, cWa].forEach(function(pairKey) {
+                    if (!pairingStats.transition[pairKey]) {
+                        pairingStats.transition[pairKey] = {
+                            quarters: 0, plusMinus: 0, type: 'transition'
+                        };
+                    }
+                    pairingStats.transition[pairKey].quarters++;
+                    pairingStats.transition[pairKey].plusMinus += quarterPlusMinus;
+                });
+            });
+        });
+        
+        // Filter and add averages
+        var filtered = { defensive: {}, attacking: {}, transition: {} };
+        
+        for (var key in pairingStats.defensive) {
+            if (pairingStats.defensive.hasOwnProperty(key) && pairingStats.defensive[key].quarters >= minQuarters) {
+                var stat = pairingStats.defensive[key];
+                stat.avgGoalsAgainst = (stat.goalsAgainst / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.defensive[key] = stat;
+            }
+        }
+        
+        for (var key in pairingStats.attacking) {
+            if (pairingStats.attacking.hasOwnProperty(key) && pairingStats.attacking[key].quarters >= minQuarters) {
+                var stat = pairingStats.attacking[key];
+                stat.avgGoalsFor = (stat.goalsFor / stat.quarters).toFixed(2);
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.attacking[key] = stat;
+            }
+        }
+        
+        for (var key in pairingStats.transition) {
+            if (pairingStats.transition.hasOwnProperty(key) && pairingStats.transition[key].quarters >= minQuarters) {
+                var stat = pairingStats.transition[key];
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered.transition[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+
+    // ===== COMPLETE LINEUP STATS (for future extension) =====
+    function calculateLineupStats() {
+        var lineupStats = {};
+        var minQuarters = 3;
+        
+        games.forEach(function(game) {
+            if (!isGameInPast(game) || game.status === 'bye') return;
+            
+            game.quarters.forEach(function(quarter, qIdx) {
+                var positions = quarter.positions;
+                var lineup = [
+                    positions.GS, positions.GA, positions.WA,
+                    positions.C, positions.WD, positions.GD, positions.GK
+                ].sort().join('|');
+                
+                var goalsFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+                var goalsAgainst = (quarter.opponentGsGoals || 0) + (quarter.opponentGaGoals || 0);
+                var quarterPlusMinus = goalsFor - goalsAgainst;
+                
+                if (!lineupStats[lineup]) {
+                    lineupStats[lineup] = {
+                        players: positions,
+                        quarters: 0,
+                        goalsFor: 0,
+                        goalsAgainst: 0,
+                        plusMinus: 0
+                    };
+                }
+                
+                lineupStats[lineup].quarters++;
+                lineupStats[lineup].goalsFor += goalsFor;
+                lineupStats[lineup].goalsAgainst += goalsAgainst;
+                lineupStats[lineup].plusMinus += quarterPlusMinus;
+            });
+        });
+        
+        var filtered = {};
+        for (var key in lineupStats) {
+            if (lineupStats.hasOwnProperty(key) && lineupStats[key].quarters >= minQuarters) {
+                var stat = lineupStats[key];
+                stat.avgPlusMinus = (stat.plusMinus / stat.quarters).toFixed(2);
+                filtered[key] = stat;
+            }
+        }
+        
+        return filtered;
+    }
+</script>

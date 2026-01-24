@@ -1,0 +1,1597 @@
+<script>
+    // === GLOBAL STATE (Modernized) ===
+    
+    // === TEAM NICKNAME MAPPING ===
+    // Maps base team names to mobile-friendly nicknames
+    // Uses substring replacement to handle all variants (e.g., "Montmorency 11 White" → "Monty 11 White")
+    var TEAM_NICKNAMES = {
+        'Montmorency': 'Monty'
+    };
+    
+    function getDisplayName(fullName) {
+        if (!fullName) return fullName;
+        var trimmed = String(fullName).trim();
+        
+        // Check if any nickname base matches the start of the team name
+        for (var base in TEAM_NICKNAMES) {
+            if (trimmed.indexOf(base) === 0) {
+                // Replace the base name with nickname, preserving the rest
+                var displayName = TEAM_NICKNAMES[base] + trimmed.substring(base.length);
+                console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + displayName + '"');
+                return displayName;
+            }
+        }
+        
+        console.log('[getDisplayName] Input: "' + fullName + '" → Display: "' + trimmed + '" (no match)');
+        return trimmed;
+    }
+    
+    // === NATIVE MOBILE FEATURES ===
+    
+    // Haptic feedback helper (vibration)
+    function haptic(pattern) {
+        if (navigator.vibrate) {
+            navigator.vibrate(pattern || 50);
+        }
+    }
+    
+    // Share API helper
+    function shareGameResult(game) {
+        if (!navigator.share) {
+            // Fallback: copy to clipboard
+            var shareText = formatGameShareText(game);
+            copyToClipboard(shareText, 'Game result copied to clipboard!');
+            return;
+        }
+        
+        var shareData = {
+            title: appState.currentTeam.name + ' - Round ' + game.round,
+            text: formatGameShareText(game)
+        };
+        
+        navigator.share(shareData).then(function() {
+            haptic(50);
+        }).catch(function(err) {
+            if (err.name !== 'AbortError') {
+                console.error('Error sharing:', err);
+            }
+        });
+    }
+    
+    // === ENHANCED CLIPBOARD API ===
+    
+    function copyToClipboard(text, successMessage) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                haptic(50);
+                if (successMessage) showNotification(successMessage, 'success');
+            }).catch(function(err) {
+                console.error('Could not copy text:', err);
+                showNotification('Copy failed', 'error');
+            });
+        } else {
+            // Fallback for older browsers
+            var textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                haptic(50);
+                if (successMessage) showNotification(successMessage, 'success');
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            document.body.removeChild(textArea);
+        }
+    }
+    
+    // Copy player stats to clipboard
+    window.copyPlayerStats = function(playerId) {
+        var player = arrayFind(players, function(p) { return p.id === playerId; });
+        if (!player) return;
+        
+        var stats = calculatedPlayerTable.find(function(s) { return s.id === playerId; });
+        if (!stats) {
+            copyToClipboard(player.name, 'Player name copied!');
+            return;
+        }
+        
+        var text = player.name + ' - Season Stats\\n' +
+                  '━━━━━━━━━━━━━━━━━━━━\\n' +
+                  'Games: ' + stats.gamesPlayed + '\\n' +
+                  'Goals: ' + stats.goals + ' (Avg: ' + stats.avgGoals.toFixed(1) + '/game)\\n' +
+                  'Goal Shooting: ' + stats.goalShootingTotal + '\\n' +
+                  'Goal Attack: ' + stats.goalAttackTotal + '\\n' +
+                  'Center: ' + stats.centerTotal + '\\n' +
+                  'Defense: ' + stats.wingDefenseTotal + '\\n' +
+                  'Intercepts: ' + stats.totalIntercepts + '\\n' +
+                  'Penalties: ' + stats.totalPenalties;
+        
+        copyToClipboard(text, 'Player stats copied!');
+    };
+    
+    // Copy full team ladder to clipboard
+    window.copyLadderTable = function() {
+        if (!netballLadderData || netballLadderData.length === 0) {
+            showNotification('No ladder data available', 'error');
+            return;
+        }
+        
+        var text = appState.currentTeam.name + ' Ladder\\n' +
+                  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+        
+        netballLadderData.forEach(function(team, i) {
+            var pos = (i + 1) + '.';
+            text += pos.padEnd(4) + team.teamName.substring(0, 20).padEnd(22) + 
+                   'P:' + team.played + ' W:' + team.wins + ' Pts:' + team.points + '\\n';
+        });
+        
+        copyToClipboard(text, 'Ladder copied to clipboard!');
+    };
+    
+    // === FULLSCREEN MODE ===
+    
+    var isFullscreen = false;
+    
+    window.toggleFullscreen = function() {
+        if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) {
+            showNotification('Fullscreen not supported', 'error');
+            return;
+        }
+        
+        var elem = document.documentElement;
+        
+        if (!isFullscreen) {
+            // Enter fullscreen
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                elem.mozRequestFullScreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+            isFullscreen = true;
+            updateFullscreenButton(true);
+            haptic(50);
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+            isFullscreen = false;
+            updateFullscreenButton(false);
+            haptic(50);
+        }
+    };
+    
+    function updateFullscreenButton(inFullscreen) {
+        var btn = document.getElementById('fullscreen-toggle-btn');
+        if (btn) {
+            btn.textContent = inFullscreen ? '⛶' : '⛶';
+            btn.title = inFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+        }
+    }
+    
+    // Listen for fullscreen changes (user pressing ESC, etc)
+    document.addEventListener('fullscreenchange', function() {
+        isFullscreen = !!document.fullscreenElement;
+        updateFullscreenButton(isFullscreen);
+    });
+    
+    document.addEventListener('webkitfullscreenchange', function() {
+        isFullscreen = !!document.webkitFullscreenElement;
+        updateFullscreenButton(isFullscreen);
+    });
+    
+    // === SCREEN ORIENTATION HINTS ===
+    
+    // Suggest landscape for insights/stats views
+    function suggestOrientation(orientation) {
+        if (!screen.orientation || !screen.orientation.lock) {
+            // Orientation lock not supported (most browsers don't allow it)
+            // We can only hint via CSS
+            return;
+        }
+        
+        try {
+            // This will only work in fullscreen mode and on some Android devices
+            screen.orientation.lock(orientation).then(function() {
+                console.log('Orientation locked to ' + orientation);
+            }).catch(function(err) {
+                console.log('Orientation lock not supported:', err);
+            });
+        } catch (e) {
+            console.log('Orientation API not available');
+        }
+    }
+    
+    // Detect orientation changes for better layout
+    window.addEventListener('orientationchange', function() {
+        var orientation = window.orientation;
+        if (orientation === 90 || orientation === -90) {
+            // Landscape mode - could show different layouts
+            console.log('Landscape mode detected');
+        } else {
+            // Portrait mode
+            console.log('Portrait mode detected');
+        }
+    });
+    
+    // Modern orientation API
+    if (screen.orientation) {
+        screen.orientation.addEventListener('change', function() {
+            var type = screen.orientation.type;
+            if (type.includes('landscape')) {
+                document.body.classList.add('landscape-mode');
+                document.body.classList.remove('portrait-mode');
+            } else {
+                document.body.classList.add('portrait-mode');
+                document.body.classList.remove('landscape-mode');
+            }
+        });
+    }
+    
+    function formatGameShareText(game) {
+        var scores = getGameTotalScores(game);
+        var result = scores.ourScore > scores.opponentScore ? '🏆 WIN' : 
+                    scores.ourScore < scores.opponentScore ? '😞 LOSS' : '🤝 DRAW';
+        
+        var text = appState.currentTeam.name + ' - Round ' + game.round + '\\n' +
+                  result + ' vs ' + game.opponent + '\\n' +
+                  'Final Score: ' + scores.ourScore + ' - ' + scores.opponentScore;
+        
+        if (game.quarters && game.quarters.length === 4) {
+            text += '\\n\\nQuarter Breakdown:';
+            game.quarters.forEach(function(q, i) {
+                var ourQ = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+                var oppQ = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+                text += '\\nQ' + (i+1) + ': ' + ourQ + '-' + oppQ;
+            });
+        }
+        
+        return text;
+    }
+    
+    // Toggle team edit mode
+    function toggleTeamEditMode() {
+        isTeamEditMode = !isTeamEditMode;
+        const editBtn = document.getElementById('toggle-edit-mode');
+        if (editBtn) {
+            editBtn.textContent = isTeamEditMode ? 'Done' : 'Edit';
+            editBtn.classList.toggle('active', isTeamEditMode);
+        }
+        // Call the current render method for the team selector. Older code used `renderTeamList`.
+        if (typeof renderTeamSelector === 'function') {
+            renderTeamSelector();
+        } else if (typeof renderTeamList === 'function') {
+            // Backwards compatibility: if renderTeamList exists legacy code will still work
+            renderTeamList();
+        }
+    }
+    
+    // Share current game in game detail view
+    window.shareCurrentGame = function() {
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (game) {
+            shareGameResult(game);
+        }
+    };
+    
+    // Camera input for team photos
+    window.handleTeamPhotoUpload = function(input) {
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+            
+            // Limit file size to 2MB
+            if (file.size > 2 * 1024 * 1024) {
+                showCustomAlert('File Too Large', 'Please select an image smaller than 2MB.');
+                input.value = '';
+                return;
+            }
+            
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var preview = document.getElementById('team-photo-preview');
+                var previewImg = document.getElementById('team-photo-preview-img');
+                
+                if (preview && previewImg) {
+                    previewImg.src = e.target.result;
+                    preview.style.display = 'block';
+                    haptic(50);
+                }
+                
+                // Store base64 in team data (will be saved with team)
+                if (appState.editing.team) {
+                    appState.editing.team.photoDataUrl = e.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    // === NETWORK STATUS & OFFLINE HANDLING ===
+    
+    var networkStatus = {
+        isOnline: navigator.onLine,
+        connectionType: 'unknown',
+        saveQuality: 'good' // 'good', 'slow', 'offline'
+    };
+    
+    function updateNetworkStatus() {
+        networkStatus.isOnline = navigator.onLine;
+        
+        // Get connection info if available (Android has better support)
+        if (navigator.connection) {
+            var conn = navigator.connection;
+            networkStatus.connectionType = conn.effectiveType || 'unknown';
+            
+            // Determine save quality based on connection
+            if (!navigator.onLine) {
+                networkStatus.saveQuality = 'offline';
+            } else if (conn.effectiveType === '4g' || conn.effectiveType === 'wifi') {
+                networkStatus.saveQuality = 'good';
+            } else if (conn.effectiveType === '3g' || conn.effectiveType === '2g') {
+                networkStatus.saveQuality = 'slow';
+            } else {
+                networkStatus.saveQuality = 'good';
+            }
+        } else {
+            networkStatus.saveQuality = navigator.onLine ? 'good' : 'offline';
+        }
+        
+        updateNetworkIndicator();
+    }
+    
+    function updateNetworkIndicator() {
+        var indicator = document.getElementById('network-status-indicator');
+        if (!indicator) return;
+        
+        if (networkStatus.saveQuality === 'offline') {
+            indicator.textContent = '📡 Offline - Changes saved locally';
+            indicator.className = 'network-status offline';
+            indicator.style.display = 'block';
+        } else if (networkStatus.saveQuality === 'slow') {
+            indicator.textContent = '🐌 Slow connection';
+            indicator.className = 'network-status slow';
+            indicator.style.display = 'block';
+        } else {
+            indicator.style.display = 'none';
+        }
+    }
+    
+    // Listen for online/offline events
+    window.addEventListener('online', function() {
+        updateNetworkStatus();
+        showNotification('Back online! Syncing data...', 'success');
+        haptic([50, 100, 50]);
+        // Trigger sync if there's pending data
+        if (appState.currentTeam.sheetName) {
+            saveCurrentTeamData();
+        }
+    });
+    
+    window.addEventListener('offline', function() {
+        updateNetworkStatus();
+        showNotification('Offline - Changes will sync when online', 'warning');
+        haptic(200);
+    });
+    
+    // Monitor connection changes (Android/Chrome)
+    if (navigator.connection) {
+        navigator.connection.addEventListener('change', updateNetworkStatus);
+    }
+    
+    // === GEOLOCATION FOR GAME VENUES ===
+    
+    window.getCurrentLocation = function() {
+        if (!navigator.geolocation) {
+            showNotification('Geolocation not supported on this device', 'error');
+            return;
+        }
+        
+        var venueInput = document.getElementById('new-game-venue');
+        if (!venueInput) return;
+        
+        showNotification('Getting your location...', 'info');
+        haptic(50);
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                var lat = position.coords.latitude.toFixed(6);
+                var lng = position.coords.longitude.toFixed(6);
+                
+                // Store coordinates in hidden way, show readable format
+                venueInput.value = 'Current Location';
+                venueInput.dataset.lat = lat;
+                venueInput.dataset.lng = lng;
+                
+                // Try to reverse geocode for better name
+                reverseGeocode(lat, lng, function(placeName) {
+                    if (placeName) {
+                        venueInput.value = placeName;
+                    }
+                });
+                
+                haptic([50, 100, 50]);
+                showNotification('Location added!', 'success');
+            },
+            function(error) {
+                var msg = 'Could not get location';
+                if (error.code === 1) msg = 'Location permission denied';
+                else if (error.code === 2) msg = 'Location unavailable';
+                else if (error.code === 3) msg = 'Location request timeout';
+                
+                showNotification(msg, 'error');
+                haptic(200);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+    
+    window.getCurrentLocationForModal = function() {
+        if (!navigator.geolocation) {
+            showNotification('Geolocation not supported on this device', 'error');
+            return;
+        }
+        
+        var venueInput = document.getElementById('add-modal-game-venue');
+        if (!venueInput) return;
+        
+        showNotification('Getting your location...', 'info');
+        haptic(50);
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                var lat = position.coords.latitude.toFixed(6);
+                var lng = position.coords.longitude.toFixed(6);
+                
+                // Store coordinates in hidden way, show readable format
+                venueInput.value = 'Current Location';
+                venueInput.dataset.lat = lat;
+                venueInput.dataset.lng = lng;
+                
+                // Try to reverse geocode for better name
+                reverseGeocode(lat, lng, function(placeName) {
+                    if (placeName) {
+                        venueInput.value = placeName;
+                    }
+                });
+                
+                haptic([50, 100, 50]);
+                showNotification('Location added!', 'success');
+            },
+            function(error) {
+                var msg = 'Could not get location';
+                if (error.code === 1) msg = 'Location permission denied';
+                else if (error.code === 2) msg = 'Location unavailable';
+                else if (error.code === 3) msg = 'Location request timeout';
+                
+                showNotification(msg, 'error');
+                haptic(200);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+    
+    function reverseGeocode(lat, lng, callback) {
+        // Use OpenStreetMap Nominatim API (free, no key needed)
+        var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng;
+        
+        fetch(url, {
+            headers: { 'User-Agent': 'Team Manager Netball App' }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data && data.address) {
+                var name = data.address.suburb || data.address.town || 
+                           data.address.city || data.address.village || 
+                           'Location at ' + lat + ',' + lng;
+                callback(name);
+            } else {
+                callback(null);
+            }
+        })
+        .catch(function() {
+            callback(null);
+        });
+    }
+    
+    window.openVenueDirections = function(venue, lat, lng) {
+        if (lat && lng) {
+            // Open in Apple Maps (iOS) or Google Maps
+            var url = 'https://maps.apple.com/?daddr=' + lat + ',' + lng;
+            if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
+            }
+            window.open(url, '_blank');
+            haptic(50);
+        } else if (venue) {
+            // Fallback: search by venue name
+            var searchUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(venue);
+            window.open(searchUrl, '_blank');
+            haptic(50);
+        }
+    };
+    
+    // --- Mutated data arrays (global scope for legacy compatibility) ---
+    var players = [];
+    var games = [];
+    var masterTeamList = [];
+    var netballLadderData = []; 
+    var netballMatchResults = [];
+    var isTeamEditMode = false;
+    
+    // --- Application State Object (Centralized and Modernized) ---
+    var appState = {
+        currentTeam: { sheetName: null, name: "" },
+        currentGame: { id: null, editingId: null },
+        editing: { 
+            playerId: null, 
+            team: null,
+            gameId: null 
+        },
+        playerDetail: { id: null },
+        insights: {
+            showAllOffense: false,
+            showAllDefense: false,
+            showAllDefenders: false,
+            sortOffense: 'impact',
+            sortDefense: 'impact',
+            sortDefenders: 'impact',
+            sortPlusMinus: 'total'
+        },
+        difficulty: { showAdjusted: false }
+    };
+    
+    // --- Calculated/External State (global scope) ---
+    var calculatedSeasonStats = {};
+    var calculatedPlayerTable = [];
+    var calculatedLeaderboardTotal = []; 
+    var calculatedLeaderboardPerQtr = []; 
+    var calculatedPlayerPlusMinus = [];
+    var externalLadderInsights = {}; 
+
+    // --- Performance: Change Detection & Caching ---
+    var gamesDataHash = null;
+    var playersDataHash = null;
+    var statsCache = {
+        timestamp: null,
+        gamesHash: null,
+        playersHash: null,
+        stats: null,
+        playerTable: null,
+        leaderboardTotal: null,
+        leaderboardPerQtr: null,
+        playerPlusMinus: null
+    };
+    var cacheMetrics = {
+        hits: 0,
+        misses: 0,
+        invalidations: 0
+    };
+
+    // Generate hash from games data to detect changes
+    function generateGamesHash() {
+        if (!games || games.length === 0) return 'empty';
+        // Hash based on: game count + IDs + last modified times
+        var hashData = games.length + '|' + games.map(function(g) {
+            return g.id + ':' + (g.date || '') + ':' + (g.homeScore || 0) + ':' + (g.awayScore || 0);
+        }).join('|');
+        return hashData;
+    }
+
+    // Generate hash from players data
+    function generatePlayersHash() {
+        if (!players || players.length === 0) return 'empty';
+        var hashData = players.length + '|' + players.map(function(p) {
+            return p.id + ':' + p.name;
+        }).join('|');
+        return hashData;
+    }
+
+    // Check if cache is valid
+    function isCacheValid() {
+        var currentGamesHash = generateGamesHash();
+        var currentPlayersHash = generatePlayersHash();
+        
+        return statsCache.gamesHash === currentGamesHash && 
+               statsCache.playersHash === currentPlayersHash &&
+               statsCache.stats !== null;
+    }
+
+    // Invalidate stats cache (call when data changes)
+    function invalidateStatsCache(reason) {
+        console.log('Cache invalidated:', reason || 'manual');
+        statsCache = {
+            timestamp: null,
+            gamesHash: null,
+            playersHash: null,
+            stats: null,
+            playerTable: null,
+            leaderboardTotal: null,
+            leaderboardPerQtr: null,
+            playerPlusMinus: null
+        };
+        cacheMetrics.invalidations++;
+    }
+
+    // Load cached stats from localStorage on startup
+    function loadCachedStatsFromDB() {
+        if (!appState.currentTeam.teamID) {
+            return Promise.resolve();
+        }
+        
+        // Use localStorage only
+        return loadStatsFromLocalStorage();
+    }
+
+    function loadStatsFromLocalStorage() {
+        try {
+            var key = 'insights_' + appState.currentTeam.teamID;
+            console.log('[DEBUG] loadStatsFromLocalStorage: trying key', key);
+            var data = localStorage.getItem(key);
+            console.log('[DEBUG] loadStatsFromLocalStorage: data exists?', !!data);
+            if (data) {
+                var parsed = JSON.parse(data);
+                var cached = parsed.cache;
+                if (cached && cached.gamesHash === generateGamesHash() && cached.playersHash === generatePlayersHash()) {
+                    console.log('📊 Restored stats cache from localStorage (age: ' + (Date.now() - cached.timestamp) + 'ms)');
+                    statsCache = cached;
+                    
+                    // Restore to global variables
+                    if (cached.stats) {
+                        calculatedSeasonStats = cached.stats;
+                        calculatedPlayerTable = cached.playerTable || [];
+                        calculatedLeaderboardTotal = cached.leaderboardTotal || [];
+                        calculatedLeaderboardPerQtr = cached.leaderboardPerQtr || [];
+                        calculatedPlayerPlusMinus = cached.playerPlusMinus || [];
+                        statsCalculated = true;
+                        
+                        try {
+                            window.calculatedSeasonStats = calculatedSeasonStats;
+                        } catch (e) {
+                            console.warn('Unable to set window.calculatedSeasonStats', e);
+                        }
+                        
+                        // Update allTeamData with loaded stats
+                        if (window.allTeamData && window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID) {
+                            var teamID = window.appState.currentTeam.teamID;
+                            if (window.allTeamData[teamID]) {
+                                window.allTeamData[teamID].stats = cached.stats;
+                                console.log('[loadStatsFromLocalStorage] Updated allTeamData stats for', teamID);
+                            }
+                        }
+                    }
+                } else if (cached) {
+                    console.log('📊 Cached stats outdated, will recalculate');
+                    invalidateStatsCache('hash mismatch');
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load cached stats from localStorage:', e);
+        }
+        return Promise.resolve();
+    }
+
+    // Get cache hit rate
+    function getCacheStats() {
+        var total = cacheMetrics.hits + cacheMetrics.misses;
+        var hitRate = total > 0 ? ((cacheMetrics.hits / total) * 100).toFixed(1) : 0;
+        return {
+            hits: cacheMetrics.hits,
+            misses: cacheMetrics.misses,
+            invalidations: cacheMetrics.invalidations,
+            hitRate: hitRate + '%'
+        };
+    }
+
+    // --- User and Environment Constants ---
+    // Use dynamic getters instead of one-time snapshot variables so runtime overrides are respected
+    var currentUserEmail = _USER_EMAIL || "";
+    var ownerEmail = _OWNER_EMAIL || "";
+
+    function getCurrentUserEmail() {
+        // Prefer explicitly set window value, fall back to module var for older code
+        return (window._USER_EMAIL || currentUserEmail || '').toLowerCase();
+    }
+
+    function getOwnerEmail() {
+        return (window._OWNER_EMAIL || ownerEmail || '').toLowerCase();
+    }
+
+    // --- Legacy global variables for compatibility ---
+    var currentGameId = null;
+    var editingPlayerId = null;
+    var editingTeam = null;
+    var editingGameId = null;
+    var currentSummarySlide = 0;
+    var totalSummarySlides = 0;
+
+    // --- Performance Optimization: DOM Element Cache ---
+    var cachedElements = {
+        views: {},
+        nav: {},
+        modals: {},
+        containers: {}
+    };
+    
+    var statsNeedUpdate = true;
+    
+    function markStatsStale() {
+        statsNeedUpdate = true;
+        invalidateStatsCache('data mutation');
+        // Invalidate game list HTML cache
+        window._cachedGameListHTML = null;
+        window._cachedGameListHash = null;
+    }
+    
+    function cacheCommonElements() {
+        try {
+            // Cache all view elements
+            cachedElements.views = {
+                teamSelector: document.getElementById('team-selector-view'),
+                players: document.getElementById('players-view'),
+                fixture: document.getElementById('fixture-view'),
+                insights: document.getElementById('insights-view'),
+                gameDetail: document.getElementById('game-detail-view'),
+                playerDetail: document.getElementById('player-detail-view'),
+                netballLadder: document.getElementById('netball-ladder-view'),
+                // netballResults: document.getElementById('netball-results-view'), // View doesn't exist
+                admin: document.getElementById('admin-view'),
+                insightsTeamRecord: document.getElementById('insights-team-record-view'),
+                insightsPlayerStats: document.getElementById('insights-player-stats-view'),
+                insightsOffenseHub: document.getElementById('insights-offense-hub-view'),
+                insightsDefense: document.getElementById('insights-defense-view'),
+                insightsDefenders: document.getElementById('insights-defenders-view'),
+                insightsPlayerPlusMinus: document.getElementById('insights-player-plusminus-view'),
+                // New sub-views
+                insightsTeamPerformance: document.getElementById('insights-team-performance-view'),
+                insightsOffensiveLeaders: document.getElementById('insights-offensive-leaders-view'),
+                insightsDefensiveWall: document.getElementById('insights-defensive-wall-view'),
+                insightsPlayerAnalysis: document.getElementById('insights-player-analysis-view')
+            };
+            
+            // Cache navigation elements
+            cachedElements.nav = {
+                appTabNav: document.getElementById('app-tab-nav'),
+                gameDetailTabNav: document.getElementById('game-detail-tab-nav'),
+                showHomeTab: document.getElementById('show-home-tab'),
+                showFixtureTab: document.getElementById('show-fixture-tab'),
+                showPlayersTab: document.getElementById('show-players-tab'),
+                showInsightsTab: document.getElementById('show-insights-tab'),
+                showNetballLadderTab: document.getElementById('show-netball-ladder-tab')
+            };
+            
+            // Cache other common elements
+            cachedElements.containers = {
+                dashboard: document.querySelector('.insights-dashboard'),
+                loadingOverlay: document.getElementById('loading-overlay'),
+                fixedHeader: document.getElementById('fixed-header-container')
+            };
+            
+            // Cache frequently used form inputs
+            cachedElements.forms = {
+                newPlayerName: document.getElementById('new-player-name'),
+                newPlayerFavPosition: document.getElementById('new-player-fav-position'),
+                editPlayerName: document.getElementById('edit-player-name'),
+                editPlayerFavPosition: document.getElementById('edit-player-fav-position'),
+                editTeamYear: document.getElementById('edit-team-year'),
+                editTeamSeason: document.getElementById('edit-team-season'),
+                editTeamName: document.getElementById('edit-team-name'),
+                editTeamLadderName: document.getElementById('edit-team-ladder-name'),
+                editTeamLadderApi: document.getElementById('edit-team-ladder-api'),
+                editTeamResultsApi: document.getElementById('edit-team-results-api')
+            };
+            
+            // Cache goal detail views
+            cachedElements.views.playerGoalsDetail = document.getElementById('player-goals-detail-view');
+            cachedElements.views.pairGoalsDetail = document.getElementById('pair-goals-detail-view');
+            
+            // Track flipped cards array (avoid querySelectorAll on every view change)
+            cachedElements.flippedCards = [];
+        } catch (e) {
+            console.warn('Error caching elements:', e);
+        }
+    }
+
+    var POSITIONS = ["GS", "GA", "WA", "C", "WD", "GD", "GK"];
+    var ALL_POSITIONS = ["GS", "GA", "WA", "C", "WD", "GD", "GK", "Off"];
+    
+    // === ES5 HELPER FUNCTIONS ===
+    
+    // Debounce utility for expensive operations
+    function debounce(func, wait) {
+        var timeout;
+        return function() {
+            var context = this, args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(function() {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+
+    function formatOrdinalRank(rank) {
+        if (typeof rank !== 'string' && typeof rank !== 'number') return 'N/A';
+        rank = String(rank);
+        var j = rank.length;
+        var k = rank.charAt(j - 1);
+        if (j > 1) {
+            if (rank.charAt(j - 2) === '1') return rank + 'th';
+        }
+        if (k === '1') return rank + 'st';
+        if (k === '2') return rank + 'nd';
+        if (k === '3') return rank + 'rd';
+        return rank + 'th';
+    }
+
+    function isOwner() {
+        const cu = getCurrentUserEmail();
+        const oe = getOwnerEmail();
+        if (!cu || !oe) return false;
+        return cu === oe;
+    }
+    
+    function arrayFind(arr, predicate) {
+        if (arr == null) {
+            throw new TypeError('"arr" is null or not defined');
+        }
+        var list = Object(arr);
+        var length = list.length >>> 0;
+        if (typeof predicate !== 'function') {
+            throw new TypeError('predicate must be a function');
+        }
+        for (var i = 0; i < length; i++) {
+            var value = list[i];
+            if (predicate(value, i, list)) {
+                return value;
+            }
+        }
+        return undefined;
+    }
+
+    function es5PadStart(str, targetLength, padString) {
+        str = String(str);
+        targetLength = parseInt(targetLength, 10) || 0;
+        if (str.length >= targetLength) {
+            return str;
+        }
+        padString = String(padString || ' ');
+        var pad = "";
+        while (pad.length < (targetLength - str.length)) {
+            pad += padString;
+        }
+        return pad.slice(0, targetLength - str.length) + str;
+    }
+
+    function isMobileDevice() {
+        return window.innerWidth < 768;
+    }
+    
+    function getGameTotalScores(game) {
+        // Return cached scores if available and not stale
+        if (game._cachedScores && game._scoresVersion === game.quarters?.length) {
+            return game._cachedScores;
+        }
+        
+        var ourScore = 0;
+        var opponentScore = 0;
+        if (game && game.quarters) {
+            for (var i = 0, len = game.quarters.length; i < len; i++) {
+                var q = game.quarters[i];
+                ourScore += (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+                opponentScore += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+            }
+        }
+        
+        // Cache the result
+        var result = { ourScore: ourScore, opponentScore: opponentScore };
+        game._cachedScores = result;
+        game._scoresVersion = game.quarters?.length || 0;
+        return result;
+    }
+    
+    // Toggle insights accordion sections
+    function toggleInsightsSection(sectionId) {
+        var content = document.getElementById(sectionId + '-content');
+        var icon = document.getElementById(sectionId + '-icon');
+        
+        if (!content || !icon) return;
+        
+        var isExpanded = content.style.display !== 'none';
+        
+        if (isExpanded) {
+            content.style.display = 'none';
+            icon.classList.remove('expanded');
+        } else {
+            content.style.display = 'block';
+            icon.classList.add('expanded');
+        }
+        
+        // Save state to localStorage
+        try {
+            var states = JSON.parse(localStorage.getItem('insightsAccordionStates') || '{}');
+            states[sectionId] = !isExpanded;
+            localStorage.setItem('insightsAccordionStates', JSON.stringify(states));
+        } catch (e) {
+            // Ignore localStorage errors
+        }
+    }
+    
+    // Restore accordion states from localStorage
+    function restoreInsightsAccordionStates() {
+        try {
+            var states = JSON.parse(localStorage.getItem('insightsAccordionStates') || '{}');
+            var sections = ['quarter-perf', 'offense', 'defense', 'lineup', 'impact', 'actions'];
+            
+            sections.forEach(function(sectionId) {
+                if (states[sectionId]) {
+                    var content = document.getElementById(sectionId + '-content');
+                    var icon = document.getElementById(sectionId + '-icon');
+                    if (content && icon) {
+                        content.style.display = 'block';
+                        icon.classList.add('expanded');
+                    }
+                }
+            });
+        } catch (e) {
+            // Ignore localStorage errors
+        }
+    }
+
+    // === DATA MODELS ===
+    var uuidv4 = function() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+    
+    var createQuarter = function() {
+        return {
+            positions: {},
+            ourGsGoals: 0,
+            ourGaGoals: 0,
+            opponentGsGoals: 0,
+            opponentGaGoals: 0
+        };
+    };
+    
+    var createGame = function(opponent, round, date, status, time, court) {
+        return {
+            id: uuidv4(),
+            opponent: opponent,
+            round: round,
+            date: date,
+            time: time || null,
+            court: court || null,
+            status: status,  
+            availablePlayerIDs: null,  
+            captainPlayerID: null,  
+            quarters: [createQuarter(), createQuarter(), createQuarter(), createQuarter()]
+        };
+    };
+    
+    var createPlayer = function(name) {
+        return {
+            id: uuidv4(),
+            name: name,
+            favoritePosition: null, // GS, GA, WA, C, WD, GD, GK or null
+            isFillIn: false,
+            isFavorite: false
+        };
+    };
+
+    // Normalize legacy player objects to ensure new fields exist
+    var normalizePlayer = function(player) {
+        if (!player) return player;
+        if (!player.id) player.id = uuidv4();
+        if (player.favoritePosition === undefined) player.favoritePosition = null;
+        if (player.isFillIn === undefined) player.isFillIn = false;
+        if (player.isFavorite === undefined) player.isFavorite = false;
+        return player;
+    };
+    
+    // === TOAST NOTIFICATION SYSTEM ===
+    var toastContainer = null;
+    var toastIdCounter = 0;
+    
+    function initToastContainer() {
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+        return toastContainer;
+    }
+    
+    function showToast(options) {
+        var container = initToastContainer();
+        var type = options.type || 'info'; // success, error, warning, info
+        var title = options.title || '';
+        var message = options.message || '';
+        var duration = options.duration !== undefined ? options.duration : 4000;
+        
+        var toastId = 'toast-' + (++toastIdCounter);
+        
+        var icons = {
+            success: '✓',
+            error: '✕',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+        
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.id = toastId;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+        
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'toast-icon';
+        iconSpan.textContent = icons[type] || icons.info;
+        
+        var contentDiv = document.createElement('div');
+        contentDiv.className = 'toast-content';
+        
+        if (title) {
+            var titleDiv = document.createElement('div');
+            titleDiv.className = 'toast-title';
+            titleDiv.textContent = title;
+            contentDiv.appendChild(titleDiv);
+        }
+        
+        if (message) {
+            var messageP = document.createElement('p');
+            messageP.className = 'toast-message';
+            messageP.textContent = message;
+            contentDiv.appendChild(messageP);
+        }
+        
+        var closeBtn = document.createElement('button');
+        closeBtn.className = 'toast-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.setAttribute('aria-label', 'Close notification');
+        closeBtn.onclick = function() {
+            removeToast(toastId);
+        };
+        
+        toast.appendChild(iconSpan);
+        toast.appendChild(contentDiv);
+        toast.appendChild(closeBtn);
+        
+        container.appendChild(toast);
+        
+        // Auto remove after duration
+        if (duration > 0) {
+            setTimeout(function() {
+                removeToast(toastId);
+            }, duration);
+        }
+        
+        return toastId;
+    }
+    
+    function removeToast(toastId) {
+        var toast = document.getElementById(toastId);
+        if (toast) {
+            toast.classList.add('toast-removing');
+            setTimeout(function() {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 200);
+        }
+    }
+
+    // Simple notification wrapper used across the app
+    function showNotification(message, type) {
+        var normalizedType = type || 'info';
+        var titles = {
+            success: 'Success',
+            error: 'Error',
+            warning: 'Notice',
+            info: 'Info'
+        };
+        return showToast({
+            type: normalizedType,
+            title: titles[normalizedType] || titles.info,
+            message: message || '',
+            duration: normalizedType === 'error' ? 5000 : 3500
+        });
+    }
+    window.showNotification = showNotification;
+    
+    // Convenience functions
+    function showSuccessToast(title, message, duration) {
+        return showToast({type: 'success', title: title, message: message, duration: duration});
+    }
+    
+    function showErrorToast(title, message, duration) {
+        return showToast({type: 'error', title: title, message: message, duration: duration});
+    }
+    
+    function showWarningToast(title, message, duration) {
+        return showToast({type: 'warning', title: title, message: message, duration: duration});
+    }
+    
+    function showInfoToast(title, message, duration) {
+        return showToast({type: 'info', title: title, message: message, duration: duration});
+    }
+    
+    // === EMPTY STATE HELPER ===
+    function createEmptyState(options) {
+        var icon = options.icon || '📭';
+        var title = options.title || 'No items found';
+        var message = options.message || '';
+        var actionText = options.actionText || null;
+        var actionCallback = options.actionCallback || null;
+        
+        var container = document.createElement('div');
+        container.className = 'empty-state';
+        
+        var iconDiv = document.createElement('div');
+        iconDiv.className = 'empty-state-icon';
+        iconDiv.textContent = icon;
+        
+        var titleH3 = document.createElement('h3');
+        titleH3.className = 'empty-state-title';
+        titleH3.textContent = title;
+        
+        var messageP = document.createElement('p');
+        messageP.className = 'empty-state-message';
+        messageP.textContent = message;
+        
+        container.appendChild(iconDiv);
+        container.appendChild(titleH3);
+        container.appendChild(messageP);
+        
+        if (actionText && actionCallback) {
+            var actionBtn = document.createElement('button');
+            actionBtn.className = 'empty-state-action';
+            actionBtn.textContent = actionText;
+            actionBtn.onclick = actionCallback;
+            container.appendChild(actionBtn);
+        }
+        
+        return container;
+    }
+    
+    // === LOADING SKELETON HELPER ===
+    function createSkeletonCard() {
+        var card = document.createElement('div');
+        card.className = 'card skeleton skeleton-card';
+        
+        var title = document.createElement('div');
+        title.className = 'skeleton skeleton-title';
+        
+        var text1 = document.createElement('div');
+        text1.className = 'skeleton skeleton-text';
+        text1.style.width = '80%';
+        
+        var text2 = document.createElement('div');
+        text2.className = 'skeleton skeleton-text';
+        text2.style.width = '60%';
+        
+        card.appendChild(title);
+        card.appendChild(text1);
+        card.appendChild(text2);
+        
+        return card;
+    }
+    
+    // === PHASE 3: ADVANCED UTILITIES ===
+    
+    // Intersection Observer for scroll animations
+    var scrollObserver = null;
+    
+    function initScrollAnimations() {
+        if (!('IntersectionObserver' in window)) {
+            // Fallback: show all elements immediately
+            var elements = document.querySelectorAll('.animate-on-scroll');
+            for (var i = 0; i < elements.length; i++) {
+                elements[i].classList.add('is-visible');
+            }
+            return;
+        }
+        
+        if (scrollObserver) {
+            scrollObserver.disconnect();
+        }
+        
+        scrollObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    scrollObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+        
+        var elements = document.querySelectorAll('.animate-on-scroll');
+        for (var i = 0; i < elements.length; i++) {
+            scrollObserver.observe(elements[i]);
+        }
+    }
+    
+    // Scroll progress indicator
+    function updateScrollIndicator() {
+        var indicator = document.querySelector('.scroll-indicator');
+        if (!indicator) return;
+        
+        var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        var scrolled = (winScroll / height) * 100;
+        indicator.style.width = scrolled + '%';
+    }
+    
+    // Accordion functionality
+    function initAccordion(accordionSelector) {
+        var items = document.querySelectorAll(accordionSelector + ' .accordion-item');
+        
+        items.forEach(function(item) {
+            var header = item.querySelector('.accordion-header');
+            if (header && !header.hasAttribute('data-accordion-init')) {
+                header.setAttribute('data-accordion-init', 'true');
+                header.addEventListener('click', function() {
+                    var wasActive = item.classList.contains('active');
+                    
+                    // Close all items
+                    items.forEach(function(i) {
+                        i.classList.remove('active');
+                    });
+                    
+                    // Toggle current item
+                    if (!wasActive) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        });
+    }
+    
+    // Tabs functionality
+    function initTabs(tabsSelector) {
+        var tabsContainer = document.querySelector(tabsSelector);
+        if (!tabsContainer) return;
+        
+        var buttons = tabsContainer.querySelectorAll('.tab-button');
+        var contents = document.querySelectorAll('.tab-content');
+        
+        buttons.forEach(function(button, index) {
+            if (!button.hasAttribute('data-tab-init')) {
+                button.setAttribute('data-tab-init', 'true');
+                button.addEventListener('click', function() {
+                    // Remove active from all
+                    buttons.forEach(function(btn) {
+                        btn.classList.remove('active');
+                    });
+                    contents.forEach(function(content) {
+                        content.classList.remove('active');
+                    });
+                    
+                    // Add active to clicked
+                    button.classList.add('active');
+                    if (contents[index]) {
+                        contents[index].classList.add('active');
+                    }
+                });
+            }
+        });
+    }
+    
+    // Tooltip initialization
+    function initTooltips() {
+        var tooltips = document.querySelectorAll('.tooltip');
+        tooltips.forEach(function(tooltip) {
+            if (!tooltip.hasAttribute('data-tooltip-init')) {
+                tooltip.setAttribute('data-tooltip-init', 'true');
+                tooltip.setAttribute('tabindex', '0');
+            }
+        });
+    }
+    
+    // Image lazy loading with blur effect
+    function initLazyImages() {
+        if (!('IntersectionObserver' in window)) return;
+        
+        var imageObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var img = entry.target;
+                    var src = img.getAttribute('data-src');
+                    if (src) {
+                        img.classList.add('image-loading');
+                        img.src = src;
+                        img.onload = function() {
+                            img.classList.remove('image-loading');
+                            img.classList.add('image-loaded');
+                        };
+                        img.removeAttribute('data-src');
+                    }
+                    imageObserver.unobserve(img);
+                }
+            });
+        });
+        
+        var lazyImages = document.querySelectorAll('img[data-src]');
+        lazyImages.forEach(function(img) {
+            imageObserver.observe(img);
+        });
+    }
+    
+    // Card flip functionality
+    function flipCard(cardId) {
+        var card = document.getElementById(cardId);
+        if (card) {
+            card.classList.toggle('flipped');
+        }
+    }
+    
+    // Create a chip/tag element
+    function createChip(text, options) {
+        options = options || {};
+        var chip = document.createElement('div');
+        chip.className = 'chip';
+        if (options.clickable) {
+            chip.classList.add('chip-clickable');
+        }
+        
+        var textSpan = document.createElement('span');
+        textSpan.textContent = text;
+        chip.appendChild(textSpan);
+        
+        if (options.removable) {
+            var removeBtn = document.createElement('button');
+            removeBtn.className = 'chip-remove';
+            removeBtn.innerHTML = '×';
+            removeBtn.setAttribute('aria-label', 'Remove ' + text);
+            removeBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (options.onRemove) {
+                    options.onRemove();
+                }
+                chip.parentNode.removeChild(chip);
+            };
+            chip.appendChild(removeBtn);
+        }
+        
+        if (options.onClick) {
+            chip.onclick = options.onClick;
+        }
+        
+        return chip;
+    }
+    
+    // Create progress bar
+    function createProgressBar(percentage, options) {
+        options = options || {};
+        var wrapper = document.createElement('div');
+        wrapper.className = 'progress-bar';
+        
+        if (options.variant) {
+            wrapper.classList.add('progress-' + options.variant);
+        }
+        
+        var fill = document.createElement('div');
+        fill.className = 'progress-bar-fill';
+        fill.style.width = Math.min(100, Math.max(0, percentage)) + '%';
+        
+        wrapper.appendChild(fill);
+        return wrapper;
+    }
+    
+    // Update progress bar
+    function updateProgressBar(progressBar, percentage) {
+        var fill = progressBar.querySelector('.progress-bar-fill');
+        if (fill) {
+            fill.style.width = Math.min(100, Math.max(0, percentage)) + '%';
+        }
+    }
+    
+    // === PWA INSTALL PROMPT ===
+    
+    var deferredInstallPrompt = null;
+    
+    // Capture the beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', function(e) {
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        
+        // Show custom install banner
+        showInstallBanner();
+    });
+    
+    function checkInstallPrompt() {
+        // Check if already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('App is already installed');
+            return;
+        }
+        
+        // Check if user previously dismissed
+        var dismissed = localStorage.getItem('installBannerDismissed');
+        if (dismissed) {
+            var dismissedTime = parseInt(dismissed, 10);
+            var daysSince = (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
+            if (daysSince < 7) {
+                // Don't show again for 7 days
+                return;
+            }
+        }
+        
+        // Show banner if we have the prompt
+        if (deferredInstallPrompt) {
+            showInstallBanner();
+        }
+    }
+    
+    function showInstallBanner() {
+        var banner = document.getElementById('install-pwa-banner');
+        if (banner) {
+            banner.classList.remove('hidden');
+            haptic(50);
+        }
+    }
+    
+    window.dismissInstallBanner = function() {
+        var banner = document.getElementById('install-pwa-banner');
+        if (banner) {
+            banner.classList.add('hidden');
+        }
+        // Remember dismissal for 7 days
+        localStorage.setItem('installBannerDismissed', Date.now().toString());
+    };
+    
+    window.showInstallPrompt = function() {
+        if (!deferredInstallPrompt) {
+            // Fallback: show instructions for manual install
+            var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                showCustomAlert('Install App', 
+                    'Tap the Share button (📤) in Safari, then select "Add to Home Screen" (➕)');
+            } else {
+                showCustomAlert('Install App', 
+                    'Open menu (⋮) and select "Install app" or "Add to Home screen"');
+            }
+            return;
+        }
+        
+        // Show the install prompt
+        deferredInstallPrompt.prompt();
+        
+        deferredInstallPrompt.userChoice.then(function(choiceResult) {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+                haptic([50, 100, 50]);
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            deferredInstallPrompt = null;
+            dismissInstallBanner();
+        });
+    };
+    
+    // Listen for successful installation
+    window.addEventListener('appinstalled', function() {
+        console.log('PWA was installed');
+        dismissInstallBanner();
+        showNotification('App installed successfully! 🎉', 'success');
+        haptic([50, 100, 50, 100, 50]);
+    });
+
+    // === WRAPPER FUNCTIONS FOR COMMON API PATTERNS ===
+    // These wrapper functions ensure consistent naming across the codebase
+    // and prevent runtime errors from undefined function calls.
+    
+    /**
+     * hideView(viewId) - Hide a view by ID
+     * Wrapper for common view hiding pattern used throughout the app
+     * Removes 'hidden' class and clears from navigation history
+     */
+    window.hideView = function(viewId) {
+        try {
+            var view = document.getElementById(viewId);
+            if (!view) {
+                console.warn('[hideView] View not found:', viewId);
+                return;
+            }
+            view.classList.add('hidden');
+            
+            // Also remove from navigation history if available
+            if (typeof navigationHistory !== 'undefined' && navigationHistory.length > 0) {
+                // Find and remove this view from history
+                var histIndex = navigationHistory.indexOf(viewId);
+                if (histIndex !== -1) {
+                    navigationHistory.splice(histIndex, 1);
+                }
+            }
+            
+            console.log('[hideView] Hidden view:', viewId);
+        } catch (e) {
+            console.error('[hideView] Error hiding view ' + viewId + ':', e);
+        }
+    };
+
+    /**
+     * renderPlayerList() - Render the player list view
+     * Wrapper that routes to the actual render function if it exists
+     * Note: The actual implementation is in js-render.html and will override this
+     */
+    if (typeof window.renderPlayerList === 'undefined') {
+        window.renderPlayerList = function() {
+            console.warn('[renderPlayerList] Function not yet loaded - waiting for js-render.html');
+        };
+    }
+
+    /**
+     * addTeam() - Wrapper for adding a team
+     * Routes to the team modal dialog
+     */
+    window.addTeam = function() {
+        try {
+            if (typeof showAddTeamModal === 'function') {
+                showAddTeamModal();
+            } else {
+                console.warn('[addTeam] showAddTeamModal not available');
+            }
+        } catch (e) {
+            console.error('[addTeam] Error:', e);
+        }
+    };
+
+    /**
+     * deleteTeam() - Wrapper for deleting a team
+     * Routes to the actual delete team function
+     */
+    window.deleteTeam = function() {
+        try {
+            if (typeof executeDeleteTeam === 'function') {
+                executeDeleteTeam();
+            } else {
+                console.warn('[deleteTeam] executeDeleteTeam not available');
+            }
+        } catch (e) {
+            console.error('[deleteTeam] Error:', e);
+        }
+    };
+
+    /**
+     * deletePlayer() - Wrapper for deleting a player
+     * Routes to the actual delete player function
+     */
+    window.deletePlayer = function() {
+        try {
+            if (typeof executeDeletePlayer === 'function') {
+                executeDeletePlayer();
+            } else {
+                console.warn('[deletePlayer] executeDeletePlayer not available');
+            }
+        } catch (e) {
+            console.error('[deletePlayer] Error:', e);
+        }
+    };
+</script>

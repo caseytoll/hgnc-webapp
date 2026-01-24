@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for HTML5 for Apple macOS version 5.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content=
+  "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Team Manager">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#6a0dad">
+  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlRlYW0gTWFuYWdlciAtIE5ldGJhbGwgU3RhdHMgJiBTY2hlZHVsZXMiLAogICJzaG9ydF9uYW1lIjogIlRlYW0gTWFuYWdlciIsCiAgImRlc2NyaXB0aW9uIjogIk1hbmFnZSB5b3VyIG5ldGJhbGwgdGVhbSdzIHBsYXllcnMsIGdhbWVzLCBzdGF0cywgYW5kIHNjaGVkdWxlcyIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzFhMWEyZSIsCiAgInRoZW1lX2NvbG9yIjogIiM2YTBkYWQiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdC1wcmltYXJ5IiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA1MTIgNTEyJyUzRSUzQ3JlY3QgZmlsbD0nJTIzNmEwZGFkJyB3aWR0aD0nNTEyJyBoZWlnaHQ9JzUxMicgcng9JzEyOCcvJTNFJTNDdGV4dCB4PSc1MCUyNScgeT0nNTAlMjUnIGRvbWluYW50LWJhc2VsaW5lPSdtaWRkbGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZvbnQtZmFtaWx5PSdzeXN0ZW0tdWknIGZvbnQtc2l6ZT0nMjgwJyBmb250LXdlaWdodD0nYm9sZCcgZmlsbD0nd2hpdGUnJTNFVE0lM0MvdGV4dCUzRSUzQy9zdmclM0UiLAogICAgICAic2l6ZXMiOiAiYW55IiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0KICBdCn0=">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%236a0dad' width='180' height='180' rx='40'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui' font-size='100' font-weight='bold' fill='white'%3ETM%3C/text%3E%3C/svg%3E">
+  <base target="_top">
+  <title>Team Manager v<?= appVersion ?></title>
+  <?!= include('styles'); ?>
+
+  <!-- All CSS now consolidated in src/styles.html -->
+  
+  <!-- Service Worker Registration for Offline Support -->
+  <script>
+    // Register service worker for offline support and caching
+    // Note: Service workers in Google Apps Script require a workaround due to sandbox restrictions
+    if ('serviceWorker' in navigator && 'caches' in window) {
+      window.addEventListener('load', function() {
+        // Fallback: Service worker not available in Google Apps Script Apps domain
+        // Using cache API directly for offline support
+        console.log('[PWA] Running in Google Apps Script environment - using cache fallback');
+        
+        // Ensure basic caching is available
+        if ('caches' in window) {
+          caches.open('hgnc-webapp-runtime').then(function(cache) {
+            console.log('[PWA] Cache storage initialized for offline support');
+          });
+        }
+      });
+    }
+  </script>
+</head>
+<body class="preload">
+  <!-- Skip to main content link for keyboard navigation -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
+  <!-- Network status indicator -->
+  <div id="network-status-indicator" class="network-status" style="display: none;"></div>
+  
+  <!-- Install PWA banner -->
+  <div id="install-pwa-banner" class="install-banner hidden">
+    <div class="install-banner-content">
+      <span class="install-banner-icon">📱</span>
+      <div class="install-banner-text">
+        <strong>Install Team Manager</strong>
+        <span>Add to home screen for quick access</span>
+      </div>
+      <button onclick="dismissInstallBanner()" class="install-banner-dismiss">✕</button>
+      <button onclick="showInstallPrompt()" class="install-banner-btn">Install</button>
+    </div>
+  </div>
+  
+  <div id="fixed-header-container" class="fixed-header-wrapper">
+    <header class="app-header">
+      <h1 class="page-title">Team Manager</h1>
+      <img src="#" alt="HGNC Logo" class="header-logo" id="main-logo">
+    </header>
+  </div>
+  <div id="loading-overlay">
+    <div class="spinner"></div><span>Loading...</span>
+  </div>
+  <!-- Server data injected as JSON to avoid editor JS diagnostics -->
+  <script id="server-data" type="application/json">
+    { "userEmail": <?!= JSON.stringify(userEmail || '') ?>,
+      "ownerEmail": <?!= JSON.stringify(ownerEmail || '') ?>,
+      "showTestInsights": <?!= JSON.stringify(!!showTestInsights) ?>,
+  "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?>,
+  "teamPerformanceIconDataUrl": <?!= JSON.stringify(teamPerformanceIconDataUrl || '#') ?>,
+  "offensiveLeadersIconDataUrl": <?!= JSON.stringify(offensiveLeadersIconDataUrl || '#') ?>,
+  "defensiveWallIconDataUrl": <?!= JSON.stringify(defensiveWallIconDataUrl || '#') ?>,
+  "playerAnalysisIconDataUrl": <?!= JSON.stringify(playerAnalysisIconDataUrl || '#') ?>,
+  "appUrl": <?!= JSON.stringify(ScriptApp.getService().getUrl()) ?>,
+  "appVersion": <?!= JSON.stringify(appVersion || '0.0.0') ?> }
+  </script>
+  <script>
+    // Keep debug off by default; set window.DEBUG = true in the console to enable.
+    window.DEBUG = window.DEBUG || false;
+    // Parse server-injected JSON and expose as JS globals (defensive)
+    (function(){
+      try {
+        var el = document.getElementById('server-data');
+        var data = el ? JSON.parse(el.textContent || el.innerText || '{}') : {};
+        window._USER_EMAIL = data.userEmail || '';
+        window._OWNER_EMAIL = data.ownerEmail || '';
+        window.TEST_INSIGHTS_ENABLED = !!data.showTestInsights;
+  window.LOGO_DATA_URL = data.logoDataUrl || '#';
+  window.TEAM_PERFORMANCE_ICON_DATA_URL = data.teamPerformanceIconDataUrl || '#';
+  window.OFFENSIVE_LEADERS_ICON_DATA_URL = data.offensiveLeadersIconDataUrl || '#';
+  window.DEFENSIVE_WALL_ICON_DATA_URL = data.defensiveWallIconDataUrl || '#';
+  window.PLAYER_ANALYSIS_ICON_DATA_URL = data.playerAnalysisIconDataUrl || '#';
+  window.APP_URL = data.appUrl || window.location.origin + window.location.pathname;
+  window.APP_VERSION = data.appVersion || '0.0.0';
+      } catch (e) {
+        window._USER_EMAIL = window._USER_EMAIL || '';
+        window._OWNER_EMAIL = window._OWNER_EMAIL || '';
+        window.TEST_INSIGHTS_ENABLED = typeof window.TEST_INSIGHTS_ENABLED !== 'undefined' ? window.TEST_INSIGHTS_ENABLED : false;
+        window.LOGO_DATA_URL = '#';
+      }
+    })();
+  </script>
+  <!-- Legacy dev smoke logger removed. The runtime fallback is executed in js-startup.js -->
+
+  <?!= include('src/includes/inline-scripts-pre-main'); ?>
+  <main id="main-content">
+  <?!= include('src/includes/pre-main-views'); ?>
+  <?!= include('src/includes/main-views'); ?>
+  </main>
+  <div id="app-version-badge" class="version-badge">v<?= appVersion ?></div>
+  <div id="edit-team-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'edit-team-modal')">
+    <div class="modal-content">
+      <h3 id="edit-team-modal-title">Edit Team</h3><label for=
+      "edit-team-year">Year</label> <input type="number" id=
+      "edit-team-year" placeholder="e.g., 2026"> <label for=
+      "edit-team-season">Season</label> <select id=
+      "edit-team-season">
+        <option value="Season 1">
+          Season 1
+        </option>
+        <option value="Season 2">
+          Season 2
+        </option>
+        <option value="NFNL">
+          NFNL
+        </option>
+        <option value="Other">
+          Other
+        </option>
+      </select> <label for="edit-team-name">Team Name</label>
+      <input type="text" id="edit-team-name" placeholder=
+      "e.g., U11"> <label for="edit-team-photo">Team Photo (Optional)</label>
+      <input type="file" id="edit-team-photo" accept="image/*" 
+      onchange="handleTeamPhotoUpload(this)">
+      <div id="team-photo-preview" style="margin-top: 8px; display: none;">
+        <!-- img src set dynamically via JavaScript when file is selected -->
+        <img id="team-photo-preview-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Team photo preview" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border-color);">
+      </div>
+      <label for="edit-team-ladder-name">External
+      Ladder Name (Match Exact Text)</label> <input type="text" id=
+      "edit-team-ladder-name" placeholder=
+      "e.g., U11-A (for NetballConnect)"> <label for=
+      "edit-team-ladder-api">Ladder API URL</label> <input type="url"
+      id="edit-team-ladder-api" placeholder=
+      "https://api.example.com/ladder"> <label for=
+      "edit-team-results-api">Results API URL</label> <input type="url"
+      id="edit-team-results-api" placeholder=
+      "https://api.example.com/results">
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('edit-team-modal')">Cancel</button> <button id=
+        "update-team-button">Update</button>
+      </div>
+      <div class="modal-delete-zone hidden">
+        <button id="delete-team-button" class=
+        "delete-button-modal">Delete Team</button>
+      </div>
+    </div>
+  </div>
+  <div id="edit-player-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'edit-player-modal')">
+    <div class="modal-content">
+      <h3>Edit Player</h3><label for="edit-player-name">Player
+      Name</label> <input type="text" id="edit-player-name"
+      placeholder="Player Name">
+      
+      <label for="edit-player-fav-position">Favorite Position (optional)</label>
+      <select id="edit-player-fav-position">
+        <option value="">Auto (best avg +/-)</option>
+        <option value="GS">GS - Goal Shooter</option>
+        <option value="GA">GA - Goal Attack</option>
+        <option value="WA">WA - Wing Attack</option>
+        <option value="C">C - Centre</option>
+        <option value="WD">WD - Wing Defence</option>
+        <option value="GD">GD - Goal Defence</option>
+        <option value="GK">GK - Goal Keeper</option>
+      </select>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="edit-player-fill-in" style="width: 20px; height: 20px; cursor: pointer; margin-right: 8px; accent-color: #6a0dad;">
+        <label for="edit-player-fill-in" style="cursor: pointer;">Mark as fill-in</label>
+      </div>
+      <p class="helper-text">Fill-in players are listed separately and default to unavailable for new games.</p>
+      
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('edit-player-modal')">Cancel</button>
+        <button id="update-player-button">Update</button>
+      </div>
+      <div class="modal-delete-zone hidden">
+        <button id="delete-player-button" class=
+        "delete-button-modal">Delete Player</button>
+      </div>
+    </div>
+  </div>
+  <div id="add-player-modal" class="modal-overlay hidden" onclick=
+  "closeModal(event, 'add-player-modal')">
+    <div class="modal-content">
+      <h3>Add Player</h3><input type="text" id="new-player-name"
+      placeholder="Player Name">
+      
+      <label for="new-player-fav-position">Favorite Position (optional)</label>
+      <select id="new-player-fav-position">
+        <option value="">Auto (best avg +/-)</option>
+        <option value="GS">GS - Goal Shooter</option>
+        <option value="GA">GA - Goal Attack</option>
+        <option value="WA">WA - Wing Attack</option>
+        <option value="C">C - Centre</option>
+        <option value="WD">WD - Wing Defence</option>
+        <option value="GD">GD - Goal Defence</option>
+        <option value="GK">GK - Goal Keeper</option>
+      </select>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="new-player-fill-in" style="width: 20px; height: 20px; cursor: pointer; margin-right: 8px; accent-color: #6a0dad;">
+        <label for="new-player-fill-in" style="cursor: pointer;">Mark as fill-in</label>
+      </div>
+      <p class="helper-text">Fill-in players will default to unavailable for new games.</p>
+      
+      <div class="modal-actions">
+        <button class="cancel-btn" onclick=
+        "hideModal('add-player-modal')">Cancel</button> <button id=
+        "add-player-button">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="share-lineup-modal" class="modal-overlay hidden"
+  onclick="closeModal(event, 'share-lineup-modal')">
+    <div class="modal-content">
+      <h3>Share Lineup</h3>
+      <p style="text-align: center; color: var(--secondary-text);">
+      Screenshot this card to share with your team.</p>
+      <div id="share-lineup-validation-modal" style=
+      "margin-bottom: 16px;"></div>
+      <div id="share-lineup-card-modal"></div>
+      <div class="modal-actions" style="margin-top: 20px;">
+        <button class="cancel-btn" onclick=
+        "hideModal('share-lineup-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="season-summary-view" class="view hidden">
+    <div class="view-header">
+      <button class="back-button" onclick="hideView('season-summary-view')" aria-label="Back to previous view">←</button>
+      <h2>Season Summary</h2>
+    </div>
+    <div id="season-summary-slides" style="background: var(--primary-color); min-height: 400px; display: flex; align-items: center; justify-content: center;"></div>
+    <div class="summary-nav">
+      <button id="summary-prev" onclick="navigateSummary(-1)">← Back</button>
+      <span id="slide-counter" style="color: white; font-weight: 600;">1 / 1</span>
+      <button id="summary-next" onclick="navigateSummary(1)">Next →</button>
+    </div>
+  </div>
+  <div id="custom-alert-confirm-modal" class=
+  "custom-modal-overlay hidden">
+    <div class="custom-modal-content">
+      <h3 id="custom-modal-title">Confirmation</h3>
+      <p id="custom-modal-message">Are you sure?</p>
+      <div class="custom-modal-actions" id="custom-modal-actions">
+      </div>
+    </div>
+  </div><!-- server includes below -->
+  <?!= include('js-startup'); ?>
+  <?!= include('js-helpers'); ?>
+  <?!= include('js-navigation'); ?>
+  <?!= include('js-server-comms'); ?>
+  <?!= include('js-core-logic'); ?>
+  <?!= include('js-render'); ?>
+  <?!= include('js-validation'); ?>
+  <?!= include('js-lineup-lazy'); ?>
+  <!-- Accessible live region for screen readers. Use `announce(msg)` to send messages. -->
+  <div id="aria-live-region" role="status" aria-live="polite" aria-atomic="true" class="sr-only" aria-hidden="false"></div>
+  <script>
+    // Simple helper to announce messages to assistive technologies.
+    // Usage: window.announce && window.announce('Your message');
+    (function(){
+      window.announce = function(msg){
+        try{
+          var el = document.getElementById('aria-live-region');
+          if(!el) return;
+          // Clear then set with a short delay to ensure assistive tech notices changes
+          el.textContent = '';
+          setTimeout(function(){ el.textContent = String(msg || ''); }, 60);
+        }catch(e){ /* ignore */ }
+      };
+    })();
+  </script>
+<?!= include('src/includes/js-dom-ready-init'); ?>
+  <script>
+    // Ensure the Team Performance icon has a fallback when data: URLs are blocked or the image fails to load.
+    (function(){
+      try {
+        function ensureTeamPerfFallback() {
+          var img = document.querySelector('img[alt="Team Performance"]');
+          if (!img) return;
+          // If handler already attached, skip
+          if (img.__tp_fallback_attached) return;
+          img.__tp_fallback_attached = true;
+          // create an inline SVG fallback (hidden by default)
+          var svg = img.nextElementSibling;
+          if (!svg || !(svg instanceof SVGElement)) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+            svg.setAttribute('viewBox','0 0 64 64');
+            svg.setAttribute('width','36');
+            svg.setAttribute('height','36');
+            svg.setAttribute('aria-hidden','true');
+            svg.style.display = 'none';
+            svg.style.borderRadius = '6px';
+            svg.style.overflow = 'visible';
+            svg.innerHTML = '<defs><linearGradient id="tp_g1" x1="0" x2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#ffcc33"/></linearGradient></defs>'+
+                            '<circle cx="32" cy="32" r="18" fill="url(#tp_g1)" stroke="#cc8a00" stroke-width="2"/>'+
+                            '<path d="M32 14 L32 50 M14 32 L50 32 M20 20 L44 44 M44 20 L20 44" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>';
+            img.parentNode.insertBefore(svg, img.nextSibling);
+          }
+          // onerror: hide the broken image and show svg
+          img.addEventListener('error', function(){ try { img.style.display='none'; svg.style.display='block'; } catch(e){} });
+          // if the image is already complete but naturalWidth==0, trigger fallback
+          if (img.complete && img.naturalWidth === 0) {
+            try { img.style.display='none'; if (svg) svg.style.display='block'; } catch(e){}
+          }
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureTeamPerfFallback);
+        else ensureTeamPerfFallback();
+        // also run on subsequent DOM changes (in case the insights menu is rendered later)
+        var obs = new MutationObserver(function(){ ensureTeamPerfFallback(); });
+        obs.observe(document.body, { childList: true, subtree: true });
+      } catch (e) { console.warn('TeamPerf fallback script error', e); }
+    })();
+  </script>
+</body>
+</html>
