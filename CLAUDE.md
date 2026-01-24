@@ -4,6 +4,13 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Recent Changes (2026-01-24)
 
+**Netlify Billing Alert:**
+- Hit 50% of 300 free credits on first day (likely from many builds during setup)
+- TODO: Stop automatic deploys in Netlify to conserve credits
+- Netlify UI: Site configuration → Build & deploy → Stop builds
+- Deploy manually when ready: "Trigger deploy" dropdown in site overview
+- Credits reset February 23
+
 **Captain Selection:**
 - Tap a player in a position slot to mark as captain (shows "C" badge)
 - Captain stored at game level: `game.captain = "Player Name"`
@@ -31,7 +38,7 @@ This file provides guidance to Claude Code when working with this repository.
 | Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
 | Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
 
-**Deploy:** Push to `master` → auto-deploys to Netlify
+**Deploy:** Auto-deploys disabled (to save credits). Manual deploy: Netlify UI → Trigger deploy
 
 ---
 
@@ -115,6 +122,28 @@ npm run test:coverage    # Tests with coverage
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS
 **Production:** Direct calls to Apps Script (Google handles CORS)
+
+---
+
+## Netlify Deployment
+
+**Free tier:** 300 credits/month. Auto-deploys DISABLED to conserve credits.
+
+**To deploy changes:**
+1. Push to `master` (saves code, won't auto-deploy)
+2. Go to Netlify → Deploys tab
+3. Click **"Activate builds"**
+4. Click **"Trigger deploy"** → **"Clear cache and deploy site"**
+5. Wait ~10 seconds for deploy
+6. Go to **Site configuration** → **Build & deploy** → **Build settings** → **Stop builds**
+
+**If credits run low:** Switch to Netlify CLI (zero credits):
+```bash
+npm install -g netlify-cli && netlify login && netlify link
+npm run build && netlify deploy --prod
+```
+
+**Check usage:** Netlify dashboard → Billing (resets monthly)
 
 ---
 
