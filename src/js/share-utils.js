@@ -395,6 +395,27 @@ export function haptic(pattern = 50) {
 }
 
 /**
+ * Format a date string to "d MMM yyyy" format (e.g., "15 Mar 2025").
+ * @param {string} dateStr - Date string in any parseable format
+ * @returns {string} Formatted date or original string if parsing fails
+ */
+export function formatDateForDisplay(dateStr) {
+  if (!dateStr) return '';
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return dateStr; // Return original if parsing fails
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+
+  return `${day} ${month} ${year}`;
+}
+
+/**
  * Generate HTML for a styled lineup card suitable for image capture.
  * @param {Object} game - Game object with lineup
  * @param {string} teamName - Team name
@@ -405,7 +426,7 @@ export function generateLineupCardHTML(game, teamName) {
     return '';
   }
 
-  const { round, opponent, lineup, date, captain } = game;
+  const { round, opponent, lineup, date, time, location, captain } = game;
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
 
@@ -462,11 +483,18 @@ export function generateLineupCardHTML(game, teamName) {
 
   const captainName = getCaptainName();
 
+  // Build game details line (date, time, location)
+  const gameDetails = [
+    date ? formatDateForDisplay(date) : null,
+    time || null,
+    location || null
+  ].filter(Boolean).join(' • ');
+
   return `
     <div class="lineup-card-header">
       <div class="lineup-card-team">${teamName}</div>
       <div class="lineup-card-match">Round ${round} vs ${opponent}</div>
-      ${date ? `<div class="lineup-card-date">${date}</div>` : ''}
+      ${gameDetails ? `<div class="lineup-card-date">${gameDetails}</div>` : ''}
       ${captainName ? `<div class="lineup-card-captain">Captain: ${captainName}</div>` : ''}
     </div>
     <table class="lineup-card-table">
@@ -480,7 +508,6 @@ export function generateLineupCardHTML(game, teamName) {
         ${playerRows}
       </tbody>
     </table>
-    <div class="lineup-card-footer">Team Manager</div>
   `;
 }
 

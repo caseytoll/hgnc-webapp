@@ -2605,11 +2605,8 @@ window.openAddGameModal = function() {
       <input type="time" class="form-input" id="new-game-time" value="09:00">
     </div>
     <div class="form-group">
-      <label class="form-label">Location</label>
-      <select class="form-select" id="new-game-location">
-        <option value="Home">Home</option>
-        <option value="Away">Away</option>
-      </select>
+      <label class="form-label">Court</label>
+      <input type="text" class="form-input" id="new-game-location" placeholder="e.g. 1 or Banyule Court 1" maxlength="50">
     </div>
   `, `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -2651,11 +2648,7 @@ window.addGame = function() {
     return;
   }
 
-  const location = locationInput.value;
-  if (!['Home', 'Away'].includes(location)) {
-    showToast('Invalid location selected', 'error');
-    return;
-  }
+  const location = locationInput.value.trim();
 
   const newGame = {
     gameID: `g${Date.now()}`,
@@ -2800,11 +2793,8 @@ window.openGameSettings = function() {
       <input type="time" class="form-input" id="edit-game-time" value="${escapeAttr(game.time)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Location</label>
-      <select class="form-select" id="edit-game-location">
-        <option value="Home" ${game.location === 'Home' ? 'selected' : ''}>Home</option>
-        <option value="Away" ${game.location === 'Away' ? 'selected' : ''}>Away</option>
-      </select>
+      <label class="form-label">Court</label>
+      <input type="text" class="form-input" id="edit-game-location" value="${escapeAttr(game.location || '')}" placeholder="e.g. 1 or Banyule Court 1" maxlength="50">
     </div>
     <div class="form-group">
       <label class="form-label">Status</label>
@@ -2865,11 +2855,7 @@ window.saveGameSettings = function() {
     return;
   }
 
-  const location = document.getElementById('edit-game-location').value;
-  if (!['Home', 'Away'].includes(location)) {
-    showToast('Invalid location selected', 'error');
-    return;
-  }
+  const location = document.getElementById('edit-game-location').value.trim();
 
   game.round = round;
   game.opponent = opponent;

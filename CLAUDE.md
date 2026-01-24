@@ -9,7 +9,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Production URL: https://hgnc-team-manager.pages.dev
 - Netlify deprecated (credit costs ~15/deploy, site pause risk)
 
-**Status:** All features working. 173 tests passing. Cloudflare Pages live.
+**Game Schedule:**
+- Changed Location field from Home/Away dropdown to free text "Court" field
+- Accepts court number (e.g., "1") or full location (e.g., "Banyule Court 1")
+
+**Shared Lineup Image:**
+- Date format: "d MMM yyyy" (e.g., "15 Mar 2025")
+- Now shows date, time, and court separated by bullets
+- Removed "Team Manager" footer
+
+**Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
 ---
 
