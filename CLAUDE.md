@@ -1,177 +1,141 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Recent Changes (2026-01-24)
 
-**Captain Selection Feature:**
-- Tap a player in a position slot to mark them as captain (shows "C" badge)
+**Captain Selection:**
+- Tap a player in a position slot to mark as captain (shows "C" badge)
 - Captain stored at game level: `game.captain = "Player Name"`
 - Captain displays on shared lineup card
-- Lineup card format: players listed alphabetically, positions shown per quarter
+- Lineup card: players listed alphabetically, positions shown per quarter
 
-**Deployment:**
-- Production: https://hgnc-team-manager.netlify.app
-- GitHub: https://github.com/caseytoll/hgnc-webapp (auto-deploys on push to master)
-- Backend: Google Apps Script connected and working
-- All 173 tests passing
+**Functions added:** `handlePositionClick()`, `toggleCaptain()`, updated `generateLineupCardHTML()`
 
-**Key functions added:**
-- `handlePositionClick()` - routes to assignment or captain toggle
-- `toggleCaptain()` - marks/unmarks player as captain
-- `generateLineupCardHTML()` - updated for player-centric format with captain
+---
+
+## Quick Reference
+
+| Resource | URL |
+|----------|-----|
+| Production | https://hgnc-team-manager.netlify.app |
+| GitHub | https://github.com/caseytoll/hgnc-webapp |
+| Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
+| Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
+
+**Deploy:** Push to `master` → auto-deploys to Netlify
 
 ---
 
 ## Project Overview
 
-HGNC Team Manager is a Progressive Web App (PWA) for managing Hazel Glen Netball Club teams. It includes features for roster management, game scheduling, lineup planning with quarter-by-quarter player assignments, live scoring, and advanced analytics. The app works offline and can connect to a Google Apps Script backend for data persistence.
+HGNC Team Manager is a PWA for managing Hazel Glen Netball Club teams. Features include roster management, game scheduling, lineup planning, live scoring, and analytics. Works offline via service worker.
 
-## Build & Development Commands
+**Target user:** Junior netball coach who needs fair playing time distribution and offline access at games.
+
+**Key features:**
+- Team/player management
+- Quarter-by-quarter lineup builder with captain selection
+- Live scoring
+- Stats dashboard (overview, leaders, positions, combos, attendance)
+- Share lineup as image
+- Dark/light theme
+- PWA (installable, offline)
+
+---
+
+## Commands
 
 ```bash
-npm run dev          # Start Vite dev server on port 3000
-npm run build        # Build for production (output: dist/)
-npm run preview      # Preview production build
-npm test             # Run tests in watch mode (Vitest)
-npm run test:run     # Run tests once
-npm run test:coverage # Run tests with coverage report
+npm run dev              # Dev server (port 3000)
+npm run dev -- --host    # Dev server with network access (for phone testing)
+npm run build            # Production build → dist/
+npm run test:run         # Run tests once
+npm run test:coverage    # Tests with coverage
 ```
+
+---
 
 ## Architecture
 
-### Tech Stack
-- **Frontend**: Vanilla JavaScript (ES modules), no framework
-- **Build Tool**: Vite
-- **Testing**: Vitest with happy-dom
-- **Backend**: Google Apps Script (optional, can use mock data)
-- **Dependencies**: html2canvas (for lineup image generation)
+**Tech:** Vanilla JS (ES modules), Vite, Vitest, Google Apps Script backend
 
-### Directory Structure
-```
-/
-├── index.html           # Main HTML with all view templates
-├── src/
-│   ├── css/
-│   │   └── styles.css   # All styles including themes
-│   └── js/
-│       ├── app.js           # Main application logic
-│       ├── api.js           # API layer (mock/live toggle)
-│       ├── config.js        # API configuration
-│       ├── mock-data.js     # Mock data for offline dev
-│       ├── utils.js         # Validation & HTML escaping
-│       ├── stats-calculations.js  # Analytics calculations
-│       └── share-utils.js   # Sharing & export utilities
-└── public/
-    ├── sw.js            # Service worker for PWA
-    ├── manifest.json    # PWA manifest
-    └── icons/           # App icons (192x192, 512x512)
-```
+**Key files:**
+- `src/js/app.js` - Main application logic
+- `src/js/api.js` - Data source abstraction (mock/API toggle)
+- `src/js/config.js` - API endpoint URL
+- `src/js/share-utils.js` - Lineup card generation, sharing
+- `src/css/styles.css` - All styles with CSS custom properties
 
-### Key Patterns
+**Patterns:**
+- Single HTML file with `<div class="view">` sections
+- Global `state` object in app.js
+- All onclick handlers attached to `window`
+- Always use `escapeHtml()` for user input
+- CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility
 
-**Data Flow**:
-- `api.js` abstracts data source (mock vs live API)
-- Toggle between mock/API via dev panel in bottom-right corner (only visible on localhost)
-- All data fetched through exported functions in `api.js`
-- Vite proxy configured to forward `/api` requests to Google Apps Script backend
-
-**Views & Navigation**:
-- Single HTML file with multiple `<div class="view">` sections
-- `showView(viewId)` function toggles visibility
-- Bottom navigation tabs within main app view
-
-**State Management**:
-- Global `appState` object in `app.js` holds current team/game data
-- localStorage for theme preference and cached data
-
-**Pure Functions**:
-- Business logic in separate modules (`utils.js`, `stats-calculations.js`, `share-utils.js`)
-- All pure functions are testable and exported
-
-**Security**:
-- Always use `escapeHtml()` from `utils.js` for user-controlled data
-- Never insert raw user input into innerHTML
-
-## Testing
-
-Tests use Vitest with happy-dom for DOM simulation. Test files are co-located with source files (`.test.js` suffix).
-
-```bash
-# Run all tests in watch mode
-npm test
-
-# Run all tests once
-npm run test:run
-
-# Run specific test file
-npm test src/js/utils.test.js
-
-# Run tests matching a name pattern
-npm test -- -t "escapeHtml"
-
-# Run with coverage report
-npm run test:coverage
-```
-
-Test files:
-- `utils.test.js` - Validation and escaping functions
-- `mock-data.test.js` - Mock data structure validation
-- `stats-calculations.test.js` - Analytics calculations
-- `share-utils.test.js` - Sharing and export utilities
+---
 
 ## Data Structures
 
-### Team Object
 ```javascript
+// Team
 {
-  teamID: "t1234567890",
-  teamName: "U11 Thunder",
-  year: 2025,
-  season: "Season 1",  // "Season 1" | "Season 2" | "NFNL"
+  teamID, teamName, year, season,
   players: [{ id, name, fillIn, favPosition }],
   games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }]
 }
-```
 
-### Game Lineup
-```javascript
+// Lineup (per game)
 {
   Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, opponentScore },
-  Q2: { ... },
-  Q3: { ... },
-  Q4: { ... }
+  Q2: { ... }, Q3: { ... }, Q4: { ... }
 }
 ```
 
-### Netball Positions
-GS (Goal Shooter), GA (Goal Attack), WA (Wing Attack), C (Centre), WD (Wing Defence), GD (Goal Defence), GK (Goal Keeper)
+**Positions:** GS, GA, WA, C, WD, GD, GK
 
-## Common Tasks
+---
 
-### Adding a New Utility Function
-1. Add function to appropriate module (`utils.js`, `share-utils.js`, etc.)
-2. Export the function
-3. Add tests in corresponding `.test.js` file
-4. Import in `app.js` if needed for UI
+## API
 
-### Adding a New View/Modal
-1. Add HTML structure in `index.html` with appropriate class
-2. Add CSS in `styles.css`
-3. Add JavaScript handlers in `app.js`
-4. Expose handler to window if called from onclick
+**Endpoints** (via Apps Script):
+- `?api=true&action=ping` - Health check
+- `?api=true&action=getTeams` - List teams
+- `?api=true&action=getTeamData&teamID=X&sheetName=Y` - Get team
+- `?api=true&action=saveTeamData&sheetName=X&teamData=JSON` - Save team
 
-### Modifying Styles
-- CSS custom properties defined at top of `styles.css`
-- Light theme overrides in `[data-theme="light"]` selector
-- Mobile-first responsive design
+**Local dev:** Vite proxy at `/gas-proxy` bypasses CORS
+**Production:** Direct calls to Apps Script (Google handles CORS)
 
-## Important Notes
+---
 
-- All UI functions called from HTML onclick must be attached to `window`
-- Use `haptic()` from share-utils for tactile feedback on mobile
-- The service worker (`public/sw.js`) caches assets for offline use
-- Dev tools panel in bottom-right toggles mock/live data (localhost only)
-- Canvas dependency required for html2canvas (image generation) - don't remove from devDependencies
-- **CSS is imported via JavaScript** (`import '../css/styles.css'` in app.js) for Vite 7.x MIME type compatibility
-- **Safari + localhost:** Use network IP (e.g., `http://192.168.x.x:3000/`) instead of `localhost:3000` - Safari has issues with Vite's localhost handling
+## Troubleshooting
+
+**Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost. Safari has issues with Vite 7.x localhost handling.
+
+**Vite parse errors:** Check brace balance with:
+```bash
+node --check src/js/app.js
+```
+
+**Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API.
+
+---
+
+## Future Enhancements (Optional)
+
+- Custom domain (~$12/year)
+- Offline sync (background sync when connection restored)
+- Push notifications (game reminders)
+
+---
+
+## Session Handoff
+
+At the end of each session, update the "Recent Changes" section at the top of this file with:
+- Features added/modified
+- Key functions changed
+- Any issues to watch for
+
+Then commit and push to deploy.
