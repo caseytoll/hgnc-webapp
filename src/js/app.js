@@ -1790,13 +1790,16 @@ function renderLineupBuilder() {
 
   const lineup = game.lineup || {};
   const quarterData = lineup[state.currentQuarter] || {};
+
+  // Use Sets for O(1) lookups instead of O(n) array.includes()
+  const availableSet = game.availablePlayerIDs ? new Set(game.availablePlayerIDs) : null;
   const availablePlayers = state.currentTeamData.players.filter(p =>
-    !game.availablePlayerIDs || game.availablePlayerIDs.includes(p.id)
+    !availableSet || availableSet.has(p.id)
   );
 
   // Find players on bench (not in current quarter)
-  const assignedNames = Object.values(quarterData).filter(v => typeof v === 'string');
-  const benchPlayers = availablePlayers.filter(p => !assignedNames.includes(p.name));
+  const assignedNames = new Set(Object.values(quarterData).filter(v => typeof v === 'string'));
+  const benchPlayers = availablePlayers.filter(p => !assignedNames.has(p.name));
 
   container.innerHTML = `
     <!-- Quarter Tabs -->
