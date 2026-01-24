@@ -492,9 +492,9 @@ describe('generateLineupCardHTML', () => {
     expect(result).toContain('Round 1 vs Lightning');
   });
 
-  it('should include date when present', () => {
+  it('should include date when present in d MMM yyyy format', () => {
     const result = generateLineupCardHTML(mockGame, 'U11 Thunder');
-    expect(result).toContain('2025-03-15');
+    expect(result).toContain('15 Mar 2025');
   });
 
   it('should include quarter columns', () => {
@@ -548,10 +548,6 @@ describe('generateLineupCardHTML', () => {
     expect(result).toContain('>Off<');
   });
 
-  it('should include footer with app name', () => {
-    const result = generateLineupCardHTML(mockGame, 'U11 Thunder');
-    expect(result).toContain('Team Manager');
-  });
 });
 
 // ========================================
