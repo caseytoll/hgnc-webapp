@@ -54,7 +54,7 @@ export function calculateMockStats(team) {
           const playerName = quarter[pos];
           if (playerName) {
             if (!playerData[playerName]) {
-              playerData[playerName] = { goals: 0, quarters: 0, gamesPlayed: [], gameBreakdown: [] };
+              playerData[playerName] = { goals: 0, quarters: 0, scoringQuarters: 0, gamesPlayed: [], gameGoals: {} };
             }
             playerData[playerName].quarters++;
             playersInGame.add(playerName);
@@ -62,25 +62,21 @@ export function calculateMockStats(team) {
             // Track goals for GS and GA
             if (pos === 'GS' && quarter.ourGsGoals) {
               playerData[playerName].goals += quarter.ourGsGoals;
-              playerData[playerName].gameBreakdown.push({
-                gameID: game.gameID,
-                round: game.round,
-                opponent: game.opponent,
-                goals: quarter.ourGsGoals,
-                position: 'GS',
-                quarter: q
-              });
+              playerData[playerName].scoringQuarters++;
+              // Aggregate by game
+              if (!playerData[playerName].gameGoals[game.gameID]) {
+                playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
+              }
+              playerData[playerName].gameGoals[game.gameID].gsGoals += quarter.ourGsGoals;
             }
             if (pos === 'GA' && quarter.ourGaGoals) {
               playerData[playerName].goals += quarter.ourGaGoals;
-              playerData[playerName].gameBreakdown.push({
-                gameID: game.gameID,
-                round: game.round,
-                opponent: game.opponent,
-                goals: quarter.ourGaGoals,
-                position: 'GA',
-                quarter: q
-              });
+              playerData[playerName].scoringQuarters++;
+              // Aggregate by game
+              if (!playerData[playerName].gameGoals[game.gameID]) {
+                playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
+              }
+              playerData[playerName].gameGoals[game.gameID].gaGoals += quarter.ourGaGoals;
             }
           }
         });
@@ -97,13 +93,24 @@ export function calculateMockStats(team) {
 
   // Convert to array and sort by goals descending
   const playerStats = Object.entries(playerData)
-    .map(([name, data]) => ({
-      name,
-      goals: data.goals,
-      quarters: data.quarters,
-      gamesPlayed: data.gamesPlayed,
-      gameBreakdown: data.gameBreakdown
-    }))
+    .map(([name, data]) => {
+      // Convert gameGoals object to gameBreakdown array with totals
+      const gameBreakdown = Object.values(data.gameGoals).map(g => ({
+        round: g.round,
+        opponent: g.opponent,
+        gsGoals: g.gsGoals,
+        gaGoals: g.gaGoals,
+        total: g.gsGoals + g.gaGoals
+      }));
+      return {
+        name,
+        goals: data.goals,
+        quarters: data.quarters,
+        scoringQuarters: data.scoringQuarters,
+        gamesPlayed: data.gamesPlayed,
+        gameBreakdown
+      };
+    })
     .sort((a, b) => b.goals - a.goals);
 
   return {
