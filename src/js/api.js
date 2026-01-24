@@ -30,14 +30,11 @@ async function callAppsScript(action, params = {}) {
   try {
     // Use proxy to bypass CORS (Vite proxy for local, Netlify proxy for production)
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : '/api/';
+    const baseUrl = isLocalDev ? '/gas-proxy' : '/api';
     const url = new URL(baseUrl, window.location.origin);
 
     // Add api=true flag for Apps Script to know this is an API request
-    // Note: For Netlify proxy, api=true is added in the redirect rule
-    if (isLocalDev) {
-      url.searchParams.set('api', 'true');
-    }
+    url.searchParams.set('api', 'true');
     url.searchParams.set('action', action);
 
     Object.keys(params).forEach(key => {
