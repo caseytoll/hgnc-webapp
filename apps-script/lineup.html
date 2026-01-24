@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lineup Analytics</title>
+  <?!= include('styles'); ?>
+</head>
+<body class="preload">
+  <div id="loading-overlay">
+    <div class="spinner"></div><span>Loading...</span>
+  </div>
+  
+  <!-- Server data -->
+  <script id="server-data" type="application/json">
+    { "userEmail": <?!= JSON.stringify(userEmail || '') ?>,
+      "ownerEmail": <?!= JSON.stringify(ownerEmail || '') ?>,
+      "logoDataUrl": <?!= JSON.stringify(logoDataUrl || '#') ?>,
+      "appUrl": <?!= JSON.stringify(ScriptApp.getService().getUrl()) ?> }
+  </script>
+  
+  <script>
+    window.DEBUG = window.DEBUG || false;
+    (function(){
+      try {
+        var el = document.getElementById('server-data');
+        var data = el ? JSON.parse(el.textContent || el.innerText || '{}') : {};
+        window._USER_EMAIL = data.userEmail || '';
+        window._OWNER_EMAIL = data.ownerEmail || '';
+        window.LOGO_DATA_URL = data.logoDataUrl || '#';
+        window.APP_URL = data.appUrl || window.location.origin + window.location.pathname.replace('?page=lineup', '');
+      } catch (e) {
+        window._USER_EMAIL = '';
+        window._OWNER_EMAIL = '';
+        window.LOGO_DATA_URL = '#';
+      }
+    })();
+  </script>
+  
+  <main id="main-content">
+    <!-- LINEUP ANALYTICS: DEFENSIVE UNITS VIEW -->
+    <div id="insights-lineup-defensive-units-view" class="view">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Defensive Units (GK-GD-WD-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive unit combinations</div>
+            </div>
+            <button class="back-button" onclick="window.location.href=window.APP_URL + '?view=insights'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Defensive Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-defensive-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: ATTACKING UNITS VIEW -->
+    <div id="insights-lineup-attacking-units-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Attacking Units (GS-GA-WA-C)</h2>
+              <div class="dashboard-subtitle">Performance analysis of attacking unit combinations</div>
+            </div>
+            <button class="back-button" onclick="window.location.href=window.APP_URL + '?view=insights'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Attacking Unit Combinations</h3>
+          <p class="card-subtitle">Showing combinations with 3+ quarters together</p>
+          <div id="lineup-attacking-units-table"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- LINEUP ANALYTICS: POSITION PAIRINGS VIEW -->
+    <div id="insights-lineup-position-pairings-view" class="view hidden">
+      <div class="insights-dashboard">
+        <div class="dashboard-section dashboard-section-full">
+          <div class="dashboard-header">
+            <div>
+              <h2 class="dashboard-title">Position Pairings</h2>
+              <div class="dashboard-subtitle">Performance analysis of defensive, attacking, and transition position pairs</div>
+            </div>
+            <button class="back-button" onclick="window.location.href=window.APP_URL + '?view=insights'" aria-label="Back to Insights">← Back</button>
+          </div>
+        </div>
+        <section class="card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Position Pair Performance</h3>
+          <p class="card-subtitle">Showing pairs with 2+ quarters together</p>
+          <div id="lineup-position-pairings-content"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Minimal JavaScript - NO heavy includes -->
+  <script>
+    // Minimal helper function
+    function setLoading(isLoading, message) {
+      var overlay = document.getElementById('loading-overlay');
+      if (overlay) {
+        overlay.querySelector('span').textContent = message || 'Loading...';
+        overlay.classList.toggle('hidden', !isLoading);
+      }
+    }
+    
+    // Show skeleton/shell UI for perceived speed
+    function showLoadingShell() {
+      var defensiveEl = document.getElementById('lineup-defensive-units-table');
+      var attackingEl = document.getElementById('lineup-attacking-units-table');
+      var pairingEl = document.getElementById('lineup-position-pairings-content');
+      
+      var skeleton = '<div class="skeleton-table" style="animation: pulse 1.5s ease-in-out infinite;">' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '<div class="skeleton-row"><div class="skeleton-cell" style="width: 30%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div><div class="skeleton-cell" style="width: 15%;"></div></div>' +
+        '</div>';
+      
+      if (defensiveEl) defensiveEl.innerHTML = skeleton;
+      if (attackingEl) attackingEl.innerHTML = skeleton;
+      if (pairingEl) pairingEl.innerHTML = skeleton;
+    }
+    
+    // Hide skeleton UI
+    function hideLoadingShell() {
+      // Shells will be replaced with actual content during render
+      // So this is mainly a no-op, but useful for future enhancements
+    }
+    
+    // Lineup page initialization
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('[Lineup Page] DOMContentLoaded');
+      
+      try {
+        var stateJSON = localStorage.getItem('appState');
+        console.log('[Lineup Page] localStorage appState:', stateJSON);
+        
+        var state = JSON.parse(stateJSON || '{}');
+        console.log('[Lineup Page] Parsed state:', state);
+        
+        if (!state.currentTeam || !state.currentTeam.teamID || !state.currentTeam.sheetName) {
+          console.error('[Lineup Page] Missing team data');
+          alert('No team selected. Returning to main page...');
+          window.location.href = window.APP_URL;
+          return;
+        }
+        
+        console.log('[Lineup Page] Loading for:', state.currentTeam.name);
+        window.appState = state;
+        
+        // Show loading shell immediately (perceived speed)
+        showLoadingShell();
+        setLoading(true, 'Loading stats...');
+        
+        // Load pre-calculated stats from server (cached on server = fast)
+        google.script.run
+          .withSuccessHandler(function(response) {
+            console.log('[Lineup Page] Received stats:', response);
+            hideLoadingShell();
+            
+            if (!response || !response.defensiveUnitStats) {
+              console.error('[Lineup Page] No lineup stats in response');
+              document.getElementById('lineup-defensive-units-table').innerHTML = 
+                '<div class="empty-state">No lineup data available. Add lineup data to games to see statistics.</div>';
+              setLoading(false);
+              return;
+            }
+            
+            // Show appropriate view based on URL hash
+            var hash = window.location.hash.replace('#', '');
+            var viewId = hash || 'insights-lineup-defensive-units-view';
+            
+            console.log('[Lineup Page] URL hash:', window.location.hash);
+            console.log('[Lineup Page] Parsed hash:', hash);
+            console.log('[Lineup Page] Target viewId:', viewId);
+            
+            document.querySelectorAll('.view').forEach(function(v) { v.classList.add('hidden'); });
+            var view = document.getElementById(viewId);
+            console.log('[Lineup Page] Found view element:', view);
+            if (view) {
+              view.classList.remove('hidden');
+              view.querySelector('.insights-dashboard').classList.remove('hidden');
+              console.log('[Lineup Page] Showing view:', viewId);
+            } else {
+              console.error('[Lineup Page] View not found:', viewId);
+            }
+            
+            // Render based on view
+            if (viewId === 'insights-lineup-defensive-units-view') {
+              console.log('[Lineup Page] Rendering defensive units, stats:', response.defensiveUnitStats);
+              renderDefensiveUnits(response.defensiveUnitStats);
+            } else if (viewId === 'insights-lineup-attacking-units-view') {
+              console.log('[Lineup Page] Rendering attacking units, stats:', response.attackingUnitStats);
+              renderAttackingUnits(response.attackingUnitStats);
+            } else if (viewId === 'insights-lineup-position-pairings-view') {
+              console.log('[Lineup Page] Rendering position pairings, stats:', response.positionPairingStats);
+              renderPositionPairings(response.positionPairingStats);
+            } else {
+              console.error('[Lineup Page] Unknown viewId, not rendering:', viewId);
+            }
+            
+            setLoading(false);
+          })
+          .withFailureHandler(function(error) {
+            console.error('[Lineup Page] Load failed:', error);
+            hideLoadingShell();
+            setLoading(false);
+            alert('Failed to load data: ' + error.message);
+            window.location.href = window.APP_URL;
+          })
+          .getLineupStats(state.currentTeam.sheetName);
+          
+      } catch (e) {
+        console.error('[Lineup Page] Init error:', e);
+        hideLoadingShell();
+        alert('Error: ' + e.message);
+        window.location.href = window.APP_URL;
+      }
+    });
+    
+    // Lightweight render functions
+    function renderDefensiveUnits(stats) {
+      var container = document.getElementById('lineup-defensive-units-table');
+      if (!container) return;
+      
+      if (!stats || Object.keys(stats).length === 0) {
+        container.innerHTML = '<div class="empty-state">No defensive unit data available.</div>';
+        return;
+      }
+      
+      var sorted = Object.keys(stats)
+        .map(function(key) { return { key: key, data: stats[key] }; })
+        .sort(function(a, b) { return parseFloat(b.data.avgPlusMinus) - parseFloat(a.data.avgPlusMinus); });
+      
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.9em">' +
+        '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd">' +
+        '<th style="padding:8px;text-align:left;font-weight:bold;color:#000">Defensive Unit (GK-GD-WD-C)</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">Qtrs</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">GA/Qtr</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">+/- Avg</th>' +
+        '</tr>';
+      
+      sorted.forEach(function(item) {
+        var textColor = parseFloat(item.data.avgPlusMinus) > 0 ? '#2e7d32' : 
+                       parseFloat(item.data.avgPlusMinus) < 0 ? '#c62828' : '#666';
+        html += '<tr style="border-bottom:1px solid #eee;background:#fff">' +
+          '<td style="padding:8px;font-weight:600;color:#000">' + item.data.gk + ' / ' + item.data.gd + ' / ' + item.data.wd + ' / ' + item.data.c + '</td>' +
+          '<td style="padding:8px;text-align:center;color:#000">' + item.data.quarters + '</td>' +
+          '<td style="padding:8px;text-align:center;color:#000">' + item.data.avgGoalsAgainst + '</td>' +
+          '<td style="padding:8px;text-align:center;color:' + textColor + ';font-weight:bold">' + item.data.avgPlusMinus + '</td>' +
+          '</tr>';
+      });
+      
+      html += '</table>';
+      container.innerHTML = html;
+    }
+    
+    function renderAttackingUnits(stats) {
+      var container = document.getElementById('lineup-attacking-units-table');
+      if (!container) return;
+      
+      if (!stats || Object.keys(stats).length === 0) {
+        container.innerHTML = '<div class="empty-state">No attacking unit data available.</div>';
+        return;
+      }
+      
+      var sorted = Object.keys(stats)
+        .map(function(key) { return { key: key, data: stats[key] }; })
+        .sort(function(a, b) { return parseFloat(b.data.avgPlusMinus) - parseFloat(a.data.avgPlusMinus); });
+      
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.9em">' +
+        '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd">' +
+        '<th style="padding:8px;text-align:left;font-weight:bold;color:#000">Attacking Unit (GS-GA-WA-C)</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">Qtrs</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">GF/Qtr</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">+/- Avg</th>' +
+        '</tr>';
+      
+      sorted.forEach(function(item) {
+        var textColor = parseFloat(item.data.avgPlusMinus) > 0 ? '#2e7d32' : 
+                       parseFloat(item.data.avgPlusMinus) < 0 ? '#c62828' : '#666';
+        html += '<tr style="border-bottom:1px solid #eee;background:#fff">' +
+          '<td style="padding:8px;font-weight:600;color:#000">' + item.data.gs + ' / ' + item.data.ga + ' / ' + item.data.wa + ' / ' + item.data.c + '</td>' +
+          '<td style="padding:8px;text-align:center;color:#000">' + item.data.quarters + '</td>' +
+          '<td style="padding:8px;text-align:center;color:#000">' + item.data.avgGoalsFor + '</td>' +
+          '<td style="padding:8px;text-align:center;color:' + textColor + ';font-weight:bold">' + item.data.avgPlusMinus + '</td>' +
+          '</tr>';
+      });
+      
+      html += '</table>';
+      container.innerHTML = html;
+    }
+    
+    function renderPositionPairings(stats) {
+      var container = document.getElementById('lineup-position-pairings-content');
+      if (!container) return;
+      
+      if (!stats || Object.keys(stats).length === 0) {
+        container.innerHTML = '<div class="empty-state">No position pairing data available.</div>';
+        return;
+      }
+      
+      // Group by pairing type
+      var defensive = [], attacking = [], transition = [];
+      
+      Object.keys(stats).forEach(function(key) {
+        var pair = stats[key];
+        if (key.includes('GK') || key.includes('GD') || key.includes('WD')) {
+          defensive.push({ key: key, data: pair });
+        } else if (key.includes('GS') || key.includes('GA') || key.includes('WA')) {
+          attacking.push({ key: key, data: pair });
+        } else {
+          transition.push({ key: key, data: pair });
+        }
+      });
+      
+      var html = '';
+      
+      if (defensive.length > 0) {
+        html += '<h4 style="margin:20px 0 10px;color:#2e7d32">Defensive Pairs</h4>';
+        html += renderPairTable(defensive);
+      }
+      
+      if (attacking.length > 0) {
+        html += '<h4 style="margin:20px 0 10px;color:#d32f2f">Attacking Pairs</h4>';
+        html += renderPairTable(attacking);
+      }
+      
+      if (transition.length > 0) {
+        html += '<h4 style="margin:20px 0 10px;color:#1976d2">Transition Pairs</h4>';
+        html += renderPairTable(transition);
+      }
+      
+      container.innerHTML = html;
+    }
+    
+    function renderPairTable(pairs) {
+      pairs.sort(function(a, b) { return parseFloat(b.data.avgPlusMinus) - parseFloat(a.data.avgPlusMinus); });
+      
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.9em;margin-bottom:20px">' +
+        '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd">' +
+        '<th style="padding:8px;text-align:left;font-weight:bold;color:#000">Pair</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">Qtrs</th>' +
+        '<th style="padding:8px;text-align:center;font-weight:bold;color:#000">+/- Avg</th>' +
+        '</tr>';
+      
+      pairs.forEach(function(item) {
+        var textColor = parseFloat(item.data.avgPlusMinus) > 0 ? '#2e7d32' : 
+                       parseFloat(item.data.avgPlusMinus) < 0 ? '#c62828' : '#666';
+        html += '<tr style="border-bottom:1px solid #eee;background:#fff">' +
+          '<td style="padding:8px;font-weight:600;color:#000">' + item.data.player1 + ' / ' + item.data.player2 + '</td>' +
+          '<td style="padding:8px;text-align:center;color:#000">' + item.data.quarters + '</td>' +
+          '<td style="padding:8px;text-align:center;color:' + textColor + ';font-weight:bold">' + item.data.avgPlusMinus + '</td>' +
+          '</tr>';
+      });
+      
+      html += '</table>';
+      return html;
+    }
+  </script>
+</body>
+</html>

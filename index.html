@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="background-color" content="#09090b">
+  <meta name="application-name" content="HGNC Team Manager">
+
+  <!-- Apple iOS Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HGNC">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+  <!-- Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- iOS Splash Screen (inline SVG for simplicity) -->
+  <style>
+    /* Splash screen styles for iOS PWA */
+    @media (display-mode: standalone) {
+      html { background: #09090b; }
+    }
+  </style>
+  <link rel="apple-touch-startup-image" href="/icons/apple-touch-icon.png">
+
+  <title>HGNC Team Manager</title>
+  <!-- CSS is imported via app.js for proper Vite handling -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- ========================================
+         TEAM SELECTOR VIEW
+         ======================================== -->
+    <div id="team-selector-view" class="view active">
+      <div class="splash-header">
+        <div class="splash-logo">HGNC</div>
+        <h1>HGNC Team Manager</h1>
+        <p>Select a team to get started</p>
+      </div>
+
+      <div class="team-selector-content">
+        <div id="team-list" class="team-list">
+          <!-- Teams loaded dynamically -->
+        </div>
+
+        <button id="add-team-btn" class="btn btn-outline btn-block">
+          <span class="btn-icon">+</span>
+          Add New Team
+        </button>
+      </div>
+    </div>
+
+    <!-- ========================================
+         MAIN APP VIEW (after team selected)
+         ======================================== -->
+    <div id="main-app-view" class="view">
+      <!-- Top Navigation Bar -->
+      <header class="top-bar">
+        <button class="icon-btn" onclick="showView('team-selector-view')" aria-label="Switch team">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <div class="top-bar-title">
+          <h1 id="current-team-name">Team Name</h1>
+          <span id="current-team-season" class="subtitle">2025 Season 1</span>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+            <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <button class="icon-btn" onclick="openTeamSettings()" aria-label="Team settings">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9-9h4m14 0h4m-3.3-6.7l-2.8 2.8m-9.8 9.8l-2.8 2.8m0-15.4l2.8 2.8m9.8 9.8l2.8 2.8"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Quick Stats Banner -->
+      <div class="quick-stats-banner">
+        <div class="quick-stat">
+          <span class="quick-stat-value" id="qs-record">0-0-0</span>
+          <span class="quick-stat-label">Record</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-value" id="qs-gd">+0</span>
+          <span class="quick-stat-label">Goal Diff</span>
+        </div>
+        <div class="quick-stat">
+          <span class="quick-stat-value" id="qs-next">--</span>
+          <span class="quick-stat-label">Next Game</span>
+        </div>
+      </div>
+
+      <!-- Tab Content Area -->
+      <main class="tab-content-area">
+        <!-- SCHEDULE TAB -->
+        <div id="tab-schedule" class="tab-panel active">
+          <div class="section-header">
+            <h2>Schedule</h2>
+            <button class="btn btn-sm" onclick="openAddGameModal()">+ Add</button>
+          </div>
+          <div id="schedule-list" class="game-list">
+            <!-- Games loaded dynamically -->
+          </div>
+        </div>
+
+        <!-- ROSTER TAB -->
+        <div id="tab-roster" class="tab-panel">
+          <div class="section-header">
+            <h2>Roster</h2>
+            <button class="btn btn-sm" onclick="openAddPlayerModal()">+ Add</button>
+          </div>
+          <div id="roster-grid" class="roster-grid">
+            <!-- Players loaded dynamically -->
+          </div>
+        </div>
+
+        <!-- STATS TAB -->
+        <div id="tab-stats" class="tab-panel">
+          <div id="stats-container">
+            <!-- Stats loaded dynamically -->
+          </div>
+        </div>
+
+        <!-- LINEUP TAB (context-specific) -->
+        <div id="tab-lineup" class="tab-panel">
+          <div id="lineup-container">
+            <!-- Lineup builder loaded dynamically -->
+          </div>
+        </div>
+      </main>
+
+      <!-- Bottom Navigation -->
+      <nav class="bottom-nav">
+        <button class="nav-item active" data-tab="schedule" onclick="switchTab('schedule')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Schedule</span>
+        </button>
+        <button class="nav-item" data-tab="roster" onclick="switchTab('roster')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>Roster</span>
+        </button>
+        <button class="nav-item" data-tab="stats" onclick="switchTab('stats')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span>Stats</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ========================================
+         GAME DETAIL VIEW
+         ======================================== -->
+    <div id="game-detail-view" class="view">
+      <header class="top-bar">
+        <button class="icon-btn" onclick="closeGameDetail()" aria-label="Back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <div class="top-bar-title">
+          <h1 id="game-detail-title">Round 1</h1>
+          <span id="game-detail-subtitle" class="subtitle">vs Opponent</span>
+        </div>
+        <button class="icon-btn" onclick="shareCurrentGame()" aria-label="Share game" id="share-game-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+        </button>
+        <button class="icon-btn" onclick="openGameSettings()" aria-label="Game settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="game-detail-content">
+        <!-- Game Score Header -->
+        <div class="game-score-card" id="game-score-card">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Share Actions (visible for completed games) -->
+        <div class="share-actions" id="share-actions">
+          <button class="share-action-btn" onclick="shareCurrentGame()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            Share Result
+          </button>
+          <button class="share-action-btn" onclick="copyLineup()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Share Lineup
+          </button>
+        </div>
+
+        <!-- Game Tabs -->
+        <div class="game-tabs">
+          <button class="game-tab active" data-game-tab="lineup" onclick="switchGameTab('lineup')">Lineup</button>
+          <button class="game-tab" data-game-tab="availability" onclick="switchGameTab('availability')">Availability</button>
+          <button class="game-tab" data-game-tab="scoring" onclick="switchGameTab('scoring')">Scoring</button>
+        </div>
+
+        <!-- Lineup Panel -->
+        <div id="game-panel-lineup" class="game-panel active">
+          <div id="lineup-builder">
+            <!-- Lineup builder -->
+          </div>
+        </div>
+
+        <!-- Availability Panel -->
+        <div id="game-panel-availability" class="game-panel">
+          <div id="availability-list">
+            <!-- Player availability checkboxes -->
+          </div>
+        </div>
+
+        <!-- Scoring Panel -->
+        <div id="game-panel-scoring" class="game-panel">
+          <div id="scoring-inputs">
+            <!-- Quarter-by-quarter scoring -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================
+         LOADING OVERLAY
+         ======================================== -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-spinner"></div>
+      <span>Loading...</span>
+    </div>
+
+    <!-- ========================================
+         MODAL CONTAINER
+         ======================================== -->
+    <div id="modal-backdrop" class="modal-backdrop hidden" onclick="closeModal()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="modal-title">Modal Title</h3>
+          <button class="icon-btn" onclick="closeModal()" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div id="modal-body" class="modal-body">
+          <!-- Modal content loaded dynamically -->
+        </div>
+        <div id="modal-footer" class="modal-footer">
+          <!-- Modal actions -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================
+         TOAST NOTIFICATIONS
+         ======================================== -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- ========================================
+         LINEUP CARD (for image generation)
+         ======================================== -->
+    <div id="lineup-card-container" class="lineup-card-container" aria-hidden="true">
+      <div id="lineup-card" class="lineup-card">
+        <!-- Populated dynamically for image capture -->
+      </div>
+    </div>
+
+    <!-- ========================================
+         DEV TOOLS (bottom corner)
+         ======================================== -->
+    <div id="dev-indicator" class="dev-indicator" onclick="toggleDevPanel()">DEV</div>
+    <div id="dev-panel" class="dev-panel hidden">
+      <h4>Developer Tools</h4>
+      <div class="dev-row">
+        <label>Data Source:</label>
+        <select id="data-source-select" onchange="setDataSource(this.value)">
+          <option value="mock">Mock Data</option>
+          <option value="api">Live API</option>
+        </select>
+      </div>
+      <div class="dev-row">
+        <button onclick="reloadData()">Reload Data</button>
+        <button onclick="clearCache()">Clear Cache</button>
+        <button onclick="exportMockData()">Export Mock Data</button>
+      </div>
+      <div class="dev-status" id="dev-status">Ready</div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="/src/js/app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('[PWA] Service worker registered'))
+          .catch(err => console.log('[PWA] Service worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

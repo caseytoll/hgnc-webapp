@@ -1,0 +1,292 @@
+# HGNC Team Manager
+
+> **Handover & Troubleshooting:** See `HANDOVER_SESSION.md` for the latest project status, troubleshooting steps (including Vite parse errors), and onboarding notes for new developers.
+
+A mobile-first web application for managing Hazel Glen Netball Club team rosters, game schedules, lineups, and statistics. Optimized for mobile devices and installable as a Progressive Web App (PWA).
+
+## Features
+
+- **Team Management**: Create and manage multiple teams with player rosters
+- **Game Scheduling**: Track games with dates, times, locations, and opponents
+- **Lineup Builder**: Visual drag-and-drop lineup builder for each quarter
+- **Live Scoring**: Enter scores during games with +/- buttons for easy input
+- **Statistics**: View team records, goal scorers, and player stats
+- **PWA Support**: Install on your home screen for offline access
+- **Data Persistence**: Scores and lineups saved locally via localStorage
+
+## Prerequisites
+
+- Node.js 18+
+- npm 9+
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd webapp-local-dev
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser to the URL shown in the terminal (typically `http://localhost:3000` or the network IP)
+
+## Development
+
+### Safari Users
+Safari has issues with `localhost` in Vite 7.x. Use the network IP instead:
+```bash
+npm run dev -- --host
+# Open http://192.168.x.x:3000/ (shown in terminal output)
+```
+Alternatively, try `http://127.0.0.1:3000/` instead of `localhost`.
+
+### Troubleshooting Vite Parse Errors
+If you see a Vite error about "invalid JS syntax" in `src/js/app.js`, see the `HANDOVER_SESSION.md` for step-by-step fixes. This is usually caused by missing closing braces or encoding issues.
+
+### Project Structure
+
+See also: `HANDOVER_SESSION.md` for handoff and onboarding notes.
+
+```
+webapp-local-dev/
+├── index.html              # Main HTML file
+├── package.json            # Project dependencies
+├── vite.config.js          # Vite configuration (if present)
+├── public/
+│   ├── manifest.json       # PWA manifest
+│   ├── sw.js              # Service worker for offline support
+│   └── icons/             # App icons for PWA
+└── src/
+    ├── css/
+    │   └── styles.css     # All styles (CSS custom properties)
+    └── js/
+        ├── app.js         # Main application logic
+        ├── config.js      # API configuration
+        └── mock-data.js   # Mock data for development
+```
+
+### Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm test` - Run tests in watch mode
+- `npm run test:run` - Run tests once
+- `npm run test:coverage` - Run tests with coverage report
+
+### Testing
+
+The project uses [Vitest](https://vitest.dev/) for testing with happy-dom for DOM simulation.
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run with coverage report
+npm run test:coverage
+```
+
+#### Test Structure
+
+```
+src/js/
+├── utils.js          # Utility functions
+├── utils.test.js     # Utility function tests (55 tests)
+├── mock-data.js      # Mock data and calculations
+└── mock-data.test.js # Mock data tests (20 tests)
+```
+
+#### Current Coverage
+
+| File | Statements | Branches | Functions | Lines |
+|------|------------|----------|-----------|-------|
+| utils.js | 95.71% | 96.66% | 89.47% | 98.30% |
+| mock-data.js | 96.61% | 94.44% | 100% | 100% |
+
+### Data Sources
+
+The app supports two data sources:
+
+1. **Mock Data** (default): Uses `src/js/mock-data.js` for offline development
+2. **Live API**: Connects to Google Apps Script backend (configure in `src/js/config.js`)
+
+Toggle between sources using the DEV panel in the bottom-right corner (only visible on localhost).
+
+## API Endpoints (Google Apps Script Web App)
+
+All API requests are sent to your deployed Google Apps Script web app URL, with the following query parameters:
+
+- `api=true` (required for all API requests)
+- `action=<actionName>` (see below)
+- Additional parameters as required by the action
+
+**Base URL Example:**
+```
+https://script.google.com/macros/s/AKfycb.../exec
+```
+
+### Actions
+
+#### 1. Health Check
+- **Endpoint:** `?api=true&action=ping`
+- **Description:** Returns a simple response to verify the API is live.
+- **Response:**
+  ```json
+  { "success": true, "message": "pong", "timestamp": "..." }
+  ```
+
+#### 2. Get Teams
+- **Endpoint:** `?api=true&action=getTeams`
+- **Description:** Returns a list of all teams (basic info).
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "teams": [
+      { "teamID": "...", "year": 2025, "season": "Season 1", "teamName": "U11 Thunder", "sheetName": "..." },
+      ...
+    ]
+  }
+  ```
+
+#### 3. Get Team Data
+- **Endpoint:** `?api=true&action=getTeamData&teamID=<teamID>&sheetName=<sheetName>`
+- **Description:** Returns full data for a specific team (players, games, etc.).
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "teamData": { "teamID": "...", "players": [...], "games": [...], ... }
+  }
+  ```
+
+#### 4. Save Team Data
+- **Endpoint:** `?api=true&action=saveTeamData&sheetName=<sheetName>&teamData=<json>`
+- **Description:** Saves the provided team data (as a JSON string) to the specified sheet.
+- **Response:**
+  ```json
+  { "success": true }
+  ```
+
+**Note:** Replace `<sheetName>`, `<teamID>`, and `<json>` with actual values as needed. All requests return JSON responses.
+
+---
+
+## Google Sheet Structure
+
+The backend Google Sheet contains several tabs used by the web app and Apps Script API. Below are the main tabs and their columns:
+
+### Teams
+- **Columns:**
+  - teamID
+  - year
+  - season
+  - name
+  - sheetName
+  - Ladder Name
+  - Ladder API
+  - Results API
+- **Sample Row:**
+  - team_1762633769992, 2025, Season 2, U11 Flames, data_team_1762633769992, HG 11 Flames, ,
+
+### Fixture_Results
+- **Columns:**
+  - Date
+  - Round
+  - Match ID
+  - Team 1
+  - Team 2
+  - Team 1 Score
+  - Team 2 Score
+  - Result
+  - Status
+- **Sample Row:**
+  - 7/26/2025, Round 1, 2410258, DC Rockets, DC Nova, 8, 0, Win, ENDED
+
+### Ladder_Archive
+- **Columns:**
+  - Date
+  - RK
+  - Team
+  - P
+  - W
+  - L
+  - D
+  - F
+  - A
+  - PTS
+- **Sample Row:**
+  - 11/17/2025, 1, DC Rockets, 8, 7, 0, 1, 108, 37, 32
+
+### Settings
+- **Columns:**
+  - AUTH_TOKEN
+- **Sample Row:**
+  - (long token string)
+
+### LadderData
+- **Note:**
+  - This tab is currently empty.
+
+If you add or change columns in the Google Sheet, update this section to keep the documentation in sync with your backend data model.
+
+---
+
+## Mobile Testing
+
+To test on your iPhone:
+
+1. Ensure your computer and phone are on the same network
+2. Find your local IP address (shown in terminal when dev server starts)
+3. Open `http://<your-ip>:3000` on your phone
+4. Add to Home Screen for the full PWA experience
+
+## PWA Installation
+
+### iOS (Safari)
+1. Open the app in Safari
+2. Tap the Share button
+3. Select "Add to Home Screen"
+
+### Android (Chrome)
+1. Open the app in Chrome
+2. Tap the menu (three dots)
+3. Select "Add to Home screen"
+
+## Security
+
+This application implements several security measures:
+
+- **XSS Prevention**: All user input is escaped before rendering
+- **Input Validation**: Form inputs are validated on submission
+- **Type Checking**: Toast notification types are validated
+- **Dev Tools Protection**: Developer panel hidden in production
+
+## Browser Support
+
+- iOS Safari 15+
+- Chrome 90+
+- Firefox 90+
+- Edge 90+
+
+## Known Limitations
+
+- Data is stored in localStorage only (no cloud sync)
+- No user authentication
+- Offline mode serves cached data only
+
+## License
+
+ISC

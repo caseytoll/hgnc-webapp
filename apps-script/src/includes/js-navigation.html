@@ -1,0 +1,1503 @@
+<script>
+    // === NAVIGATION FUNCTIONS ===
+
+    // Navigation history for swipe-to-go-back
+    var navigationHistory = [];
+    var maxHistoryLength = 20;
+    
+    // Navigate to lineup analytics (INSTANT - NO PAGE NAVIGATION)
+    function navigateToLineupPage(viewType) {
+        try {
+            // Validate we have team data
+            if (!window.appState || !window.appState.currentTeam || !window.appState.currentTeam.sheetName) {
+                console.error('Cannot show lineup: No team selected');
+                showToast('Please select a team first');
+                return;
+            }
+            
+            // Determine target view ID
+            var viewId = '';
+            if (viewType === 'defensive-units') viewId = 'insights-lineup-defensive-units-view';
+            else if (viewType === 'attacking-units') viewId = 'insights-lineup-attacking-units-view';
+            else if (viewType === 'position-pairings') viewId = 'insights-lineup-position-pairings-view';
+            
+            // Show view immediately
+            showView(viewId);
+            
+            // Lazy-load stats computation if not already loaded
+            if (!window.loadLineupStats) {
+                console.log('[Navigation] Initializing lineup stats module...');
+                // Module is already embedded in page via include, just needs init
+                if (window.initLineupModule) {
+                    window.initLineupModule();
+                }
+            }
+            
+            // Load/render stats
+            if (window.loadLineupStats) {
+                window.loadLineupStats(viewType);
+            } else {
+                showToast('Lineup stats not available');
+            }
+            
+        } catch (e) {
+            console.error('Failed to show lineup:', e);
+            showToast('Error loading lineup: ' + e.message);
+        }
+    }
+
+    // --- Missing function added ---
+    function loadNetballLadder() {
+        // Load cached data first for fast UI rendering
+        loadCachedNetballLadder(); // Default to cached version
+        // If there is no cached data, attempt a manual API fetch (best-effort)
+        setTimeout(function() {
+            try {
+                if (!netballLadderData || netballLadderData.length === 0) {
+                    console.log('No cached ladder data found - attempting API fetch');
+                    loadNetballLadderApi();
+                }
+            } catch (e) {
+                console.warn('loadNetballLadder auto-fetch skipped:', e);
+            }
+        }, 100);
+    }
+
+    // --- *** OPTIMIZATION: Master update/render function *** ---
+    function updateAllStatsAndRender() {
+        // 1. Recalculate everything (mark stats as fresh)
+        updateAllStats(); 
+        statsNeedUpdate = false;
+        
+        // Update allTeamData with new stats
+        if (window.allTeamData && window.appState.currentTeam.teamID) {
+            var teamID = window.appState.currentTeam.teamID;
+            if (window.allTeamData[teamID]) {
+                window.allTeamData[teamID].stats = window.calculatedSeasonStats;
+            }
+        }
+        
+        // 2. Find out which view is currently active
+        var activeView = document.querySelector('.view:not(.hidden)');
+        if (!activeView) return; // Nothing to render
+        
+        // 3. Re-render only the active view
+        if (activeView.id === 'players-view') {
+            renderPlayerList();
+        } else if (activeView.id === 'fixture-view') {
+            renderGameList();
+        } else if (activeView.id === 'insights-view') {
+            renderInsights();
+        } else if (activeView.id === 'insights-offense-hub-view') {
+            renderOffensiveHub();
+        } else if (activeView.id === 'player-goals-detail-view') {
+            renderPlayerGoalsDetail();
+        } else if (activeView.id === 'pair-goals-detail-view') {
+            renderPairGoalsDetail();
+        } else if (activeView.id === 'netball-ladder-view') {
+            renderNetballLadder();
+        } else if (activeView.id === 'player-detail-view') {
+            renderPlayerDetail();
+        } else if (activeView.id === 'game-detail-view') {
+            var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+            if (game) {
+                updateTotalScoreDisplay(game);
+                renderGameAvailability();
+                renderGameDetailLineup();
+                renderGameDetailScoring();
+            }
+        } else if (activeView.id === 'insights-player-stats-view') {
+            renderInsightsPlayerStats();
+        } else if (activeView.id === 'insights-team-performance-view') {
+            renderNewInsightsDashboard();
+        } else if (activeView.id === 'insights-offensive-leaders-view') {
+            renderInsightsOffensiveLeaders();
+        } else if (activeView.id === 'insights-defensive-wall-view') {
+            renderInsightsDefensiveWall();
+        } else if (activeView.id === 'insights-player-analysis-view') {
+            renderInsightsPlayerAnalysis();
+        } else if (activeView.id === 'insights-lineup-defensive-units-view') {
+            renderLineupDefensiveUnits();
+        } else if (activeView.id === 'insights-lineup-attacking-units-view') {
+            renderLineupAttackingUnits();
+        } else if (activeView.id === 'insights-lineup-position-pairings-view') {
+            renderLineupPositionPairings();
+        // Removed legacy 'insights-offense-view' (now use 'insights-offense-hub-view')
+        } else if (activeView.id === 'insights-defense-view') {
+            renderInsightsDefense();
+        } else if (activeView.id === 'insights-defenders-view') {
+            renderInsightsDefenders();
+        } else if (activeView.id === 'insights-player-plusminus-view') {
+            renderInsightsPlayerPlusMinus();
+        } else if (activeView.id === 'insights-team-record-view') {
+            renderInsightsTeamRecord();
+        }
+    }
+
+    function updateTotalScoreDisplay(game) {
+        var scores = getGameTotalScores(game);
+        document.getElementById('total-score-us').textContent = scores.ourScore;
+        document.getElementById('total-score-opponent').textContent = scores.opponentScore;
+        document.getElementById('total-score-opponent-name').textContent = game.opponent;
+    }
+    
+    function setLoading(isLoading, message) {
+        message = typeof message !== 'undefined' ? message : 'Loading...';
+        var overlay = cachedElements.containers.loadingOverlay || document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.querySelector('span').textContent = message;
+            overlay.classList.toggle('hidden', !isLoading);
+            console.log('setLoading:', isLoading, 'message:', message, 'hasHiddenClass:', overlay.classList.contains('hidden'));
+        } else {
+            console.warn('setLoading: overlay element not found!');
+        }
+    }
+    
+    function showTeamSelector() {
+        // Track navigation if coming from another view
+        var currentView = document.querySelector('.view:not(.hidden)');
+        if (currentView && currentView.id !== 'team-selector-view') {
+            navigationHistory.push(currentView.id);
+            if (navigationHistory.length > maxHistoryLength) {
+                navigationHistory.shift();
+            }
+        }
+        
+        appState.currentTeam.sheetName = null;
+        appState.currentTeam.name = "";
+        players = [];
+        games = [];
+        currentGameId = null;  
+        
+        // Hide all navigation bars when showing team selector
+        if (cachedElements.nav.appTabNav) {
+            cachedElements.nav.appTabNav.classList.add('hidden');
+        } else {
+            document.getElementById('app-tab-nav').classList.add('hidden');
+        }
+        
+        if (cachedElements.nav.gameDetailTabNav) {
+            cachedElements.nav.gameDetailTabNav.classList.add('hidden');
+        } else {
+            document.getElementById('game-detail-tab-nav').classList.add('hidden');
+        }
+        
+        showView('team-selector-view', true); // true = skip adding to history since we already did above
+    }
+    
+    function renderFixedHeader(viewId) {
+        var headerHTML = '';
+        var teamTitle = appState.currentTeam.name || "Team Manager";
+        var headerContainer = document.getElementById('fixed-header-container');
+        
+        // If entering one of the sub-views, use the Insights view header logic
+        if (viewId === 'insights-offense-hub-view' || viewId === 'insights-team-record-view' || viewId === 'insights-player-stats-view' || viewId === 'insights-defense-view' || viewId === 'insights-defenders-view' || viewId === 'insights-player-plusminus-view') {
+             viewId = 'insights-view';
+        }
+
+        // 1. Team Selector Header
+        if (viewId === 'team-selector-view') {
+            headerHTML = '<header class="app-header">' +
+                            '<img src="' + (window.LOGO_DATA_URL || '#') + '" alt="HGNC Logo" class="header-logo">' +
+                            '<h1 class="page-title">Team Manager</h1>' +
+                         '</header>';
+        } 
+        // 2. Insights Header
+        else if (viewId === 'insights-view') {
+            headerHTML = '<header class="app-header insights-header">' +
+                            '<div class="header-titles">' +
+                                '<h1 class="page-title">' + teamTitle + '</h1>' +
+                            '</div>' +
+                         '</header>';
+        } 
+        // 3. All other views (Standard Header)
+        else if (appState.currentTeam.name) {
+             headerHTML = '<header class="app-header">' +
+                            '<img src="' + (window.LOGO_DATA_URL || '#') + '" alt="HGNC Logo" class="header-logo">' +
+                            '<div class="header-titles">' +
+                                '<h1 class="page-title">' + teamTitle + '</h1>' +
+                            '</div>' +
+                         '</header>';
+        }
+        
+        headerContainer.innerHTML = headerHTML;
+        
+        // Re-attach listener to the newly rendered toggle button if it exists
+        var toggleInput = document.getElementById('difficulty-toggle-btn');
+        if (toggleInput) {
+             toggleInput.checked = appState.difficulty.showAdjusted;
+             toggleInput.onclick = toggleDifficultyView;
+        }
+    }
+
+    function showView(viewId, skipHistory) {
+        // Track navigation history (unless explicitly skipped for back navigation)
+        if (!skipHistory) {
+            var currentView = document.querySelector('.view:not(.hidden)');
+            if (currentView && currentView.id !== viewId) {
+                navigationHistory.push(currentView.id);
+                if (navigationHistory.length > maxHistoryLength) {
+                    navigationHistory.shift();
+                }
+            }
+        }
+        
+        // Set legacy variables for compatibility
+        if (appState.currentGame.editingId) {
+            editingGameId = appState.currentGame.editingId;
+        }
+        if (appState.editing.playerId) {
+            editingPlayerId = appState.editing.playerId;
+        }
+        if (appState.editing.team) {
+            editingTeam = appState.editing.team;
+        }
+
+        renderFixedHeader(viewId);
+
+        // --- 1. Hide all main views (use cached elements if available) ---
+        if (cachedElements.views.teamSelector) {
+            if (cachedElements.views.teamSelector) cachedElements.views.teamSelector.classList.add('hidden');
+            if (cachedElements.views.players) cachedElements.views.players.classList.add('hidden');
+            if (cachedElements.views.fixture) cachedElements.views.fixture.classList.add('hidden');
+            if (cachedElements.views.insights) cachedElements.views.insights.classList.add('hidden');
+            if (cachedElements.views.gameDetail) cachedElements.views.gameDetail.classList.add('hidden');
+            if (cachedElements.views.playerDetail) cachedElements.views.playerDetail.classList.add('hidden');
+            if (cachedElements.views.netballLadder) cachedElements.views.netballLadder.classList.add('hidden');
+            // if (cachedElements.views.netballResults) cachedElements.views.netballResults.classList.add('hidden'); // View doesn't exist
+            if (cachedElements.views.admin) cachedElements.views.admin.classList.add('hidden');
+        } else {
+            document.getElementById('team-selector-view').classList.add('hidden');
+            document.getElementById('players-view').classList.add('hidden');
+            document.getElementById('fixture-view').classList.add('hidden');
+            document.getElementById('insights-view').classList.add('hidden');
+            document.getElementById('game-detail-view').classList.add('hidden');
+            document.getElementById('player-detail-view').classList.add('hidden');
+            document.getElementById('netball-ladder-view').classList.add('hidden');
+            document.getElementById('admin-view').classList.add('hidden');
+        }
+        
+        // Hide goal detail views
+        var playerGoalsDetailView = document.getElementById('player-goals-detail-view');
+        if (playerGoalsDetailView) playerGoalsDetailView.classList.add('hidden');
+        var pairGoalsDetailView = document.getElementById('pair-goals-detail-view');
+        if (pairGoalsDetailView) pairGoalsDetailView.classList.add('hidden');
+        
+        // Close any flipped cards
+        document.querySelectorAll('.perf-flip-container.flipped').forEach(function(el) {
+            el.classList.remove('flipped');
+            el.style.position = '';
+            el.style.top = '';
+            el.style.left = '';
+            el.style.transform = '';
+            el.style.width = '';
+        });
+        
+        // --- 2. Hide all insights sub-views (use cached elements) ---
+        if (cachedElements.views.insightsTeamRecord) {
+            if (cachedElements.views.insightsTeamRecord) cachedElements.views.insightsTeamRecord.classList.add('hidden');
+            if (cachedElements.views.insightsPlayerStats) cachedElements.views.insightsPlayerStats.classList.add('hidden');
+            if (cachedElements.views.insightsOffenseHub) cachedElements.views.insightsOffenseHub.classList.add('hidden');
+            if (cachedElements.views.insightsDefense) cachedElements.views.insightsDefense.classList.add('hidden');
+            if (cachedElements.views.insightsDefenders) cachedElements.views.insightsDefenders.classList.add('hidden');
+            if (cachedElements.views.insightsPlayerPlusMinus) cachedElements.views.insightsPlayerPlusMinus.classList.add('hidden');
+            // Hide new sub-views
+            if (cachedElements.views.insightsTeamPerformance) cachedElements.views.insightsTeamPerformance.classList.add('hidden');
+            if (cachedElements.views.insightsOffensiveLeaders) cachedElements.views.insightsOffensiveLeaders.classList.add('hidden');
+            if (cachedElements.views.insightsDefensiveWall) cachedElements.views.insightsDefensiveWall.classList.add('hidden');
+            if (cachedElements.views.insightsPlayerAnalysis) cachedElements.views.insightsPlayerAnalysis.classList.add('hidden');
+        } else {
+            document.getElementById('insights-team-record-view').classList.add('hidden');
+            document.getElementById('insights-player-stats-view').classList.add('hidden');
+            document.getElementById('insights-offense-hub-view').classList.add('hidden');
+            document.getElementById('insights-defense-view').classList.add('hidden');
+            document.getElementById('insights-defenders-view').classList.add('hidden');
+            document.getElementById('insights-player-plusminus-view').classList.add('hidden');
+            // Hide new sub-views
+            var tpvToHide = document.getElementById('insights-team-performance-view');
+            var olToHide = document.getElementById('insights-offensive-leaders-view');
+            var dwToHide = document.getElementById('insights-defensive-wall-view');
+            var paToHide = document.getElementById('insights-player-analysis-view');
+            if (tpvToHide) tpvToHide.classList.add('hidden');
+            if (olToHide) olToHide.classList.add('hidden');
+            if (dwToHide) dwToHide.classList.add('hidden');
+            if (paToHide) paToHide.classList.add('hidden');
+            // Hide lineup analytics views
+            var duToHide = document.getElementById('insights-lineup-defensive-units-view');
+            var auToHide = document.getElementById('insights-lineup-attacking-units-view');
+            var ppToHide = document.getElementById('insights-lineup-position-pairings-view');
+            if (duToHide) duToHide.classList.add('hidden');
+            if (auToHide) auToHide.classList.add('hidden');
+            if (ppToHide) ppToHide.classList.add('hidden');
+        }
+        
+        console.log('[showView] All views hidden, now routing based on viewId:', viewId);
+            
+        // --- 3. Handle navigation bar visibility and active states ---
+        if (viewId === 'team-selector-view') {
+            // Hide all navigation bars on team selector
+            document.getElementById('app-tab-nav').classList.add('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
+        } else if (viewId === 'players-view' || viewId === 'fixture-view' || viewId === 'insights-view' || viewId === 'netball-ladder-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view' || viewId === 'insights-lineup-defensive-units-view' || viewId === 'insights-lineup-attacking-units-view' || viewId === 'insights-lineup-position-pairings-view') { 
+            document.getElementById('app-tab-nav').classList.remove('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
+            
+            // Update active states for navigation buttons
+            document.getElementById('show-home-tab').classList.toggle('active', false); // Home is never "active" in team views
+            document.getElementById('show-fixture-tab').classList.toggle('active', viewId === 'fixture-view');
+            document.getElementById('show-players-tab').classList.toggle('active', viewId === 'players-view');
+            document.getElementById('show-insights-tab').classList.toggle('active', viewId === 'insights-view' || viewId === 'insights-team-performance-view' || viewId === 'insights-offensive-leaders-view' || viewId === 'insights-defensive-wall-view' || viewId === 'insights-player-analysis-view' || viewId === 'insights-lineup-defensive-units-view' || viewId === 'insights-lineup-attacking-units-view' || viewId === 'insights-lineup-position-pairings-view');
+            document.getElementById('show-netball-ladder-tab').classList.toggle('active', viewId === 'netball-ladder-view'); 
+
+            if (viewId === 'insights-view') {
+                appState.insights.showAllOffense = false;
+                appState.insights.showAllDefense = false;
+                appState.insights.showAllDefenders = false;
+                // Reset sorts to default
+                appState.insights.sortOffense = 'impact';
+                appState.insights.sortDefense = 'impact';
+                appState.insights.sortDefenders = 'impact';
+                appState.insights.sortPlusMinus = 'total'; 
+            }
+        } else if (viewId === 'insights-test-view') {
+            document.getElementById('app-tab-nav').classList.remove('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
+            document.getElementById('show-home-tab').classList.toggle('active', false);
+            document.getElementById('show-fixture-tab').classList.toggle('active', false);
+            document.getElementById('show-insights-tab').classList.toggle('active', false);
+            document.getElementById('show-netball-ladder-tab').classList.toggle('active', false);
+        } else {
+            // Hide both navigation bars for any other views (admin, detail views, etc.)
+            document.getElementById('app-tab-nav').classList.add('hidden');
+            var gameDetailNav = document.getElementById('game-detail-tab-nav');
+            if (gameDetailNav) gameDetailNav.classList.add('hidden');
+        }
+        
+        if (viewId === 'game-detail-view') {
+            document.getElementById('game-detail-tab-nav').classList.remove('hidden');
+            document.getElementById('app-tab-nav').classList.add('hidden');
+            
+            // Update active states for game detail navigation
+            document.getElementById('show-home-tab-game').classList.toggle('active', false); // Home is never "active"
+            document.getElementById('show-availability-tab').classList.toggle('active', true); // Default to availability tab
+            document.getElementById('show-lineup-tab').classList.toggle('active', false);
+            document.getElementById('show-scoring-tab').classList.toggle('active', false);
+        }
+
+        // ** 6. Calculate stats and render the specific view **
+        // Only update stats if they're stale
+        if (statsNeedUpdate) {
+            updateAllStats();
+            statsNeedUpdate = false;
+        }
+
+        if (viewId === 'players-view') {
+            document.getElementById('players-view').classList.remove('hidden');
+            renderPlayerList();
+            try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
+            
+            // DIAGNOSTIC: Log view dimensions
+            setTimeout(function() {
+                var view = document.getElementById('players-view');
+                var styles = window.getComputedStyle(view);
+                console.log('[showView] players-view dimensions:', {
+                    offsetHeight: view.offsetHeight,
+                    scrollHeight: view.scrollHeight,
+                    paddingTop: styles.paddingTop,
+                    marginTop: styles.marginTop,
+                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child'
+                });
+            }, 100);
+        } else if (viewId === 'fixture-view') {
+            document.getElementById('fixture-view').classList.remove('hidden');
+            renderGameList();
+            try { if (typeof applyOwnerModeUI === 'function') applyOwnerModeUI(); } catch(e) { /* ignore */ }
+            
+            // DIAGNOSTIC: Log view dimensions
+            setTimeout(function() {
+                var main = document.getElementById('main-content');
+                if (main) {
+                    console.log('[DIAGNOSTIC] main-content children count:', main.children.length);
+                    var totalOffset = 0;
+                    for (var i = 0; i < main.children.length; i++) {
+                        var child = main.children[i];
+                        var childStyles = window.getComputedStyle(child);
+                        var isHidden = child.classList.contains('hidden');
+                        console.log('[DIAGNOSTIC] Child ' + i + ' (' + child.id + '):', {
+                            offsetHeight: child.offsetHeight,
+                            scrollHeight: child.scrollHeight,
+                            isHidden: isHidden,
+                            display: childStyles.display,
+                            marginTop: childStyles.marginTop,
+                            marginBottom: childStyles.marginBottom
+                        });
+                        totalOffset += child.offsetHeight;
+                        if (child.id === 'fixture-view') break;
+                    }
+                    console.log('[DIAGNOSTIC] Total offset before fixture-view:', totalOffset);
+                }
+                
+                var view = document.getElementById('fixture-view');
+                var styles = window.getComputedStyle(view);
+                var body = document.body;
+                var bodyRect = body.getBoundingClientRect();
+                var viewRect = view.getBoundingClientRect();
+                console.log('[showView] fixture-view dimensions:', {
+                    offsetHeight: view.offsetHeight,
+                    scrollHeight: view.scrollHeight,
+                    paddingTop: styles.paddingTop,
+                    marginTop: styles.marginTop,
+                    firstChildOffsetTop: view.firstElementChild ? view.firstElementChild.offsetTop : 'no child',
+                    viewTop: viewRect.top,
+                    viewY: viewRect.y,
+                    bodyScrollTop: body.scrollTop,
+                    windowScrollY: window.scrollY,
+                    viewOffsetTop: view.offsetTop
+                });
+                
+                // Check all parent elements
+                var parent = view.parentElement;
+                var depth = 0;
+                while (parent && depth < 5) {
+                    var pRect = parent.getBoundingClientRect();
+                    var pStyles = window.getComputedStyle(parent);
+                    console.log('[showView] Parent ' + depth + ' (' + (parent.id || parent.tagName) + '):', {
+                        offsetTop: parent.offsetTop,
+                        top: pRect.top,
+                        paddingTop: pStyles.paddingTop,
+                        marginTop: pStyles.marginTop
+                    });
+                    parent = parent.parentElement;
+                    depth++;
+                }
+            }, 100);
+        } else if (viewId === 'insights-view') {
+            // Show the menu, hide any sub-views and dashboards ONLY in currently visible views
+            var dashboards = document.querySelectorAll('.insights-dashboard');
+            dashboards.forEach(function(dashboard) {
+                // Only hide dashboard if its parent view is visible (not hidden)
+                var parentView = dashboard.closest('.view');
+                if (parentView && !parentView.classList.contains('hidden')) {
+                    dashboard.classList.add('hidden');
+                }
+            });
+            // Hide all sub-views
+            document.getElementById('insights-team-record-view').classList.add('hidden');
+            document.getElementById('insights-player-stats-view').classList.add('hidden');
+            document.getElementById('insights-offense-hub-view').classList.add('hidden');
+            document.getElementById('insights-defense-view').classList.add('hidden');
+            document.getElementById('insights-defenders-view').classList.add('hidden');
+            document.getElementById('insights-player-plusminus-view').classList.add('hidden');
+            document.getElementById('insights-team-performance-view').classList.add('hidden');
+            document.getElementById('insights-offensive-leaders-view').classList.add('hidden');
+            document.getElementById('insights-defensive-wall-view').classList.add('hidden');
+            
+            // Check if team is selected
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            
+            // Check if we already have team data and stats loaded (from team selection)
+            var teamData = window.allTeamData && window.allTeamData[teamID];
+            if (teamData && window.calculatedSeasonStats && window.calculatedSeasonStats.gameCount > 0) {
+                // Show the view - menu is already displayed
+                document.getElementById('insights-view').classList.remove('hidden');
+                return;
+            }
+            
+            // Fallback: load fresh stats from server if not already loaded
+            setLoading(true, "Loading stats...");
+            
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    if (data.error) {
+                        console.error('Error loading stats:', data.error);
+                        setLoading(false);
+                        // Menu is still shown even with error
+                        return;
+                    }
+                    
+                    // Update team data (players and games)
+                    if (data.teamData) {
+                        try {
+                            var teamData = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+                            players = teamData.players || [];
+                            games = teamData.games || [];
+                            
+                            // Update allTeamData
+                            if (!window.allTeamData) window.allTeamData = {};
+                            window.allTeamData[window.appState.currentTeam.teamID] = {
+                                team: window.masterTeamList ? window.masterTeamList.find(t => t.teamID === window.appState.currentTeam.teamID) : {},
+                                games: games,
+                                players: players,
+                                stats: null // Will be set below
+                            };
+                        } catch (e) {
+                            console.error('Error parsing team data:', e);
+                        }
+                    }
+                    
+                    // Update global stats
+                    if (data.statsData) {
+                        try {
+                            window.calculatedSeasonStats = JSON.parse(data.statsData);
+                            statsCalculated = true;
+                            
+                            // Update allTeamData with stats for the current team
+                            if (window.allTeamData && window.appState.currentTeam && window.appState.currentTeam.teamID && window.allTeamData[window.appState.currentTeam.teamID]) {
+                                window.allTeamData[window.appState.currentTeam.teamID].stats = window.calculatedSeasonStats;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing server stats:', e);
+                        }
+                    }
+                    
+                    setLoading(false);
+                    renderNewInsightsDashboard();
+                })
+                .withFailureHandler(function(error) {
+                    console.error('Failed to load stats from server:', error);
+                    setLoading(false);
+                    // Try to render with whatever we have
+                    renderNewInsightsDashboard();
+                })
+                .loadTeamData(window.appState.currentTeam.sheetName);
+        } else if (viewId === 'insights-test-view') {
+            renderInsightsTest();
+        } else if (viewId === 'player-detail-view') {
+            // Ensure stats are calculated before rendering player detail
+            if (statsNeedUpdate || !calculatedPlayerTable) {
+                console.log('[showView] Stats not ready for player detail, updating...');
+                updateAllStats();
+                statsNeedUpdate = false;
+            }
+            document.getElementById('player-detail-view').classList.remove('hidden');
+            renderPlayerDetail();
+        } else if (viewId === 'netball-ladder-view') {
+            document.getElementById('netball-ladder-view').classList.remove('hidden');
+            // Load cached ladder data if not already loaded
+            if (!netballLadderData || netballLadderData.length === 0) {
+                loadCachedNetballLadder();
+            } else {
+                renderNetballLadder();
+            }
+        } else if (viewId === 'admin-view') { 
+            if (isOwner()) {
+                loadAuthTokenForAdmin(); 
+                renderDifficultyRatings(); 
+            } else {
+                showView('insights-view'); 
+            }
+        }
+        
+        // Handle specific view rendering AFTER hiding all views
+        if (viewId === 'insights-team-performance-view') {
+            // Check if team is selected
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            // Sub-views are siblings of insights-view, just show the sub-view
+            document.getElementById('insights-team-performance-view').classList.remove('hidden');
+            renderNewInsightsDashboard();
+            return;
+        }
+
+        if (viewId === 'team-selector-view') {
+            document.getElementById('team-selector-view').classList.remove('hidden');
+            renderTeamSelector();
+        }
+
+        // Handle other insights sub-views (siblings of insights-view)
+        if (viewId === 'insights-offensive-leaders-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-offensive-leaders-view').classList.remove('hidden');
+            renderInsightsOffensiveLeaders();
+            return;
+        }
+
+        if (viewId === 'insights-defensive-wall-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-defensive-wall-view').classList.remove('hidden');
+            renderInsightsDefensiveWall();
+            return;
+        }
+
+        if (viewId === 'insights-player-analysis-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('insights-player-analysis-view').classList.remove('hidden');
+            renderInsightsPlayerAnalysis();
+            return;
+        }
+
+        // UNIFIED STATS TEST VIEW
+        if (viewId === 'unified-stats-view') {
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            document.getElementById('unified-stats-view').classList.remove('hidden');
+            // renderUnifiedStats is called from the onclick handler after a small delay
+            return;
+        }
+
+        // LINEUP ANALYTICS VIEWS
+        if (viewId === 'insights-lineup-defensive-units-view') {
+            console.log('[showView] Routing to defensive units view');
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            var view = document.getElementById('insights-lineup-defensive-units-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            console.log('[showView] Dashboard found:', !!dashboard, 'Dashboard hidden?', dashboard ? dashboard.classList.contains('hidden') : 'N/A');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+                console.log('[showView] Dashboard unhidden, still hidden?', dashboard.classList.contains('hidden'));
+            }
+            console.log('[showView] Calling renderLineupDefensiveUnits');
+            try { renderLineupDefensiveUnits(); } catch (e) { console.error('Error rendering Defensive Units view:', e); }
+            return;
+        }
+
+        if (viewId === 'insights-lineup-attacking-units-view') {
+            console.log('[showView] Routing to attacking units view');
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            var view = document.getElementById('insights-lineup-attacking-units-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+            }
+            console.log('[showView] Calling renderLineupAttackingUnits');
+            try { renderLineupAttackingUnits(); } catch (e) { console.error('Error rendering Attacking Units view:', e); }
+            return;
+        }
+
+        if (viewId === 'insights-lineup-position-pairings-view') {
+            console.log('[showView] Routing to position pairings view');
+            var teamID = window.appState && window.appState.currentTeam && window.appState.currentTeam.teamID;
+            if (!teamID) {
+                showView('team-selector-view');
+                return;
+            }
+            var view = document.getElementById('insights-lineup-position-pairings-view');
+            view.classList.remove('hidden');
+            // Unhide the dashboard inside this view
+            var dashboard = view.querySelector('.insights-dashboard');
+            if (dashboard) {
+                dashboard.classList.remove('hidden');
+                dashboard.style.visibility = 'visible'; // Override inherited visibility: hidden
+            }
+            console.log('[showView] Calling renderLineupPositionPairings');
+            try { renderLineupPositionPairings(); } catch (e) { console.error('Error rendering Position Pairings view:', e); }
+            return;
+        }
+
+    }
+    
+    function showInsightsSubView(subViewId) {
+        renderFixedHeader(subViewId);
+
+        // 1. Hide all main views EXCEPT insights-view (use cached elements if available)
+        if (cachedElements.views.teamSelector) {
+            cachedElements.views.teamSelector.classList.add('hidden');
+            cachedElements.views.players.classList.add('hidden');
+            cachedElements.views.fixture.classList.add('hidden');
+            cachedElements.views.gameDetail.classList.add('hidden');
+            cachedElements.views.playerDetail.classList.add('hidden');
+            cachedElements.views.netballLadder.classList.add('hidden');
+            if (cachedElements.views.netballResults) cachedElements.views.netballResults.classList.add('hidden'); // View doesn't exist
+            cachedElements.views.admin.classList.add('hidden');
+            // Show insights-view (parent container)
+            cachedElements.views.insights.classList.remove('hidden');
+        } else {
+            document.getElementById('team-selector-view').classList.add('hidden');
+            document.getElementById('players-view').classList.add('hidden');
+            document.getElementById('fixture-view').classList.add('hidden');
+            document.getElementById('game-detail-view').classList.add('hidden');
+            document.getElementById('player-detail-view').classList.add('hidden');
+            document.getElementById('netball-ladder-view').classList.add('hidden');
+            document.getElementById('admin-view').classList.add('hidden');
+            // Show insights-view (parent container)
+            document.getElementById('insights-view').classList.remove('hidden');
+        }
+        
+        // Hide the dashboard inside insights-view
+        var dashboard = cachedElements.containers.dashboard || document.querySelector('.insights-dashboard');
+        if (dashboard) {
+            dashboard.classList.add('hidden');
+        }
+
+        // 2. Hide all other insights sub-views
+        if (cachedElements.views.insightsTeamRecord) {
+            cachedElements.views.insightsTeamRecord.classList.add('hidden');
+            cachedElements.views.insightsPlayerStats.classList.add('hidden');
+            cachedElements.views.insightsOffenseHub.classList.add('hidden');
+            cachedElements.views.insightsDefense.classList.add('hidden');
+            cachedElements.views.insightsDefenders.classList.add('hidden');
+            cachedElements.views.insightsPlayerPlusMinus.classList.add('hidden');
+            // Hide new sub-views
+            var teamPerfView = document.getElementById('insights-team-performance-view');
+            if (teamPerfView) teamPerfView.classList.add('hidden');
+            var offenseLeadersView = document.getElementById('insights-offensive-leaders-view');
+            if (offenseLeadersView) offenseLeadersView.classList.add('hidden');
+            var defenseWallView = document.getElementById('insights-defensive-wall-view');
+            if (defenseWallView) defenseWallView.classList.add('hidden');
+        } else {
+            document.getElementById('insights-team-record-view').classList.add('hidden');
+            document.getElementById('insights-player-stats-view').classList.add('hidden');
+            document.getElementById('insights-offense-hub-view').classList.add('hidden');
+            document.getElementById('insights-defense-view').classList.add('hidden');
+            document.getElementById('insights-defenders-view').classList.add('hidden');
+            document.getElementById('insights-player-plusminus-view').classList.add('hidden');
+            // Hide new sub-views
+            document.getElementById('insights-team-performance-view').classList.add('hidden');
+            document.getElementById('insights-offensive-leaders-view').classList.add('hidden');
+            document.getElementById('insights-defensive-wall-view').classList.add('hidden');
+        }
+
+        // 3. Show the correct sub-view
+        var view = document.getElementById(subViewId);
+        if (view) {
+            view.classList.remove('hidden');
+            
+            // For team performance view, hide the insights menu
+            if (subViewId === 'insights-team-performance-view') {
+                document.getElementById('insights-view').classList.add('hidden');
+            }
+        } else {
+            console.error('showInsightsSubView: view not found:', subViewId);
+        }
+
+        // 4. Keep the main app nav visible and active
+        document.getElementById('app-tab-nav').classList.remove('hidden');  
+        document.getElementById('show-insights-tab').classList.add('active'); 
+        document.getElementById('show-fixture-tab').classList.remove('active');
+        document.getElementById('show-netball-ladder-tab').classList.remove('active'); 
+
+        // 5. Render the specific content for that sub-view
+        if (subViewId === 'insights-player-stats-view') {
+            renderInsightsPlayerStats();
+        } else if (subViewId === 'insights-offense-hub-view') {
+            renderOffensiveHub();
+        } else if (subViewId === 'insights-defense-view') {
+            renderInsightsDefense();
+        } else if (subViewId === 'insights-defenders-view') {
+            renderInsightsDefenders();
+        } else if (subViewId === 'insights-player-plusminus-view') {
+            renderInsightsPlayerPlusMinus();
+        } else if (subViewId === 'insights-team-record-view') {
+            renderInsightsTeamRecord();
+        } else if (subViewId === 'insights-team-performance-view') {
+            renderNewInsightsDashboard();
+        } else if (subViewId === 'insights-offensive-leaders-view') {
+            renderInsightsOffensiveLeaders();
+        } else if (subViewId === 'insights-defensive-wall-view') {
+            renderInsightsDefensiveWall();
+        }
+    }
+
+    function showPlayerDetail(playerId) {
+        appState.playerDetail.id = playerId;
+        showView('player-detail-view'); 
+    }
+    
+    function showGameDetailTab(tabName) {
+        document.getElementById('show-home-tab-game').classList.toggle('active', false); // Home is never "active"
+        document.getElementById('show-availability-tab').classList.toggle('active', tabName === 'availability');
+        document.getElementById('show-lineup-tab').classList.toggle('active', tabName ==='lineup');
+        document.getElementById('show-scoring-tab').classList.toggle('active', tabName === 'scoring');
+        var editTab = document.getElementById('show-edit-tab');
+        if (editTab) editTab.classList.toggle('active', tabName === 'edit');
+        
+        document.getElementById('availability-content').classList.toggle('hidden', tabName !== 'availability');
+        document.getElementById('game-lineup-content').classList.toggle('hidden', tabName !== 'lineup');
+        document.getElementById('scoring-content').classList.toggle('hidden', tabName !== 'scoring');
+        var editContent = document.getElementById('edit-content');
+        if (editContent) editContent.classList.toggle('hidden', tabName !== 'edit');
+        
+        if (tabName === 'lineup') {
+            renderGameDetailLineup();
+        } else if (tabName === 'edit') {
+            populateGameEditForm();
+        }
+    }
+    
+    function showGameDetail(gameId) {
+        currentGameId = gameId;
+        var game = arrayFind(games, function(g) { return g.id === gameId; });
+        if (!game) return;
+        
+        if (!game.availablePlayerIDs) {
+            game.availablePlayerIDs = players
+                .filter(function(p){ return !p.isFillIn; })
+                .map(function(p) { return p.id; });
+            saveCurrentTeamData();  
+        }
+        
+        updateAllStats();
+
+        document.getElementById('game-detail-title').textContent = 'Round ' + (game.round || '?') + ': vs ' + game.opponent;
+        document.getElementById('total-score-opponent-name').textContent = game.opponent;
+        updateTotalScoreDisplay(game);
+        
+        renderGameAvailability();
+        renderGameDetailLineup();
+        renderGameDetailScoring();
+        
+        showGameDetailTab('availability');  
+        
+        // Manually show/hide views
+        document.getElementById('team-selector-view').classList.add('hidden');
+        document.getElementById('players-view').classList.add('hidden');
+        document.getElementById('fixture-view').classList.add('hidden');  
+        document.getElementById('insights-view').classList.add('hidden');  
+        document.getElementById('game-detail-view').classList.remove('hidden'); 
+        document.getElementById('player-detail-view').classList.add('hidden');
+        document.getElementById('netball-ladder-view').classList.add('hidden');
+        document.getElementById('admin-view').classList.add('hidden'); 
+        document.getElementById('insights-team-record-view').classList.add('hidden');
+        document.getElementById('insights-player-stats-view').classList.add('hidden');
+        document.getElementById('insights-offense-hub-view').classList.add('hidden');
+        document.getElementById('insights-defense-view').classList.add('hidden');
+        document.getElementById('insights-defenders-view').classList.add('hidden');
+        document.getElementById('insights-player-plusminus-view').classList.add('hidden');
+        
+        document.getElementById('app-tab-nav').classList.add('hidden');  
+        document.getElementById('game-detail-tab-nav').classList.remove('hidden'); 
+    }
+    
+    function toggleInsightsOffense() {
+        appState.insights.showAllOffense = !appState.insights.showAllOffense;
+        renderInsightsOffense(); 
+    }
+
+    function toggleOffenseTotals() {
+        if (!appState.insights) appState.insights = {};
+        appState.insights.showAllOffenseTotals = !appState.insights.showAllOffenseTotals;
+        try { localStorage.setItem('offenseShowAll_total', appState.insights.showAllOffenseTotals ? 'true' : 'false'); } catch (e) {}
+        // Update any hub-level toggle text in DOM (if present)
+        try {
+            var btn = document.getElementById('offense-show-all-toggle');
+            if (btn) btn.textContent = appState.insights.showAllOffenseTotals ? 'Show Top 3' : 'Show Top 3';
+        } catch (e) {}
+        renderOffensiveHub();
+    }
+
+    function toggleOffenseAvg() {
+        if (!appState.insights) appState.insights = {};
+        appState.insights.showAllOffenseAvg = !appState.insights.showAllOffenseAvg;
+        try { localStorage.setItem('offenseShowAll_avg', appState.insights.showAllOffenseAvg ? 'true' : 'false'); } catch (e) {}
+        renderOffensiveHub();
+    }
+
+    function toggleSinglesShowAll() {
+        if (!appState.insights) appState.insights = {};
+        appState.insights.showAllSingles = !appState.insights.showAllSingles;
+        try { localStorage.setItem('offenseShowAll_singles', appState.insights.showAllSingles ? 'true' : 'false'); } catch (e) {}
+        renderOffensiveHub();
+    }
+
+    function toggleInsightsDefense() {
+        appState.insights.showAllDefense = !appState.insights.showAllDefense;
+        renderInsightsDefense(); 
+    }
+
+    function toggleInsightsDefenders() {
+        appState.insights.showAllDefenders = !appState.insights.showAllDefenders;
+        renderInsightsDefenders(); 
+    }
+    
+    function setInsightsSort(section, sortKey) {
+        if (section === 'offense') {
+            appState.insights.sortOffense = sortKey;
+            renderInsightsOffense(); 
+        } else if (section === 'single') {
+            // Singles view (single players) supports the same three sorts: impact, avg, quarters
+            if (!appState.insights) appState.insights = {};
+            appState.insights.sortSingle = sortKey;
+            renderOffensiveHub();
+        } else if (section === 'defense') {
+            appState.insights.sortDefense = sortKey;
+            renderInsightsDefense(); 
+        } else if (section === 'defenders') {
+            appState.insights.sortDefenders = sortKey;
+            renderInsightsDefenders(); 
+        }
+    }
+
+    function setInsightsPlusMinusSort(sortKey) {
+        appState.insights.sortPlusMinus = sortKey;
+        renderInsightsPlayerPlusMinus();
+    }
+
+    // === DIFFICULTY ADJUSTMENT TOGGLE ===
+    // (Toggle removed)
+
+    // --- MODAL FUNCTIONS ---
+
+    function showCustomAlert(title, message, type) {
+        var modal = document.getElementById('custom-alert-confirm-modal');
+        var titleEl = document.getElementById('custom-modal-title');
+        var messageEl = document.getElementById('custom-modal-message');
+        var actionsEl = document.getElementById('custom-modal-actions');
+        
+        titleEl.textContent = title;
+        titleEl.classList.toggle('error-modal-title', type === 'error');
+        messageEl.innerHTML = message;
+        actionsEl.innerHTML = '<button class="confirm-ok alert-close" onclick="hideModal(\'custom-alert-confirm-modal\')">OK</button>';
+        
+        modal.classList.remove('hidden');
+    }
+
+    var confirmCallback = null;
+    var cancelCallback = null;
+    function showCustomConfirm(title, message, onConfirm, onCancel) {
+        var modal = document.getElementById('custom-alert-confirm-modal');
+        var titleEl = document.getElementById('custom-modal-title');
+        var messageEl = document.getElementById('custom-modal-message');
+        var actionsEl = document.getElementById('custom-modal-actions');
+
+        titleEl.textContent = title;
+        titleEl.classList.remove('error-modal-title');
+        messageEl.innerHTML = message;
+        
+        confirmCallback = onConfirm;
+        cancelCallback = onCancel;
+        
+        actionsEl.innerHTML = 
+            '<button class="confirm-cancel" onclick="handleCustomConfirm(false)">Cancel</button>' +
+            '<button class="confirm-ok" onclick="handleCustomConfirm(true)">Confirm</button>';
+        
+        modal.classList.remove('hidden');
+    }
+    
+    function handleCustomConfirm(isConfirmed) {
+        hideModal('custom-alert-confirm-modal');
+        if (isConfirmed && typeof confirmCallback === 'function') {
+            confirmCallback();
+        } else if (!isConfirmed && typeof cancelCallback === 'function') {
+            cancelCallback();
+        }
+        confirmCallback = null;
+        cancelCallback = null;
+    }
+
+    var gameEditReturnView = 'fixture-view';
+
+    function populateGameEditForm() {
+        if (!currentGameId) return;
+        var game = arrayFind(games, function(g) { return g.id === currentGameId; });
+        if (!game) return;
+        
+        var titleEl = document.getElementById('game-edit-title');
+        var subtitleEl = document.getElementById('game-edit-subtitle');
+        var submitBtn = document.getElementById('add-game-button');
+        if (titleEl) titleEl.textContent = 'Edit Game';
+        if (subtitleEl) subtitleEl.textContent = 'Round ' + (game.round || '?') + ' vs ' + (game.opponent || '');
+        if (submitBtn) submitBtn.textContent = 'Update';
+        
+        var dateInput = document.getElementById('new-game-date');
+        var roundInput = document.getElementById('new-game-round');
+        var timeInput = document.getElementById('new-game-time');
+        var courtInput = document.getElementById('new-game-court');
+        var venueInput = document.getElementById('new-game-venue');
+        var statusSelect = document.getElementById('new-game-status');
+        var opponentInput = document.getElementById('new-game-opponent');
+        var deleteZone = document.getElementById('delete-game-zone');
+        
+        if (roundInput) roundInput.value = game.round;
+        if (dateInput) dateInput.value = game.date;
+        if (timeInput) timeInput.value = game.time || '';
+        if (courtInput) courtInput.value = game.court || '';
+        if (venueInput) venueInput.value = game.venue || '';
+        var status = game.status || 'normal';
+        if (statusSelect) statusSelect.value = status;
+        if (opponentInput) opponentInput.value = (status === 'bye') ? '' : game.opponent;
+        toggleOpponentField(status);
+        if (deleteZone) deleteZone.classList.remove('hidden');
+        
+        appState.currentGame.editingId = currentGameId;
+        editingGameId = currentGameId;
+    }
+
+    function showGameEditor(mode, gameId) {
+        if (!isOwner()) return; // Read-only mode: prevent creation/edits
+        var isEdit = mode === 'edit';
+
+        if (isEdit) {
+            var targetId = gameId || currentGameId;
+            if (!targetId) return;
+            currentGameId = targetId;
+            appState.currentGame.editingId = targetId;
+            // Ensure game detail view is shown with edit tab active
+            showGameDetail(targetId);
+            showGameDetailTab('edit');
+            return;
+        }
+
+        gameEditReturnView = 'fixture-view';
+        
+            // Add game flow - CREATE A BLANK GAME OBJECT FIRST
+            // Calculate default values
+        var today = new Date();
+        var yyyy = today.getFullYear();
+        var mm = es5PadStart(String(today.getMonth() + 1), 2, '0');
+        var dd = es5PadStart(String(today.getDate()), 2, '0');
+            var defaultDate = yyyy + "-" + mm + "-" + dd;
+
+        var maxRound = 0;
+        games.forEach(function(g) {
+            if (g.round > maxRound) {
+                maxRound = g.round;
+            }
+        });
+            var nextRound = maxRound + 1;
+        
+            // Create a new blank game object
+            var newGameId = 'temp_' + Date.now();
+            var newGame = {
+                id: newGameId,
+                round: nextRound,
+                date: defaultDate,
+                time: '',
+                court: '',
+                venue: '',
+                opponent: '',
+                status: 'normal',
+                availablePlayerIDs: players.filter(function(p){ return !p.isFillIn; }).map(function(p) { return p.id; }),
+                // Ensure downstream renderers have required structure
+                quarters: [
+                    { players: [] },
+                    { players: [] },
+                    { players: [] },
+                    { players: [] }
+                ],
+                lineupLocked: false,
+                isTemporary: true  // Flag to identify this as unsaved
+            };
+        
+            // Add to games array temporarily
+            games.push(newGame);
+            currentGameId = newGameId;
+            appState.currentGame.editingId = newGameId;
+        
+            // Now use the standard flow to show game detail with edit tab
+            showGameDetail(newGameId);
+            showGameDetailTab('edit');
+        
+            // Update title to indicate "Add" mode
+            var titleEl = document.getElementById('game-edit-title');
+            if (titleEl) titleEl.textContent = 'Add Game';
+            var submitBtn = document.getElementById('add-game-button');
+            if (submitBtn) submitBtn.textContent = 'Add';
+        
+            // Hide delete zone for new games
+            var deleteZone = document.getElementById('delete-game-zone');
+            if (deleteZone) deleteZone.classList.add('hidden');
+    }
+
+    function cancelGameEdit() {
+        // For edit tab, just go back to availability tab
+        if (currentGameId) {
+            showGameDetail(currentGameId);
+            showGameDetailTab('availability');
+        } else {
+            showView('fixture-view');
+        }
+    }
+
+    function hideGameEditView() {
+        // Deprecated: edit now lives inside game-detail tabs
+    }
+
+    function finishGameEdit() {
+        if (currentGameId) {
+            showGameDetail(currentGameId);
+            showGameDetailTab('availability');
+        } else {
+            showView('fixture-view');
+        }
+    }
+
+    function showAddGameModal() {
+        showGameEditor('add');
+    }
+
+    function handleEditGame(gameId) {
+        showGameEditor('edit', gameId);
+    }
+
+    // Helper exposed for inline handlers (e.g., game detail nav)
+    function showEditGameModal(gameId) {
+        var targetId = gameId || currentGameId;
+        if (!targetId) return;
+        handleEditGame(targetId);
+    }
+    function showAddTeamModal() {
+        if (!isOwner()) return; // Read-only mode: prevent creation
+        appState.editing.team = null;
+        
+        document.getElementById('edit-team-modal-title').textContent = "Create New Team";
+        document.getElementById('update-team-button').textContent = "Create";
+        document.getElementById('update-team-button').onclick = handleCreateTeam;
+        document.getElementById('delete-team-button').classList.add('hidden');
+        
+        var yearInput = document.getElementById('edit-team-year');
+        if (!yearInput.value) {
+            yearInput.value = new Date().getFullYear();
+        }
+        document.getElementById('edit-team-season').value = 'Season 1';
+        document.getElementById('edit-team-name').value = '';
+        document.getElementById('edit-team-ladder-name').value = '';
+        document.getElementById('edit-team-ladder-api').value = '';
+        document.getElementById('edit-team-results-api').value = ''; 
+        
+        showModal('edit-team-modal');
+    }
+    
+    function showEditTeamModal(teamID) {
+        if (!isOwner()) return; // Read-only mode: prevent edits
+        var team = arrayFind(masterTeamList, function(t) { return t.teamID === teamID; });
+        if (!team) return;
+        
+        appState.editing.team = {
+            teamID: team.teamID,
+            sheetName: team.sheetName,
+            displayName: team.name + ' - ' + team.year + ' ' + team.season
+        };
+        
+        document.getElementById('edit-team-modal-title').textContent = "Edit Team";
+        document.getElementById('edit-team-year').value = team.year;
+        document.getElementById('edit-team-season').value = team.season;
+        document.getElementById('edit-team-name').value = team.name;
+        document.getElementById('edit-team-ladder-name').value = team.ladderName || '';
+        document.getElementById('edit-team-ladder-api').value = team.ladderApi || '';
+        document.getElementById('edit-team-results-api').value = team.resultsApi || '';
+        
+        document.getElementById('update-team-button').textContent = "Update";
+        document.getElementById('update-team-button').onclick = handleUpdateTeam;
+        
+        document.getElementById('delete-team-button').classList.remove('hidden');
+        
+        showModal('edit-team-modal');
+    }
+    
+    function showEditPlayerModal(playerId) {
+        if (!isOwner()) return; // Read-only mode: prevent edits
+        var player = arrayFind(players, function(p) { return p.id === playerId; });
+        if (!player) return;
+        
+        appState.editing.playerId = playerId;
+        
+        document.getElementById('edit-player-name').value = player.name;
+        document.getElementById('edit-player-fav-position').value = player.favoritePosition || '';
+        var fillInCheckbox = document.getElementById('edit-player-fill-in');
+        
+        console.log('[showEditPlayerModal] Player:', player.name, 'isFillIn:', player.isFillIn);
+        console.log('[showEditPlayerModal] fillInCheckbox found:', !!fillInCheckbox);
+        
+        if (fillInCheckbox) {
+            fillInCheckbox.checked = !!player.isFillIn;
+            console.log('[showEditPlayerModal] fillInCheckbox.checked set to:', fillInCheckbox.checked);
+        }
+        showModal('edit-player-modal');
+    }
+    
+    function showShareModal() {
+        renderGameShareLineup('share-lineup-card-modal', 'share-lineup-validation-modal');
+        showModal('share-lineup-modal');
+    }
+    
+    function showSeasonSummary() {
+        setLoading(true, "Calculating season stats...");
+        setTimeout(function() {
+            var stats = calculateSeasonStats();
+            renderSeasonSummary(stats);
+            setLoading(false);
+            showView('season-summary-view');
+        }, 50);
+    }
+    
+    function hideSeasonSummary() {
+        hideView('season-summary-view');
+    }
+    
+    function navigateSummary(direction) {
+        var slides = document.querySelectorAll('.summary-slide');
+        if (slides.length === 0) return;
+        
+        slides[currentSummarySlide].classList.remove('active-slide');
+        
+        currentSummarySlide += direction;
+        
+        if (currentSummarySlide < 0) {
+            currentSummarySlide = 0;
+        }
+        if (currentSummarySlide >= totalSummarySlides) {
+            currentSummarySlide = totalSummarySlides - 1;
+        }
+        
+        slides[currentSummarySlide].classList.add('active-slide');
+        updateSummaryNav();
+    }
+    
+    function updateSummaryNav() {
+        var prevBtn = document.getElementById('summary-prev');
+        var nextBtn = document.getElementById('summary-next');
+        var counter = document.getElementById('slide-counter');
+        
+        if (prevBtn) prevBtn.disabled = (currentSummarySlide === 0);
+        if (nextBtn) nextBtn.disabled = (currentSummarySlide === totalSummarySlides - 1);
+        if (counter) counter.textContent = (currentSummarySlide + 1) + ' / ' + totalSummarySlides;
+    }
+    
+    function toggleOpponentField(status) {
+        var opponentInput = document.getElementById('new-game-opponent');
+        var isBye = (status === 'bye');
+        
+        opponentInput.disabled = isBye;
+        if (isBye) {
+            opponentInput.value = "";
+        }
+    }
+    
+    function toggleOpponentFieldModal(status) {
+        var opponentInput = document.getElementById('add-modal-game-opponent');
+        var isBye = (status === 'bye');
+        
+        if (opponentInput) {
+            opponentInput.disabled = isBye;
+            if (isBye) {
+                opponentInput.value = "";
+            }
+        }
+    }
+    
+    function showModal(modalId) {
+        console.log('[showModal] Called with modalId:', modalId);
+        // First, hide all modals to prevent overlap
+        var allModals = document.querySelectorAll('.modal-overlay');
+        for (var i = 0; i < allModals.length; i++) {
+            allModals[i].classList.add('hidden');
+        }
+        
+        // Then show the requested modal
+        var el = document.getElementById(modalId);
+        console.log('[showModal] Found element:', !!el, 'for modalId:', modalId);
+        if (!el) return;
+        el.classList.remove('hidden');
+        console.log('[showModal] Showed modal:', modalId);
+        
+        if (modalId === 'add-game-modal') {
+            var statusEl = document.getElementById('add-modal-game-status');
+            if (statusEl) {
+                statusEl.value = 'normal';
+                toggleOpponentFieldModal(statusEl.value);
+            }
+        }
+    }
+    
+    function hideModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+        appState.currentGame.editingId = null;  
+        appState.editing.playerId = null;
+        appState.editing.team = null;
+    }
+    
+    function closeModal(event, modalId) {
+        if (event.target.id === modalId) {
+            hideModal(modalId);
+        }
+    }
+
+        // Update the ladder refresh button to show it's manual only
+    function refreshLadderManually() {
+        if (confirm("This will fetch the latest ladder data from NetballConnect API. Continue?")) {
+            loadNetballLadderApi();
+        }
+    }
+
+    // Update the results refresh button to show it's manual only
+    function refreshResultsManually() {
+        if (confirm("This will fetch the latest match results from NetballConnect API. Continue?")) {
+            loadMatchResultsApi();
+        }
+    }
+
+    function refreshLadderManually() {
+        if (confirm("This will fetch the latest ladder data from NetballConnect API. Continue?")) {
+            loadNetballLadderApi();
+        }
+    }
+
+    // Refresh insights data - clears cache and reloads from API
+    function refreshInsightsData() {
+        console.log("Refreshing insights data...");
+        
+        // Update button state to show loading
+        var btn = document.getElementById('refresh-insights-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span style="font-size: 1.1em; animation: spin 1s linear infinite;">🔄</span><span>Refreshing...</span>';
+        }
+        
+        // Clear localStorage cache (keep team data, only clear stats and other caches)
+        try {
+            var keysToRemove = [];
+            var allKeys = Object.keys(localStorage);
+            allKeys.forEach(function(key) {
+                // Keep team data (stored by sheetName), current team selection, and UI preferences
+                if (key.startsWith('insights_') || key === 'netball_ladder_cache' || key === 'netball_results_cache') {
+                    keysToRemove.push(key);
+                }
+            });
+            keysToRemove.forEach(function(key) {
+                localStorage.removeItem(key);
+            });
+            console.log("Removed cache keys:", keysToRemove);
+        } catch (e) {
+            console.warn('Could not clear localStorage cache:', e);
+        }
+        
+        // Force recalculation of all stats
+        try {
+            console.log("Recalculating all stats...");
+            if (typeof updateAllStats === 'function') {
+                updateAllStats();
+            }
+        } catch (e) {
+            console.warn('Error updating stats:', e);
+        }
+        
+        // Re-render insights view (no API calls - use cached data only)
+        setTimeout(function() {
+            try {
+                if (typeof renderNewInsightsDashboard === 'function') {
+                    renderNewInsightsDashboard();
+                }
+                if (typeof renderOffensiveHub === 'function') {
+                    renderOffensiveHub();
+                }
+                if (typeof renderDefensiveLeaders === 'function') {
+                    renderDefensiveLeaders();
+                }
+            } catch (e) {
+                console.warn('Error re-rendering insights:', e);
+            }
+            
+            // Restore button state
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span style="font-size: 1.1em;">🔄</span><span>Refresh</span>';
+            }
+            
+            // Show success message
+            try {
+                setLoading(false);
+                showNotification('Insights data refreshed successfully!', 'success');
+            } catch (e) {
+                if (btn) btn.disabled = false;
+            }
+        }, 2000); // Give time for API calls to complete
+    }
+
+    // Go back to previous view
+    function goBack() {
+        if (navigationHistory.length > 0) {
+            var previousView = navigationHistory.pop();
+            showView(previousView, true); // true = skip adding to history
+        } else {
+            // If no history, go to default view
+            showTeamSelector();
+        }
+    }
+
+    // Swipe gesture detection for mobile
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var touchEndX = 0;
+    var touchEndY = 0;
+    var touchStartScrollY = 0;
+    var minSwipeDistance = 80; // Minimum distance for swipe
+    var maxVerticalMovement = 100; // Maximum vertical movement to still count as horizontal swipe
+    var pullToRefreshThreshold = 100; // Distance to pull down for refresh
+
+    function handleTouchStart(e) {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+        touchStartScrollY = window.scrollY || window.pageYOffset;
+    }
+
+    function handleTouchEnd(e) {
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+        handleSwipe();
+    }
+
+    function handleSwipe() {
+        var swipeDistanceX = touchEndX - touchStartX;
+        var swipeDistanceY = touchEndY - touchStartY;
+        var absSwipeDistanceY = Math.abs(swipeDistanceY);
+        
+        // Check if it's a right swipe (back gesture)
+        if (swipeDistanceX > minSwipeDistance && 
+            absSwipeDistanceY < maxVerticalMovement && 
+            touchStartX < 50) { // Swipe must start from left edge
+            goBack();
+            return;
+        }
+    }
+
+    // Initialize swipe gestures on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        var mainContent = document.getElementById('main-content');
+        if (mainContent) {
+            mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mainContent.addEventListener('touchend', handleTouchEnd, { passive: true });
+        }
+    });
+
+    // Expose navigation functions globally
+    window.goBack = goBack;
+    window.showGameEditor = showGameEditor;
+    window.showAddTeamModal = showAddTeamModal;
+    window.updateAllStatsAndRender = updateAllStatsAndRender;
+    window.showShareModal = showShareModal;
+</script>
+<script>
+// Expose showView to the global window object for console access
+if (typeof showView === 'function') {
+    window.showView = showView;
+}
+</script>

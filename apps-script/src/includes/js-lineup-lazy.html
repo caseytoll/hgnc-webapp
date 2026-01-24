@@ -1,0 +1,294 @@
+<script>
+/**
+ * LAZY-LOADED LINEUP ANALYTICS MODULE
+ * Only loaded when user clicks lineup view - keeps main bundle small
+ * Uses IndexedDB for client-side caching to eliminate server round-trips
+ */
+
+(function() {
+  'use strict';
+  
+  // Singleton pattern - only load once
+  if (window._LINEUP_MODULE_LOADED) return;
+  window._LINEUP_MODULE_LOADED = true;
+  
+  console.log('[LineupModule] Lazy-loading lineup analytics...');
+  
+  // IndexedDB wrapper for lineup stats caching
+  const LineupCache = {
+    dbName: 'hgnc_lineup_cache',
+    storeName: 'stats',
+    version: 1,
+    
+    async init() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(this.dbName, this.version);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName, { keyPath: 'sheetName' });
+          }
+        };
+      });
+    },
+    
+    async get(sheetName) {
+      try {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction([this.storeName], 'readonly');
+          const store = tx.objectStore(this.storeName);
+          const request = store.get(sheetName);
+          request.onsuccess = () => {
+            const data = request.result;
+            // Check if cache is fresh (< 1 hour old)
+            if (data && (Date.now() - data.timestamp < 3600000)) {
+              console.log('[LineupCache] HIT for', sheetName);
+              resolve(data.stats);
+            } else {
+              console.log('[LineupCache] EXPIRED for', sheetName);
+              resolve(null);
+            }
+          };
+          request.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        console.warn('[LineupCache] IndexedDB not available:', e);
+        return null;
+      }
+    },
+    
+    async set(sheetName, stats) {
+      try {
+        const db = await this.init();
+        return new Promise((resolve) => {
+          const tx = db.transaction([this.storeName], 'readwrite');
+          const store = tx.objectStore(this.storeName);
+          store.put({
+            sheetName: sheetName,
+            stats: stats,
+            timestamp: Date.now()
+          });
+          tx.oncomplete = () => {
+            console.log('[LineupCache] STORED for', sheetName);
+            resolve();
+          };
+          tx.onerror = () => resolve(); // Silent fail
+        });
+      } catch (e) {
+        console.warn('[LineupCache] Could not store:', e);
+      }
+    },
+    
+    async clear(sheetName) {
+      try {
+        const db = await this.init();
+        return new Promise((resolve) => {
+          const tx = db.transaction([this.storeName], 'readwrite');
+          const store = tx.objectStore(this.storeName);
+          if (sheetName) {
+            store.delete(sheetName);
+          } else {
+            store.clear();
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+      } catch (e) {
+        console.warn('[LineupCache] Could not clear:', e);
+      }
+    }
+  };
+  
+  // Compute stats client-side (moved from server for instant response)
+  function computeLineupStats(games) {
+    const defensiveUnitStats = {};
+    const attackingUnitStats = {};
+    const positionPairingStats = {};
+    
+    games.forEach(game => {
+      if (!game.quarters || game.quarters.length === 0) return;
+      
+      game.quarters.forEach(quarter => {
+        const positions = quarter.positions || {};
+        const ourScore = (parseInt(quarter.ourGsGoals) || 0) + (parseInt(quarter.ourGaGoals) || 0);
+        const opponentScore = (parseInt(quarter.opponentGsGoals) || 0) + (parseInt(quarter.opponentGaGoals) || 0);
+        const plusMinus = ourScore - opponentScore;
+        
+        // Defensive units (GK-GD-WD-C)
+        const gk = positions.GK, gd = positions.GD, wd = positions.WD, c = positions.C;
+        if (gk && gd && wd && c) {
+          const key = [gk, gd, wd, c].sort().join('|');
+          if (!defensiveUnitStats[key]) {
+            defensiveUnitStats[key] = { gk, gd, wd, c, quarters: 0, totalGoalsAgainst: 0, totalPlusMinus: 0 };
+          }
+          defensiveUnitStats[key].quarters++;
+          defensiveUnitStats[key].totalGoalsAgainst += opponentScore;
+          defensiveUnitStats[key].totalPlusMinus += plusMinus;
+        }
+        
+        // Attacking units (GS-GA-WA-C)
+        const gs = positions.GS, ga = positions.GA, wa = positions.WA;
+        if (gs && ga && wa && c) {
+          const key = [gs, ga, wa, c].sort().join('|');
+          if (!attackingUnitStats[key]) {
+            attackingUnitStats[key] = { gs, ga, wa, c, quarters: 0, totalGoalsFor: 0, totalPlusMinus: 0 };
+          }
+          attackingUnitStats[key].quarters++;
+          attackingUnitStats[key].totalGoalsFor += ourScore;
+          attackingUnitStats[key].totalPlusMinus += plusMinus;
+        }
+        
+        // Position pairings
+        const posKeys = Object.keys(positions).filter(k => k.indexOf('Off') !== 0);
+        for (let i = 0; i < posKeys.length; i++) {
+          for (let j = i + 1; j < posKeys.length; j++) {
+            const p1 = positions[posKeys[i]], p2 = positions[posKeys[j]];
+            if (!p1 || !p2) continue;
+            const key = [p1, p2].sort().join('|');
+            if (!positionPairingStats[key]) {
+              positionPairingStats[key] = { player1: p1, player2: p2, quarters: 0, totalPlusMinus: 0 };
+            }
+            positionPairingStats[key].quarters++;
+            positionPairingStats[key].totalPlusMinus += plusMinus;
+          }
+        }
+      });
+    });
+    
+    // Calculate averages
+    Object.values(defensiveUnitStats).forEach(unit => {
+      unit.avgGoalsAgainst = (unit.totalGoalsAgainst / unit.quarters).toFixed(1);
+      unit.avgPlusMinus = (unit.totalPlusMinus / unit.quarters).toFixed(1);
+    });
+    Object.values(attackingUnitStats).forEach(unit => {
+      unit.avgGoalsFor = (unit.totalGoalsFor / unit.quarters).toFixed(1);
+      unit.avgPlusMinus = (unit.totalPlusMinus / unit.quarters).toFixed(1);
+    });
+    Object.values(positionPairingStats).forEach(pair => {
+      pair.avgPlusMinus = (pair.totalPlusMinus / pair.quarters).toFixed(1);
+    });
+    
+    return { defensiveUnitStats, attackingUnitStats, positionPairingStats };
+  }
+  
+  // Load stats with caching strategy
+  window.loadLineupStats = async function(viewType) {
+    if (!window.appState || !window.appState.currentTeam) {
+      showToast('Please select a team first');
+      return;
+    }
+    
+    const sheetName = window.appState.currentTeam.sheetName;
+    
+    // Try cache first
+    let stats = await LineupCache.get(sheetName);
+    
+    if (!stats) {
+      // Cache miss - compute from games data
+      console.log('[LineupStats] Computing stats from', window.games.length, 'games');
+      stats = computeLineupStats(window.games || []);
+      
+      // Store in cache
+      await LineupCache.set(sheetName, stats);
+    }
+    
+    // Render based on view type
+    if (viewType === 'defensive-units') {
+      renderDefensiveUnits(stats.defensiveUnitStats);
+    } else if (viewType === 'attacking-units') {
+      renderAttackingUnits(stats.attackingUnitStats);
+    } else if (viewType === 'position-pairings') {
+      renderPositionPairings(stats.positionPairingStats);
+    }
+  };
+  
+  // Invalidate cache when games change
+  window.invalidateLineupCache = function() {
+    if (window.appState && window.appState.currentTeam) {
+      LineupCache.clear(window.appState.currentTeam.sheetName);
+      console.log('[LineupCache] Invalidated');
+    }
+  };
+
+  // Init function (called by navigation, but module auto-loads)
+  window.initLineupModule = function() {
+    console.log('[LineupModule] initLineupModule called (module already loaded)');
+    return true;
+  };
+  
+  // Compact render functions (minimal HTML generation)
+  function renderDefensiveUnits(stats) {
+    const container = document.getElementById('lineup-defensive-units-table');
+    if (!container) return;
+    
+    const sorted = Object.values(stats)
+      .filter(u => u.quarters >= 3)
+      .sort((a, b) => parseFloat(b.avgPlusMinus) - parseFloat(a.avgPlusMinus));
+    
+    if (sorted.length === 0) {
+      container.innerHTML = '<div class="empty-state">No defensive unit data (need 3+ quarters together)</div>';
+      return;
+    }
+    
+    container.innerHTML = '<table class="stats-table"><thead><tr>' +
+      '<th>Unit (GK-GD-WD-C)</th><th>Qtrs</th><th>GA/Q</th><th>+/-</th>' +
+      '</tr></thead><tbody>' +
+      sorted.map(u => `<tr><td>${u.gk}/${u.gd}/${u.wd}/${u.c}</td>` +
+        `<td>${u.quarters}</td><td>${u.avgGoalsAgainst}</td>` +
+        `<td class="${parseFloat(u.avgPlusMinus) > 0 ? 'positive' : parseFloat(u.avgPlusMinus) < 0 ? 'negative' : ''}">${u.avgPlusMinus}</td></tr>`
+      ).join('') +
+      '</tbody></table>';
+  }
+  
+  function renderAttackingUnits(stats) {
+    const container = document.getElementById('lineup-attacking-units-table');
+    if (!container) return;
+    
+    const sorted = Object.values(stats)
+      .filter(u => u.quarters >= 3)
+      .sort((a, b) => parseFloat(b.avgPlusMinus) - parseFloat(a.avgPlusMinus));
+    
+    if (sorted.length === 0) {
+      container.innerHTML = '<div class="empty-state">No attacking unit data (need 3+ quarters together)</div>';
+      return;
+    }
+    
+    container.innerHTML = '<table class="stats-table"><thead><tr>' +
+      '<th>Unit (GS-GA-WA-C)</th><th>Qtrs</th><th>GF/Q</th><th>+/-</th>' +
+      '</tr></thead><tbody>' +
+      sorted.map(u => `<tr><td>${u.gs}/${u.ga}/${u.wa}/${u.c}</td>` +
+        `<td>${u.quarters}</td><td>${u.avgGoalsFor}</td>` +
+        `<td class="${parseFloat(u.avgPlusMinus) > 0 ? 'positive' : parseFloat(u.avgPlusMinus) < 0 ? 'negative' : ''}">${u.avgPlusMinus}</td></tr>`
+      ).join('') +
+      '</tbody></table>';
+  }
+  
+  function renderPositionPairings(stats) {
+    const container = document.getElementById('lineup-position-pairings-content');
+    if (!container) return;
+    
+    const sorted = Object.values(stats)
+      .filter(p => p.quarters >= 2)
+      .sort((a, b) => parseFloat(b.avgPlusMinus) - parseFloat(a.avgPlusMinus));
+    
+    if (sorted.length === 0) {
+      container.innerHTML = '<div class="empty-state">No position pairing data (need 2+ quarters together)</div>';
+      return;
+    }
+    
+    container.innerHTML = '<table class="stats-table"><thead><tr>' +
+      '<th>Pair</th><th>Qtrs</th><th>+/-</th>' +
+      '</tr></thead><tbody>' +
+      sorted.map(p => `<tr><td>${p.player1} & ${p.player2}</td>` +
+        `<td>${p.quarters}</td>` +
+        `<td class="${parseFloat(p.avgPlusMinus) > 0 ? 'positive' : parseFloat(p.avgPlusMinus) < 0 ? 'negative' : ''}">${p.avgPlusMinus}</td></tr>`
+      ).join('') +
+      '</tbody></table>';
+  }
+  
+  console.log('[LineupModule] Loaded successfully');
+})();
+</script>
