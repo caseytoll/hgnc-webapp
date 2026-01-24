@@ -2,11 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Handover & Troubleshooting:** See `HANDOVER_SESSION.md` for the latest project status, troubleshooting steps (including Vite parse errors), and onboarding notes for new developers or AI agents.
+## Recent Changes (2026-01-24)
+
+**Captain Selection Feature:**
+- Tap a player in a position slot to mark them as captain (shows "C" badge)
+- Captain stored at game level: `game.captain = "Player Name"`
+- Captain displays on shared lineup card
+- Lineup card format: players listed alphabetically, positions shown per quarter
+
+**Deployment:**
+- Production: https://hgnc-team-manager.netlify.app
+- GitHub: https://github.com/caseytoll/hgnc-webapp (auto-deploys on push to master)
+- Backend: Google Apps Script connected and working
+- All 173 tests passing
+
+**Key functions added:**
+- `handlePositionClick()` - routes to assignment or captain toggle
+- `toggleCaptain()` - marks/unmarks player as captain
+- `generateLineupCardHTML()` - updated for player-centric format with captain
+
+---
 
 ## Project Overview
-
-See also: `HANDOVER_SESSION.md` for handoff, troubleshooting, and onboarding notes. If you encounter Vite parse errors or encoding issues, follow the steps in that document before making further changes.
 
 HGNC Team Manager is a Progressive Web App (PWA) for managing Hazel Glen Netball Club teams. It includes features for roster management, game scheduling, lineup planning with quarter-by-quarter player assignments, live scoring, and advanced analytics. The app works offline and can connect to a Google Apps Script backend for data persistence.
 
@@ -113,7 +130,7 @@ Test files:
   year: 2025,
   season: "Season 1",  // "Season 1" | "Season 2" | "NFNL"
   players: [{ id, name, fillIn, favPosition }],
-  games: [{ gameID, round, opponent, date, location, status, scores, lineup }]
+  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }]
 }
 ```
 
