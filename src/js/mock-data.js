@@ -232,7 +232,7 @@ export const mockTeams = [
             "GK": "Charlotte Miller",
             "ourGsGoals": 2,
             "ourGaGoals": 1,
-            "opponentScore": 2
+            "oppGsGoals": 1, "oppGaGoals": 1
           },
           "Q2": {
             "GS": "Sophia Chen",
@@ -244,7 +244,7 @@ export const mockTeams = [
             "GK": "Isabella Brown",
             "ourGsGoals": 3,
             "ourGaGoals": 1,
-            "opponentScore": 2
+            "oppGsGoals": 1, "oppGaGoals": 1
           },
           "Q3": {
             "GS": "Emma Wilson",
@@ -256,7 +256,7 @@ export const mockTeams = [
             "GK": "Charlotte Miller",
             "ourGsGoals": 2,
             "ourGaGoals": 2,
-            "opponentScore": 3
+            "oppGsGoals": 2, "oppGaGoals": 1
           },
           "Q4": {
             "GS": "Sophia Chen",
@@ -268,7 +268,7 @@ export const mockTeams = [
             "GK": "Ava Johnson",
             "ourGsGoals": 1,
             "ourGaGoals": 0,
-            "opponentScore": 1
+            "oppGsGoals": 1, "oppGaGoals": 0
           }
         }
       },
@@ -305,7 +305,7 @@ export const mockTeams = [
             "GK": "Charlotte Miller",
             "ourGsGoals": 4,
             "ourGaGoals": 2,
-            "opponentScore": 3
+            "oppGsGoals": 2, "oppGaGoals": 1
           },
           "Q2": {
             "GS": "Sophia Chen",
@@ -317,7 +317,7 @@ export const mockTeams = [
             "GK": "Mia Davis",
             "ourGsGoals": 2,
             "ourGaGoals": 1,
-            "opponentScore": 2
+            "oppGsGoals": 1, "oppGaGoals": 1
           },
           "Q3": {
             "GS": "Emma Wilson",
@@ -329,7 +329,7 @@ export const mockTeams = [
             "GK": "Charlotte Miller",
             "ourGsGoals": 3,
             "ourGaGoals": 1,
-            "opponentScore": 3
+            "oppGsGoals": 2, "oppGaGoals": 1
           },
           "Q4": {
             "GS": "Sophia Chen",
@@ -341,7 +341,7 @@ export const mockTeams = [
             "GK": "Olivia Taylor",
             "ourGsGoals": 1,
             "ourGaGoals": 1,
-            "opponentScore": 2
+            "oppGsGoals": 1, "oppGaGoals": 1
           }
         }
       },
@@ -458,7 +458,7 @@ export const mockTeams = [
             "GK": "Luna Walker",
             "ourGsGoals": 5,
             "ourGaGoals": 2,
-            "opponentScore": 4
+            "oppGsGoals": 2, "oppGaGoals": 2
           },
           "Q2": {
             "GS": "Lily Thompson",
@@ -470,7 +470,7 @@ export const mockTeams = [
             "GK": "Aria Lewis",
             "ourGsGoals": 3,
             "ourGaGoals": 2,
-            "opponentScore": 3
+            "oppGsGoals": 2, "oppGaGoals": 1
           },
           "Q3": {
             "GS": "Zoe Anderson",
@@ -482,7 +482,7 @@ export const mockTeams = [
             "GK": "Luna Walker",
             "ourGsGoals": 4,
             "ourGaGoals": 1,
-            "opponentScore": 4
+            "oppGsGoals": 2, "oppGaGoals": 2
           },
           "Q4": {
             "GS": "Lily Thompson",
@@ -494,7 +494,7 @@ export const mockTeams = [
             "GK": "Grace Lee",
             "ourGsGoals": 1,
             "ourGaGoals": 0,
-            "opponentScore": 3
+            "oppGsGoals": 2, "oppGaGoals": 1
           }
         }
       }

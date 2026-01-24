@@ -518,7 +518,8 @@ function transformTeamDataFromSheet(data, teamID) {
             GK: positions.GK || '',
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
-            opponentScore: (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0)
+            oppGsGoals: q.opponentGsGoals || 0,
+            oppGaGoals: q.opponentGaGoals || 0
           };
         }
       });
@@ -1675,13 +1676,16 @@ window.confirmImport = function() {
   state.currentTeamData = data;
   state.currentTeam = data;
 
+  // Recalculate stats for imported data
+  state.stats = calculateMockStats(state.currentTeamData);
+  state.analytics = calculateAllAnalytics(state.currentTeamData);
+
   // Save to localStorage
-  saveToStorage();
+  saveToLocalStorage();
 
   // Refresh the UI
   renderSchedule();
   renderRoster();
-  updateQuickStats();
 
   // Update header
   document.getElementById('current-team-name').textContent = data.teamName;
@@ -1717,9 +1721,7 @@ function renderGameScoreCard() {
       const qData = game.lineup[q] || {};
       us += (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
       opponent += (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
-      // Support legacy opponentScore field
-      if (qData.opponentScore) opponent += qData.opponentScore;
-      if (qData.ourGsGoals || qData.ourGaGoals || qData.oppGsGoals || qData.oppGaGoals || qData.opponentScore) {
+      if (qData.ourGsGoals || qData.ourGaGoals || qData.oppGsGoals || qData.oppGaGoals) {
         hasLineupScores = true;
       }
     });
@@ -2188,8 +2190,6 @@ window.calculateGameTotal = function() {
     const qData = game.lineup[q] || {};
     ourTotal += (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     theirTotal += (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
-    // Support legacy opponentScore field
-    if (qData.opponentScore) theirTotal += qData.opponentScore;
   });
 
   game.scores = { us: ourTotal, opponent: theirTotal };
