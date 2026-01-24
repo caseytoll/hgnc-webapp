@@ -2,21 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Recent Changes (2026-01-24)
+## Recent Changes (2026-01-25)
 
-**Deployment:**
-- Migrated to Cloudflare Pages (500 builds/month, unlimited bandwidth)
-- Production URL: https://hgnc-team-manager.pages.dev
-- Netlify deprecated (credit costs ~15/deploy, site pause risk)
-
-**Game Schedule:**
-- Changed Location field from Home/Away dropdown to free text "Court" field
-- Accepts court number (e.g., "1") or full location (e.g., "Banyule Court 1")
-
-**Shared Lineup Image:**
-- Date format: "d MMM yyyy" (e.g., "15 Mar 2025")
-- Now shows date, time, and court separated by bullets
-- Removed "Team Manager" footer
+**Stats Page - Goal Scorer Breakdown:**
+- Fixed goal breakdown not showing when clicking on scorers
+- Goals now aggregated per game (shows GS/GA goals and total)
+- Added `scoringQuarters` count
+- Fixed: Google Sheet API returns numbers as strings - now using `parseInt()` in `calculateMockStats`
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
@@ -76,8 +68,9 @@ npm run preview          # Preview production build locally
 **Key files:**
 - `src/js/app.js` - Main application logic, global `state` object
 - `src/js/api.js` - Data source abstraction (mock/API toggle)
-- `src/js/config.js` - API endpoint URL
-- `src/js/stats-calculations.js` - Stats dashboard calculations
+- `src/js/config.js` - API endpoint URL, `useMockData` toggle
+- `src/js/mock-data.js` - Mock data AND `calculateMockStats()` used for all data sources
+- `src/js/stats-calculations.js` - Advanced stats (leaderboards, combos, analytics)
 - `src/js/share-utils.js` - Lineup card generation, sharing
 - `src/css/styles.css` - All styles with CSS custom properties
 
@@ -156,7 +149,9 @@ Old URL: https://hgnc-team-manager.netlify.app
 node --check src/js/app.js
 ```
 
-**Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API.
+**Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API. Also: set `useMockData: true` in `src/js/config.js`.
+
+**Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
 
 ---
 
