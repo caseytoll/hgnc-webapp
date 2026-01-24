@@ -59,24 +59,27 @@ export function calculateMockStats(team) {
             playerData[playerName].quarters++;
             playersInGame.add(playerName);
 
-            // Track goals for GS and GA
-            if (pos === 'GS' && quarter.ourGsGoals) {
-              playerData[playerName].goals += quarter.ourGsGoals;
+            // Track goals for GS and GA (parse as int in case values are strings)
+            const gsGoals = parseInt(quarter.ourGsGoals) || 0;
+            const gaGoals = parseInt(quarter.ourGaGoals) || 0;
+
+            if (pos === 'GS' && gsGoals > 0) {
+              playerData[playerName].goals += gsGoals;
               playerData[playerName].scoringQuarters++;
               // Aggregate by game
               if (!playerData[playerName].gameGoals[game.gameID]) {
                 playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
               }
-              playerData[playerName].gameGoals[game.gameID].gsGoals += quarter.ourGsGoals;
+              playerData[playerName].gameGoals[game.gameID].gsGoals += gsGoals;
             }
-            if (pos === 'GA' && quarter.ourGaGoals) {
-              playerData[playerName].goals += quarter.ourGaGoals;
+            if (pos === 'GA' && gaGoals > 0) {
+              playerData[playerName].goals += gaGoals;
               playerData[playerName].scoringQuarters++;
               // Aggregate by game
               if (!playerData[playerName].gameGoals[game.gameID]) {
                 playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
               }
-              playerData[playerName].gameGoals[game.gameID].gaGoals += quarter.ourGaGoals;
+              playerData[playerName].gameGoals[game.gameID].gaGoals += gaGoals;
             }
           }
         });
