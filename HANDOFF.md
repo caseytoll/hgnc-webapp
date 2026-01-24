@@ -1,139 +1,75 @@
 # Development Handoff Document
 **Date:** 2026-01-24
 **Project:** HGNC Team Manager
-**Status:** Deployed to Netlify, needs backend integration
+**Status:** ✅ Fully deployed with live backend
 
-> **Handover & Troubleshooting:** See `HANDOVER_SESSION.md` for the latest project status, troubleshooting steps (including Vite parse errors), and onboarding notes for new developers or AI agents.
+> **Handover & Troubleshooting:** See `HANDOVER_SESSION.md` for the latest project status, troubleshooting steps, and onboarding notes.
 
 ---
 
 ## 🎯 Current Status
 
-See also: `HANDOVER_SESSION.md` for handoff, troubleshooting, and onboarding notes. If you encounter Vite parse errors or encoding issues, follow the steps in that document before making further changes or backend updates.
+**The app is fully functional with live backend integration.**
 
-### ✅ Completed Today
+- **Production:** https://hgnc-team-manager.netlify.app
+- **GitHub:** https://github.com/caseytoll/hgnc-webapp (auto-deploys on push)
+- **Backend:** Google Apps Script connected and working
+- **Teams:** U11 Flames, Hazel Glen 6 (loading from Google Sheets)
 
-1. **Branding Updated**
-   - Changed from "Team Manager" to "HGNC Team Manager"
-   - Updated all references (manifest.json, index.html, README, CLAUDE.md, package.json, service worker)
-   - Logo: "HGNC" instead of "TM"
+### ✅ Completed (2026-01-24)
 
-2. **New Feature: Position Tracking View**
-   - Added new "Positions" tab in Stats section
-   - Shows grid of players × positions with quarters played
-   - Highlights favorite positions
-   - Shows development insights (which players need exposure to which positions)
-   - Full styling added to styles.css
+1. **Backend Integration**
+   - Connected to Google Apps Script backend
+   - Real team data loading from Google Sheets
+   - API calls working (getTeams, getTeamData, saveTeamData)
+   - Local dev uses Vite proxy, production calls Apps Script directly
 
-3. **Production Deployment**
-   - Built production version: `npm run build`
-   - Deployed to Netlify
-   - Live at: **https://hgnc-team-manager.netlify.app**
-   - PWA features working (Add to Home Screen, offline mode)
+2. **GitHub + Auto-Deploy**
+   - Repo: https://github.com/caseytoll/hgnc-webapp
+   - Push to `master` → automatic Netlify deploy
+   - Old Apps Script version tagged as `legacy-apps-script`
 
-4. **Development Server**
-   - Running with network access: `npm run dev -- --host`
-   - Local: http://localhost:3000
-   - Network: http://192.168.1.9:3000
+3. **Bug Fixes**
+   - Fixed Vite parse error (missing closing brace)
+   - Fixed `calculateMockStats` missing function
+   - Fixed Safari/localhost CSS MIME type issue
+   - Fixed `saveGameSettings` variable ordering
+   - Fixed `loadFromLocalStorage` to restore all game fields
 
-5. **All Tests Passing**
+4. **All Tests Passing**
    - 173 tests across 4 test files
    - Coverage maintained
 
 ---
 
-## 📋 What Needs to Be Done Next
+## 📋 Future Enhancements (Optional)
 
-### PRIMARY TASK: Connect Google Apps Script Backend
+All critical features are working. These are optional improvements:
 
-The app is currently using **mock data only**. User has an existing Google Apps Script backend from their previous Google Sites embed version.
+1. **Custom Domain** (~$12/year) - Currently using `hgnc-team-manager.netlify.app`
+2. **Offline Sync** - Currently works offline with cached data, could add background sync
+3. **Push Notifications** - Remind about upcoming games
 
-**Required Steps:**
+---
 
-#### 1. Update Google Apps Script CORS Headers
+## 🔧 Backend Configuration (Reference)
 
-The Apps Script needs to allow requests from the new Netlify domain.
-
-**Location:** User's Google Apps Script project (exact URL unknown)
-
-**Required change:** Add CORS headers to the `doGet` and `doPost` functions:
-
-```javascript
-function doGet(e) {
-  const output = // ... your existing code
-
-  // Add CORS headers
-  return ContentService
-    .createTextOutput(JSON.stringify(output))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', 'https://hgnc-team-manager.netlify.app')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
-function doPost(e) {
-  // ... existing code
-
-  return ContentService
-    .createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', 'https://hgnc-team-manager.netlify.app')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
-// Handle preflight requests
-function doOptions(e) {
-  return ContentService
-    .createTextOutput('')
-    .setHeader('Access-Control-Allow-Origin', 'https://hgnc-team-manager.netlify.app')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
-}
+**Apps Script URL:**
+```
+https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec
 ```
 
-#### 2. Update App Configuration
+**Google Sheet ID:** `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88`
 
-**File:** `src/js/config.js`
+**API Endpoints:**
+- `?api=true&action=ping` - Health check
+- `?api=true&action=getTeams` - List all teams
+- `?api=true&action=getTeamData&teamID=X&sheetName=Y` - Get team details
+- `?api=true&action=saveTeamData&sheetName=X&teamData=JSON` - Save team data
 
-Current state:
-```javascript
-export const API_CONFIG = {
-  BASE_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec',
-  TIMEOUT: 10000
-};
-```
-
-**Action needed:**
-- Replace `YOUR_DEPLOYMENT_ID` with actual Google Apps Script deployment ID
-- User needs to provide this URL from their Apps Script project
-
-#### 3. Update API Toggle
-
-**File:** `src/js/api.js`
-
-The app has a data source toggle. Current default is 'mock'.
-
-**After backend is connected:**
-- Test with live API by clicking dev panel (bottom-right, localhost only)
-- Toggle to "API" mode
-- Verify data loads from Google Sheets
-- Once confirmed working, can change default to 'api' in `src/js/app.js` line 44:
-  ```javascript
-  const state = {
-    dataSource: 'api', // changed from 'mock'
-    // ...
-  };
-  ```
-
-#### 4. Redeploy to Netlify
-
-After configuration changes:
-```bash
-npm run build
-# Drag dist/ folder to Netlify (or it will auto-deploy if GitHub connected)
-```
+**How API works:**
+- **Local dev:** Vite proxy at `/gas-proxy` → Apps Script (bypasses CORS)
+- **Production:** Direct calls to Apps Script (Google handles CORS for GET requests)
 
 ---
 

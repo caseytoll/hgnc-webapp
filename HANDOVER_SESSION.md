@@ -20,29 +20,40 @@
 ---
 
 ## Current State (as of 2026-01-24)
-- **Frontend:** Vanilla JS (ES modules), Vite, PWA, Netlify
-- **Backend:** Google Apps Script (integration pending)
-- **Data:** Mock data (localStorage, mock-data.js) and API (Apps Script)
+- **Frontend:** Vanilla JS (ES modules), Vite, PWA
+- **Backend:** Google Apps Script ✅ **CONNECTED**
+- **Data:** Mock data (localStorage) for dev, Live API for production
 - **Dev server:** Vite (`npm run dev -- --host`)
-- **Tests:** Vitest, coverage maintained
+- **Tests:** Vitest, 173 tests passing
 - **Production:** https://hgnc-team-manager.netlify.app
+- **GitHub:** https://github.com/caseytoll/hgnc-webapp (auto-deploys to Netlify)
 
 ---
 
-## Outstanding Issues / Next Steps
-1. ~~**Vite Dev Server Parse Error:**~~ **RESOLVED (2026-01-24)**
-   - **Root cause:** Missing closing brace in `window.calculateGameTotal` function (line 2178) and missing `calculateMockStats` function export from `mock-data.js`.
+## Completed (2026-01-24)
+
+1. ~~**Vite Dev Server Parse Error:**~~ **RESOLVED**
+   - **Root cause:** Missing closing brace in `window.calculateGameTotal` function and missing `calculateMockStats` function export.
    - **Fix applied:** Added closing `};` and implemented `calculateMockStats` function.
-   - All 173 tests passing, build succeeds.
 
-2. **Backend Integration:**
-   - Google Apps Script backend must be updated to allow CORS from Netlify domain.
-   - Update `doGet`/`doPost` in Apps Script to include CORS headers.
-   - Update `api.js` and config to point to live backend.
+2. ~~**Backend Integration:**~~ **RESOLVED**
+   - Apps Script URL configured in `src/js/config.js`
+   - API calls work directly to Apps Script (CORS handled by Google)
+   - Local dev uses Vite proxy (`/gas-proxy`), production calls Apps Script directly
+   - Real teams loading: U11 Flames, Hazel Glen 6
 
-3. **Handoff for Next Session:**
-   - All documentation (README, CLAUDE.md, this handover) is up to date.
-   - See below for troubleshooting, dev workflow, and onboarding notes.
+3. ~~**GitHub + Netlify Auto-Deploy:**~~ **RESOLVED**
+   - Repo: https://github.com/caseytoll/hgnc-webapp
+   - Push to `master` triggers automatic Netlify deploy
+   - Old Apps Script version preserved as tag `legacy-apps-script`
+
+4. **Bug Fixes Applied:**
+   - Fixed `saveGameSettings` variable ordering (game used before declaration)
+   - Fixed `loadFromLocalStorage` to restore all game fields (status, opponent, etc.)
+   - Fixed Safari/localhost CSS MIME type issue (CSS now imported via JS)
+
+## Outstanding Issues / Next Steps
+- None critical. App is fully functional with live backend.
 
 ---
 
@@ -68,9 +79,11 @@
 - **Quick syntax check:** `node --check src/js/app.js`
 
 ### Backend/API Integration
-- Update Google Apps Script to allow CORS from Netlify.
-- Update `api.js` to use live API endpoints.
-- Test API mode by toggling data source in dev panel.
+- **Apps Script URL:** Configured in `src/js/config.js`
+- **Local dev:** Uses Vite proxy (`/gas-proxy` → Apps Script) to bypass CORS
+- **Production:** Calls Apps Script directly (Google handles CORS for GET requests)
+- **Toggle data source:** Use dev panel (bottom-right, localhost only) to switch between Mock and API
+- **API endpoints:** `ping`, `getTeams`, `getTeamData`, `saveTeamData` (see `api.js`)
 
 ### Data Export/Import
 - Use the dev panel to export mock data to `mock-data.js`.
@@ -95,10 +108,11 @@
 ---
 
 ## Contacts & Resources
-- **Netlify site:** https://hgnc-team-manager.netlify.app
-- **Google Apps Script:** (URL to be provided by user)
-- **Dev lead:** (to be filled in)
+- **Production:** https://hgnc-team-manager.netlify.app
+- **GitHub:** https://github.com/caseytoll/hgnc-webapp
+- **Apps Script:** https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec
+- **Google Sheet:** ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88`
 
 ---
 
-*This handover document is up to date as of 2026-01-24. For any issues, see troubleshooting above or contact the previous developer.*
+*Last updated: 2026-01-24. Backend integration complete, auto-deploy configured.*
