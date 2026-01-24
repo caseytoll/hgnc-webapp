@@ -1851,11 +1851,14 @@ function renderLineupBuilder() {
 
 function renderPositionSlot(position, playerName) {
   const filled = playerName && playerName.length > 0;
+  const isCaptain = filled && state.currentGame?.captain === playerName;
+  const captainBadge = isCaptain ? '<span class="captain-badge">C</span>' : '';
+
   return `
-    <div class="position-slot ${filled ? 'filled' : ''}" onclick="assignPosition('${escapeAttr(position)}')">
+    <div class="position-slot ${filled ? 'filled' : ''}" onclick="handlePositionClick('${escapeAttr(position)}', '${filled ? escapeAttr(playerName) : ''}')">
       <div class="position-label">${escapeHtml(position)}</div>
       ${filled
-        ? `<div class="position-player">${escapeHtml(playerName)}</div>`
+        ? `<div class="position-player">${escapeHtml(playerName)}${captainBadge}</div>`
         : `<div class="position-empty">Tap to assign</div>`
       }
     </div>
@@ -1871,6 +1874,32 @@ window.selectQuarter = function(quarter) {
 window.selectBenchPlayer = function(playerName) {
   state.selectedPlayer = state.selectedPlayer === playerName ? null : playerName;
   renderLineupBuilder();
+};
+
+window.handlePositionClick = function(position, playerName) {
+  if (state.selectedPlayer) {
+    // Assigning a bench player to position
+    assignPosition(position);
+  } else if (playerName) {
+    // Toggle captain on filled position
+    toggleCaptain(playerName);
+  }
+};
+
+window.toggleCaptain = function(playerName) {
+  const game = state.currentGame;
+  if (!game) return;
+
+  if (game.captain === playerName) {
+    game.captain = null;
+    showToast('Captain removed', 'info');
+  } else {
+    game.captain = playerName;
+    showToast(`${playerName} is now captain`, 'success');
+  }
+
+  renderLineupBuilder();
+  saveToLocalStorage();
 };
 
 window.assignPosition = function(position) {

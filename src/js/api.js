@@ -203,6 +203,7 @@ function transformTeamDataFromSheet(data, teamID) {
       time: g.time || '',
       location: g.court ? `Court ${g.court}` : (g.location || ''),
       status: g.status || 'upcoming',
+      captain: g.captain || null,
       scores,
       availablePlayerIDs: g.availablePlayerIDs || [],
       lineup
@@ -285,6 +286,7 @@ function transformTeamDataToSheet(pwaData) {
       time: g.time || '',
       court: g.location?.replace('Court ', '') || '',
       status: g.status || 'upcoming',
+      captain: g.captain || null,
       availablePlayerIDs: g.availablePlayerIDs || [],
       quarters
     };
