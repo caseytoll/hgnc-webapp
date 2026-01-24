@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
 | Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
 
-**Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --commit-dirty=true`
+**Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true`
 
 ---
 
@@ -123,7 +123,7 @@ npm run preview          # Preview production build locally
 
 500 builds/month, unlimited bandwidth, free:
 ```bash
-npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --commit-dirty=true
+npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
 ```
 
 Setup (one-time, already done):
