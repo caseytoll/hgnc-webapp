@@ -404,6 +404,7 @@ window.togglePlayerExpand = function(card) {
 
 async function loadTeams() {
   showLoading();
+  console.log('[App] loadTeams() called, dataSource:', state.dataSource);
 
   try {
     if (state.dataSource === 'mock') {
@@ -420,8 +421,11 @@ async function loadTeams() {
       // Use proxy for local dev to bypass CORS
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
       const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      console.log('[App] Fetching teams from:', baseUrl);
       const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
+      console.log('[App] Response status:', response.status);
       const data = await response.json();
+      console.log('[App] API response:', data);
       if (data.success === false) {
         throw new Error(data.error || 'API request failed');
       }
@@ -431,6 +435,7 @@ async function loadTeams() {
         state.teamSheetMap[t.teamID] = t.sheetName;
         return t;
       });
+      console.log('[App] Loaded', state.teams.length, 'teams');
     }
 
     renderTeamList();
