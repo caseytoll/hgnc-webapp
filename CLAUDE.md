@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Recent Changes (2026-01-24)
 
@@ -63,8 +63,10 @@ HGNC Team Manager is a PWA for managing Hazel Glen Netball Club teams. Features 
 npm run dev              # Dev server (port 3000)
 npm run dev -- --host    # Dev server with network access (for phone testing)
 npm run build            # Production build → dist/
+npm test                 # Run tests in watch mode
 npm run test:run         # Run tests once
 npm run test:coverage    # Tests with coverage
+npx vitest src/js/utils.test.js  # Run single test file
 ```
 
 ---
@@ -155,14 +157,6 @@ node --check src/js/app.js
 ```
 
 **Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API.
-
----
-
-## Future Enhancements (Optional)
-
-- Custom domain (~$12/year)
-- Offline sync (background sync when connection restored)
-- Push notifications (game reminders)
 
 ---
 
