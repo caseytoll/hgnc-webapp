@@ -4,13 +4,6 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Recent Changes (2026-01-24)
 
-**Netlify Billing Alert:**
-- Hit 50% of 300 free credits on first day (likely from many builds during setup)
-- TODO: Stop automatic deploys in Netlify to conserve credits
-- Netlify UI: Site configuration → Build & deploy → Stop builds
-- Deploy manually when ready: "Trigger deploy" dropdown in site overview
-- Credits reset February 23
-
 **Captain Selection:**
 - Tap a player in a position slot to mark as captain (shows "C" badge)
 - Captain stored at game level: `game.captain = "Player Name"`
@@ -18,14 +11,19 @@ This file provides guidance to Claude Code when working with this repository.
 
 **Shared Lineup Card:**
 - Captain displays below match info ("Captain: Name")
-- New format: players listed alphabetically, positions shown per quarter (matches old Google Sheets format)
+- New format: players listed alphabetically, positions shown per quarter
 - See `docs/examples/Example Lineup.pdf` for reference
 
-**Documentation:**
-- Consolidated all docs into CLAUDE.md
-- Removed redundant HANDOFF.md and HANDOVER_SESSION.md
+**Netlify:**
+- Auto-deploys DISABLED to conserve credits (was burning through free tier)
+- Manual deploy workflow documented below
+- Credits reset February 23
 
-**Files changed:** `app.js`, `share-utils.js`, `api.js`, `styles.css`
+**Documentation:**
+- Consolidated all docs into single CLAUDE.md
+- Removed HANDOFF.md and HANDOVER_SESSION.md
+
+**Status:** All features working. 173 tests passing. Ready for next feature.
 
 ---
 
@@ -38,7 +36,7 @@ This file provides guidance to Claude Code when working with this repository.
 | Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
 | Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
 
-**Deploy:** Auto-deploys disabled (to save credits). Manual deploy: Netlify UI → Trigger deploy
+**Deploy:** Auto-deploys OFF. See "Netlify Deployment" section below for manual deploy steps.
 
 ---
 
