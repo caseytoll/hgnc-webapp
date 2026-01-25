@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Recent Changes (2026-01-25)
 
+**New Features:**
+- **Players section**: Track player career stats across teams/seasons via segmented control (Teams/Players) on home screen
+- Career stats include Goals Scored (GS/GA), Goals Against (GK/GD), quarters played, season breakdowns
+- "Track career stats" checkbox in player edit modal enables tracking
+- Sort players by Recent activity, Most Games, or A-Z (toggle button)
+- **Archive teams**: Hide old season teams while preserving data
+- **Accordion scoring**: Collapsible quarter cards on scoring screen
+- **Game tab reorder**: Availability → Lineup → Scoring (workflow order)
+
 **Bug Fixes:**
 - Fixed production "no data" issue: bumped service worker cache version (v1 → v2)
-- Added console logging in `loadTeams()` for debugging API calls
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
