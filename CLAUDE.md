@@ -158,7 +158,7 @@ node --check src/js/app.js
 
 **Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
 
-**Service worker updates:** Uses stale-while-revalidate strategy. After deploy, bump `CACHE_NAME` version in `public/sw.js` (currently `v3`), rebuild, and redeploy. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
+**Service worker updates:** Uses stale-while-revalidate strategy. After deploy, bump `CACHE_NAME` version in `public/sw.js` (currently `v4`), rebuild, and redeploy. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
 
 ---
 
