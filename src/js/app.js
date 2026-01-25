@@ -82,10 +82,18 @@ const state = {
 
 const STORAGE_KEY = 'teamManagerData';
 
+// Cache for API team data (separate from mockTeams)
+const apiTeamCache = {};
+
 function saveToLocalStorage() {
   try {
+    // If using API and have current team data, cache it
+    if (state.dataSource === 'api' && state.currentTeamData) {
+      apiTeamCache[state.currentTeamData.teamID] = state.currentTeamData;
+    }
     const dataToSave = {
       teams: mockTeams,
+      apiTeams: apiTeamCache,
       playerLibrary: state.playerLibrary,
       lastSaved: new Date().toISOString()
     };
@@ -139,6 +147,10 @@ function loadFromLocalStorage() {
       // Load player library
       if (data.playerLibrary) {
         state.playerLibrary = data.playerLibrary;
+      }
+      // Load API team cache
+      if (data.apiTeams) {
+        Object.assign(apiTeamCache, data.apiTeams);
       }
       console.log('[Storage] Data loaded from', data.lastSaved);
       return true;
@@ -484,6 +496,44 @@ async function loadTeamData(teamID) {
       }
       // Transform data from Sheet format to PWA format
       state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
+
+      // Merge any locally cached changes (e.g., player edits not yet synced)
+      const cachedTeam = apiTeamCache[teamID];
+      if (cachedTeam) {
+        // Merge player changes (fillIn, favPosition, name)
+        state.currentTeamData.players.forEach(player => {
+          const cachedPlayer = cachedTeam.players?.find(p => p.id === player.id);
+          if (cachedPlayer) {
+            player.fillIn = cachedPlayer.fillIn;
+            player.favPosition = cachedPlayer.favPosition;
+            player.name = cachedPlayer.name;
+          }
+        });
+        // Add any locally-added players not in Sheet
+        cachedTeam.players?.forEach(cachedPlayer => {
+          if (!state.currentTeamData.players.find(p => p.id === cachedPlayer.id)) {
+            state.currentTeamData.players.push(cachedPlayer);
+          }
+        });
+        // Merge game changes (lineup, scores, availability)
+        state.currentTeamData.games.forEach(game => {
+          const cachedGame = cachedTeam.games?.find(g => g.gameID === game.gameID);
+          if (cachedGame) {
+            game.lineup = cachedGame.lineup || game.lineup;
+            game.scores = cachedGame.scores || game.scores;
+            game.availablePlayerIDs = cachedGame.availablePlayerIDs || game.availablePlayerIDs;
+            game.status = cachedGame.status || game.status;
+          }
+        });
+        // Add any locally-added games not in Sheet
+        cachedTeam.games?.forEach(cachedGame => {
+          if (!state.currentTeamData.games.find(g => g.gameID === cachedGame.gameID)) {
+            state.currentTeamData.games.push(cachedGame);
+          }
+        });
+        console.log('[Storage] Merged local changes for team', teamID);
+      }
+
       hideLoading();
     }
 
