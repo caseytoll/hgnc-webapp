@@ -3360,6 +3360,8 @@ function calculateLibraryPlayerStats(libraryPlayer) {
       quartersPlayed: 0,
       goalsScored: 0,
       goalsAgainst: 0,
+      attackingQuarters: 0,
+      defensiveQuarters: 0,
       positionsPlayed: {},
       lastActivityDate: null
     },
@@ -3383,6 +3385,8 @@ function calculateLibraryPlayerStats(libraryPlayer) {
       quartersPlayed: 0,
       goalsScored: 0,
       goalsAgainst: 0,
+      attackingQuarters: 0,
+      defensiveQuarters: 0,
       positionsPlayed: {}
     };
 
@@ -3404,17 +3408,20 @@ function calculateLibraryPlayerStats(libraryPlayer) {
             seasonStats.quartersPlayed++;
             seasonStats.positionsPlayed[pos] = (seasonStats.positionsPlayed[pos] || 0) + 1;
 
-            // Track goals scored for attackers
+            // Track goals scored for attackers (GS/GA)
             if (pos === 'GS') {
               seasonStats.goalsScored += parseInt(quarter.ourGsGoals) || 0;
+              seasonStats.attackingQuarters++;
             } else if (pos === 'GA') {
               seasonStats.goalsScored += parseInt(quarter.ourGaGoals) || 0;
+              seasonStats.attackingQuarters++;
             }
 
-            // Track goals against for defenders
+            // Track goals against for defenders (GK/GD)
             if (pos === 'GK' || pos === 'GD') {
               const oppGoals = (parseInt(quarter.oppGsGoals) || 0) + (parseInt(quarter.oppGaGoals) || 0);
               seasonStats.goalsAgainst += oppGoals;
+              seasonStats.defensiveQuarters++;
             }
           }
         });
@@ -3442,6 +3449,8 @@ function calculateLibraryPlayerStats(libraryPlayer) {
     stats.allTime.quartersPlayed += seasonStats.quartersPlayed;
     stats.allTime.goalsScored += seasonStats.goalsScored;
     stats.allTime.goalsAgainst += seasonStats.goalsAgainst;
+    stats.allTime.attackingQuarters += seasonStats.attackingQuarters;
+    stats.allTime.defensiveQuarters += seasonStats.defensiveQuarters;
 
     Object.keys(seasonStats.positionsPlayed).forEach(pos => {
       stats.allTime.positionsPlayed[pos] = (stats.allTime.positionsPlayed[pos] || 0) + seasonStats.positionsPlayed[pos];
@@ -3512,8 +3521,8 @@ window.openLibraryPlayerDetail = function(globalId) {
         <div class="season-stats">
           <span>${s.gamesPlayed} games</span>
           <span>${s.quartersPlayed} qtrs</span>
-          ${isAttacker ? `<span>${s.goalsScored} goals</span>` : ''}
-          ${isDefender ? `<span>${s.goalsAgainst} GA</span>` : ''}
+          ${isAttacker && s.attackingQuarters > 0 ? `<span>${s.goalsScored} goals (${(s.goalsScored / s.attackingQuarters).toFixed(1)}/q)</span>` : isAttacker ? `<span>${s.goalsScored} goals</span>` : ''}
+          ${isDefender && s.defensiveQuarters > 0 ? `<span>${s.goalsAgainst} GA (${(s.goalsAgainst / s.defensiveQuarters).toFixed(1)}/q)</span>` : isDefender ? `<span>${s.goalsAgainst} GA</span>` : ''}
           <span>${seasonPositions}</span>
         </div>
         ${progression}
@@ -3538,12 +3547,14 @@ window.openLibraryPlayerDetail = function(globalId) {
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsScored}</span>
             <span class="library-stat-label">Goals Scored</span>
+            ${stats.allTime.attackingQuarters > 0 ? `<span class="library-stat-avg">${(stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1)}/qtr</span>` : ''}
           </div>
           ` : ''}
           ${isDefender ? `
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsAgainst}</span>
             <span class="library-stat-label">Goals Against</span>
+            ${stats.allTime.defensiveQuarters > 0 ? `<span class="library-stat-avg">${(stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1)}/qtr</span>` : ''}
           </div>
           ` : ''}
         </div>
