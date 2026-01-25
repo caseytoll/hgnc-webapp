@@ -3371,7 +3371,11 @@ function calculateLibraryPlayerStats(libraryPlayer) {
   const gamesSet = new Set();
 
   libraryPlayer.linkedInstances.forEach(instance => {
-    const team = mockTeams.find(t => t.teamID === instance.teamID);
+    // Check both mockTeams and apiTeamCache for the team data
+    let team = mockTeams.find(t => t.teamID === instance.teamID);
+    if (!team && apiTeamCache[instance.teamID]) {
+      team = apiTeamCache[instance.teamID];
+    }
     if (!team) return;
 
     const player = team.players.find(p => p.id === instance.playerID);
