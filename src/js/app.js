@@ -195,9 +195,8 @@ loadTheme();
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[App] Initializing Team Manager v2.1...');
+  console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
-  console.log('[App] apiTeamCache keys:', Object.keys(apiTeamCache));
   loadTeams();
 });
 

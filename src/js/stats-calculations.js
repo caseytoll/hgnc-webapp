@@ -79,7 +79,7 @@ export function calculateAdvancedStats(team) {
         const quarter = game.lineup[q];
         if (quarter) {
           const qFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
-          const qAgainst = quarter.opponentScore || 0;
+          const qAgainst = (quarter.oppGsGoals || 0) + (quarter.oppGaGoals || 0);
           quarterStats[q].for += qFor;
           quarterStats[q].against += qAgainst;
           quarterStats[q].diff += (qFor - qAgainst);
@@ -160,7 +160,7 @@ export function calculateLeaderboards(team) {
       const gk = quarter.GK;
       const gsGoals = quarter.ourGsGoals || 0;
       const gaGoals = quarter.ourGaGoals || 0;
-      const opponentScore = quarter.opponentScore || 0;
+      const opponentScore = (quarter.oppGsGoals || 0) + (quarter.oppGaGoals || 0);
 
       // Track individual scorers
       if (gs) {
@@ -332,7 +332,7 @@ export function calculateCombinations(team) {
       const gk = quarter.GK;
 
       const ourGoals = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
-      const theirGoals = quarter.opponentScore || 0;
+      const theirGoals = (quarter.oppGsGoals || 0) + (quarter.oppGaGoals || 0);
       const plusMinus = ourGoals - theirGoals;
 
       // Attacking unit (GS-GA-WA-C)
