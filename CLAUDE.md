@@ -81,7 +81,7 @@ npm run preview          # Preview production build locally
 - `src/js/share-utils.js` - Lineup card generation, sharing
 - `src/css/styles.css` - All styles with CSS custom properties
 
-**Test files:** `*.test.js` alongside source files (172 tests across 4 files: utils, mock-data, stats-calculations, share-utils)
+**Test files:** `*.test.js` alongside source files (172 tests: utils 55, share-utils 57, mock-data 20, stats-calculations 40)
 
 **Patterns:**
 - Single HTML file with `<div class="view">` sections (show/hide via `display`)
