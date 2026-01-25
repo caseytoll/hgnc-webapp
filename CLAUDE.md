@@ -8,6 +8,8 @@ HGNC Team Manager is a PWA for managing Hazel Glen Netball Club teams. Features 
 
 **Target user:** Junior netball coach who needs fair playing time distribution and offline access at games.
 
+**Status:** Development complete. All features working. Ready for production use.
+
 | Resource | URL |
 |----------|-----|
 | Production | https://hgnc-team-manager.pages.dev |
@@ -39,14 +41,24 @@ Read-only app for parents/spectators to view schedules and stats.
 cd viewer
 npm run dev              # Dev server
 npm run build            # Production build
+npm run test:run         # Run tests once
 ```
 
-**Deploy viewer:** `cd viewer && npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true`
+### Deployment
 
-### Deploy Main App
-
+**Main App:**
 ```bash
 npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
+```
+
+**Viewer App:**
+```bash
+cd viewer && npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
+```
+
+**Backend (Apps Script):**
+```bash
+cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V -d "Description"
 ```
 
 ---
@@ -55,19 +67,29 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --b
 
 **Tech:** Vanilla JS (ES modules), Vite 7.x, Vitest, Google Apps Script backend
 
-**Prerequisites:** Node.js 18+, npm 9+
+**Prerequisites:** Node.js 18+, npm 9+, clasp (for Apps Script deployment)
 
-**Key files:**
-- `src/js/app.js` - Main application logic, global `state` object
-- `src/js/api.js` - Data source abstraction (mock/API toggle)
-- `src/js/config.js` - API endpoint URL, `useMockData` toggle
-- `src/js/utils.js` - Utility functions (escapeHtml, formatters, localStorage wrappers)
-- `src/js/mock-data.js` - Mock data AND `calculateMockStats()` used for all data sources
-- `src/js/stats-calculations.js` - Advanced stats (leaderboards, combos, analytics)
-- `src/js/share-utils.js` - Lineup card generation, sharing
-- `src/css/styles.css` - All styles with CSS custom properties
+### Main App Files (`src/js/`)
+- `app.js` - Main application logic, global `state` object
+- `api.js` - Data transformation functions (sheet ↔ PWA format)
+- `config.js` - API endpoint URL, `useMockData` toggle
+- `utils.js` - Utility functions (escapeHtml, formatters, localStorage wrappers)
+- `mock-data.js` - Mock data AND `calculateMockStats()` used for all data sources
+- `stats-calculations.js` - Advanced stats (leaderboards, combos, analytics)
+- `share-utils.js` - Lineup card generation, sharing
 
-**Test files:** `*.test.js` alongside source files (172 tests: utils 55, share-utils 57, mock-data 20, stats-calculations 40)
+### Viewer App Files (`viewer/src/js/`)
+- `app.js` - Main viewer logic with inline API calls
+- `utils.js`, `mock-data.js`, `stats-calculations.js`, `share-utils.js` - Shared modules
+- `config.js` - API endpoint configuration
+
+### Backend Files (`apps-script/`)
+- `Code.js` - Main API handlers and business logic
+- `.clasp.json` - Clasp configuration for deployment
+
+**Test files:** `*.test.js` alongside source files
+- Main app: 172 tests (utils 55, share-utils 57, mock-data 20, stats-calculations 40)
+- Viewer app: 172 tests (same distribution)
 
 **Patterns:**
 - Single HTML file with `<div class="view">` sections (show/hide via `display`)
@@ -82,14 +104,19 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --b
 ## Data Structures
 
 ```javascript
-// Team
+// Team (from getTeams API)
+{
+  teamID, teamName, year, season, sheetName, archived
+}
+
+// Team Data (from getTeamData API)
 {
   teamID, teamName, year, season,
   players: [{ id, name, fillIn, favPosition }],
   games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }]
 }
 
-// Lineup (per game)
+// Lineup (per game, per quarter)
 {
   Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals },
   Q2: { ... }, Q3: { ... }, Q4: { ... }
@@ -103,15 +130,34 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --b
 ## API
 
 **Endpoints** (via Apps Script):
-- `?api=true&action=ping` - Health check
-- `?api=true&action=getTeams` - List teams
-- `?api=true&action=getTeamData&teamID=X&sheetName=Y` - Get team
-- `?api=true&action=saveTeamData&sheetName=X&teamData=JSON` - Save team
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| `ping` | Health check | - |
+| `getTeams` | List all teams | - |
+| `getTeamData` | Get team details | `teamID`, `sheetName` |
+| `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
+| `createTeam` | Create new team | `year`, `season`, `name` |
+| `updateTeam` | Update team settings | `teamID`, `settings` (JSON with teamName/year/season/archived) |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS
 **Production:** Direct calls to Apps Script (Google handles CORS)
 
-**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData
+**Google Sheet tabs:** Teams (with Archived column I), Fixture_Results, Ladder_Archive, Settings, LadderData
+
+---
+
+## Data Sync
+
+The app syncs data to Google Sheets at these points:
+- **Finalizing a game** - After calculating scores
+- **Closing game detail view** - When navigating back to main app
+- **Importing team data** - After confirming import
+- **Archiving/unarchiving teams** - Immediately via `updateTeam` API
+- **Updating team settings** - Immediately via `updateTeam` API
+- **Creating new teams** - Immediately via `createTeam` API
+
+Data is always saved to localStorage first for offline support, then synced to the backend when online.
 
 ---
 
@@ -130,59 +176,50 @@ node --check src/js/app.js
 
 **Service worker updates:** Uses stale-while-revalidate strategy. After deploy, bump `CACHE_NAME` version in `public/sw.js` (currently `v4`), rebuild, and redeploy. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
 
----
-
-## Recent Changes (2026-01-26)
-
-**Viewer App Refactoring (completed):**
-- Modularized viewer app into separate files (app.js, utils.js, mock-data.js, stats-calculations.js, share-utils.js, config.js)
-- Deleted monolithic viewer.js, kept inline API logic in app.js (simpler for read-only app)
-- Added vitest testing to viewer with 172 passing tests
-- Added html2canvas and happy-dom dependencies to viewer package.json
-- Removed unused viewer/src/js/api.js (dead code)
-
-**Bug Fixes:**
-- Fixed opponent goal field names in main app api.js: `saveLineup()` now uses `oppGsGoals`/`oppGaGoals` instead of obsolete `opponentScore` field
-
-**Technical:**
-- Main app: 172 tests passing
-- Viewer app: 172 tests passing
-- Both apps build successfully
-
-**Status:** All features working. Both apps deployed to Cloudflare Pages.
+**Apps Script deployment:** Use clasp to push and deploy changes:
+```bash
+cd apps-script && clasp push && clasp deploy -i <DEPLOYMENT_ID> -d "Description"
+```
 
 ---
 
-## Previous Changes (2026-01-25)
+## Development Complete (2026-01-26)
 
-**New Features:**
-- **Players section**: Track player career stats across teams/seasons via segmented control (Teams/Players) on home screen
-- Career stats include Goals Scored (GS/GA), Goals Against (GK/GD), quarters played, season breakdowns
-- **Per-quarter averages**: Goals Scored shows avg per attacking quarter (GS/GA), Goals Against shows avg per defensive quarter (GK/GD)
-- "Track career stats" checkbox in player edit modal enables tracking
-- Sort players by Recent activity, Most Games, or A-Z (toggle button)
-- **Archive teams**: Hide old season teams while preserving data
-- **Accordion scoring**: Collapsible quarter cards on scoring screen
-- **Game tab reorder**: Availability → Lineup → Scoring (workflow order)
-- **Viewer app**: Read-only parent/spectator app in `viewer/` directory
+### Features Implemented
+- **Team Management**: Create, edit, archive/unarchive teams
+- **Player Management**: Add/edit players, track fill-ins, favorite positions
+- **Game Scheduling**: Add games with opponent, date, time, location
+- **Lineup Builder**: Drag-and-drop player assignment to positions per quarter
+- **Live Scoring**: Track goals per quarter with running totals
+- **Statistics**: Team overview, leaderboards, position analysis, player combinations
+- **Player Library**: Track career stats across teams/seasons
+- **Sharing**: Share game results and lineup cards via native share or clipboard
+- **Offline Support**: Full functionality offline via service worker
+- **Viewer App**: Read-only app for parents/spectators
 
-**Bug Fixes:**
-- Fixed PWA not updating: switched to stale-while-revalidate caching, added "Update now" banner
-- Fixed player edits not persisting (API mode): added `apiTeamCache` to store local edits for API teams
-- Fixed player library stats showing 0 for API teams: all library functions now check `apiTeamCache`
+### Technical Implementation
+- Full API sync for all data changes (teams, players, games, lineups, scores)
+- 344 total tests passing (172 main app + 172 viewer app)
+- Modular codebase with shared utilities between apps
+- Responsive design with mobile-first approach
+- Dark mode support
+- PWA with install prompt and update notifications
 
-**Technical:**
-- Service worker now at v4, checks for updates every 60 seconds
-- `loadTeamData()` merges cached local changes with fresh API data
-- Player library functions check both `mockTeams` and `apiTeamCache` for team data
+### Deployment
+- Frontend: Cloudflare Pages (auto-deploy on push)
+- Backend: Google Apps Script (deploy via clasp)
+- Both apps live and production-ready
 
 ---
 
 ## Session Handoff
 
-At the end of each session, update the "Recent Changes" section above with:
+At the end of each session, update this section with:
 - Features added/modified
 - Key functions changed
 - Any issues to watch for
 
 Then commit and push to deploy.
+
+**Last updated:** 2026-01-26
+**Last deployment:** v45 (Apps Script), Cloudflare Pages (main + viewer)
