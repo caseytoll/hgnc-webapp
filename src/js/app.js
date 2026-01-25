@@ -70,7 +70,10 @@ const state = {
   selectedPlayer: null,
   stats: null,
   analytics: null,
-  activeStatsTab: 'overview'
+  activeStatsTab: 'overview',
+  // Player Library - tracks players across teams/seasons
+  playerLibrary: { players: [] },
+  showArchivedTeams: false
 };
 
 // ========================================
@@ -83,6 +86,7 @@ function saveToLocalStorage() {
   try {
     const dataToSave = {
       teams: mockTeams,
+      playerLibrary: state.playerLibrary,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
@@ -120,13 +124,21 @@ function loadFromLocalStorage() {
                 team.games.push(savedGame);
               }
             });
-            // Update other team fields (e.g., players)
+            // Update other team fields (e.g., players, archived status)
             team.players = savedTeam.players || team.players;
+            team.archived = savedTeam.archived || false;
+            team.teamName = savedTeam.teamName || team.teamName;
+            team.year = savedTeam.year || team.year;
+            team.season = savedTeam.season || team.season;
           } else {
             // Team does not exist in mockTeams, so add it
             mockTeams.push(savedTeam);
           }
         });
+      }
+      // Load player library
+      if (data.playerLibrary) {
+        state.playerLibrary = data.playerLibrary;
       }
       console.log('[Storage] Data loaded from', data.lastSaved);
       return true;
@@ -415,7 +427,8 @@ async function loadTeams() {
         season: t.season,
         teamName: t.teamName,
         playerCount: t.players.length,
-        gameCount: t.games.length
+        gameCount: t.games.length,
+        archived: t.archived || false
       }));
     } else {
       // Use proxy for local dev to bypass CORS
@@ -573,28 +586,76 @@ function transformTeamDataFromSheet(data, teamID) {
 
 function renderTeamList() {
   const container = document.getElementById('team-list');
+  const showArchived = state.showArchivedTeams || false;
 
-  if (state.teams.length === 0) {
-    container.innerHTML = `
+  // Separate active and archived teams
+  const activeTeams = state.teams.filter(t => !t.archived);
+  const archivedTeams = state.teams.filter(t => t.archived);
+
+  let html = '';
+
+  // Active teams section
+  if (activeTeams.length === 0) {
+    html += `
       <div class="empty-state">
         <div class="empty-state-icon">🏐</div>
-        <p>No teams yet. Add your first team to get started!</p>
+        <p>No active teams. Add a new team to get started!</p>
       </div>
     `;
-    return;
+  } else {
+    html += activeTeams.map(team => `
+      <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+        <div class="team-card-icon">🏐</div>
+        <div class="team-card-info">
+          <div class="team-card-name">${escapeHtml(team.teamName)}</div>
+          <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+        </div>
+        <div class="team-card-arrow">→</div>
+      </div>
+    `).join('');
   }
 
-  container.innerHTML = state.teams.map(team => `
-    <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-      <div class="team-card-icon">🏐</div>
-      <div class="team-card-info">
-        <div class="team-card-name">${escapeHtml(team.teamName)}</div>
-        <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+  // Archived teams section (always visible if there are archived teams)
+  if (archivedTeams.length > 0) {
+    html += `
+      <div class="archived-section">
+        <button class="archived-section-header" onclick="toggleArchivedTeams()">
+          <div class="archived-section-title">
+            <svg class="archived-section-icon ${showArchived ? 'expanded' : ''}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+            <span>Archived Teams</span>
+            <span class="archived-count">${archivedTeams.length}</span>
+          </div>
+        </button>
+        ${showArchived ? `
+          <div class="archived-section-content">
+            ${archivedTeams.map(team => `
+              <div class="team-card archived" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+                <div class="team-card-icon">🏐</div>
+                <div class="team-card-info">
+                  <div class="team-card-name">${escapeHtml(team.teamName)}</div>
+                  <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+                </div>
+                <div class="team-card-arrow">→</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
-      <div class="team-card-arrow">→</div>
-    </div>
-  `).join('');
+    `;
+  }
+
+  container.innerHTML = html;
+
+  // Update library count badge
+  updateLibraryCount();
 }
+
+window.toggleArchivedTeams = function() {
+  state.showArchivedTeams = !state.showArchivedTeams;
+  renderTeamList();
+};
 
 window.selectTeam = function(teamID) {
   loadTeamData(teamID);
@@ -2069,30 +2130,25 @@ function renderScoringInputs() {
 
   const gameTotal = calcGameTotal();
 
-  container.innerHTML = `
-    <div class="scoring-sticky-total" id="scoring-sticky-total">
-      <div class="sticky-score">
-        <span class="sticky-score-label">Total</span>
-        <span class="sticky-score-value" id="sticky-us">${escapeHtml(gameTotal.us)}</span>
-        <span class="sticky-score-divider">:</span>
-        <span class="sticky-score-value" id="sticky-opp">${escapeHtml(gameTotal.opp)}</span>
-      </div>
-      <button class="icon-btn fullscreen-btn" onclick="toggleGameFullscreen()" aria-label="Toggle fullscreen" id="fullscreen-toggle-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="fullscreen-icon">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-        </svg>
-      </button>
-    </div>
+  // Default to Q1 expanded
+  const expandedQuarter = state.expandedScoringQuarter || 'Q1';
 
-    ${['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+  container.innerHTML = `
+    ${['Q1', 'Q2', 'Q3', 'Q4'].map((q, index) => {
       const qData = lineup[q] || {};
       const qTotal = calcQuarterTotal(qData);
+      const isExpanded = q === expandedQuarter;
       return `
-        <div class="scoring-quarter">
-          <div class="scoring-quarter-header">
+        <div class="scoring-quarter-header${isExpanded ? ' expanded' : ''}" data-quarter="${escapeAttr(q)}" onclick="toggleScoringQuarter('${escapeAttr(q)}')">
+          <div class="quarter-header-left">
             <span class="quarter-name">${escapeHtml(q)}</span>
             <span class="quarter-score" id="qscore-${escapeAttr(q)}">${escapeHtml(qTotal.us)} : ${escapeHtml(qTotal.opp)}</span>
           </div>
+          <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+        <div class="scoring-quarter-content${isExpanded ? ' expanded' : ''}" data-quarter="${escapeAttr(q)}">
           <div class="scoring-team-section">
             <div class="scoring-team-label">Our Scorers</div>
             ${createPlayerScoreRow(q, 'ourGsGoals', qData.ourGsGoals || 0, 'GS', qData.GS)}
@@ -2107,11 +2163,49 @@ function renderScoringInputs() {
       `;
     }).join('')}
 
-    <button class="btn btn-primary btn-block" onclick="calculateGameTotal()">
-      Save Scores
+    <div class="scoring-autosave-indicator" id="autosave-indicator">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+      <span>Auto-saved</span>
+    </div>
+
+    <button class="btn btn-primary btn-block" onclick="finalizeGame()">
+      Finalize Game
     </button>
   `;
 }
+
+window.toggleScoringQuarter = function(quarter) {
+  // Toggle accordion - only one quarter open at a time
+  const headers = document.querySelectorAll('.scoring-quarter-header');
+  const contents = document.querySelectorAll('.scoring-quarter-content');
+
+  headers.forEach(header => {
+    const isTarget = header.dataset.quarter === quarter;
+    const wasExpanded = header.classList.contains('expanded');
+
+    if (isTarget && !wasExpanded) {
+      // Expand this one
+      header.classList.add('expanded');
+      state.expandedScoringQuarter = quarter;
+    } else {
+      // Collapse
+      header.classList.remove('expanded');
+    }
+  });
+
+  contents.forEach(content => {
+    const isTarget = content.dataset.quarter === quarter;
+    const headerExpanded = document.querySelector(`.scoring-quarter-header[data-quarter="${content.dataset.quarter}"]`)?.classList.contains('expanded');
+
+    if (isTarget && headerExpanded) {
+      content.classList.add('expanded');
+    } else {
+      content.classList.remove('expanded');
+    }
+  });
+};
 
 window.updateScore = function(quarter, field, value) {
   const game = state.currentGame;
@@ -2130,6 +2224,9 @@ window.updateScore = function(quarter, field, value) {
 
   // Persist to localStorage
   saveToLocalStorage();
+
+  // Flash auto-save indicator
+  flashAutosaveIndicator();
 };
 
 window.adjustScore = function(quarter, field, delta) {
@@ -2157,21 +2254,19 @@ window.adjustScore = function(quarter, field, delta) {
 
   // Persist to localStorage
   saveToLocalStorage();
+
+  // Flash auto-save indicator
+  flashAutosaveIndicator();
 };
 
 function updateScoringDisplays() {
   const game = state.currentGame;
   if (!game || !game.lineup) return;
 
-  let totalUs = 0, totalOpp = 0;
-
   ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
     const qData = game.lineup[q] || {};
     const qUs = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     const qOpp = (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
-
-    totalUs += qUs;
-    totalOpp += qOpp;
 
     // Update quarter score
     const qScoreEl = document.getElementById(`qscore-${q}`);
@@ -2179,15 +2274,17 @@ function updateScoringDisplays() {
       qScoreEl.textContent = `${qUs} : ${qOpp}`;
     }
   });
-
-  // Update sticky total
-  const stickyUs = document.getElementById('sticky-us');
-  const stickyOpp = document.getElementById('sticky-opp');
-  if (stickyUs) stickyUs.textContent = totalUs;
-  if (stickyOpp) stickyOpp.textContent = totalOpp;
 }
 
-window.calculateGameTotal = function() {
+function flashAutosaveIndicator() {
+  const indicator = document.getElementById('autosave-indicator');
+  if (!indicator) return;
+
+  indicator.classList.add('flash');
+  setTimeout(() => indicator.classList.remove('flash'), 1500);
+}
+
+window.finalizeGame = async function() {
   const game = state.currentGame;
   if (!game || !game.lineup) return;
 
@@ -2210,7 +2307,6 @@ window.calculateGameTotal = function() {
   }
 
   renderGameScoreCard();
-  showToast(`Scores saved: ${ourTotal} - ${theirTotal}`, 'success');
 
   // Recalculate stats and analytics
   state.stats = calculateMockStats(state.currentTeamData);
@@ -2219,11 +2315,123 @@ window.calculateGameTotal = function() {
   // Persist to localStorage
   saveToLocalStorage();
 
+  // Sync to Google Sheets if using API mode and online
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      showToast('Syncing to cloud...', 'info');
+      await syncToGoogleSheets();
+      showToast(`Game finalized: ${ourTotal} - ${theirTotal} (synced)`, 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync:', err);
+      showToast(`Saved locally. Sync failed: ${err.message}`, 'warning');
+    }
+  } else {
+    showToast(`Game finalized: ${ourTotal} - ${theirTotal}`, 'success');
+  }
+
   // Also re-render stats if stats tab is active
   if (document.getElementById('stats-container')) {
     renderStats();
   }
 };
+
+// Backward compatibility alias
+window.calculateGameTotal = window.finalizeGame;
+
+async function syncToGoogleSheets() {
+  if (!state.currentTeamData || !state.teamSheetMap) {
+    throw new Error('No team data to sync');
+  }
+
+  const teamID = state.currentTeamData.teamID;
+  const sheetName = state.teamSheetMap[teamID];
+
+  if (!sheetName) {
+    throw new Error('No sheetName found for team');
+  }
+
+  // Transform data to Sheet format
+  const saveData = transformTeamDataToSheet(state.currentTeamData);
+
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+
+  const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+  url.searchParams.set('api', 'true');
+  url.searchParams.set('action', 'saveTeamData');
+  url.searchParams.set('sheetName', sheetName);
+  url.searchParams.set('teamData', JSON.stringify(saveData));
+
+  const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  const data = await response.json();
+
+  if (data.success === false) {
+    throw new Error(data.error || 'Sync failed');
+  }
+
+  return data;
+}
+
+function transformTeamDataToSheet(pwaData) {
+  // Transform players back to Sheet format
+  const players = (pwaData.players || []).map(p => ({
+    id: p.id,
+    name: p.name,
+    isFillIn: p.fillIn || false,
+    favoritePosition: p.favPosition || null,
+    isFavorite: false
+  }));
+
+  // Transform games back to Sheet format
+  const games = (pwaData.games || []).map(g => {
+    // Convert lineup object back to quarters array
+    let quarters = [{}, {}, {}, {}].map(() => ({
+      positions: {},
+      ourGsGoals: 0,
+      ourGaGoals: 0,
+      opponentGsGoals: 0,
+      opponentGaGoals: 0
+    }));
+
+    if (g.lineup) {
+      const quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
+      quarterNames.forEach((qName, i) => {
+        const q = g.lineup[qName];
+        if (q) {
+          // Build positions object
+          const positions = {};
+          ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+            if (q[pos]) {
+              positions[pos] = q[pos];
+            }
+          });
+          quarters[i] = {
+            positions,
+            ourGsGoals: q.ourGsGoals || 0,
+            ourGaGoals: q.ourGaGoals || 0,
+            opponentGsGoals: q.oppGsGoals || 0,
+            opponentGaGoals: q.oppGaGoals || 0
+          };
+        }
+      });
+    }
+
+    return {
+      id: g.gameID,
+      round: g.round,
+      opponent: g.opponent,
+      date: g.date,
+      time: g.time || '',
+      court: g.location?.replace('Court ', '') || '',
+      status: g.status || 'upcoming',
+      captain: g.captain || null,
+      availablePlayerIDs: g.availablePlayerIDs || [],
+      quarters
+    };
+  });
+
+  return { players, games };
+}
 
 // ========================================
 // PLAYER MANAGEMENT
@@ -2235,6 +2443,12 @@ window.openPlayerDetail = function(playerID) {
 
   // Calculate player stats
   const playerStats = calculatePlayerStats(player);
+
+  // Check if player is already in library
+  const teamID = state.currentTeamData.teamID;
+  const isInLibrary = state.playerLibrary.players.some(lp =>
+    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  );
 
   openModal(`${escapeHtml(player.name)}`, `
     <div class="player-detail-tabs">
@@ -2315,6 +2529,13 @@ window.openPlayerDetail = function(playerID) {
           <input type="checkbox" id="edit-player-fillin" ${player.fillIn ? 'checked' : ''}>
           Mark as fill-in player
         </label>
+      </div>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="edit-player-track-career" ${isInLibrary ? 'checked' : ''}>
+          Track career stats
+        </label>
+        <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px; margin-left: 24px;">Track this player's stats across teams and seasons</p>
       </div>
     </div>
   `, `
@@ -2454,6 +2675,21 @@ window.savePlayer = function(playerID) {
   player.name = name;
   player.favPosition = position;
   player.fillIn = document.getElementById('edit-player-fillin').checked;
+
+  // Handle career tracking checkbox
+  const trackCareer = document.getElementById('edit-player-track-career').checked;
+  const teamID = state.currentTeamData.teamID;
+  const isCurrentlyTracked = state.playerLibrary.players.some(lp =>
+    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  );
+
+  if (trackCareer && !isCurrentlyTracked) {
+    // Add to library
+    addToPlayerLibraryDirect(teamID, playerID);
+  } else if (!trackCareer && isCurrentlyTracked) {
+    // Remove from library
+    removePlayerFromLibrary(teamID, playerID);
+  }
 
   saveToLocalStorage();
 
@@ -2690,6 +2926,7 @@ window.addGame = function() {
 
 window.openTeamSettings = function() {
   const team = state.currentTeam;
+  const isArchived = team.archived || false;
   openModal('Team Settings', `
     <div class="form-group">
       <label class="form-label">Team Name</label>
@@ -2725,10 +2962,60 @@ window.openTeamSettings = function() {
         </button>
       </div>
     </div>
+    <div class="settings-divider"></div>
+    <div class="form-group">
+      <label class="form-label">Archive</label>
+      <p class="form-hint">${isArchived ? 'This team is archived. Unarchive to show it on the main page.' : 'Archive this team to hide it from the main page. Data is preserved.'}</p>
+      <button type="button" class="btn ${isArchived ? 'btn-primary' : 'btn-outline'}" onclick="${isArchived ? 'unarchiveTeam' : 'archiveTeam'}()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+        </svg>
+        ${isArchived ? 'Unarchive Team' : 'Archive Team'}
+      </button>
+    </div>
   `, `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="saveTeamSettings()">Save</button>
   `);
+};
+
+window.archiveTeam = function() {
+  const team = state.currentTeam;
+  if (!team) return;
+
+  team.archived = true;
+  state.currentTeamData.archived = true;
+
+  // Update in teams list too
+  const teamInList = state.teams.find(t => t.teamID === team.teamID);
+  if (teamInList) teamInList.archived = true;
+
+  saveToLocalStorage();
+  closeModal();
+  showToast(`${team.teamName} archived`, 'success');
+
+  // Go back to team selector
+  showView('team-selector-view');
+  renderTeamList();
+};
+
+window.unarchiveTeam = function() {
+  const team = state.currentTeam;
+  if (!team) return;
+
+  team.archived = false;
+  state.currentTeamData.archived = false;
+
+  // Update in teams list too
+  const teamInList = state.teams.find(t => t.teamID === team.teamID);
+  if (teamInList) teamInList.archived = false;
+
+  saveToLocalStorage();
+  closeModal();
+  showToast(`${team.teamName} restored`, 'success');
+
+  // Refresh the settings modal
+  openTeamSettings();
 };
 
 window.saveTeamSettings = function() {
@@ -2891,6 +3178,522 @@ window.deleteGame = function() {
   closeGameDetail();
   showToast('Game deleted', 'info');
 };
+
+// ========================================
+// HOME SEGMENT CONTROL (Teams/Players)
+// ========================================
+
+window.switchHomeSegment = function(segment) {
+  // Update button states
+  document.querySelectorAll('.segment-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === segment);
+  });
+
+  // Update indicator position
+  const control = document.querySelector('.segment-control');
+  if (control) {
+    control.dataset.active = segment;
+  }
+
+  // Show/hide content
+  document.getElementById('teams-segment')?.classList.toggle('active', segment === 'teams');
+  document.getElementById('players-segment')?.classList.toggle('active', segment === 'players');
+
+  // Render players content when switching to players tab
+  if (segment === 'players') {
+    renderPlayerLibrary();
+  }
+};
+
+// ========================================
+// PLAYERS (Career Stats Tracking)
+// ========================================
+
+function updateLibraryCount() {
+  // No longer needed with segmented control, but keep for compatibility
+}
+
+// Current sort preference for players list
+let playersSortOrder = 'recent';
+const sortOptions = ['recent', 'games', 'name'];
+const sortLabels = { recent: 'Recent', games: 'Games', name: 'A-Z' };
+
+window.cyclePlayerSort = function() {
+  const currentIndex = sortOptions.indexOf(playersSortOrder);
+  playersSortOrder = sortOptions[(currentIndex + 1) % sortOptions.length];
+
+  // Update button label
+  const label = document.getElementById('sort-label');
+  if (label) label.textContent = sortLabels[playersSortOrder];
+
+  renderPlayerLibrary();
+};
+
+function renderPlayerLibrary() {
+  const container = document.getElementById('library-player-list');
+  if (!container) return;
+
+  const players = state.playerLibrary.players;
+
+  if (players.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">👤</div>
+        <p>No players yet.</p>
+        <p class="text-muted">Add players from your team rosters to track their stats across seasons.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Calculate stats for each player
+  const playersWithStats = players.map(p => ({
+    ...p,
+    stats: calculateLibraryPlayerStats(p)
+  }));
+
+  // Sort based on current preference
+  playersWithStats.sort((a, b) => {
+    switch (playersSortOrder) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'games':
+        return b.stats.allTime.gamesPlayed - a.stats.allTime.gamesPlayed;
+      case 'recent':
+      default:
+        // Sort by most recent activity date (null dates go to end)
+        const dateA = a.stats.allTime.lastActivityDate;
+        const dateB = b.stats.allTime.lastActivityDate;
+        if (!dateA && !dateB) return a.name.localeCompare(b.name);
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateB - dateA;
+    }
+  });
+
+  container.innerHTML = playersWithStats.map(player => {
+    const stats = player.stats;
+    const primaryPosition = getPrimaryPosition(stats.allTime.positionsPlayed);
+    const isAttacker = ['GS', 'GA'].includes(primaryPosition);
+    const isDefender = ['GK', 'GD'].includes(primaryPosition);
+
+    let statLine = '';
+    if (isAttacker && stats.allTime.goalsScored > 0) {
+      statLine = `${stats.allTime.goalsScored} goals scored`;
+    } else if (isDefender && stats.allTime.goalsAgainst > 0) {
+      statLine = `${stats.allTime.goalsAgainst} goals against`;
+    } else {
+      statLine = `${stats.allTime.quartersPlayed} quarters played`;
+    }
+
+    return `
+      <div class="library-player-card" onclick="openLibraryPlayerDetail('${escapeAttr(player.globalId)}')">
+        <div class="library-player-avatar">${escapeHtml(getInitials(player.name))}</div>
+        <div class="library-player-info">
+          <div class="library-player-name">${escapeHtml(player.name)}</div>
+          <div class="library-player-meta">
+            ${player.linkedInstances.length} season${player.linkedInstances.length !== 1 ? 's' : ''} • ${statLine}
+          </div>
+          ${primaryPosition ? `<div class="library-player-position">${escapeHtml(primaryPosition)} specialist</div>` : ''}
+        </div>
+        <div class="library-player-arrow">→</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function calculateLibraryPlayerStats(libraryPlayer) {
+  const stats = {
+    allTime: {
+      gamesPlayed: 0,
+      quartersPlayed: 0,
+      goalsScored: 0,
+      goalsAgainst: 0,
+      positionsPlayed: {},
+      lastActivityDate: null
+    },
+    seasons: []
+  };
+
+  const gamesSet = new Set();
+
+  libraryPlayer.linkedInstances.forEach(instance => {
+    const team = mockTeams.find(t => t.teamID === instance.teamID);
+    if (!team) return;
+
+    const player = team.players.find(p => p.id === instance.playerID);
+    if (!player) return;
+
+    const seasonStats = {
+      year: instance.year || team.year,
+      season: instance.season || team.season,
+      teamName: instance.teamName || team.teamName,
+      gamesPlayed: 0,
+      quartersPlayed: 0,
+      goalsScored: 0,
+      goalsAgainst: 0,
+      positionsPlayed: {}
+    };
+
+    // Iterate through all games for this team
+    team.games.forEach(game => {
+      if (!game.lineup || game.status === 'bye' || game.status === 'abandoned') return;
+
+      let playedInGame = false;
+
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+        const quarter = game.lineup[q];
+        if (!quarter) return;
+
+        // Check all positions for this player
+        ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+          const assignedPlayer = quarter[pos];
+          if (assignedPlayer === player.name || assignedPlayer === player.id) {
+            playedInGame = true;
+            seasonStats.quartersPlayed++;
+            seasonStats.positionsPlayed[pos] = (seasonStats.positionsPlayed[pos] || 0) + 1;
+
+            // Track goals scored for attackers
+            if (pos === 'GS') {
+              seasonStats.goalsScored += parseInt(quarter.ourGsGoals) || 0;
+            } else if (pos === 'GA') {
+              seasonStats.goalsScored += parseInt(quarter.ourGaGoals) || 0;
+            }
+
+            // Track goals against for defenders
+            if (pos === 'GK' || pos === 'GD') {
+              const oppGoals = (parseInt(quarter.oppGsGoals) || 0) + (parseInt(quarter.oppGaGoals) || 0);
+              seasonStats.goalsAgainst += oppGoals;
+            }
+          }
+        });
+      });
+
+      if (playedInGame) {
+        const gameKey = `${instance.teamID}-${game.gameID}`;
+        if (!gamesSet.has(gameKey)) {
+          gamesSet.add(gameKey);
+          seasonStats.gamesPlayed++;
+
+          // Track most recent activity date
+          if (game.date) {
+            const gameDate = new Date(game.date);
+            if (!stats.allTime.lastActivityDate || gameDate > stats.allTime.lastActivityDate) {
+              stats.allTime.lastActivityDate = gameDate;
+            }
+          }
+        }
+      }
+    });
+
+    // Add season stats to all-time
+    stats.allTime.gamesPlayed += seasonStats.gamesPlayed;
+    stats.allTime.quartersPlayed += seasonStats.quartersPlayed;
+    stats.allTime.goalsScored += seasonStats.goalsScored;
+    stats.allTime.goalsAgainst += seasonStats.goalsAgainst;
+
+    Object.keys(seasonStats.positionsPlayed).forEach(pos => {
+      stats.allTime.positionsPlayed[pos] = (stats.allTime.positionsPlayed[pos] || 0) + seasonStats.positionsPlayed[pos];
+    });
+
+    if (seasonStats.quartersPlayed > 0) {
+      stats.seasons.push(seasonStats);
+    }
+  });
+
+  // Sort seasons by year/season (most recent first)
+  stats.seasons.sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return b.season.localeCompare(a.season);
+  });
+
+  return stats;
+}
+
+function getPrimaryPosition(positionsPlayed) {
+  const entries = Object.entries(positionsPlayed);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0][0];
+}
+
+window.openLibraryPlayerDetail = function(globalId) {
+  const player = state.playerLibrary.players.find(p => p.globalId === globalId);
+  if (!player) return;
+
+  const stats = calculateLibraryPlayerStats(player);
+  const primaryPos = getPrimaryPosition(stats.allTime.positionsPlayed);
+  const isAttacker = ['GS', 'GA'].includes(primaryPos);
+  const isDefender = ['GK', 'GD'].includes(primaryPos);
+
+  // Build position breakdown
+  const totalQuarters = stats.allTime.quartersPlayed || 1;
+  const positionBreakdown = Object.entries(stats.allTime.positionsPlayed)
+    .sort((a, b) => b[1] - a[1])
+    .map(([pos, count]) => ({
+      pos,
+      count,
+      pct: Math.round((count / totalQuarters) * 100)
+    }));
+
+  // Build seasons HTML
+  const seasonsHtml = stats.seasons.length > 0 ? stats.seasons.map((s, i) => {
+    const prevSeason = stats.seasons[i + 1];
+    let progression = '';
+    if (prevSeason && isAttacker) {
+      const diff = s.goalsScored - prevSeason.goalsScored;
+      if (diff > 0) progression = `<span class="progression up">↑ +${diff} goals</span>`;
+      else if (diff < 0) progression = `<span class="progression down">↓ ${diff} goals</span>`;
+    } else if (prevSeason && isDefender) {
+      const diff = s.goalsAgainst - prevSeason.goalsAgainst;
+      if (diff < 0) progression = `<span class="progression up">↑ ${diff} GA (improved)</span>`;
+      else if (diff > 0) progression = `<span class="progression down">↓ +${diff} GA</span>`;
+    }
+
+    const seasonPositions = Object.keys(s.positionsPlayed).join('/');
+
+    return `
+      <div class="season-row">
+        <div class="season-header">
+          <span class="season-name">${escapeHtml(s.year)} ${escapeHtml(s.season)}</span>
+          <span class="season-team">${escapeHtml(s.teamName)}</span>
+        </div>
+        <div class="season-stats">
+          <span>${s.gamesPlayed} games</span>
+          <span>${s.quartersPlayed} qtrs</span>
+          ${isAttacker ? `<span>${s.goalsScored} goals</span>` : ''}
+          ${isDefender ? `<span>${s.goalsAgainst} GA</span>` : ''}
+          <span>${seasonPositions}</span>
+        </div>
+        ${progression}
+      </div>
+    `;
+  }).join('') : '<p class="text-muted">No game data yet.</p>';
+
+  openModal(escapeHtml(player.name), `
+    <div class="library-detail">
+      <div class="library-detail-section">
+        <div class="library-detail-title">All-Time Stats</div>
+        <div class="library-stats-grid">
+          <div class="library-stat">
+            <span class="library-stat-value">${stats.allTime.gamesPlayed}</span>
+            <span class="library-stat-label">Games</span>
+          </div>
+          <div class="library-stat">
+            <span class="library-stat-value">${stats.allTime.quartersPlayed}</span>
+            <span class="library-stat-label">Quarters</span>
+          </div>
+          ${isAttacker ? `
+          <div class="library-stat">
+            <span class="library-stat-value">${stats.allTime.goalsScored}</span>
+            <span class="library-stat-label">Goals Scored</span>
+          </div>
+          ` : ''}
+          ${isDefender ? `
+          <div class="library-stat">
+            <span class="library-stat-value">${stats.allTime.goalsAgainst}</span>
+            <span class="library-stat-label">Goals Against</span>
+          </div>
+          ` : ''}
+        </div>
+        ${positionBreakdown.length > 0 ? `
+        <div class="library-positions">
+          ${positionBreakdown.map(p => `
+            <span class="position-chip">${escapeHtml(p.pos)} <small>${p.pct}%</small></span>
+          `).join('')}
+        </div>
+        ` : ''}
+      </div>
+
+      <div class="library-detail-section">
+        <div class="library-detail-title">Season Breakdown</div>
+        <div class="season-list">
+          ${seasonsHtml}
+        </div>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    <button class="btn btn-outline btn-danger" onclick="removeFromLibrary('${escapeAttr(globalId)}')">Remove from Library</button>
+  `);
+};
+
+window.filterLibraryPlayers = function(query) {
+  const cards = document.querySelectorAll('.library-player-card');
+  const lowerQuery = query.toLowerCase();
+
+  cards.forEach(card => {
+    const name = card.querySelector('.library-player-name')?.textContent.toLowerCase() || '';
+    card.style.display = name.includes(lowerQuery) ? '' : 'none';
+  });
+};
+
+window.removeFromLibrary = function(globalId) {
+  if (!confirm('Remove this player? This cannot be undone.')) return;
+
+  state.playerLibrary.players = state.playerLibrary.players.filter(p => p.globalId !== globalId);
+  saveToLocalStorage();
+  closeModal();
+  renderPlayerLibrary();
+  updateLibraryCount();
+  showToast('Player removed', 'info');
+};
+
+// Add player to library (called from player detail modal)
+window.addToPlayerLibrary = function(teamID, playerID) {
+  const team = mockTeams.find(t => t.teamID === teamID);
+  if (!team) return;
+
+  const player = team.players.find(p => p.id === playerID);
+  if (!player) return;
+
+  // Check if already linked
+  const existingLink = state.playerLibrary.players.find(lp =>
+    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  );
+  if (existingLink) {
+    showToast('Player already tracked', 'info');
+    return;
+  }
+
+  // Check for name matches
+  const nameMatches = state.playerLibrary.players.filter(lp =>
+    lp.name.toLowerCase() === player.name.toLowerCase()
+  );
+
+  if (nameMatches.length > 0) {
+    // Ask to link to existing
+    openLinkPlayerModal(player, team, nameMatches);
+  } else {
+    // Create new library entry
+    createLibraryEntry(player, team);
+  }
+};
+
+function openLinkPlayerModal(player, team, matches) {
+  const matchesHtml = matches.map(m => `
+    <div class="link-option" onclick="linkToExistingPlayer('${escapeAttr(m.globalId)}', '${escapeAttr(team.teamID)}', '${escapeAttr(player.id)}')">
+      <div class="link-option-name">${escapeHtml(m.name)}</div>
+      <div class="link-option-meta">${m.linkedInstances.length} season${m.linkedInstances.length !== 1 ? 's' : ''}</div>
+    </div>
+  `).join('');
+
+  openModal('Link Player', `
+    <p>A player named "${escapeHtml(player.name)}" already exists. Link to existing or create new?</p>
+    <div class="link-options">
+      ${matchesHtml}
+    </div>
+    <div class="link-divider">or</div>
+    <button class="btn btn-outline btn-block" onclick="createLibraryEntry(null, null, '${escapeAttr(team.teamID)}', '${escapeAttr(player.id)}')">
+      Create New Entry
+    </button>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+window.linkToExistingPlayer = function(globalId, teamID, playerID) {
+  const team = mockTeams.find(t => t.teamID === teamID);
+  const player = team?.players.find(p => p.id === playerID);
+  const libraryPlayer = state.playerLibrary.players.find(p => p.globalId === globalId);
+
+  if (!libraryPlayer || !team || !player) return;
+
+  libraryPlayer.linkedInstances.push({
+    teamID,
+    playerID,
+    teamName: team.teamName,
+    year: team.year,
+    season: team.season
+  });
+
+  saveToLocalStorage();
+  closeModal();
+  updateLibraryCount();
+  showToast(`${player.name} linked`, 'success');
+};
+
+window.createLibraryEntry = function(player, team, teamID, playerID) {
+  // Handle being called from modal with string params
+  if (!player && teamID && playerID) {
+    team = mockTeams.find(t => t.teamID === teamID);
+    player = team?.players.find(p => p.id === playerID);
+  }
+
+  if (!player || !team) return;
+
+  const newEntry = {
+    globalId: `gp_${Date.now()}`,
+    name: player.name,
+    linkedInstances: [{
+      teamID: team.teamID,
+      playerID: player.id,
+      teamName: team.teamName,
+      year: team.year,
+      season: team.season
+    }],
+    createdAt: new Date().toISOString()
+  };
+
+  state.playerLibrary.players.push(newEntry);
+  saveToLocalStorage();
+  closeModal();
+  updateLibraryCount();
+  showToast(`${player.name} added to Players`, 'success');
+};
+
+// Direct add to library (from checkbox, no modal prompts)
+function addToPlayerLibraryDirect(teamID, playerID) {
+  const team = mockTeams.find(t => t.teamID === teamID);
+  if (!team) return;
+
+  const player = team.players.find(p => p.id === playerID);
+  if (!player) return;
+
+  // Check for existing player with same name to link to
+  const existingPlayer = state.playerLibrary.players.find(lp =>
+    lp.name.toLowerCase() === player.name.toLowerCase()
+  );
+
+  if (existingPlayer) {
+    // Link to existing
+    existingPlayer.linkedInstances.push({
+      teamID,
+      playerID,
+      teamName: team.teamName,
+      year: team.year,
+      season: team.season
+    });
+  } else {
+    // Create new entry
+    state.playerLibrary.players.push({
+      globalId: `gp_${Date.now()}`,
+      name: player.name,
+      linkedInstances: [{
+        teamID,
+        playerID,
+        teamName: team.teamName,
+        year: team.year,
+        season: team.season
+      }],
+      createdAt: new Date().toISOString()
+    });
+  }
+}
+
+// Remove player from library (from checkbox)
+function removePlayerFromLibrary(teamID, playerID) {
+  state.playerLibrary.players.forEach(lp => {
+    lp.linkedInstances = lp.linkedInstances.filter(
+      li => !(li.teamID === teamID && li.playerID === playerID)
+    );
+  });
+
+  // Clean up any library entries with no linked instances
+  state.playerLibrary.players = state.playerLibrary.players.filter(
+    lp => lp.linkedInstances.length > 0
+  );
+}
 
 // ========================================
 // DEV TOOLS
