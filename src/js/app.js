@@ -3607,7 +3607,8 @@ window.removeFromLibrary = function(globalId) {
 
 // Add player to library (called from player detail modal)
 window.addToPlayerLibrary = function(teamID, playerID) {
-  const team = mockTeams.find(t => t.teamID === teamID);
+  let team = mockTeams.find(t => t.teamID === teamID);
+  if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team) return;
 
   const player = team.players.find(p => p.id === playerID);
@@ -3659,7 +3660,8 @@ function openLinkPlayerModal(player, team, matches) {
 }
 
 window.linkToExistingPlayer = function(globalId, teamID, playerID) {
-  const team = mockTeams.find(t => t.teamID === teamID);
+  let team = mockTeams.find(t => t.teamID === teamID);
+  if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   const player = team?.players.find(p => p.id === playerID);
   const libraryPlayer = state.playerLibrary.players.find(p => p.globalId === globalId);
 
@@ -3683,6 +3685,7 @@ window.createLibraryEntry = function(player, team, teamID, playerID) {
   // Handle being called from modal with string params
   if (!player && teamID && playerID) {
     team = mockTeams.find(t => t.teamID === teamID);
+    if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
     player = team?.players.find(p => p.id === playerID);
   }
 
@@ -3710,7 +3713,8 @@ window.createLibraryEntry = function(player, team, teamID, playerID) {
 
 // Direct add to library (from checkbox, no modal prompts)
 function addToPlayerLibraryDirect(teamID, playerID) {
-  const team = mockTeams.find(t => t.teamID === teamID);
+  let team = mockTeams.find(t => t.teamID === teamID);
+  if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team) return;
 
   const player = team.players.find(p => p.id === playerID);
