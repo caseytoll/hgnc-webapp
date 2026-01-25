@@ -14,7 +14,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Game tab reorder**: Availability → Lineup → Scoring (workflow order)
 
 **Bug Fixes:**
-- Fixed production "no data" issue: bumped service worker cache version (v1 → v2)
+- Fixed PWA not updating: switched to stale-while-revalidate caching, added "Update now" banner
+- Fixed player edits not persisting (API mode): added `apiTeamCache` to store local edits for API teams
+
+**Technical:**
+- Service worker now at v4, checks for updates every 60 seconds
+- `loadTeamData()` merges cached local changes with fresh API data
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
