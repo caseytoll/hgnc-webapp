@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `);
   };
 
-  window.addNewTeam = function() {
+  window.addNewTeam = async function() {
     const nameInput = document.getElementById('new-team-name');
     const yearInput = document.getElementById('new-team-year');
     const seasonInput = document.getElementById('new-team-season');
@@ -274,40 +274,66 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Create new team object
-    const newTeam = {
-      teamID: 'team_' + Date.now(),
-      year,
-      season,
-      teamName: name,
-      players: [],
-      games: []
-    };
+    closeModal();
+    showLoading();
 
-    // Add to mock/local data for now
-    if (state.dataSource === 'mock' || state.dataSource === 'api') {
-      // Add to mockTeams (for localStorage persistence)
-      if (Array.isArray(window.mockTeams)) {
-        window.mockTeams.push(newTeam);
-      } else if (Array.isArray(mockTeams)) {
-        mockTeams.push(newTeam);
+    try {
+      if (state.dataSource === 'api') {
+        // Call API to create team
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+        url.searchParams.set('api', 'true');
+        url.searchParams.set('action', 'createTeam');
+        url.searchParams.set('year', year);
+        url.searchParams.set('season', season);
+        url.searchParams.set('name', name);
+
+        const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+        const data = await response.json();
+
+        if (data.success === false) {
+          throw new Error(data.error || 'Failed to create team');
+        }
+
+        // Reload teams from API to get the new team with proper sheetName
+        await loadTeams();
+        showToast('Team added', 'success');
+      } else {
+        // Mock mode - store locally
+        const newTeam = {
+          teamID: 'team_' + Date.now(),
+          year,
+          season,
+          teamName: name,
+          players: [],
+          games: []
+        };
+
+        if (Array.isArray(window.mockTeams)) {
+          window.mockTeams.push(newTeam);
+        } else if (Array.isArray(mockTeams)) {
+          mockTeams.push(newTeam);
+        }
+
+        state.teams.push({
+          teamID: newTeam.teamID,
+          year: newTeam.year,
+          season: newTeam.season,
+          teamName: newTeam.teamName,
+          playerCount: 0,
+          gameCount: 0
+        });
+
+        saveToLocalStorage();
+        renderTeamList();
+        showToast('Team added', 'success');
       }
-      // Add to state.teams for UI
-      state.teams.push({
-        teamID: newTeam.teamID,
-        year: newTeam.year,
-        season: newTeam.season,
-        teamName: newTeam.teamName,
-        playerCount: 0,
-        gameCount: 0
-      });
-      saveToLocalStorage();
-      closeModal();
-      renderTeamList();
-      showToast('Team added', 'success');
-    } else {
-      // TODO: Implement live API integration for adding a team
-      showToast('Live API add not yet implemented', 'warning');
+    } catch (error) {
+      console.error('[App] Failed to add team:', error);
+      showToast('Failed to add team: ' + error.message, 'error');
+    } finally {
+      hideLoading();
     }
   };
 
@@ -1576,7 +1602,18 @@ window.openGameDetail = function(gameID) {
   showView('game-detail-view');
 };
 
-window.closeGameDetail = function() {
+window.closeGameDetail = async function() {
+  // Sync changes before leaving game detail view
+  if (state.dataSource === 'api' && navigator.onLine && state.currentTeamData) {
+    try {
+      await syncToGoogleSheets();
+      console.log('[App] Synced team data on game close');
+    } catch (err) {
+      console.error('[App] Failed to sync on game close:', err);
+      // Continue anyway - data is saved locally
+    }
+  }
+
   state.currentGame = null;
   showView('main-app-view');
   // Refresh schedule in case scores changed
@@ -1747,7 +1784,7 @@ window.importTeamData = function() {
   );
 };
 
-window.confirmImport = function() {
+window.confirmImport = async function() {
   if (!state.pendingImport) {
     showToast('No import data found', 'error');
     closeModal();
@@ -1773,6 +1810,22 @@ window.confirmImport = function() {
   // Save to localStorage
   saveToLocalStorage();
 
+  // Sync to Google Sheets if in API mode
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      showLoading();
+      await syncToGoogleSheets();
+      showToast('Team data imported and synced!', 'success');
+    } catch (err) {
+      console.error('[App] Failed to sync imported data:', err);
+      showToast('Imported locally. Sync failed: ' + err.message, 'warning');
+    } finally {
+      hideLoading();
+    }
+  } else {
+    showToast('Team data imported successfully!', 'success');
+  }
+
   // Refresh the UI
   renderSchedule();
   renderRoster();
@@ -1783,7 +1836,6 @@ window.confirmImport = function() {
 
   closeModal();
   haptic([50, 30, 50]);
-  showToast('Team data imported successfully!', 'success');
 };
 
 window.toggleGameFullscreen = async function() {
@@ -2396,6 +2448,39 @@ async function syncToGoogleSheets() {
   return data;
 }
 
+/**
+ * Update team settings (name, year, season, archived) in the backend
+ */
+async function updateTeamSettingsAPI(teamID, settings) {
+  if (state.dataSource === 'mock') {
+    // For mock data, just update local state
+    return { success: true };
+  }
+
+  const sheetName = state.teamSheetMap?.[teamID];
+  if (!sheetName) {
+    throw new Error('No sheetName found for team');
+  }
+
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+
+  const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+  url.searchParams.set('api', 'true');
+  url.searchParams.set('action', 'updateTeam');
+  url.searchParams.set('teamID', teamID);
+  url.searchParams.set('settings', JSON.stringify(settings));
+
+  const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  const data = await response.json();
+
+  if (data.success === false) {
+    throw new Error(data.error || 'Failed to update team settings');
+  }
+
+  return data;
+}
+
 // ========================================
 // PLAYER MANAGEMENT
 // ========================================
@@ -2942,46 +3027,84 @@ window.openTeamSettings = function() {
   `);
 };
 
-window.archiveTeam = function() {
+window.archiveTeam = async function() {
   const team = state.currentTeam;
   if (!team) return;
 
-  team.archived = true;
-  state.currentTeamData.archived = true;
-
-  // Update in teams list too
-  const teamInList = state.teams.find(t => t.teamID === team.teamID);
-  if (teamInList) teamInList.archived = true;
-
-  saveToLocalStorage();
+  const teamName = team.teamName;
   closeModal();
-  showToast(`${team.teamName} archived`, 'success');
+  showLoading();
 
-  // Go back to team selector
-  showView('team-selector-view');
-  renderTeamList();
+  try {
+    // Update local state
+    team.archived = true;
+    if (state.currentTeamData) state.currentTeamData.archived = true;
+
+    // Update in teams list too
+    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    if (teamInList) teamInList.archived = true;
+
+    // Save to backend
+    await updateTeamSettingsAPI(team.teamID, { archived: true });
+
+    saveToLocalStorage();
+    showToast(`${teamName} archived`, 'success');
+
+    // Go back to team selector
+    showView('team-selector-view');
+    renderTeamList();
+  } catch (error) {
+    console.error('[App] Failed to archive team:', error);
+    // Revert local changes
+    team.archived = false;
+    if (state.currentTeamData) state.currentTeamData.archived = false;
+    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    if (teamInList) teamInList.archived = false;
+    showToast('Failed to archive team: ' + error.message, 'error');
+  } finally {
+    hideLoading();
+  }
 };
 
-window.unarchiveTeam = function() {
+window.unarchiveTeam = async function() {
   const team = state.currentTeam;
   if (!team) return;
 
-  team.archived = false;
-  state.currentTeamData.archived = false;
-
-  // Update in teams list too
-  const teamInList = state.teams.find(t => t.teamID === team.teamID);
-  if (teamInList) teamInList.archived = false;
-
-  saveToLocalStorage();
+  const teamName = team.teamName;
   closeModal();
-  showToast(`${team.teamName} restored`, 'success');
+  showLoading();
 
-  // Refresh the settings modal
-  openTeamSettings();
+  try {
+    // Update local state
+    team.archived = false;
+    if (state.currentTeamData) state.currentTeamData.archived = false;
+
+    // Update in teams list too
+    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    if (teamInList) teamInList.archived = false;
+
+    // Save to backend
+    await updateTeamSettingsAPI(team.teamID, { archived: false });
+
+    saveToLocalStorage();
+    showToast(`${teamName} restored`, 'success');
+
+    // Refresh the settings modal
+    openTeamSettings();
+  } catch (error) {
+    console.error('[App] Failed to unarchive team:', error);
+    // Revert local changes
+    team.archived = true;
+    if (state.currentTeamData) state.currentTeamData.archived = true;
+    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    if (teamInList) teamInList.archived = true;
+    showToast('Failed to restore team: ' + error.message, 'error');
+  } finally {
+    hideLoading();
+  }
 };
 
-window.saveTeamSettings = function() {
+window.saveTeamSettings = async function() {
   const nameInput = document.getElementById('edit-team-name');
   const name = nameInput.value.trim();
   const yearInput = document.getElementById('edit-team-year');
@@ -3013,20 +3136,56 @@ window.saveTeamSettings = function() {
     return;
   }
 
-  state.currentTeam.teamName = name;
-  state.currentTeam.year = year;
-  state.currentTeam.season = season;
-
-  // Also update in currentTeamData
-  state.currentTeamData.teamName = name;
-  state.currentTeamData.year = year;
-  state.currentTeamData.season = season;
-
-  saveToLocalStorage();
+  // Store old values for rollback
+  const oldName = state.currentTeam.teamName;
+  const oldYear = state.currentTeam.year;
+  const oldSeason = state.currentTeam.season;
 
   closeModal();
-  renderMainApp();
-  showToast('Team updated', 'success');
+  showLoading();
+
+  try {
+    // Update local state
+    state.currentTeam.teamName = name;
+    state.currentTeam.year = year;
+    state.currentTeam.season = season;
+
+    // Also update in currentTeamData
+    if (state.currentTeamData) {
+      state.currentTeamData.teamName = name;
+      state.currentTeamData.year = year;
+      state.currentTeamData.season = season;
+    }
+
+    // Update in teams list
+    const teamInList = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+    if (teamInList) {
+      teamInList.teamName = name;
+      teamInList.year = year;
+      teamInList.season = season;
+    }
+
+    // Save to backend
+    await updateTeamSettingsAPI(state.currentTeam.teamID, { teamName: name, year, season });
+
+    saveToLocalStorage();
+    renderMainApp();
+    showToast('Team updated', 'success');
+  } catch (error) {
+    console.error('[App] Failed to save team settings:', error);
+    // Rollback
+    state.currentTeam.teamName = oldName;
+    state.currentTeam.year = oldYear;
+    state.currentTeam.season = oldSeason;
+    if (state.currentTeamData) {
+      state.currentTeamData.teamName = oldName;
+      state.currentTeamData.year = oldYear;
+      state.currentTeamData.season = oldSeason;
+    }
+    showToast('Failed to save: ' + error.message, 'error');
+  } finally {
+    hideLoading();
+  }
 };
 
 window.openGameSettings = function() {
