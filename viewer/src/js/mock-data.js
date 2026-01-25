@@ -527,7 +527,7 @@ export const mockTeams = [
         "date": "2026-01-23",
         "time": "09:00",
         "location": "Home",
-        "status": "normal",
+        "status": "upcoming",
         "scores": {
           "us": 8,
           "opponent": 0

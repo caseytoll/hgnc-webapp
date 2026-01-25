@@ -133,7 +133,7 @@ export function calculateLeaderboards(team) {
   if (!team || !team.games) {
     return {
       offensive: { topScorersByTotal: [], topScorersByEfficiency: [], topScoringPairsByTotal: [], topScoringPairsByEfficiency: [] },
-      defensive: { topDefendersByTotal: [], topDefendersByEfficiency: [], topDefensivePairsByTotal: [], topDefensivePairsByEfficiency: [] },
+      defensive: { topDefenders: [], topDefensivePairs: [] },
       minQuarters: 3
     };
   }
@@ -253,18 +253,8 @@ export function calculateLeaderboards(team) {
     }))
     .sort((a, b) => b.avg - a.avg);
 
-  // Top defenders by total quarters played (no minimum)
-  const topDefendersByTotal = Object.entries(defenders)
-    .map(([name, data]) => ({
-      name,
-      goalsAgainst: data.goalsAgainst,
-      quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0
-    }))
-    .sort((a, b) => b.quarters - a.quarters); // Most quarters played first
-
   // Top defenders by efficiency (lowest GA/quarter, min quarters)
-  const topDefendersByEfficiency = Object.entries(defenders)
+  const topDefenders = Object.entries(defenders)
     .filter(([_, data]) => data.quarters >= MIN_QUARTERS)
     .map(([name, data]) => ({
       name,
@@ -274,18 +264,8 @@ export function calculateLeaderboards(team) {
     }))
     .sort((a, b) => a.avg - b.avg); // Lower is better
 
-  // Top defensive pairs by total (no minimum)
-  const topDefensivePairsByTotal = Object.values(defensivePairs)
-    .map(data => ({
-      players: data.players,
-      goalsAgainst: data.goalsAgainst,
-      quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0
-    }))
-    .sort((a, b) => b.quarters - a.quarters); // Most quarters together first
-
   // Top defensive pairs by efficiency (min quarters)
-  const topDefensivePairsByEfficiency = Object.values(defensivePairs)
+  const topDefensivePairs = Object.values(defensivePairs)
     .filter(data => data.quarters >= MIN_QUARTERS)
     .map(data => ({
       players: data.players,
@@ -303,10 +283,8 @@ export function calculateLeaderboards(team) {
       topScoringPairsByEfficiency
     },
     defensive: {
-      topDefendersByTotal,
-      topDefendersByEfficiency,
-      topDefensivePairsByTotal,
-      topDefensivePairsByEfficiency
+      topDefenders,
+      topDefensivePairs
     },
     minQuarters: MIN_QUARTERS
   };

@@ -520,6 +520,12 @@ h4 { font-size: 1rem; }
   color: var(--text-secondary);
 }
 
+.library-player-stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .library-player-position {
   font-size: 0.7rem;
   color: var(--primary-400);
