@@ -30,10 +30,10 @@ const createTestTeam = (overrides = {}) => ({
       status: 'normal',
       scores: { us: 12, opponent: 8 },
       lineup: {
-        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, opponentScore: 2 },
-        Q2: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 2, opponentScore: 2 },
-        Q3: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 2 },
-        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, opponentScore: 2 }
+        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
+        Q2: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 2, oppGsGoals: 1, oppGaGoals: 1 },
+        Q3: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
+        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, oppGsGoals: 1, oppGaGoals: 1 }
       }
     },
     {
@@ -43,10 +43,10 @@ const createTestTeam = (overrides = {}) => ({
       status: 'normal',
       scores: { us: 10, opponent: 12 },
       lineup: {
-        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 3 },
-        Q2: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, opponentScore: 4 },
-        Q3: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 1, opponentScore: 2 },
-        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, opponentScore: 3 }
+        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, oppGsGoals: 2, oppGaGoals: 1 },
+        Q2: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, oppGsGoals: 2, oppGaGoals: 2 },
+        Q3: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
+        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, oppGsGoals: 2, oppGaGoals: 1 }
       }
     },
     {
