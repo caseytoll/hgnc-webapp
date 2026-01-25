@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **New Features:**
 - **Players section**: Track player career stats across teams/seasons via segmented control (Teams/Players) on home screen
 - Career stats include Goals Scored (GS/GA), Goals Against (GK/GD), quarters played, season breakdowns
+- **Per-quarter averages**: Goals Scored shows avg per attacking quarter (GS/GA), Goals Against shows avg per defensive quarter (GK/GD)
 - "Track career stats" checkbox in player edit modal enables tracking
 - Sort players by Recent activity, Most Games, or A-Z (toggle button)
 - **Archive teams**: Hide old season teams while preserving data
@@ -16,10 +17,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Bug Fixes:**
 - Fixed PWA not updating: switched to stale-while-revalidate caching, added "Update now" banner
 - Fixed player edits not persisting (API mode): added `apiTeamCache` to store local edits for API teams
+- Fixed player library stats showing 0 for API teams: all library functions now check `apiTeamCache`
 
 **Technical:**
 - Service worker now at v4, checks for updates every 60 seconds
 - `loadTeamData()` merges cached local changes with fresh API data
+- Player library functions check both `mockTeams` and `apiTeamCache` for team data
 
 **Status:** All features working. 172 tests passing. Cloudflare Pages live.
 
