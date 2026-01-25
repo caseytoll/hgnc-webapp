@@ -1,0 +1,14 @@
+{
+  "name": "hgnc-gameday",
+  "version": "1.0.0",
+  "description": "Read-only viewer for HGNC team schedules and stats",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
+  }
+}
