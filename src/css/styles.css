@@ -575,6 +575,13 @@ h4 { font-size: 1rem; }
   color: var(--text-secondary);
 }
 
+.library-stat-avg {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
 .library-positions {
   display: flex;
   flex-wrap: wrap;
