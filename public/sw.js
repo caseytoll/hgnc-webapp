@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hgnc-team-manager-v2';
+const CACHE_NAME = 'hgnc-team-manager-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -20,42 +20,65 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
+  // Take over immediately
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
           .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .map((name) => {
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
+    }).then(() => {
+      console.log('[SW] Now active, claiming clients');
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
-// Fetch event - serve from cache, fall back to network
+// Fetch event - stale-while-revalidate for app assets, network-first for API
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Network-only for API calls
+  if (url.search.includes('api=true') || url.hostname.includes('script.google.com')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Stale-while-revalidate for app assets
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
-        // Don't cache non-successful responses or external requests
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        // Clone and cache the response
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(event.request).then((cachedResponse) => {
+        // Always fetch from network in background
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          // Update cache with fresh response
+          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        }).catch(() => {
+          // Network failed, that's okay if we have cache
+          return cachedResponse;
         });
-        return response;
+
+        // Return cached response immediately, or wait for network
+        return cachedResponse || fetchPromise;
       });
     })
   );
+});
+
+// Listen for skip waiting message from client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
