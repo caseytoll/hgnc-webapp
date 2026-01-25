@@ -3371,10 +3371,13 @@ function calculateLibraryPlayerStats(libraryPlayer) {
   const gamesSet = new Set();
 
   libraryPlayer.linkedInstances.forEach(instance => {
-    // Check both mockTeams and apiTeamCache for the team data
+    // Check mockTeams, apiTeamCache, and current loaded team for the team data
     let team = mockTeams.find(t => t.teamID === instance.teamID);
     if (!team && apiTeamCache[instance.teamID]) {
       team = apiTeamCache[instance.teamID];
+    }
+    if (!team && state.currentTeamData?.teamID === instance.teamID) {
+      team = state.currentTeamData;
     }
     if (!team) return;
 
@@ -3609,6 +3612,7 @@ window.removeFromLibrary = function(globalId) {
 window.addToPlayerLibrary = function(teamID, playerID) {
   let team = mockTeams.find(t => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
+  if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
   if (!team) return;
 
   const player = team.players.find(p => p.id === playerID);
@@ -3662,6 +3666,7 @@ function openLinkPlayerModal(player, team, matches) {
 window.linkToExistingPlayer = function(globalId, teamID, playerID) {
   let team = mockTeams.find(t => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
+  if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
   const player = team?.players.find(p => p.id === playerID);
   const libraryPlayer = state.playerLibrary.players.find(p => p.globalId === globalId);
 
@@ -3686,6 +3691,7 @@ window.createLibraryEntry = function(player, team, teamID, playerID) {
   if (!player && teamID && playerID) {
     team = mockTeams.find(t => t.teamID === teamID);
     if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
+    if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
     player = team?.players.find(p => p.id === playerID);
   }
 
@@ -3715,6 +3721,7 @@ window.createLibraryEntry = function(player, team, teamID, playerID) {
 function addToPlayerLibraryDirect(teamID, playerID) {
   let team = mockTeams.find(t => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
+  if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
   if (!team) return;
 
   const player = team.players.find(p => p.id === playerID);
