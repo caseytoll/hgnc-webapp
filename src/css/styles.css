@@ -2245,10 +2245,18 @@ h4 { font-size: 1rem; }
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-lg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stats-subtabs::-webkit-scrollbar {
+  display: none;
 }
 
 .stats-subtab {
-  flex: 1;
+  flex-shrink: 0;
   padding: var(--space-sm) var(--space-md);
   background: transparent;
   border: none;
@@ -2259,6 +2267,7 @@ h4 { font-size: 1rem; }
   cursor: pointer;
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
 }
 
 .stats-subtab.active {
