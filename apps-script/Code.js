@@ -18,148 +18,185 @@ function getSpreadsheet() {
   }
 }
 
-/**                                                                                                                                                                                                                                                                                                                                                                     
-   * Main entry point - serves HTML app or handles API requests                                                                                                                                                                                                                                                                                                           
-   */                                                                                                                                                                                                                                                                                                                                                                     
-  function doGet(e) {                                                                                                                                                                                                                                                                                                                                                     
-    // Check if this is an API request from the PWA                                                                                                                                                                                                                                                                                                                       
-    if (e && e.parameter && e.parameter.api === 'true') {                                                                                                                                                                                                                                                                                                                 
-      return handleApiRequest(e);                                                                                                                                                                                                                                                                                                                                         
-    }                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                          
-    // Otherwise serve the HTML app (your existing code)                                                                                                                                                                                                                                                                                                                  
-    var template = HtmlService.createTemplateFromFile('index');                                                                                                                                                                                                                                                                                                           
-                                                                                                                                                                                                                                                                                                                                                                          
-    var userEmail = '';                                                                                                                                                                                                                                                                                                                                                   
-    try {                                                                                                                                                                                                                                                                                                                                                                 
-      userEmail = Session.getActiveUser().getEmail();                                                                                                                                                                                                                                                                                                                     
-    } catch (err) {                                                                                                                                                                                                                                                                                                                                                       
-      userEmail = '';                                                                                                                                                                                                                                                                                                                                                     
-    }                                                                                                                                                                                                                                                                                                                                                                     
-    template.userEmail = userEmail;                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                          
-    var props = PropertiesService.getScriptProperties();                                                                                                                                                                                                                                                                                                                  
-    var ownerEmail = props.getProperty('OWNER_EMAIL') || 'caseytoll78@gmail.com';                                                                                                                                                                                                                                                                                         
-    var testInsightsFlag = (props.getProperty('TEST_INSIGHTS_ENABLED') || 'false') === 'true';                                                                                                                                                                                                                                                                            
-    template.ownerEmail = ownerEmail;                                                                                                                                                                                                                                                                                                                                     
-    template.showTestInsights = testInsightsFlag;                                                                                                                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                          
-    var timestamp = new Date().toISOString();                                                                                                                                                                                                                                                                                                                             
-    var isOwner = userEmail === ownerEmail;                                                                                                                                                                                                                                                                                                                               
-    Logger.log('ACCESS: ' + timestamp + ' | User: ' + (userEmail || 'Anonymous') + ' | Owner: ' + isOwner);                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                                                                                                          
-    try {                                                                                                                                                                                                                                                                                                                                                                 
-      template.logoDataUrl = getLogoDataUrl();                                                                                                                                                                                                                                                                                                                            
-      template.teamPerformanceIconDataUrl = getTeamPerformanceIconDataUrl();                                                                                                                                                                                                                                                                                              
-      template.offensiveLeadersIconDataUrl = getOffensiveLeadersIconDataUrl();                                                                                                                                                                                                                                                                                            
-      template.defensiveWallIconDataUrl = getDefensiveWallIconDataUrl();                                                                                                                                                                                                                                                                                                  
-      template.playerAnalysisIconDataUrl = getPlayerAnalysisIconDataUrl();                                                                                                                                                                                                                                                                                                
-      template.appVersion = '1.0.32';                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                          
-      var result = template.evaluate()                                                                                                                                                                                                                                                                                                                                    
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);                                                                                                                                                                                                                                                                                                  
-      return result;                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                          
-    } catch (error) {                                                                                                                                                                                                                                                                                                                                                     
-      Logger.log('ERROR in doGet: ' + error.toString());                                                                                                                                                                                                                                                                                                                  
-      return HtmlService.createHtmlOutput('<h1>Error</h1><p>' + error.toString() + '</p>')                                                                                                                                                                                                                                                                                
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);                                                                                                                                                                                                                                                                                                  
-    }                                                                                                                                                                                                                                                                                                                                                                     
-  }                                                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                          
-  /**                                                                                                                                                                                                                                                                                                                                                                     
-   * API handler for PWA requests                                                                                                                                                                                                                                                                                                                                         
-   * Call with: ?api=true&action=getTeams                                                                                                                                                                                                                                                                                                                                 
-   */                                                                                                                                                                                                                                                                                                                                                                     
-  function handleApiRequest(e) {                                                                                                                                                                                                                                                                                                                                          
-    var action = e.parameter.action || '';                                                                                                                                                                                                                                                                                                                                
-    var result = { success: false, error: 'Unknown action' };                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                          
-    Logger.log('API Request: ' + action + ' | Params: ' + JSON.stringify(e.parameter));                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                          
-    try {                                                                                                                                                                                                                                                                                                                                                                 
-      switch (action) {                                                                                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                          
-        case 'ping':                                                                                                                                                                                                                                                                                                                                                      
-          result = { success: true, message: 'pong', timestamp: new Date().toISOString() };                                                                                                                                                                                                                                                                               
-          break;                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                          
-        case 'getTeams':                                                                                                                                                                                                                                                                                                                                                  
-          var teams = loadMasterTeamList();                                                                                                                                                                                                                                                                                                                               
-          if (teams.error) {                                                                                                                                                                                                                                                                                                                                              
-            result = { success: false, error: teams.error };                                                                                                                                                                                                                                                                                                              
-          } else {                                                                                                                                                                                                                                                                                                                                                        
-            // Transform to PWA format                                                                                                                                                                                                                                                                                                                                    
-            var pwaTeams = teams.map(function(t) {                                                                                                                                                                                                                                                                                                                        
-              return {                                                                                                                                                                                                                                                                                                                                                    
-                teamID: t.teamID,                                                                                                                                                                                                                                                                                                                                         
-                year: t.year,                                                                                                                                                                                                                                                                                                                                             
-                season: t.season,                                                                                                                                                                                                                                                                                                                                         
-                teamName: t.name,                                                                                                                                                                                                                                                                                                                                         
-                sheetName: t.sheetName                                                                                                                                                                                                                                                                                                                                    
-              };                                                                                                                                                                                                                                                                                                                                                          
-            });                                                                                                                                                                                                                                                                                                                                                           
-            result = { success: true, teams: pwaTeams };                                                                                                                                                                                                                                                                                                                  
-          }                                                                                                                                                                                                                                                                                                                                                               
-          break;                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                          
-        case 'getTeamData':                                                                                                                                                                                                                                                                                                                                               
-          var sheetName = e.parameter.sheetName || '';                                                                                                                                                                                                                                                                                                                    
-          var teamID = e.parameter.teamID || '';                                                                                                                                                                                                                                                                                                                          
-          if (!sheetName) {                                                                                                                                                                                                                                                                                                                                               
-            result = { success: false, error: 'sheetName is required' };                                                                                                                                                                                                                                                                                                  
-          } else {                                                                                                                                                                                                                                                                                                                                                        
-            var data = loadTeamData(sheetName);                                                                                                                                                                                                                                                                                                                           
-            if (data.error) {                                                                                                                                                                                                                                                                                                                                             
-              result = { success: false, error: data.error };                                                                                                                                                                                                                                                                                                             
-            } else {                                                                                                                                                                                                                                                                                                                                                      
-              // Parse the JSON and add teamID                                                                                                                                                                                                                                                                                                                            
-              var teamData = JSON.parse(data.teamData || '{"players":[],"games":[]}');                                                                                                                                                                                                                                                                                    
-              teamData.teamID = teamID;                                                                                                                                                                                                                                                                                                                                   
-              teamData.sheetName = sheetName;                                                                                                                                                                                                                                                                                                                             
-              result = { success: true, teamData: teamData };                                                                                                                                                                                                                                                                                                             
-            }                                                                                                                                                                                                                                                                                                                                                             
-          }                                                                                                                                                                                                                                                                                                                                                               
-          break;                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                          
-        case 'saveTeamData':                                                                                                                                                                                                                                                                                                                                              
-          var sheetNameSave = e.parameter.sheetName || '';                                                                                                                                                                                                                                                                                                                
-          var teamDataJSON = e.parameter.teamData || '';                                                                                                                                                                                                                                                                                                                  
-          if (!sheetNameSave || !teamDataJSON) {                                                                                                                                                                                                                                                                                                                          
-            result = { success: false, error: 'sheetName and teamData are required' };                                                                                                                                                                                                                                                                                    
-          } else {                                                                                                                                                                                                                                                                                                                                                        
-            var saveResult = saveTeamData(sheetNameSave, teamDataJSON, null);                                                                                                                                                                                                                                                                                             
-            if (saveResult === "OK") {                                                                                                                                                                                                                                                                                                                                    
-              result = { success: true };                                                                                                                                                                                                                                                                                                                                 
-            } else {                                                                                                                                                                                                                                                                                                                                                      
-              result = { success: false, error: saveResult.error || 'Save failed' };                                                                                                                                                                                                                                                                                      
-            }                                                                                                                                                                                                                                                                                                                                                             
-          }                                                                                                                                                                                                                                                                                                                                                               
-          break;                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                          
-        default:                                                                                                                                                                                                                                                                                                                                                          
-          result = { success: false, error: 'Unknown action: ' + action };                                                                                                                                                                                                                                                                                                
-      }                                                                                                                                                                                                                                                                                                                                                                   
-    } catch (err) {                                                                                                                                                                                                                                                                                                                                                       
-      Logger.log('API Error: ' + err.message);                                                                                                                                                                                                                                                                                                                            
-      result = { success: false, error: err.message };                                                                                                                                                                                                                                                                                                                    
-    }                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                          
-    Logger.log('API Response: ' + JSON.stringify(result).substring(0, 500));                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                          
-    return ContentService                                                                                                                                                                                                                                                                                                                                                 
-      .createTextOutput(JSON.stringify(result))                                                                                                                                                                                                                                                                                                                           
-      .setMimeType(ContentService.MimeType.JSON);                                                                                                                                                                                                                                                                                                                         
-  }  
+/**
+   * Main entry point - serves HTML app or handles API requests
+   */
+  function doGet(e) {
+    // Check if this is an API request from the PWA
+    if (e && e.parameter && e.parameter.api === 'true') {
+      return handleApiRequest(e);
+    }
+
+    // Otherwise serve the HTML app (your existing code)
+    var template = HtmlService.createTemplateFromFile('index');
+
+    var userEmail = '';
+    try {
+      userEmail = Session.getActiveUser().getEmail();
+    } catch (err) {
+      userEmail = '';
+    }
+    template.userEmail = userEmail;
+
+    var props = PropertiesService.getScriptProperties();
+    var ownerEmail = props.getProperty('OWNER_EMAIL') || 'caseytoll78@gmail.com';
+    var testInsightsFlag = (props.getProperty('TEST_INSIGHTS_ENABLED') || 'false') === 'true';
+    template.ownerEmail = ownerEmail;
+    template.showTestInsights = testInsightsFlag;
+
+    var timestamp = new Date().toISOString();
+    var isOwner = userEmail === ownerEmail;
+    Logger.log('ACCESS: ' + timestamp + ' | User: ' + (userEmail || 'Anonymous') + ' | Owner: ' + isOwner);
+
+    try {
+      template.logoDataUrl = getLogoDataUrl();
+      template.teamPerformanceIconDataUrl = getTeamPerformanceIconDataUrl();
+      template.offensiveLeadersIconDataUrl = getOffensiveLeadersIconDataUrl();
+      template.defensiveWallIconDataUrl = getDefensiveWallIconDataUrl();
+      template.playerAnalysisIconDataUrl = getPlayerAnalysisIconDataUrl();
+      template.appVersion = '1.0.32';
+
+      var result = template.evaluate()
+          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      return result;
+
+    } catch (error) {
+      Logger.log('ERROR in doGet: ' + error.toString());
+      return HtmlService.createHtmlOutput('<h1>Error</h1><p>' + error.toString() + '</p>')
+          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+  }
+
+  /**
+   * API handler for PWA requests
+   * Call with: ?api=true&action=getTeams
+   */
+  function handleApiRequest(e) {
+    var action = e.parameter.action || '';
+    var result = { success: false, error: 'Unknown action' };
+
+    Logger.log('API Request: ' + action + ' | Params: ' + JSON.stringify(e.parameter));
+
+    try {
+      switch (action) {
+
+        case 'ping':
+          result = { success: true, message: 'pong', timestamp: new Date().toISOString() };
+          break;
+
+        case 'getTeams':
+          var teams = loadMasterTeamList();
+          if (teams.error) {
+            result = { success: false, error: teams.error };
+          } else {
+            // Transform to PWA format
+            var pwaTeams = teams.map(function(t) {
+              return {
+                teamID: t.teamID,
+                year: t.year,
+                season: t.season,
+                teamName: t.name,
+                sheetName: t.sheetName,
+                archived: t.archived || false
+              };
+            });
+            result = { success: true, teams: pwaTeams };
+          }
+          break;
+
+        case 'getTeamData':
+          var sheetName = e.parameter.sheetName || '';
+          var teamID = e.parameter.teamID || '';
+          if (!sheetName) {
+            result = { success: false, error: 'sheetName is required' };
+          } else {
+            var data = loadTeamData(sheetName);
+            if (data.error) {
+              result = { success: false, error: data.error };
+            } else {
+              // Parse the JSON and add teamID
+              var teamData = JSON.parse(data.teamData || '{"players":[],"games":[]}');
+              teamData.teamID = teamID;
+              teamData.sheetName = sheetName;
+              result = { success: true, teamData: teamData };
+            }
+          }
+          break;
+
+        case 'saveTeamData':
+          var sheetNameSave = e.parameter.sheetName || '';
+          var teamDataJSON = e.parameter.teamData || '';
+          if (!sheetNameSave || !teamDataJSON) {
+            result = { success: false, error: 'sheetName and teamData are required' };
+          } else {
+            var saveResult = saveTeamData(sheetNameSave, teamDataJSON, null);
+            if (saveResult === "OK") {
+              result = { success: true };
+            } else {
+              result = { success: false, error: saveResult.error || 'Save failed' };
+            }
+          }
+          break;
+
+        case 'updateTeam':
+          var updateTeamID = e.parameter.teamID || '';
+          var settingsJSON = e.parameter.settings || '{}';
+          if (!updateTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              var settings = JSON.parse(settingsJSON);
+              var updateResult = updateTeamSettings(updateTeamID, settings);
+              if (updateResult.error) {
+                result = { success: false, error: updateResult.error };
+              } else {
+                result = { success: true };
+              }
+            } catch (parseErr) {
+              result = { success: false, error: 'Invalid settings JSON: ' + parseErr.message };
+            }
+          }
+          break;
+
+        case 'createTeam':
+          var createYear = e.parameter.year || new Date().getFullYear();
+          var createSeason = e.parameter.season || 'Season 1';
+          var createName = e.parameter.name || '';
+          if (!createName) {
+            result = { success: false, error: 'Team name is required' };
+          } else {
+            var createResult = createNewTeam(createYear, createSeason, createName, '', '', '');
+            if (createResult.error) {
+              result = { success: false, error: createResult.error };
+            } else {
+              result = { success: true, teams: createResult };
+            }
+          }
+          break;
+
+        default:
+          result = { success: false, error: 'Unknown action: ' + action };
+      }
+    } catch (err) {
+      Logger.log('API Error: ' + err.message);
+      result = { success: false, error: err.message };
+    }
+
+    Logger.log('API Response: ' + JSON.stringify(result).substring(0, 500));
+
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
 /**
  * CDN base for assets hosted on jsDelivr.
- * 
+ *
  * CDN_TAG pinning strategy:
  * - For development: use '@master' to always get latest assets
  * - For releases: pin to a specific commit SHA for immutability
  * - Format: '@COMMIT_SHA' or '@master' (see CODE_CLEANUP_2025_12_07.md)
- * 
+ *
  * NOTE: This value is automatically updated by deploy script during releases.
  * Current HEAD commit is used to pin CDN references at deploy time.
  */
@@ -224,7 +261,7 @@ function include(filename) {
     'src/includes/main-views': 'src/includes/main-views.html',
     'src/includes/js-dom-ready-init': 'src/includes/js-dom-ready-init.html'
   };
-  
+
   var filePath = pathMap[filename] || filename;
   return HtmlService.createHtmlOutputFromFile(filePath).getContent();
 }
@@ -237,22 +274,22 @@ function getLogoDataUrl() {
     // Read the base64 data from the file
     // Note: file contains raw data URL, no HTML tags
     var logoContent = HtmlService.createHtmlOutputFromFile('src/icons/base-image-code').getContent();
-    
+
     // The file should contain: data:image/jpeg;base64,{base64string}
     // Extract the data URL - trim any whitespace
     var trimmed = logoContent.trim();
-    
+
     // Check if it starts with data:image
     if (trimmed.indexOf('data:image') === 0) {
       return trimmed;
     }
-    
+
     // Try regex fallback
     var match = trimmed.match(/data:image[^\s]*/);
     if (match) {
       return match[0];
     }
-    
+
     Logger.log('Logo file content does not start with data:image. First 100 chars: ' + trimmed.substring(0, 100));
     return '#';
   } catch(e) {
@@ -427,24 +464,24 @@ function loadArchivedMatchResults() {
   try {
     var ss = getSpreadsheet();
     var sheet = ss.getSheetByName('Fixture_Results');
-    
+
     // Check if sheet exists and has data
     if (!sheet || sheet.getLastRow() <= 1) {
       Logger.log("Fixture_Results sheet not found or empty");
-      return []; 
+      return [];
     }
 
     // Get all data including header to understand structure
     var dataRange = sheet.getDataRange();
     var data = dataRange.getValues();
     var headers = data[0]; // First row is headers
-    
+
     Logger.log("Fixture_Results headers: " + headers.join(', '));
     Logger.log("Fixture_Results data rows: " + (data.length - 1));
-    
+
     // Skip header row
     var rows = data.slice(1);
-    
+
     if (rows.length === 0) {
       Logger.log("No data rows found in Fixture_Results sheet");
       return [];
@@ -458,18 +495,18 @@ function loadArchivedMatchResults() {
         if (!row || row.length === 0 || !row.some(function(cell) { return cell !== ''; })) {
           return;
         }
-        
+
         // Find round name (column 1 - index 1)
         var roundName = String(row[1] || '');
         if (!roundName || roundName === '') {
           Logger.log("Skipping row " + (index + 2) + ": No round name found");
           return;
         }
-        
+
         if (!roundsMap[roundName]) {
             roundsMap[roundName] = { name: roundName, matches: [] };
         }
-        
+
         // Convert Date object to ISO string for proper JSON serialization
         var startTime = row[0];
         if (startTime instanceof Date) {
@@ -477,7 +514,7 @@ function loadArchivedMatchResults() {
         } else {
           startTime = String(startTime || '');
         }
-        
+
         // Create match object with proper data types
         var match = {
             id: String(row[2] || 'match_' + index),
@@ -490,7 +527,7 @@ function loadArchivedMatchResults() {
             team2ResultId: determineResultId(row, 6, 5, 7),
             matchStatus: String(row[8] || 'UNKNOWN')
         };
-        
+
         roundsMap[roundName].matches.push(match);
     });
 
@@ -505,16 +542,16 @@ function loadArchivedMatchResults() {
         return aNum - bNum;
     });
 
-    Logger.log("Successfully loaded " + roundsArray.length + " rounds with " + 
+    Logger.log("Successfully loaded " + roundsArray.length + " rounds with " +
                roundsArray.reduce(function(total, round) { return total + round.matches.length; }, 0) + " total matches");
-    
+
     // Return the data - Google Apps Script will handle JSON serialization
     return roundsArray;
 
   } catch (e) {
     Logger.log("Error loading archived results: " + e.message);
     Logger.log("Stack: " + e.stack);
-    return []; 
+    return [];
   }
 }
 
@@ -529,7 +566,7 @@ function determineResultId(row, scoreIndex, opponentScoreIndex, resultIndex) {
   var score = parseInt(row[scoreIndex]) || 0;
   var opponentScore = parseInt(row[opponentScoreIndex]) || 0;
   var resultText = row[resultIndex] ? String(row[resultIndex]).toLowerCase() : '';
-  
+
   if (score > opponentScore) return 1; // Win
   if (score < opponentScore) return 2; // Loss
   if (score === opponentScore) return 3; // Draw
@@ -543,27 +580,27 @@ function saveLadderDataToSheet(ladderData) {
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName('Ladder_Archive');
   var now = new Date();
-  
+
   if (!sheet) {
     Logger.log("ERROR: Ladder_Archive sheet not found. Skipping ladder save.");
     return;
   }
-  
+
   var rows = ladderData.map(function(team) {
     return [
-      now, 
-      team.rk, 
-      team.name, 
-      team.P, 
-      team.W, 
-      team.L, 
-      team.D, 
-      team.F, 
-      team.A, 
-      team.PTS 
+      now,
+      team.rk,
+      team.name,
+      team.P,
+      team.W,
+      team.L,
+      team.D,
+      team.F,
+      team.A,
+      team.PTS
     ];
   });
-  
+
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   Logger.log("Ladder data saved successfully to Ladder_Archive.");
 }
@@ -575,37 +612,37 @@ function saveLadderDataToSheet(ladderData) {
 function saveAllFixtureResultsToSheet(roundsData) {
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName('Fixture_Results');
-  
+
   if (!sheet) {
     Logger.log("ERROR: Fixture_Results sheet not found. Skipping fixture save.");
     return;
   }
-  
+
   // Clear existing data (but keep the header row)
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
   }
-  
+
   var allRows = [];
-  
+
   for (var i = 0; i < roundsData.length; i++) {
     var round = roundsData[i];
     var roundName = round.name;
     var matches = round.matches || [];
-    
+
     for (var j = 0; j < matches.length; j++) {
       var match = matches[j];
-      var result = match.team1ResultId === 1 ? "Win" : 
-                   match.team2ResultId === 1 ? "Loss" : 
-                   match.team1ResultId === 3 ? "Draw" : 
+      var result = match.team1ResultId === 1 ? "Win" :
+                   match.team2ResultId === 1 ? "Loss" :
+                   match.team1ResultId === 3 ? "Draw" :
                    "N/A";
 
       allRows.push([
         new Date(match.startTime),
         roundName,
         match.id,
-        match.team1.name, 
-        match.team2.name, 
+        match.team1.name,
+        match.team2.name,
         match.team1Score,
         match.team2Score,
         result,
@@ -613,7 +650,7 @@ function saveAllFixtureResultsToSheet(roundsData) {
       ]);
     }
   }
-  
+
   // Save new data
   if (allRows.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, allRows.length, allRows[0].length).setValues(allRows);
@@ -634,30 +671,30 @@ function getLadderData() {
     Logger.log("Token missing. Please set the Auth Token in the Admin view.");
     return { error: "Token missing. Please set the Auth Token in the Admin view." };
   }
-  
+
   // URL to get the current ladder standings
   const url = "https://api-netball.squadi.com/livescores/teams/ladder/v2?divisionIds=26942&competitionKey=b8acc87f-8a28-4de7-b7b8-36209d56ace9&filteredOutCompStatuses=1&showForm=1&sportRefId=1";
-  
+
   var options = {
     'method' : 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN, 
+      'Authorization': AUTH_TOKEN,
       'Accept': 'application/json',
-      'Origin': 'https://registration.netballconnect.com', 
-      'Referer': 'https://registration.netballconnect.com/', 
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15', 
+      'Origin': 'https://registration.netballconnect.com',
+      'Referer': 'https://registration.netballconnect.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15',
     },
-    'muteHttpExceptions': true 
+    'muteHttpExceptions': true
   };
-  
+
   try {
     var response = UrlFetchApp.fetch(url, options);
     var responseCode = response.getResponseCode();
-    
+
     if (responseCode === 200) {
         var data = JSON.parse(response.getContentText());
         var ladder = data.ladders || [];
-        
+
         // Save the successful ladder data to the archive sheet
         if (ladder.length > 0) {
           saveLadderDataToSheet(ladder);
@@ -688,27 +725,27 @@ function getMatchResults() {
   }
 
   // URL that returns all rounds and matches
-  const url = "https://api-netball.squadi.com/livescores/round/matches?competitionId=4171&divisionId=26942&teamIds=&ignoreStatuses=[1]"; 
-  
+  const url = "https://api-netball.squadi.com/livescores/round/matches?competitionId=4171&divisionId=26942&teamIds=&ignoreStatuses=[1]";
+
   var options = {
     'method' : 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN, 
+      'Authorization': AUTH_TOKEN,
       'Accept': 'application/json',
-      'Origin': 'https://registration.netballconnect.com', 
-      'Referer': 'https://registration.netballconnect.com/', 
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15', 
+      'Origin': 'https://registration.netballconnect.com',
+      'Referer': 'https://registration.netballconnect.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15',
     },
-    'muteHttpExceptions': true 
+    'muteHttpExceptions': true
   };
-  
+
   try {
     var response = UrlFetchApp.fetch(url, options);
     var responseCode = response.getResponseCode();
-    
+
     if (responseCode === 200) {
         var data = JSON.parse(response.getContentText());
-        
+
         // Log the first round to see full structure
         if (data.rounds && data.rounds.length > 0) {
              Logger.log("First round from API: " + JSON.stringify(data.rounds[0]).substring(0, 500));
@@ -716,17 +753,17 @@ function getMatchResults() {
                Logger.log("First match from API: " + JSON.stringify(data.rounds[0].matches[0]));
              }
         }
-        
+
         // Archive the fixture data immediately on successful fetch
         if (data.rounds && data.rounds.length > 0) {
              saveAllFixtureResultsToSheet(data.rounds);
-             
+
              // Cache the FULL rounds data as JSON using CacheService (6 hours)
              try {
                var cache = CacheService.getScriptCache();
                var jsonString = JSON.stringify(data.rounds);
                Logger.log("Match results JSON size: " + jsonString.length + " bytes");
-               
+
                // CacheService has 100KB limit per item, which should be enough
                cache.put('CACHED_MATCH_RESULTS', jsonString, 21600); // 6 hours
                Logger.log("Cached full match results with venue data in CacheService");
@@ -734,7 +771,7 @@ function getMatchResults() {
                Logger.log("Failed to cache match results: " + e.message);
              }
         }
-        
+
         // Return the FULL rounds data including all nested objects
         return data.rounds || [];
     } else {
@@ -754,7 +791,7 @@ function getCachedMatchResults() {
   try {
     var cache = CacheService.getScriptCache();
     var cached = cache.get('CACHED_MATCH_RESULTS');
-    
+
     if (cached) {
       Logger.log("Returning cached match results from CacheService");
       return JSON.parse(cached);
@@ -856,20 +893,20 @@ function ensureTeamsSheetStructure() {
       Logger.log("Teams sheet not found!");
       return;
     }
-    
-    var headers = teamsSheet.getRange(1, 1, 1, 8).getValues()[0];
-    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API'];
+
+    var headers = teamsSheet.getRange(1, 1, 1, 9).getValues()[0];
+    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived'];
     var needsUpdate = false;
-    
+
     for (var i = 0; i < expectedHeaders.length; i++) {
       if (!headers[i] || headers[i] === '') {
         headers[i] = expectedHeaders[i];
         needsUpdate = true;
       }
     }
-    
+
     if (needsUpdate) {
-      teamsSheet.getRange(1, 1, 1, 8).setValues([headers]);
+      teamsSheet.getRange(1, 1, 1, 9).setValues([headers]);
       Logger.log("Updated Teams sheet headers: " + JSON.stringify(headers));
     }
   } catch (e) {
@@ -884,11 +921,11 @@ function loadMasterTeamList() {
   try {
     Logger.log("loadMasterTeamList called");
     ensureTeamsSheetStructure(); // Ensure columns exist
-    
+
     var ss = getSpreadsheet();
     var teamsSheet = ss.getSheetByName('Teams');
     var data = teamsSheet.getDataRange().getValues();
-    data.shift(); 
+    data.shift();
     var teams = data.map(function(row) {
       var team = {
         teamID: row[0],
@@ -898,9 +935,10 @@ function loadMasterTeamList() {
         sheetName: row[4],
         ladderName: row[5] || '', // Column F
         ladderApi: row[6] || '',  // Column G
-        resultsApi: row[7] || ''  // Column H
+        resultsApi: row[7] || '', // Column H
+        archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE' // Column I
       };
-      Logger.log("Loaded team: " + team.name + ", ladderApi=" + team.ladderApi + ", resultsApi=" + team.resultsApi);
+      Logger.log("Loaded team: " + team.name + ", archived=" + team.archived);
       return team;
     });
     Logger.log("Total teams loaded: " + teams.length);
@@ -915,13 +953,13 @@ function createNewTeam(year, season, name, ladderName, ladderApi, resultsApi) {
   try {
     var ss = getSpreadsheet();
     var teamsSheet = ss.getSheetByName('Teams');
-    var teamID = 'team_' + new Date().getTime(); 
-    var sheetName = 'data_' + teamID; 
+    var teamID = 'team_' + new Date().getTime();
+    var sheetName = 'data_' + teamID;
     var newTeamSheet = ss.insertSheet(sheetName);
     var initialData = { players: [], games: [] };
     newTeamSheet.getRange('A1').setValue(JSON.stringify(initialData));
     // Columns: teamID, year, season, name, sheetName, ladderName, ladderApi, resultsApi
-    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || ""]); 
+    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || ""]);
     return loadMasterTeamList();
   } catch (e) {
     Logger.log(e);
@@ -935,13 +973,13 @@ function updateTeam(teamID, year, season, name, ladderName, ladderApi, resultsAp
     var ss = getSpreadsheet();
     var teamsSheet = ss.getSheetByName('Teams');
     var data = teamsSheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) { 
+    for (var i = 1; i < data.length; i++) {
       if (data[i][0] == teamID) {
-        var row = i + 1; 
+        var row = i + 1;
         // Update columns B-H (skipping column E which is sheetName)
         var updateValues = [[year, season, name, data[i][4], ladderName || "", ladderApi || "", resultsApi || ""]];
         Logger.log("Updating row " + row + " with values: " + JSON.stringify(updateValues));
-        teamsSheet.getRange(row, 2, 1, 7).setValues(updateValues); 
+        teamsSheet.getRange(row, 2, 1, 7).setValues(updateValues);
         Logger.log("Update successful, loading master team list");
         return loadMasterTeamList();
       }
@@ -949,6 +987,46 @@ function updateTeam(teamID, year, season, name, ladderName, ladderApi, resultsAp
     throw new Error("Team not found for update.");
   } catch (e) {
     Logger.log("Error in updateTeam: " + e.message);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Updates team settings (teamName, year, season, archived) from PWA API
+ * This is called by the updateTeam API action
+ */
+function updateTeamSettings(teamID, settings) {
+  try {
+    Logger.log("updateTeamSettings called with: teamID=" + teamID + ", settings=" + JSON.stringify(settings));
+    var ss = getSpreadsheet();
+    var teamsSheet = ss.getSheetByName('Teams');
+    var data = teamsSheet.getDataRange().getValues();
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] == teamID) {
+        var row = i + 1;
+
+        // Update specific fields if provided
+        if (settings.teamName !== undefined) {
+          teamsSheet.getRange(row, 4).setValue(settings.teamName); // Column D = Name
+        }
+        if (settings.year !== undefined) {
+          teamsSheet.getRange(row, 2).setValue(settings.year); // Column B = Year
+        }
+        if (settings.season !== undefined) {
+          teamsSheet.getRange(row, 3).setValue(settings.season); // Column C = Season
+        }
+        if (settings.archived !== undefined) {
+          teamsSheet.getRange(row, 9).setValue(settings.archived ? 'true' : ''); // Column I = Archived
+        }
+
+        Logger.log("updateTeamSettings successful for row " + row);
+        return { success: true };
+      }
+    }
+    throw new Error("Team not found: " + teamID);
+  } catch (e) {
+    Logger.log("Error in updateTeamSettings: " + e.message);
     return { error: e.message };
   }
 }
@@ -962,9 +1040,9 @@ function deleteTeam(teamID, sheetName) {
     }
     var teamsSheet = ss.getSheetByName('Teams');
     var data = teamsSheet.getDataRange().getValues();
-    for (var i = data.length - 1; i >= 1; i--) { 
+    for (var i = data.length - 1; i >= 1; i--) {
       if (data[i][0] == teamID) {
-        teamsSheet.deleteRow(i + 1); 
+        teamsSheet.deleteRow(i + 1);
         break;
       }
     }
@@ -1021,14 +1099,14 @@ function fetchMyGameDayLadder(url) {
   try {
     var response = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
     var html = response.getContentText();
-    
+
     // Parse HTML table - looking for ladder table with POS, TEAM, P, W, L, D, etc.
     var teams = [];
     var tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
     var tables = html.match(tableRegex);
-    
+
     if (!tables) return [];
-    
+
     // Find the ladder table (contains POS, TEAM, P, W, L columns)
     for (var t = 0; t < tables.length; t++) {
       var tableHtml = tables[t];
@@ -1036,14 +1114,14 @@ function fetchMyGameDayLadder(url) {
         // Extract rows
         var rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
         var rows = tableHtml.match(rowRegex);
-        
+
         if (!rows) continue;
-        
+
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
           // Skip header rows
           if (row.indexOf('<th') > -1) continue;
-          
+
           // Extract cells
           var cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
           var cells = [];
@@ -1056,7 +1134,7 @@ function fetchMyGameDayLadder(url) {
               .trim();
             cells.push(cellText);
           }
-          
+
           // MyGameDay format: POS, TEAM, P, W, L, D, B, FF, FG, For, Agst, %, % Won
           if (cells.length >= 11) {
             teams.push({
@@ -1072,11 +1150,11 @@ function fetchMyGameDayLadder(url) {
             });
           }
         }
-        
+
         if (teams.length > 0) break;
       }
     }
-    
+
     return teams;
   } catch (e) {
     Logger.log('Error fetching MyGameDay ladder: ' + e.message);
@@ -1091,49 +1169,49 @@ function fetchMyGameDayResults(url) {
   try {
     var response = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
     var html = response.getContentText();
-    
+
     var rounds = [];
     var currentRound = null;
-    
+
     // Look for round headers and match data
     // MyGameDay format typically shows: Team1 Score vs Score Team2
     var lines = html.split('\n');
     var roundNumber = 1;
-    
+
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
-      
+
       // Detect round headers - could be dates or "Round X"
-      if (line.indexOf('Friday') > -1 || line.indexOf('Saturday') > -1 || 
+      if (line.indexOf('Friday') > -1 || line.indexOf('Saturday') > -1 ||
           line.indexOf('Sunday') > -1 || line.indexOf('Thursday') > -1 ||
           line.indexOf('Monday') > -1 || line.indexOf('Tuesday') > -1 ||
           line.indexOf('Wednesday') > -1) {
-        
+
         if (currentRound && currentRound.matches.length > 0) {
           rounds.push(currentRound);
         }
-        
+
         currentRound = {
           name: 'Round ' + roundNumber,
           matches: []
         };
         roundNumber++;
       }
-      
+
       // Look for FINAL indicator (completed match)
       if (line.indexOf('FINAL') > -1 && currentRound) {
         // Try to extract match data from surrounding context
         // This is approximate - MyGameDay HTML structure varies
         var matchContext = lines.slice(Math.max(0, i - 10), Math.min(lines.length, i + 5)).join(' ');
-        
+
         // Try to extract team names and scores
         var scorePattern = /(\d+)\s+FINAL.*?(\d+)/;
         var scoreMatch = matchContext.match(scorePattern);
-        
+
         if (scoreMatch) {
           var score1 = parseInt(scoreMatch[1]) || 0;
           var score2 = parseInt(scoreMatch[2]) || 0;
-          
+
           currentRound.matches.push({
             team1: 'Team A', // Placeholder - would need more parsing
             team1Score: score1,
@@ -1145,12 +1223,12 @@ function fetchMyGameDayResults(url) {
         }
       }
     }
-    
+
     // Add last round
     if (currentRound && currentRound.matches.length > 0) {
       rounds.push(currentRound);
     }
-    
+
     return rounds;
   } catch (e) {
     Logger.log('Error fetching MyGameDay results: ' + e.message);
@@ -1161,33 +1239,33 @@ function fetchMyGameDayResults(url) {
 /**
  * Clean up test data from the spreadsheet
  * Called by test suites to remove TEST_* prefixed records
- * 
+ *
  * Usage: Call this function after test runs to clean up test data
  * Example: cleanupTestData('TEST_CRUD_', 'Teams')
- * 
+ *
  * @param {string} prefix - The prefix to search for (e.g., 'TEST_CRUD_', 'TEST_')
  * @param {string} sheetName - The sheet to clean up (e.g., 'Teams', 'Players', 'Games')
  * @returns {object} Cleanup result with count of deleted rows
  */
 function cleanupTestData(prefix, sheetName) {
   _requireOwnerOrThrow();
-  
+
   try {
     if (!prefix || !sheetName) {
       return { success: false, error: 'prefix and sheetName are required' };
     }
-    
+
     var ss = getSpreadsheet();
     var sheet = ss.getSheetByName(sheetName);
-    
+
     if (!sheet) {
       return { success: false, error: 'Sheet "' + sheetName + '" not found' };
     }
-    
+
     var range = sheet.getDataRange();
     var values = range.getValues();
     var rowsToDelete = [];
-    
+
     // Find all rows that match the prefix (check first column typically)
     for (var i = 1; i < values.length; i++) {
       var firstColValue = String(values[i][0]);
@@ -1195,12 +1273,12 @@ function cleanupTestData(prefix, sheetName) {
         rowsToDelete.push(i + 1); // Google Sheets is 1-indexed
       }
     }
-    
+
     // Delete rows in reverse order to avoid index shifting
     for (var j = rowsToDelete.length - 1; j >= 0; j--) {
       sheet.deleteRow(rowsToDelete[j]);
     }
-    
+
     var deletedCount = rowsToDelete.length;
     logEvent('CLEANUP', {
       action: 'delete_test_data',
@@ -1208,7 +1286,7 @@ function cleanupTestData(prefix, sheetName) {
       sheetName: sheetName,
       deletedCount: deletedCount
     });
-    
+
     return {
       success: true,
       deletedCount: deletedCount,
@@ -1227,7 +1305,7 @@ function cleanupTestData(prefix, sheetName) {
 /**
  * Enhanced logging function for structured events
  * Provides consistent, searchable logging across the application
- * 
+ *
  * @param {string} eventType - Type of event (e.g., 'DATA_OPERATION', 'ERROR', 'PERFORMANCE')
  * @param {object} data - Event data/details
  */
@@ -1240,7 +1318,7 @@ function logEvent(eventType, data) {
     } catch(e) {
       userEmail = 'unknown';
     }
-    
+
     var logEntry = {
       timestamp: timestamp,
       level: 'INFO',
@@ -1248,10 +1326,10 @@ function logEvent(eventType, data) {
       user: userEmail,
       data: data
     };
-    
+
     // Log to console with structured format
     Logger.log('[' + eventType + '] ' + timestamp + ' | ' + JSON.stringify(data));
-    
+
     // Optionally persist to Apps Script cache for recent activity tracking
     try {
       var cache = CacheService.getScriptCache();
@@ -1259,12 +1337,12 @@ function logEvent(eventType, data) {
         var recentLogs = cache.get('recent_logs');
         var logs = recentLogs ? JSON.parse(recentLogs) : [];
         logs.push(logEntry);
-        
+
         // Keep only last 100 logs in cache (cache has size limits)
         if (logs.length > 100) {
           logs = logs.slice(-100);
         }
-        
+
         cache.put('recent_logs', JSON.stringify(logs), 21600); // 6 hour expiry
       }
     } catch(cacheError) {
@@ -1278,7 +1356,7 @@ function logEvent(eventType, data) {
 /**
  * Enhanced error logging function
  * Logs errors with full context for debugging
- * 
+ *
  * @param {string} context - Context where error occurred
  * @param {string} message - Error message
  * @param {object} details - Additional error details
@@ -1292,7 +1370,7 @@ function logError(context, message, details) {
     } catch(e) {
       userEmail = 'unknown';
     }
-    
+
     var errorLog = {
       timestamp: timestamp,
       level: 'ERROR',
@@ -1301,13 +1379,13 @@ function logError(context, message, details) {
       details: details || {},
       user: userEmail
     };
-    
+
     // Log to console with error format
     Logger.log('ERROR [' + context + '] ' + timestamp + ': ' + message);
     if (details && Object.keys(details).length > 0) {
       Logger.log('  Details: ' + JSON.stringify(details));
     }
-    
+
     // Store error in Apps Script cache for debugging
     try {
       var cache = CacheService.getScriptCache();
@@ -1315,12 +1393,12 @@ function logError(context, message, details) {
         var recentErrors = cache.get('recent_errors');
         var errors = recentErrors ? JSON.parse(recentErrors) : [];
         errors.push(errorLog);
-        
+
         // Keep only last 50 errors
         if (errors.length > 50) {
           errors = errors.slice(-50);
         }
-        
+
         cache.put('recent_errors', JSON.stringify(errors), 86400); // 24 hour expiry
       }
     } catch(cacheError) {
@@ -1334,31 +1412,31 @@ function logError(context, message, details) {
 /**
  * Get recent application logs for debugging
  * Owner-only function for monitoring application health
- * 
+ *
  * @returns {object} Recent logs and errors
  */
 function getApplicationLogs() {
   _requireOwnerOrThrow();
-  
+
   try {
     var cache = CacheService.getScriptCache();
     var logs = [];
     var errors = [];
-    
+
     try {
       var recentLogs = cache.get('recent_logs');
       logs = recentLogs ? JSON.parse(recentLogs) : [];
     } catch(e) {
       // Ignore parse errors
     }
-    
+
     try {
       var recentErrors = cache.get('recent_errors');
       errors = recentErrors ? JSON.parse(recentErrors) : [];
     } catch(e) {
       // Ignore parse errors
     }
-    
+
     return {
       success: true,
       timestamp: new Date().toISOString(),
@@ -1376,27 +1454,27 @@ function getApplicationLogs() {
 /**
  * Clear application logs
  * Owner-only function to manage log storage
- * 
+ *
  * @param {string} type - Type of logs to clear ('all', 'logs', 'errors')
  * @returns {object} Result of clear operation
  */
 function clearApplicationLogs(type) {
   _requireOwnerOrThrow();
-  
+
   try {
     type = type || 'all';
     var cache = CacheService.getScriptCache();
-    
+
     if (type === 'all' || type === 'logs') {
       cache.remove('recent_logs');
       logEvent('LOGS_CLEARED', { type: 'logs' });
     }
-    
+
     if (type === 'all' || type === 'errors') {
       cache.remove('recent_errors');
       logEvent('ERRORS_CLEARED', { type: 'errors' });
     }
-    
+
     return {
       success: true,
       message: 'Cleared ' + type + ' logs',
