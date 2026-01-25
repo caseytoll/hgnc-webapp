@@ -264,18 +264,18 @@ describe('calculateLeaderboards', () => {
       const team = createTestTeam();
       const leaderboards = calculateLeaderboards(team);
 
-      // topDefendersByTotal has no minimum quarters requirement
-      if (leaderboards.defensive.topDefendersByTotal.length > 0) {
-        expect(leaderboards.defensive.topDefendersByTotal[0]).toHaveProperty('name');
-        expect(leaderboards.defensive.topDefendersByTotal[0]).toHaveProperty('goalsAgainst');
-        expect(leaderboards.defensive.topDefendersByTotal[0]).toHaveProperty('avg');
+      // May be empty if no defenders meet minimum quarters
+      if (leaderboards.defensive.topDefenders.length > 0) {
+        expect(leaderboards.defensive.topDefenders[0]).toHaveProperty('name');
+        expect(leaderboards.defensive.topDefenders[0]).toHaveProperty('goalsAgainst');
+        expect(leaderboards.defensive.topDefenders[0]).toHaveProperty('avg');
       }
     });
 
     it('should sort defenders by efficiency (lowest GA/quarter first)', () => {
       const team = createTestTeam();
       const leaderboards = calculateLeaderboards(team);
-      const defenders = leaderboards.defensive.topDefendersByEfficiency;
+      const defenders = leaderboards.defensive.topDefenders;
 
       for (let i = 0; i < defenders.length - 1; i++) {
         expect(defenders[i].avg).toBeLessThanOrEqual(defenders[i + 1].avg);
@@ -286,9 +286,9 @@ describe('calculateLeaderboards', () => {
       const team = createTestTeam();
       const leaderboards = calculateLeaderboards(team);
 
-      if (leaderboards.defensive.topDefensivePairsByTotal.length > 0) {
-        expect(leaderboards.defensive.topDefensivePairsByTotal[0]).toHaveProperty('players');
-        expect(leaderboards.defensive.topDefensivePairsByTotal[0].players).toHaveLength(2);
+      if (leaderboards.defensive.topDefensivePairs.length > 0) {
+        expect(leaderboards.defensive.topDefensivePairs[0]).toHaveProperty('players');
+        expect(leaderboards.defensive.topDefensivePairs[0].players).toHaveLength(2);
       }
     });
   });
@@ -299,7 +299,7 @@ describe('calculateLeaderboards', () => {
       const leaderboards = calculateLeaderboards(team);
 
       expect(leaderboards.offensive.topScorersByTotal).toEqual([]);
-      expect(leaderboards.defensive.topDefendersByTotal).toEqual([]);
+      expect(leaderboards.defensive.topDefenders).toEqual([]);
     });
 
     it('should handle games without lineup', () => {

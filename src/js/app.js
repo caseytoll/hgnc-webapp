@@ -40,6 +40,7 @@ import {
   getInitials
 } from './utils.js';
 import { calculateAllAnalytics } from './stats-calculations.js';
+import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import {
   formatGameShareText,
   formatLineupText,
@@ -552,82 +553,6 @@ async function loadTeamData(teamID) {
     showToast('Failed to load team data', 'error');
     showView('team-selector-view');
   }
-}
-
-/**
- * Transform team data from Google Sheet format to PWA format
- */
-function transformTeamDataFromSheet(data, teamID) {
-  // Transform players
-  const players = (data.players || []).map(p => ({
-    id: p.id,
-    name: p.name,
-    fillIn: p.isFillIn || false,
-    favPosition: p.favoritePosition || p.favPosition || ''
-  }));
-
-  // Transform games
-  const games = (data.games || []).map(g => {
-    // Convert quarters array to lineup object
-    let lineup = null;
-    if (g.quarters && g.quarters.length > 0) {
-      lineup = {};
-      const quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
-      g.quarters.forEach((q, i) => {
-        if (i < 4) {
-          const positions = q.positions || {};
-          lineup[quarterNames[i]] = {
-            GS: positions.GS || '',
-            GA: positions.GA || '',
-            WA: positions.WA || '',
-            C: positions.C || '',
-            WD: positions.WD || '',
-            GD: positions.GD || '',
-            GK: positions.GK || '',
-            ourGsGoals: q.ourGsGoals || 0,
-            ourGaGoals: q.ourGaGoals || 0,
-            oppGsGoals: q.opponentGsGoals || 0,
-            oppGaGoals: q.opponentGaGoals || 0
-          };
-        }
-      });
-    }
-
-    // Calculate scores from quarters if not cached
-    let scores = null;
-    if (g._cachedScores) {
-      scores = { us: g._cachedScores.ourScore, opponent: g._cachedScores.opponentScore };
-    } else if (g.quarters) {
-      let us = 0, opponent = 0;
-      g.quarters.forEach(q => {
-        us += (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
-        opponent += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
-      });
-      scores = { us, opponent };
-    }
-
-    return {
-      gameID: g.id || g.gameID,
-      round: g.round,
-      opponent: g.opponent,
-      date: g.date,
-      time: g.time || '',
-      location: g.court ? `Court ${g.court}` : (g.location || ''),
-      status: g.status || 'upcoming',
-      scores,
-      availablePlayerIDs: g.availablePlayerIDs || [],
-      lineup
-    };
-  });
-
-  return {
-    teamID,
-    teamName: data.teamName || data.name || '',
-    year: data.year,
-    season: data.season,
-    players,
-    games
-  };
 }
 
 // ========================================
@@ -1162,11 +1087,23 @@ function renderStatsLeaders(container) {
         <!-- Top Defender -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defender</div>
-          ${defensive.topDefenders.length > 0 ? `
+          ${defensive.topDefendersByTotal.length > 0 ? `
             <div class="leaderboard-player">
-              <div class="leaderboard-name">${escapeHtml(defensive.topDefenders[0].name)}</div>
-              <div class="leaderboard-stat">${defensive.topDefenders[0].avg} GA/qtr</div>
-              <div class="leaderboard-detail">${defensive.topDefenders[0].goalsAgainst} conceded · ${defensive.topDefenders[0].quarters} qtrs</div>
+              <div class="leaderboard-name">${escapeHtml(defensive.topDefendersByTotal[0].name)}</div>
+              <div class="leaderboard-stat">${defensive.topDefendersByTotal[0].avg} GA/qtr</div>
+              <div class="leaderboard-detail">${defensive.topDefendersByTotal[0].goalsAgainst} conceded · ${defensive.topDefendersByTotal[0].quarters} qtrs</div>
+            </div>
+          ` : '<div class="leaderboard-empty">No data yet</div>'}
+        </div>
+
+        <!-- Most Efficient Defender -->
+        <div class="leaderboard-card defensive">
+          <div class="leaderboard-header">Most Efficient</div>
+          ${defensive.topDefendersByEfficiency.length > 0 ? `
+            <div class="leaderboard-player">
+              <div class="leaderboard-name">${escapeHtml(defensive.topDefendersByEfficiency[0].name)}</div>
+              <div class="leaderboard-stat">${defensive.topDefendersByEfficiency[0].avg} GA/qtr</div>
+              <div class="leaderboard-detail">${defensive.topDefendersByEfficiency[0].goalsAgainst} conceded · ${defensive.topDefendersByEfficiency[0].quarters} qtrs</div>
             </div>
           ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
         </div>
@@ -1174,11 +1111,23 @@ function renderStatsLeaders(container) {
         <!-- Top Defensive Pair -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defensive Pair</div>
-          ${defensive.topDefensivePairs.length > 0 ? `
+          ${defensive.topDefensivePairsByTotal.length > 0 ? `
             <div class="leaderboard-player">
-              <div class="leaderboard-name">${escapeHtml(defensive.topDefensivePairs[0].players[0].split(' ')[0])} & ${escapeHtml(defensive.topDefensivePairs[0].players[1].split(' ')[0])}</div>
-              <div class="leaderboard-stat">${defensive.topDefensivePairs[0].avg} GA/qtr</div>
-              <div class="leaderboard-detail">${defensive.topDefensivePairs[0].goalsAgainst} conceded · ${defensive.topDefensivePairs[0].quarters} qtrs</div>
+              <div class="leaderboard-name">${escapeHtml(defensive.topDefensivePairsByTotal[0].players[0].split(' ')[0])} & ${escapeHtml(defensive.topDefensivePairsByTotal[0].players[1].split(' ')[0])}</div>
+              <div class="leaderboard-stat">${defensive.topDefensivePairsByTotal[0].avg} GA/qtr</div>
+              <div class="leaderboard-detail">${defensive.topDefensivePairsByTotal[0].goalsAgainst} conceded · ${defensive.topDefensivePairsByTotal[0].quarters} qtrs</div>
+            </div>
+          ` : '<div class="leaderboard-empty">No data yet</div>'}
+        </div>
+
+        <!-- Efficient Defensive Pair -->
+        <div class="leaderboard-card defensive">
+          <div class="leaderboard-header">Efficient Pair</div>
+          ${defensive.topDefensivePairsByEfficiency.length > 0 ? `
+            <div class="leaderboard-player">
+              <div class="leaderboard-name">${escapeHtml(defensive.topDefensivePairsByEfficiency[0].players[0].split(' ')[0])} & ${escapeHtml(defensive.topDefensivePairsByEfficiency[0].players[1].split(' ')[0])}</div>
+              <div class="leaderboard-stat">${defensive.topDefensivePairsByEfficiency[0].avg} GA/qtr</div>
+              <div class="leaderboard-detail">${defensive.topDefensivePairsByEfficiency[0].goalsAgainst} conceded · ${defensive.topDefensivePairsByEfficiency[0].quarters} qtrs</div>
             </div>
           ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
         </div>
@@ -1208,6 +1157,31 @@ function renderStatsLeaders(container) {
           `).join('')}
         </div>
       ` : '<div class="empty-state"><p>No scorers yet</p></div>'}
+    </div>
+
+    <!-- All Defenders List -->
+    <div class="stats-section">
+      <div class="stats-section-title">All Defenders</div>
+      ${defensive.topDefendersByTotal.length > 0 ? `
+        <div class="scorers-table">
+          <div class="scorers-table-header">
+            <span class="col-rank">#</span>
+            <span class="col-name">Player</span>
+            <span class="col-goals">GA</span>
+            <span class="col-avg">Avg</span>
+            <span class="col-qtrs">Qtrs</span>
+          </div>
+          ${defensive.topDefendersByTotal.slice(0, 10).map((p, i) => `
+            <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
+              <span class="col-rank">${i + 1}</span>
+              <span class="col-name">${escapeHtml(p.name)}</span>
+              <span class="col-goals">${p.goalsAgainst}</span>
+              <span class="col-avg">${p.avg}</span>
+              <span class="col-qtrs">${p.quarters}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-state"><p>No defenders yet</p></div>'}
     </div>
   `;
 }
@@ -2422,67 +2396,6 @@ async function syncToGoogleSheets() {
   return data;
 }
 
-function transformTeamDataToSheet(pwaData) {
-  // Transform players back to Sheet format
-  const players = (pwaData.players || []).map(p => ({
-    id: p.id,
-    name: p.name,
-    isFillIn: p.fillIn || false,
-    favoritePosition: p.favPosition || null,
-    isFavorite: false
-  }));
-
-  // Transform games back to Sheet format
-  const games = (pwaData.games || []).map(g => {
-    // Convert lineup object back to quarters array
-    let quarters = [{}, {}, {}, {}].map(() => ({
-      positions: {},
-      ourGsGoals: 0,
-      ourGaGoals: 0,
-      opponentGsGoals: 0,
-      opponentGaGoals: 0
-    }));
-
-    if (g.lineup) {
-      const quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
-      quarterNames.forEach((qName, i) => {
-        const q = g.lineup[qName];
-        if (q) {
-          // Build positions object
-          const positions = {};
-          ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
-            if (q[pos]) {
-              positions[pos] = q[pos];
-            }
-          });
-          quarters[i] = {
-            positions,
-            ourGsGoals: q.ourGsGoals || 0,
-            ourGaGoals: q.ourGaGoals || 0,
-            opponentGsGoals: q.oppGsGoals || 0,
-            opponentGaGoals: q.oppGaGoals || 0
-          };
-        }
-      });
-    }
-
-    return {
-      id: g.gameID,
-      round: g.round,
-      opponent: g.opponent,
-      date: g.date,
-      time: g.time || '',
-      court: g.location?.replace('Court ', '') || '',
-      status: g.status || 'upcoming',
-      captain: g.captain || null,
-      availablePlayerIDs: g.availablePlayerIDs || [],
-      quarters
-    };
-  });
-
-  return { players, games };
-}
-
 // ========================================
 // PLAYER MANAGEMENT
 // ========================================
@@ -3324,17 +3237,23 @@ function renderPlayerLibrary() {
   container.innerHTML = playersWithStats.map(player => {
     const stats = player.stats;
     const primaryPosition = getPrimaryPosition(stats.allTime.positionsPlayed);
-    const isAttacker = ['GS', 'GA'].includes(primaryPosition);
-    const isDefender = ['GK', 'GD'].includes(primaryPosition);
+    const hasAttacking = stats.allTime.attackingQuarters > 0;
+    const hasDefensive = stats.allTime.defensiveQuarters > 0;
 
-    let statLine = '';
-    if (isAttacker && stats.allTime.goalsScored > 0) {
-      statLine = `${stats.allTime.goalsScored} goals scored`;
-    } else if (isDefender && stats.allTime.goalsAgainst > 0) {
-      statLine = `${stats.allTime.goalsAgainst} goals against`;
-    } else {
-      statLine = `${stats.allTime.quartersPlayed} quarters played`;
+    // Build stat line showing both if applicable
+    const statParts = [];
+    if (hasAttacking) {
+      const avg = (stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1);
+      statParts.push(`${stats.allTime.goalsScored} goals (${avg}/q)`);
     }
+    if (hasDefensive) {
+      const avg = (stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1);
+      statParts.push(`${stats.allTime.goalsAgainst} GA (${avg}/q)`);
+    }
+    if (statParts.length === 0) {
+      statParts.push(`${stats.allTime.quartersPlayed} quarters played`);
+    }
+    const statLine = statParts.join(' · ');
 
     return `
       <div class="library-player-card" onclick="openLibraryPlayerDetail('${escapeAttr(player.globalId)}')">
@@ -3342,8 +3261,9 @@ function renderPlayerLibrary() {
         <div class="library-player-info">
           <div class="library-player-name">${escapeHtml(player.name)}</div>
           <div class="library-player-meta">
-            ${player.linkedInstances.length} season${player.linkedInstances.length !== 1 ? 's' : ''} • ${statLine}
+            ${player.linkedInstances.length} season${player.linkedInstances.length !== 1 ? 's' : ''} • ${stats.allTime.gamesPlayed} games
           </div>
+          <div class="library-player-stats">${statLine}</div>
           ${primaryPosition ? `<div class="library-player-position">${escapeHtml(primaryPosition)} specialist</div>` : ''}
         </div>
         <div class="library-player-arrow">→</div>
@@ -3502,21 +3422,23 @@ window.openLibraryPlayerDetail = function(globalId) {
       pct: Math.round((count / totalQuarters) * 100)
     }));
 
-  // Build seasons HTML
+  // Build seasons HTML - show both offensive and defensive stats if they played those positions
   const seasonsHtml = stats.seasons.length > 0 ? stats.seasons.map((s, i) => {
-    const prevSeason = stats.seasons[i + 1];
-    let progression = '';
-    if (prevSeason && isAttacker) {
-      const diff = s.goalsScored - prevSeason.goalsScored;
-      if (diff > 0) progression = `<span class="progression up">↑ +${diff} goals</span>`;
-      else if (diff < 0) progression = `<span class="progression down">↓ ${diff} goals</span>`;
-    } else if (prevSeason && isDefender) {
-      const diff = s.goalsAgainst - prevSeason.goalsAgainst;
-      if (diff < 0) progression = `<span class="progression up">↑ ${diff} GA (improved)</span>`;
-      else if (diff > 0) progression = `<span class="progression down">↓ +${diff} GA</span>`;
-    }
-
     const seasonPositions = Object.keys(s.positionsPlayed).join('/');
+    const seasonHasAttacking = s.attackingQuarters > 0;
+    const seasonHasDefensive = s.defensiveQuarters > 0;
+
+    // Build stat items based on what positions they played this season
+    const statItems = [`${s.gamesPlayed} games`, `${s.quartersPlayed} qtrs`];
+
+    if (seasonHasAttacking) {
+      const avg = (s.goalsScored / s.attackingQuarters).toFixed(1);
+      statItems.push(`${s.goalsScored} goals (${avg}/q)`);
+    }
+    if (seasonHasDefensive) {
+      const avg = (s.goalsAgainst / s.defensiveQuarters).toFixed(1);
+      statItems.push(`${s.goalsAgainst} GA (${avg}/q)`);
+    }
 
     return `
       <div class="season-row">
@@ -3525,16 +3447,17 @@ window.openLibraryPlayerDetail = function(globalId) {
           <span class="season-team">${escapeHtml(s.teamName)}</span>
         </div>
         <div class="season-stats">
-          <span>${s.gamesPlayed} games</span>
-          <span>${s.quartersPlayed} qtrs</span>
-          ${isAttacker && s.attackingQuarters > 0 ? `<span>${s.goalsScored} goals (${(s.goalsScored / s.attackingQuarters).toFixed(1)}/q)</span>` : isAttacker ? `<span>${s.goalsScored} goals</span>` : ''}
-          ${isDefender && s.defensiveQuarters > 0 ? `<span>${s.goalsAgainst} GA (${(s.goalsAgainst / s.defensiveQuarters).toFixed(1)}/q)</span>` : isDefender ? `<span>${s.goalsAgainst} GA</span>` : ''}
+          ${statItems.map(item => `<span>${item}</span>`).join('')}
           <span>${seasonPositions}</span>
         </div>
-        ${progression}
       </div>
     `;
   }).join('') : '<p class="text-muted">No game data yet.</p>';
+
+  // Show offensive stats if they've played GS/GA
+  const hasAttackingStats = stats.allTime.attackingQuarters > 0;
+  // Show defensive stats if they've played GK/GD
+  const hasDefensiveStats = stats.allTime.defensiveQuarters > 0;
 
   openModal(escapeHtml(player.name), `
     <div class="library-detail">
@@ -3549,18 +3472,18 @@ window.openLibraryPlayerDetail = function(globalId) {
             <span class="library-stat-value">${stats.allTime.quartersPlayed}</span>
             <span class="library-stat-label">Quarters</span>
           </div>
-          ${isAttacker ? `
+          ${hasAttackingStats ? `
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsScored}</span>
             <span class="library-stat-label">Goals Scored</span>
-            ${stats.allTime.attackingQuarters > 0 ? `<span class="library-stat-avg">${(stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1)}/qtr</span>` : ''}
+            <span class="library-stat-avg">${(stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1)}/qtr (${stats.allTime.attackingQuarters} qtrs)</span>
           </div>
           ` : ''}
-          ${isDefender ? `
+          ${hasDefensiveStats ? `
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsAgainst}</span>
             <span class="library-stat-label">Goals Against</span>
-            ${stats.allTime.defensiveQuarters > 0 ? `<span class="library-stat-avg">${(stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1)}/qtr</span>` : ''}
+            <span class="library-stat-avg">${(stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1)}/qtr (${stats.allTime.defensiveQuarters} qtrs)</span>
           </div>
           ` : ''}
         </div>

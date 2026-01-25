@@ -146,7 +146,7 @@ export async function loadTeamData(teamID) {
 /**
  * Transform team data from Google Sheet format to PWA format
  */
-function transformTeamDataFromSheet(data, teamID) {
+export function transformTeamDataFromSheet(data, teamID) {
   // Transform players
   const players = (data.players || []).map(p => ({
     id: p.id,
@@ -164,19 +164,19 @@ function transformTeamDataFromSheet(data, teamID) {
       const quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
       g.quarters.forEach((q, i) => {
         if (i < 4) {
-          // Extract positions from the positions object
           const positions = q.positions || {};
           lineup[quarterNames[i]] = {
-            GS: findPlayerInPosition(positions, 'GS'),
-            GA: findPlayerInPosition(positions, 'GA'),
-            WA: findPlayerInPosition(positions, 'WA'),
-            C: findPlayerInPosition(positions, 'C'),
-            WD: findPlayerInPosition(positions, 'WD'),
-            GD: findPlayerInPosition(positions, 'GD'),
-            GK: findPlayerInPosition(positions, 'GK'),
+            GS: positions.GS || '',
+            GA: positions.GA || '',
+            WA: positions.WA || '',
+            C: positions.C || '',
+            WD: positions.WD || '',
+            GD: positions.GD || '',
+            GK: positions.GK || '',
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
-            opponentScore: (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0)
+            oppGsGoals: q.opponentGsGoals || 0,
+            oppGaGoals: q.opponentGaGoals || 0
           };
         }
       });
@@ -221,20 +221,9 @@ function transformTeamDataFromSheet(data, teamID) {
 }
 
 /**
- * Find player name assigned to a position (handles Off_Name format)
- */
-function findPlayerInPosition(positions, targetPos) {
-  // Direct match
-  if (positions[targetPos]) {
-    return positions[targetPos];
-  }
-  return '';
-}
-
-/**
  * Transform team data from PWA format back to Google Sheet format for saving
  */
-function transformTeamDataToSheet(pwaData) {
+export function transformTeamDataToSheet(pwaData) {
   // Transform players back to Sheet format
   const players = (pwaData.players || []).map(p => ({
     id: p.id,
@@ -271,8 +260,8 @@ function transformTeamDataToSheet(pwaData) {
             positions,
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
-            opponentGsGoals: Math.floor((q.opponentScore || 0) / 2),
-            opponentGaGoals: Math.ceil((q.opponentScore || 0) / 2)
+            opponentGsGoals: q.oppGsGoals || 0,
+            opponentGaGoals: q.oppGaGoals || 0
           };
         }
       });
@@ -350,8 +339,8 @@ export async function saveLineup(teamID, gameID, lineup) {
         positions,
         ourGsGoals: q.ourGsGoals || 0,
         ourGaGoals: q.ourGaGoals || 0,
-        opponentGsGoals: Math.floor((q.opponentScore || 0) / 2),
-        opponentGaGoals: Math.ceil((q.opponentScore || 0) / 2)
+        opponentGsGoals: q.oppGsGoals || 0,
+        opponentGaGoals: q.oppGaGoals || 0
       });
     });
     game.quarters = quarters;

@@ -2,63 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Recent Changes (2026-01-25)
-
-**New Features:**
-- **Players section**: Track player career stats across teams/seasons via segmented control (Teams/Players) on home screen
-- Career stats include Goals Scored (GS/GA), Goals Against (GK/GD), quarters played, season breakdowns
-- **Per-quarter averages**: Goals Scored shows avg per attacking quarter (GS/GA), Goals Against shows avg per defensive quarter (GK/GD)
-- "Track career stats" checkbox in player edit modal enables tracking
-- Sort players by Recent activity, Most Games, or A-Z (toggle button)
-- **Archive teams**: Hide old season teams while preserving data
-- **Accordion scoring**: Collapsible quarter cards on scoring screen
-- **Game tab reorder**: Availability → Lineup → Scoring (workflow order)
-
-**Bug Fixes:**
-- Fixed PWA not updating: switched to stale-while-revalidate caching, added "Update now" banner
-- Fixed player edits not persisting (API mode): added `apiTeamCache` to store local edits for API teams
-- Fixed player library stats showing 0 for API teams: all library functions now check `apiTeamCache`
-
-**Technical:**
-- Service worker now at v4, checks for updates every 60 seconds
-- `loadTeamData()` merges cached local changes with fresh API data
-- Player library functions check both `mockTeams` and `apiTeamCache` for team data
-
-**Status:** All features working. 172 tests passing. Cloudflare Pages live.
-
----
-
-## Quick Reference
-
-| Resource | URL |
-|----------|-----|
-| Production | https://hgnc-team-manager.pages.dev |
-| GitHub | https://github.com/caseytoll/hgnc-webapp |
-| Apps Script | `https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec` |
-| Google Sheet | ID `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
-
-**Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true`
-
----
-
 ## Project Overview
 
 HGNC Team Manager is a PWA for managing Hazel Glen Netball Club teams. Features include roster management, game scheduling, lineup planning, live scoring, and analytics. Works offline via service worker.
 
 **Target user:** Junior netball coach who needs fair playing time distribution and offline access at games.
 
-**Key features:**
-- Team/player management
-- Quarter-by-quarter lineup builder with captain selection
-- Live scoring
-- Stats dashboard (overview, leaders, positions, combos, attendance)
-- Share lineup as image
-- Dark/light theme
-- PWA (installable, offline)
+| Resource | URL |
+|----------|-----|
+| Production | https://hgnc-team-manager.pages.dev |
+| Viewer App | https://hgnc-gameday.pages.dev |
+| GitHub | https://github.com/caseytoll/hgnc-webapp |
 
 ---
 
 ## Commands
+
+### Main App (root directory)
 
 ```bash
 npm run dev              # Dev server (port 3000)
@@ -69,6 +29,24 @@ npm run test:run         # Run tests once
 npm run test:coverage    # Tests with coverage
 npx vitest src/js/utils.test.js  # Run single test file
 npm run preview          # Preview production build locally
+```
+
+### Viewer App (`viewer/` directory)
+
+Read-only app for parents/spectators to view schedules and stats.
+
+```bash
+cd viewer
+npm run dev              # Dev server
+npm run build            # Production build
+```
+
+**Deploy viewer:** `cd viewer && npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true`
+
+### Deploy Main App
+
+```bash
+npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
 ```
 
 ---
@@ -137,22 +115,6 @@ npm run preview          # Preview production build locally
 
 ---
 
-## Deployment
-
-### Cloudflare Pages (Primary)
-
-500 builds/month, unlimited bandwidth, free:
-```bash
-npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
-```
-
-Setup (one-time, already done):
-```bash
-npm install -g wrangler && wrangler login
-```
-
----
-
 ## Troubleshooting
 
 **Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost. Safari has issues with Vite 7.x localhost handling.
@@ -170,9 +132,55 @@ node --check src/js/app.js
 
 ---
 
+## Recent Changes (2026-01-26)
+
+**Viewer App Refactoring (completed):**
+- Modularized viewer app into separate files (app.js, utils.js, mock-data.js, stats-calculations.js, share-utils.js, config.js)
+- Deleted monolithic viewer.js, kept inline API logic in app.js (simpler for read-only app)
+- Added vitest testing to viewer with 172 passing tests
+- Added html2canvas and happy-dom dependencies to viewer package.json
+- Removed unused viewer/src/js/api.js (dead code)
+
+**Bug Fixes:**
+- Fixed opponent goal field names in main app api.js: `saveLineup()` now uses `oppGsGoals`/`oppGaGoals` instead of obsolete `opponentScore` field
+
+**Technical:**
+- Main app: 172 tests passing
+- Viewer app: 172 tests passing
+- Both apps build successfully
+
+**Status:** All features working. Both apps deployed to Cloudflare Pages.
+
+---
+
+## Previous Changes (2026-01-25)
+
+**New Features:**
+- **Players section**: Track player career stats across teams/seasons via segmented control (Teams/Players) on home screen
+- Career stats include Goals Scored (GS/GA), Goals Against (GK/GD), quarters played, season breakdowns
+- **Per-quarter averages**: Goals Scored shows avg per attacking quarter (GS/GA), Goals Against shows avg per defensive quarter (GK/GD)
+- "Track career stats" checkbox in player edit modal enables tracking
+- Sort players by Recent activity, Most Games, or A-Z (toggle button)
+- **Archive teams**: Hide old season teams while preserving data
+- **Accordion scoring**: Collapsible quarter cards on scoring screen
+- **Game tab reorder**: Availability → Lineup → Scoring (workflow order)
+- **Viewer app**: Read-only parent/spectator app in `viewer/` directory
+
+**Bug Fixes:**
+- Fixed PWA not updating: switched to stale-while-revalidate caching, added "Update now" banner
+- Fixed player edits not persisting (API mode): added `apiTeamCache` to store local edits for API teams
+- Fixed player library stats showing 0 for API teams: all library functions now check `apiTeamCache`
+
+**Technical:**
+- Service worker now at v4, checks for updates every 60 seconds
+- `loadTeamData()` merges cached local changes with fresh API data
+- Player library functions check both `mockTeams` and `apiTeamCache` for team data
+
+---
+
 ## Session Handoff
 
-At the end of each session, update the "Recent Changes" section at the top of this file with:
+At the end of each session, update the "Recent Changes" section above with:
 - Features added/modified
 - Key functions changed
 - Any issues to watch for
