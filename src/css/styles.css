@@ -293,6 +293,435 @@ h4 { font-size: 1rem; }
   font-size: 1.25rem;
 }
 
+/* Archived teams section */
+.archived-section {
+  margin-top: var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-md);
+}
+
+.archived-section-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-sm) var(--space-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.archived-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.archived-section-icon {
+  transition: transform var(--transition-fast);
+  color: var(--text-muted);
+}
+
+.archived-section-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.archived-count {
+  background: var(--gray-700);
+  color: var(--gray-300);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.archived-section-content {
+  margin-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: accordionOpen 0.2s ease-out;
+}
+
+/* ========================================
+   SEGMENTED CONTROL
+   ======================================== */
+
+.segment-control-container {
+  padding: 0 var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.segment-control {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  position: relative;
+}
+
+.segment-btn {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+  position: relative;
+  z-index: 1;
+}
+
+.segment-btn.active {
+  color: var(--text-primary);
+}
+
+.segment-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.segment-control[data-active="players"] .segment-indicator {
+  transform: translateX(100%);
+}
+
+.segment-content {
+  display: none;
+}
+
+.segment-content.active {
+  display: block;
+}
+
+.players-segment-content {
+  padding: 0 var(--space-lg);
+  padding-bottom: var(--space-lg);
+}
+
+/* ========================================
+   PLAYERS (Career Stats Tracking)
+   ======================================== */
+
+.library-count {
+  background: var(--primary-700);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-left: var(--space-xs);
+}
+
+.library-count:empty {
+  display: none;
+}
+
+.library-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  -webkit-overflow-scrolling: touch;
+}
+
+.library-toolbar {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  align-items: center;
+}
+
+.library-toolbar .form-input {
+  flex: 1;
+}
+
+.sort-toggle {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.sort-toggle:active {
+  background: var(--bg-tertiary);
+  transform: scale(0.95);
+}
+
+.library-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.library-player-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.library-player-card:active {
+  background: var(--bg-card-hover);
+  transform: scale(0.98);
+}
+
+.library-player-avatar {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.library-player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.library-player-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.library-player-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.library-player-position {
+  font-size: 0.7rem;
+  color: var(--primary-400);
+  margin-top: 4px;
+}
+
+.library-player-arrow {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+/* Library Player Detail Modal */
+.library-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.library-detail-section {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.library-detail-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.library-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.library-stat {
+  text-align: center;
+}
+
+.library-stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.library-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.library-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.position-chip {
+  background: var(--primary-900);
+  color: var(--primary-300);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.position-chip small {
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+.season-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.season-row {
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: var(--space-md);
+}
+
+.season-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.season-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.season-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.season-team {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.season-stats {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.progression {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: var(--space-xs);
+}
+
+.progression.up {
+  color: var(--success);
+}
+
+.progression.down {
+  color: var(--error);
+}
+
+/* Link Player Modal */
+.link-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+}
+
+.link-option {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.link-option:hover,
+.link-option:active {
+  border-color: var(--primary-500);
+  background: var(--bg-card-hover);
+}
+
+.link-option-name {
+  font-weight: 600;
+}
+
+.link-option-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.link-divider {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: var(--space-md) 0;
+}
+
+.btn-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.btn-danger:hover,
+.btn-danger:active {
+  background: var(--error);
+  color: white;
+}
+
+/* Archived team card styles */
+.team-card.archived {
+  opacity: 0.7;
+  background: var(--bg-secondary);
+}
+
+.team-card.archived .team-card-icon {
+  background: var(--gray-600);
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--space-lg) 0;
+}
+
 /* ========================================
    BUTTONS
    ======================================== */
@@ -1090,21 +1519,96 @@ h4 { font-size: 1rem; }
    SCORING INPUTS
    ======================================== */
 
-.scoring-quarter {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
-  margin-bottom: var(--space-md);
-}
-
+/* Accordion-style quarter headers */
 .scoring-quarter-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scoring-quarter-header:active {
+  transform: scale(0.98);
+}
+
+.scoring-quarter-header.expanded {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  margin-bottom: 0;
+  background: var(--bg-card);
+  border-bottom-color: var(--border-light);
+}
+
+.scoring-quarter-header .accordion-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.scoring-quarter-header.expanded .accordion-icon {
+  transform: rotate(180deg);
+}
+
+.quarter-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.scoring-quarter-content {
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: var(--space-md);
   margin-bottom: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--border-light);
+  animation: accordionOpen 0.2s ease-out;
+}
+
+.scoring-quarter-content.expanded {
+  display: block;
+}
+
+@keyframes accordionOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Auto-save indicator */
+.scoring-autosave-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-md);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  transition: opacity 0.3s ease, color 0.3s ease;
+}
+
+.scoring-autosave-indicator.flash {
+  opacity: 1;
+  color: var(--success);
+}
+
+.scoring-autosave-indicator svg {
+  color: inherit;
 }
 
 .quarter-name {
@@ -1118,49 +1622,6 @@ h4 { font-size: 1rem; }
   font-size: 1.1rem;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-}
-
-/* Sticky Total Score Bar */
-.scoring-sticky-total {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: linear-gradient(135deg, var(--primary-700), var(--primary-900));
-  margin: calc(-1 * var(--space-md));
-  margin-bottom: var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-}
-
-.sticky-score {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-}
-
-.sticky-score-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--primary-200);
-  margin-right: var(--space-sm);
-}
-
-.sticky-score-value {
-  font-size: 2rem;
-  font-weight: 800;
-  color: white;
-  font-variant-numeric: tabular-nums;
-  min-width: 48px;
-  text-align: center;
-}
-
-.sticky-score-divider {
-  font-size: 1.5rem;
-  font-weight: 300;
-  color: var(--primary-300);
 }
 
 .scoring-team-section {
@@ -3438,13 +3899,6 @@ h4 { font-size: 1rem; }
   background: rgba(245, 158, 11, 0.1);
   border-radius: var(--radius-md);
   margin-top: 12px;
-}
-
-/* Fullscreen Button in Scoring */
-.scoring-sticky-total {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .fullscreen-btn {

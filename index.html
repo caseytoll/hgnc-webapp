@@ -39,25 +39,51 @@
 <body>
   <div id="app">
     <!-- ========================================
-         TEAM SELECTOR VIEW
+         HOME VIEW (Teams & Players)
          ======================================== -->
     <div id="team-selector-view" class="view active">
       <div class="splash-header">
         <div class="splash-logo">HGNC</div>
         <h1>HGNC Team Manager</h1>
-        <p>Select a team to get started</p>
         <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">v2026.01.25</p>
       </div>
 
-      <div class="team-selector-content">
-        <div id="team-list" class="team-list">
-          <!-- Teams loaded dynamically -->
+      <!-- Segmented Control -->
+      <div class="segment-control-container">
+        <div class="segment-control">
+          <button class="segment-btn active" onclick="switchHomeSegment('teams')">Teams</button>
+          <button class="segment-btn" onclick="switchHomeSegment('players')">Players</button>
+          <div class="segment-indicator"></div>
         </div>
+      </div>
 
-        <button id="add-team-btn" class="btn btn-outline btn-block">
-          <span class="btn-icon">+</span>
-          Add New Team
-        </button>
+      <!-- Teams Content -->
+      <div id="teams-segment" class="segment-content active">
+        <div class="team-selector-content">
+          <div id="team-list" class="team-list">
+            <!-- Teams loaded dynamically -->
+          </div>
+
+          <button id="add-team-btn" class="btn btn-outline btn-block">
+            <span class="btn-icon">+</span>
+            Add New Team
+          </button>
+        </div>
+      </div>
+
+      <!-- Players Content -->
+      <div id="players-segment" class="segment-content">
+        <div class="players-segment-content">
+          <div class="library-toolbar">
+            <input type="text" class="form-input" id="library-search" placeholder="Search players..." oninput="filterLibraryPlayers(this.value)">
+            <button class="sort-toggle" id="library-sort-btn" onclick="cyclePlayerSort()" title="Change sort order">
+              <span id="sort-label">Recent</span>
+            </button>
+          </div>
+          <div id="library-player-list" class="library-player-list">
+            <!-- Players loaded dynamically -->
+          </div>
+        </div>
       </div>
     </div>
 
@@ -219,24 +245,24 @@
           </button>
         </div>
 
-        <!-- Game Tabs -->
+        <!-- Game Tabs (workflow order: Availability → Lineup → Scoring) -->
         <div class="game-tabs">
-          <button class="game-tab active" data-game-tab="lineup" onclick="switchGameTab('lineup')">Lineup</button>
           <button class="game-tab" data-game-tab="availability" onclick="switchGameTab('availability')">Availability</button>
+          <button class="game-tab active" data-game-tab="lineup" onclick="switchGameTab('lineup')">Lineup</button>
           <button class="game-tab" data-game-tab="scoring" onclick="switchGameTab('scoring')">Scoring</button>
-        </div>
-
-        <!-- Lineup Panel -->
-        <div id="game-panel-lineup" class="game-panel active">
-          <div id="lineup-builder">
-            <!-- Lineup builder -->
-          </div>
         </div>
 
         <!-- Availability Panel -->
         <div id="game-panel-availability" class="game-panel">
           <div id="availability-list">
             <!-- Player availability checkboxes -->
+          </div>
+        </div>
+
+        <!-- Lineup Panel -->
+        <div id="game-panel-lineup" class="game-panel active">
+          <div id="lineup-builder">
+            <!-- Lineup builder -->
           </div>
         </div>
 

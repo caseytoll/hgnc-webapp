@@ -73,14 +73,15 @@ npm run preview          # Preview production build locally
 - `src/js/share-utils.js` - Lineup card generation, sharing
 - `src/css/styles.css` - All styles with CSS custom properties
 
-**Test files:** `*.test.js` alongside source files (172 tests total)
+**Test files:** `*.test.js` alongside source files (172 tests across 4 files: utils, mock-data, stats-calculations, share-utils)
 
 **Patterns:**
-- Single HTML file with `<div class="view">` sections
-- Global `state` object in app.js
-- All onclick handlers attached to `window`
-- Always use `escapeHtml()` for user input
+- Single HTML file with `<div class="view">` sections (show/hide via `display`)
+- Global `state` object in app.js holds current team, game, players
+- All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
+- Always use `escapeHtml()` for user input to prevent XSS
 - CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility
+- No linter configured; code style is vanilla JS with ES modules
 
 ---
 
@@ -134,11 +135,6 @@ Setup (one-time, already done):
 npm install -g wrangler && wrangler login
 ```
 
-### Netlify (Deprecated)
-
-Legacy deployment - avoid due to credit costs (~15 credits/deploy, 300/month free).
-Old URL: https://hgnc-team-manager.netlify.app
-
 ---
 
 ## Troubleshooting
@@ -154,7 +150,7 @@ node --check src/js/app.js
 
 **Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
 
-**Production shows stale/no data:** Service worker caches aggressively. After deploy, bump `CACHE_NAME` version in `public/sw.js` (e.g., `v2` → `v3`), rebuild, and redeploy. Users may need to hard refresh (Cmd+Shift+R) or unregister the service worker in DevTools.
+**Production shows stale/no data:** Service worker caches aggressively. After deploy, bump `CACHE_NAME` version in `public/sw.js` (currently `v2` → increment to `v3`), rebuild, and redeploy. Users may need to hard refresh (Cmd+Shift+R) or unregister the service worker in DevTools > Application > Service Workers.
 
 ---
 
