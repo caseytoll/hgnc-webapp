@@ -47,8 +47,14 @@ npx vitest src/js/utils.test.js  # Run single test file
 
 ### Deployment
 
+**IMPORTANT:** Always commit to GitHub AND deploy to Cloudflare. GitHub is the source of truth for version control; Cloudflare hosts the live site.
+
 **Main App:**
 ```bash
+# 1. Commit to GitHub
+git add -A && git commit -m "feat: Description of changes" && git push origin master
+
+# 2. Deploy to Cloudflare
 npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
 ```
 
