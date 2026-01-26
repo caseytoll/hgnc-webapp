@@ -488,6 +488,9 @@ async function loadTeams() {
         return t;
       });
       console.log('[App] Loaded', state.teams.length, 'teams');
+
+      // Also load player library from API
+      await loadPlayerLibraryFromAPI();
     }
 
     renderTeamList();
@@ -578,6 +581,88 @@ async function loadTeamData(teamID) {
     console.error('[App] Failed to load team data:', error);
     showToast('Failed to load team data', 'error');
     showView('team-selector-view');
+  }
+}
+
+// ========================================
+// PLAYER LIBRARY API SYNC
+// ========================================
+
+/**
+ * Load player library from API (called after loadTeams for API mode)
+ */
+async function loadPlayerLibraryFromAPI() {
+  if (state.dataSource !== 'api') return;
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+
+    const response = await fetch(`${baseUrl}?api=true&action=getPlayerLibrary`);
+    const data = await response.json();
+
+    if (data.success && data.playerLibrary) {
+      // Merge with local data - API takes precedence for existing players
+      const apiPlayers = data.playerLibrary.players || [];
+      const localPlayers = state.playerLibrary.players || [];
+
+      // Create a map of API players by globalId
+      const apiPlayerMap = new Map(apiPlayers.map(p => [p.globalId, p]));
+
+      // Merge: API players + any local players not in API
+      const mergedPlayers = [...apiPlayers];
+      localPlayers.forEach(lp => {
+        if (!apiPlayerMap.has(lp.globalId)) {
+          mergedPlayers.push(lp);
+        }
+      });
+
+      state.playerLibrary = { players: mergedPlayers };
+      saveToLocalStorage();
+      console.log('[App] Loaded player library from API:', mergedPlayers.length, 'players');
+    }
+  } catch (error) {
+    console.error('[App] Failed to load player library from API:', error);
+    // Keep using local data
+  }
+}
+
+/**
+ * Sync player library to API (called after mutations)
+ */
+async function syncPlayerLibrary() {
+  if (state.dataSource !== 'api' || !navigator.onLine) return;
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+
+    // Use POST for potentially large data
+    const postBody = {
+      action: 'savePlayerLibrary',
+      playerLibrary: JSON.stringify(state.playerLibrary)
+    };
+
+    console.log('[syncPlayerLibrary] Using POST, body size:', JSON.stringify(postBody).length);
+
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(postBody),
+      redirect: 'follow'
+    });
+
+    const data = await response.json();
+
+    if (data.success === false) {
+      throw new Error(data.error || 'Sync failed');
+    }
+
+    console.log('[App] Player library synced to API');
+    return data;
+  } catch (error) {
+    console.error('[App] Failed to sync player library:', error);
+    throw error;
   }
 }
 
@@ -716,8 +801,10 @@ function renderMainApp() {
   document.getElementById('qs-gd').textContent = `${gdSign}${stats.goalDiff}`;
   document.getElementById('qs-gd').className = `quick-stat-value ${stats.goalDiff >= 0 ? 'text-success' : 'text-error'}`;
 
-  // Next game
-  const nextGame = data.games.find(g => !g.scores);
+  // Next game (find earliest round without scores)
+  const nextGame = data.games
+    .filter(g => !g.scores)
+    .sort((a, b) => a.round - b.round)[0];
   document.getElementById('qs-next').textContent = nextGame ? `R${nextGame.round}` : 'Done';
 
   // Render content
@@ -733,7 +820,8 @@ function renderSchedule() {
   const container = document.getElementById('schedule-list');
 
   try {
-    const games = state.currentTeamData?.games || [];
+    // Sort games by round number for display
+    const games = (state.currentTeamData?.games || []).slice().sort((a, b) => a.round - b.round);
 
     if (games.length === 0) {
       container.innerHTML = `
@@ -2415,12 +2503,15 @@ window.finalizeGame = async function() {
 window.calculateGameTotal = window.finalizeGame;
 
 async function syncToGoogleSheets() {
+  console.log('[syncToGoogleSheets] Starting...');
+
   if (!state.currentTeamData || !state.teamSheetMap) {
     throw new Error('No team data to sync');
   }
 
   const teamID = state.currentTeamData.teamID;
   const sheetName = state.teamSheetMap[teamID];
+  console.log('[syncToGoogleSheets] teamID:', teamID, 'sheetName:', sheetName);
 
   if (!sheetName) {
     throw new Error('No sheetName found for team');
@@ -2428,18 +2519,30 @@ async function syncToGoogleSheets() {
 
   // Transform data to Sheet format
   const saveData = transformTeamDataToSheet(state.currentTeamData);
+  console.log('[syncToGoogleSheets] saveData players:', saveData.players?.length, 'games:', saveData.games?.length);
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
   const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
 
-  const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
-  url.searchParams.set('api', 'true');
-  url.searchParams.set('action', 'saveTeamData');
-  url.searchParams.set('sheetName', sheetName);
-  url.searchParams.set('teamData', JSON.stringify(saveData));
+  // Use POST for large data payloads
+  const postBody = {
+    action: 'saveTeamData',
+    sheetName: sheetName,
+    teamData: JSON.stringify(saveData)
+  };
 
-  const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  console.log('[syncToGoogleSheets] Using POST, body size:', JSON.stringify(postBody).length);
+
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // Apps Script requires text/plain for CORS
+    body: JSON.stringify(postBody),
+    redirect: 'follow'
+  });
+
+  console.log('[syncToGoogleSheets] Response status:', response.status);
   const data = await response.json();
+  console.log('[syncToGoogleSheets] Response data:', data);
 
   if (data.success === false) {
     throw new Error(data.error || 'Sync failed');
@@ -2673,7 +2776,7 @@ function calculatePlayerStats(player) {
   };
 }
 
-window.savePlayer = function(playerID) {
+window.savePlayer = async function(playerID) {
   const player = state.currentTeamData.players.find(p => p.id === playerID);
   if (!player) {
     showToast('Player not found', 'error');
@@ -2731,6 +2834,8 @@ window.savePlayer = function(playerID) {
     lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
   );
 
+  const libraryChanged = (trackCareer && !isCurrentlyTracked) || (!trackCareer && isCurrentlyTracked);
+
   if (trackCareer && !isCurrentlyTracked) {
     // Add to library
     addToPlayerLibraryDirect(teamID, playerID);
@@ -2743,17 +2848,46 @@ window.savePlayer = function(playerID) {
 
   closeModal();
   renderRoster();
-  showToast('Player updated', 'success');
+
+  // Sync to Google Sheets if using API mode and online
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      // Also sync player library if it changed
+      if (libraryChanged) {
+        await syncPlayerLibrary();
+      }
+      showToast('Player updated (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player update:', err);
+      showToast('Player updated locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Player updated', 'success');
+  }
 };
 
-window.deletePlayer = function(playerID) {
+window.deletePlayer = async function(playerID) {
   if (!confirm('Delete this player?')) return;
 
   state.currentTeamData.players = state.currentTeamData.players.filter(p => p.id !== playerID);
+  saveToLocalStorage();
 
   closeModal();
   renderRoster();
-  showToast('Player deleted', 'info');
+
+  // Sync to Google Sheets if using API mode and online
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast('Player deleted (synced)', 'info');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player delete:', err);
+      showToast('Player deleted locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Player deleted', 'info');
+  }
 };
 
 window.openAddPlayerModal = function() {
@@ -2818,7 +2952,7 @@ function setFieldSuccess(input) {
   if (existingError) existingError.remove();
 }
 
-window.addPlayer = function() {
+window.addPlayer = async function() {
   const nameInput = document.getElementById('new-player-name');
   const name = nameInput.value.trim();
 
@@ -2869,7 +3003,23 @@ window.addPlayer = function() {
 
   closeModal();
   renderRoster();
-  showToast('Player added', 'success');
+
+  // Sync to Google Sheets if using API mode and online
+  console.log('[Sync] addPlayer - dataSource:', state.dataSource, 'online:', navigator.onLine);
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      console.log('[Sync] Calling syncToGoogleSheets...');
+      await syncToGoogleSheets();
+      console.log('[Sync] syncToGoogleSheets succeeded');
+      showToast('Player added (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player add:', err);
+      showToast('Player added locally. Sync failed.', 'warning');
+    }
+  } else {
+    console.log('[Sync] Skipping sync - not in API mode or offline');
+    showToast('Player added', 'success');
+  }
 };
 
 // ========================================
@@ -2906,7 +3056,7 @@ window.openAddGameModal = function() {
   `);
 };
 
-window.addGame = function() {
+window.addGame = async function() {
   const opponentInput = document.getElementById('new-game-opponent');
   const opponent = opponentInput.value.trim();
   const roundInput = document.getElementById('new-game-round');
@@ -2965,7 +3115,19 @@ window.addGame = function() {
   closeModal();
   renderSchedule();
   renderMainApp();
-  showToast('Game added', 'success');
+
+  // Sync to Google Sheets if using API mode and online
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast('Game added (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync game add:', err);
+      showToast('Game added locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Game added', 'success');
+  }
 };
 
 // ========================================
@@ -3296,8 +3458,10 @@ window.deleteGame = function() {
     g => g.gameID !== state.currentGame.gameID
   );
 
+  saveToLocalStorage();
+
   closeModal();
-  closeGameDetail();
+  closeGameDetail(); // This triggers sync to API
   showToast('Game deleted', 'info');
 };
 
@@ -3678,15 +3842,27 @@ window.filterLibraryPlayers = function(query) {
   });
 };
 
-window.removeFromLibrary = function(globalId) {
-  if (!confirm('Remove this player? This cannot be undone.')) return;
+window.removeFromLibrary = async function(globalId) {
+  if (!confirm('Remove from career tracking? This only removes them from the Players library - their stats and history in each team will not be affected.')) return;
 
   state.playerLibrary.players = state.playerLibrary.players.filter(p => p.globalId !== globalId);
   saveToLocalStorage();
   closeModal();
   renderPlayerLibrary();
   updateLibraryCount();
-  showToast('Player removed', 'info');
+
+  // Sync to API
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncPlayerLibrary();
+      showToast('Player removed (synced)', 'info');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player library:', err);
+      showToast('Player removed locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Player removed', 'info');
+  }
 };
 
 // Add player to library (called from player detail modal)
@@ -3744,7 +3920,7 @@ function openLinkPlayerModal(player, team, matches) {
   `);
 }
 
-window.linkToExistingPlayer = function(globalId, teamID, playerID) {
+window.linkToExistingPlayer = async function(globalId, teamID, playerID) {
   let team = mockTeams.find(t => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
@@ -3764,10 +3940,22 @@ window.linkToExistingPlayer = function(globalId, teamID, playerID) {
   saveToLocalStorage();
   closeModal();
   updateLibraryCount();
-  showToast(`${player.name} linked`, 'success');
+
+  // Sync to API
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncPlayerLibrary();
+      showToast(`${player.name} linked (synced)`, 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player library:', err);
+      showToast(`${player.name} linked locally. Sync failed.`, 'warning');
+    }
+  } else {
+    showToast(`${player.name} linked`, 'success');
+  }
 };
 
-window.createLibraryEntry = function(player, team, teamID, playerID) {
+window.createLibraryEntry = async function(player, team, teamID, playerID) {
   // Handle being called from modal with string params
   if (!player && teamID && playerID) {
     team = mockTeams.find(t => t.teamID === teamID);
@@ -3795,7 +3983,19 @@ window.createLibraryEntry = function(player, team, teamID, playerID) {
   saveToLocalStorage();
   closeModal();
   updateLibraryCount();
-  showToast(`${player.name} added to Players`, 'success');
+
+  // Sync to API
+  if (state.dataSource === 'api' && navigator.onLine) {
+    try {
+      await syncPlayerLibrary();
+      showToast(`${player.name} added to Players (synced)`, 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync player library:', err);
+      showToast(`${player.name} added locally. Sync failed.`, 'warning');
+    }
+  } else {
+    showToast(`${player.name} added to Players`, 'success');
+  }
 };
 
 // Direct add to library (from checkbox, no modal prompts)

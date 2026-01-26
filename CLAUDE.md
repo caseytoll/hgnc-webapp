@@ -42,6 +42,7 @@ cd viewer
 npm run dev              # Dev server
 npm run build            # Production build
 npm run test:run         # Run tests once
+npx vitest src/js/utils.test.js  # Run single test file
 ```
 
 ### Deployment
@@ -121,6 +122,18 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
   Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals },
   Q2: { ... }, Q3: { ... }, Q4: { ... }
 }
+
+// Player Library (career tracking across teams/seasons)
+{
+  players: [{
+    globalId: 'gp_123',
+    name: 'Emma Smith',
+    createdAt: '2026-01-26T...',
+    linkedInstances: [
+      { teamID, playerID, teamName, year, season }
+    ]
+  }]
+}
 ```
 
 **Positions:** GS, GA, WA, C, WD, GD, GK
@@ -139,25 +152,32 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 | `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
 | `createTeam` | Create new team | `year`, `season`, `name` |
 | `updateTeam` | Update team settings | `teamID`, `settings` (JSON with teamName/year/season/archived) |
+| `getPlayerLibrary` | Get career tracking data | - |
+| `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
 
-**Local dev:** Vite proxy at `/gas-proxy` bypasses CORS
+**Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
 **Production:** Direct calls to Apps Script (Google handles CORS)
-
-**Google Sheet tabs:** Teams (with Archived column I), Fixture_Results, Ladder_Archive, Settings, LadderData
 
 ---
 
 ## Data Sync
 
 The app syncs data to Google Sheets at these points:
+- **Player operations** - Adding, editing, or deleting players syncs immediately
+- **Player library (career tracking)** - Adding, linking, or removing players syncs to `PlayerLibrary` sheet
+- **Game operations** - Adding games syncs immediately; deleting syncs via closeGameDetail
 - **Finalizing a game** - After calculating scores
-- **Closing game detail view** - When navigating back to main app
+- **Closing game detail view** - When navigating back to main app (batches lineup/scoring changes)
 - **Importing team data** - After confirming import
 - **Archiving/unarchiving teams** - Immediately via `updateTeam` API
 - **Updating team settings** - Immediately via `updateTeam` API
 - **Creating new teams** - Immediately via `createTeam` API
 
 Data is always saved to localStorage first for offline support, then synced to the backend when online.
+
+**Note:** Lineup changes, availability toggles, and scoring inputs are saved to localStorage immediately but only sync to the API when closing the game detail view (batch sync for performance).
+
+**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
 
 ---
 
@@ -174,52 +194,27 @@ node --check src/js/app.js
 
 **Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
 
-**Service worker updates:** Uses stale-while-revalidate strategy. After deploy, bump `CACHE_NAME` version in `public/sw.js` (currently `v4`), rebuild, and redeploy. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
+**Service worker updates:** Uses stale-while-revalidate strategy. Version is auto-generated from build timestamp (YYYYMMDDHHMM) via Vite plugin - no manual bumping needed. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
 
-**Apps Script deployment:** Use clasp to push and deploy changes:
-```bash
-cd apps-script && clasp push && clasp deploy -i <DEPLOYMENT_ID> -d "Description"
-```
-
----
-
-## Development Complete (2026-01-26)
-
-### Features Implemented
-- **Team Management**: Create, edit, archive/unarchive teams
-- **Player Management**: Add/edit players, track fill-ins, favorite positions
-- **Game Scheduling**: Add games with opponent, date, time, location
-- **Lineup Builder**: Drag-and-drop player assignment to positions per quarter
-- **Live Scoring**: Track goals per quarter with running totals
-- **Statistics**: Team overview, leaderboards, position analysis, player combinations
-- **Player Library**: Track career stats across teams/seasons
-- **Sharing**: Share game results and lineup cards via native share or clipboard
-- **Offline Support**: Full functionality offline via service worker
-- **Viewer App**: Read-only app for parents/spectators
-
-### Technical Implementation
-- Full API sync for all data changes (teams, players, games, lineups, scores)
-- 344 total tests passing (172 main app + 172 viewer app)
-- Modular codebase with shared utilities between apps
-- Responsive design with mobile-first approach
-- Dark mode support
-- PWA with install prompt and update notifications
-
-### Deployment
-- Frontend: Cloudflare Pages (auto-deploy on push)
-- Backend: Google Apps Script (deploy via clasp)
-- Both apps live and production-ready
+**Apps Script deployment:** See deployment commands in the Commands section above.
 
 ---
 
 ## Session Handoff
 
-At the end of each session, update this section with:
+Update this section at the end of each session:
 - Features added/modified
 - Key functions changed
 - Any issues to watch for
 
-Then commit and push to deploy.
-
-**Last updated:** 2026-01-26
-**Last deployment:** v45 (Apps Script), Cloudflare Pages (main + viewer)
+**Last session:** 2026-01-27
+- Changed API sync from GET to POST requests to handle large data payloads (was hitting URL length limits)
+- Added automatic build versioning via Vite plugin (`vite.config.js`) - generates YYYYMMDDHHMM timestamps in Melbourne timezone
+- Fixed game sorting to display by round number (not insertion order)
+- Added HGNC logo branding:
+  - Splash page logo (72x72)
+  - Browser favicon (32x32)
+  - PWA icons (192x192, 512x512)
+  - Apple touch icon (180x180)
+- All icons generated from `docs/HGNC Logo.jpg` using macOS `sips`
+- All 172 tests passing, deployed to production

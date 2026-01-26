@@ -68,6 +68,65 @@ function getSpreadsheet() {
   }
 
   /**
+   * Handle POST requests for large data payloads (saveTeamData, savePlayerLibrary)
+   */
+  function doPost(e) {
+    try {
+      // Parse the POST body as JSON
+      var postData = JSON.parse(e.postData.contents);
+      var action = postData.action || '';
+      var result = { success: false, error: 'Unknown action' };
+
+      Logger.log('POST API Request: ' + action);
+
+      switch (action) {
+        case 'saveTeamData':
+          var sheetNameSave = postData.sheetName || '';
+          var teamDataJSON = postData.teamData || '';
+          if (!sheetNameSave || !teamDataJSON) {
+            result = { success: false, error: 'sheetName and teamData are required' };
+          } else {
+            // teamData is already a string from the POST body
+            var saveResult = saveTeamData(sheetNameSave, typeof teamDataJSON === 'string' ? teamDataJSON : JSON.stringify(teamDataJSON), null);
+            if (saveResult === "OK") {
+              result = { success: true };
+            } else {
+              result = { success: false, error: saveResult.error || 'Save failed' };
+            }
+          }
+          break;
+
+        case 'savePlayerLibrary':
+          var playerLibraryData = postData.playerLibrary || '';
+          if (!playerLibraryData) {
+            result = { success: false, error: 'playerLibrary is required' };
+          } else {
+            var saveLibraryResult = savePlayerLibrary(typeof playerLibraryData === 'string' ? playerLibraryData : JSON.stringify(playerLibraryData));
+            if (saveLibraryResult === "OK") {
+              result = { success: true };
+            } else {
+              result = { success: false, error: saveLibraryResult.error || 'Save failed' };
+            }
+          }
+          break;
+
+        default:
+          result = { success: false, error: 'Unknown POST action: ' + action };
+      }
+
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      Logger.log('POST API Error: ' + err.message);
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  /**
    * API handler for PWA requests
    * Call with: ?api=true&action=getTeams
    */
@@ -170,6 +229,29 @@ function getSpreadsheet() {
               result = { success: false, error: createResult.error };
             } else {
               result = { success: true, teams: createResult };
+            }
+          }
+          break;
+
+        case 'getPlayerLibrary':
+          var libraryData = loadPlayerLibrary();
+          if (libraryData.error) {
+            result = { success: false, error: libraryData.error };
+          } else {
+            result = { success: true, playerLibrary: libraryData };
+          }
+          break;
+
+        case 'savePlayerLibrary':
+          var playerLibraryJSON = e.parameter.playerLibrary || '';
+          if (!playerLibraryJSON) {
+            result = { success: false, error: 'playerLibrary is required' };
+          } else {
+            var saveLibraryResult = savePlayerLibrary(playerLibraryJSON);
+            if (saveLibraryResult === "OK") {
+              result = { success: true };
+            } else {
+              result = { success: false, error: saveLibraryResult.error || 'Save failed' };
             }
           }
           break;
@@ -1086,6 +1168,67 @@ function saveTeamData(sheetName, teamDataJSON, statsDataJSON) {
     return "OK";
   } catch (e) {
     Logger.log(e);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Loads the player library from the PlayerLibrary sheet.
+ * Creates the sheet if it doesn't exist.
+ * @returns {object} The player library data or error
+ */
+function loadPlayerLibrary() {
+  try {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName('PlayerLibrary');
+
+    if (!sheet) {
+      // Create the sheet with initial empty structure
+      sheet = ss.insertSheet('PlayerLibrary');
+      sheet.getRange('A1').setValue(JSON.stringify({ players: [] }));
+      Logger.log("Created PlayerLibrary sheet with empty data");
+      return { players: [] };
+    }
+
+    var dataJSON = sheet.getRange('A1').getValue();
+    if (!dataJSON) {
+      return { players: [] };
+    }
+
+    var data = JSON.parse(dataJSON);
+    Logger.log("Loaded PlayerLibrary with " + (data.players ? data.players.length : 0) + " players");
+    return data;
+  } catch (e) {
+    Logger.log("Error loading player library: " + e.message);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Saves the player library to the PlayerLibrary sheet.
+ * Creates the sheet if it doesn't exist.
+ * @param {string} playerLibraryJSON - JSON string of the player library
+ * @returns {string|object} "OK" on success or error object
+ */
+function savePlayerLibrary(playerLibraryJSON) {
+  try {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName('PlayerLibrary');
+
+    if (!sheet) {
+      sheet = ss.insertSheet('PlayerLibrary');
+      Logger.log("Created PlayerLibrary sheet");
+    }
+
+    sheet.getRange('A1').setValue(playerLibraryJSON);
+
+    // Log the save for debugging
+    var data = JSON.parse(playerLibraryJSON);
+    Logger.log("Saved PlayerLibrary with " + (data.players ? data.players.length : 0) + " players");
+
+    return "OK";
+  } catch (e) {
+    Logger.log("Error saving player library: " + e.message);
     return { error: e.message };
   }
 }

@@ -12,7 +12,9 @@ A mobile-first web application for managing Hazel Glen Netball Club team rosters
 - **Live Scoring**: Enter scores during games with +/- buttons for easy input
 - **Statistics**: View team records, goal scorers, and player stats
 - **PWA Support**: Install on your home screen for offline access
-- **Data Persistence**: Scores and lineups saved locally via localStorage
+- **Cloud Sync**: Data saved to Google Sheets via Apps Script API
+- **Offline Support**: Works offline with localStorage, syncs when online
+- **Career Tracking**: Track player stats across multiple teams and seasons
 
 ## Prerequisites
 
@@ -62,7 +64,7 @@ webapp-local-dev/
 ├── public/
 │   ├── manifest.json       # PWA manifest
 │   ├── sw.js              # Service worker for offline support
-│   └── icons/             # App icons for PWA
+│   └── icons/             # App icons (favicon, PWA, apple-touch-icon)
 └── src/
     ├── css/
     │   └── styles.css     # All styles (CSS custom properties)
@@ -178,6 +180,25 @@ https://script.google.com/macros/s/AKfycb.../exec
   { "success": true }
   ```
 
+#### 5. Get Player Library
+- **Endpoint:** `?api=true&action=getPlayerLibrary`
+- **Description:** Returns the player library (career tracking data across teams/seasons).
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "playerLibrary": { "players": [...] }
+  }
+  ```
+
+#### 6. Save Player Library
+- **Endpoint:** `?api=true&action=savePlayerLibrary&playerLibrary=<json>`
+- **Description:** Saves the player library data to the PlayerLibrary sheet.
+- **Response:**
+  ```json
+  { "success": true }
+  ```
+
 **Note:** Replace `<sheetName>`, `<teamID>`, and `<json>` with actual values as needed. All requests return JSON responses.
 
 ---
@@ -238,6 +259,26 @@ The backend Google Sheet contains several tabs used by the web app and Apps Scri
 - **Note:**
   - This tab is currently empty.
 
+### PlayerLibrary
+- **Purpose:** Stores career tracking data for players across multiple teams/seasons
+- **Format:** Single cell (A1) containing JSON with player library data
+- **Structure:**
+  ```json
+  {
+    "players": [
+      {
+        "globalId": "gp_123456789",
+        "name": "Player Name",
+        "createdAt": "2026-01-26T...",
+        "linkedInstances": [
+          { "teamID": "...", "playerID": "...", "teamName": "...", "year": 2026, "season": "Season 1" }
+        ]
+      }
+    ]
+  }
+  ```
+- **Note:** This sheet is created automatically when a player is first added to career tracking.
+
 If you add or change columns in the Google Sheet, update this section to keep the documentation in sync with your backend data model.
 
 ---
@@ -281,9 +322,8 @@ This application implements several security measures:
 
 ## Known Limitations
 
-- Data is stored in localStorage only (no cloud sync)
-- No user authentication
-- Offline mode serves cached data only
+- No user authentication (data is team-shared via Google Sheets)
+- Offline mode serves cached data; changes sync when back online
 
 ## License
 
