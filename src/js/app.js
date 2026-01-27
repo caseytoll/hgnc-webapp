@@ -939,17 +939,49 @@ function renderLadderTab(team) {
       const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|%|% Won|PTS)$/i.test(h));
 
       let formatted = formatDateTime(data.lastUpdated || '');
-      let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}</div>`;
-      html += '<div class="ladder-container"><table class="ladder-table"><thead><tr>' + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + '</tr></thead><tbody>';
+
+      // per-team persisted toggle key
+      const showKey = `ladder.showExtra.${team.teamID}`;
+      const showExtra = (localStorage.getItem(showKey) === 'true');
+
+      let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}`;
+      html += ` <button class="btn btn-ghost btn-xs show-columns-toggle" aria-pressed="${showExtra ? 'true' : 'false'}">${showExtra ? 'Hide extra columns' : 'Show extra columns'}</button>`;
+      html += `</div>`;
+
+      html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>` + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
 
       html += data.ladder.rows.map(row => {
         const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
         const isCurrent = team && team.teamName && rowTeamName.includes(String(team.teamName || '').toLowerCase());
-        return '<tr class="' + (isCurrent ? 'highlight' : '') + '">' + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + '</tr>';
+        return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + `</tr>`;
       }).join('');
 
-      html += '</tbody></table></div>';
+      html += `</tbody></table></div>`;
       ladderDiv.innerHTML = html;
+
+      // Animate in (respect prefers-reduced-motion)
+      const container = ladderDiv.querySelector('.ladder-container');
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (container) {
+        if (!prefersReduced) {
+          container.classList.add('ladder-enter');
+          requestAnimationFrame(() => requestAnimationFrame(() => container.classList.add('visible')));
+          container.addEventListener('transitionend', () => container.classList.remove('ladder-enter'), { once: true });
+        } else {
+          container.classList.add('visible');
+        }
+      }
+
+      // Toggle handler
+      const toggle = ladderDiv.querySelector('.show-columns-toggle');
+      if (toggle && container) {
+        toggle.addEventListener('click', () => {
+          const expanded = container.classList.toggle('expanded-columns');
+          toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
+          toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+          try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
+        });
+      }
     })
     .catch(() => {
       const ladderDiv = ladderPanel.querySelector('#ladder-content');
