@@ -244,33 +244,49 @@ Update this section at the end of each session:
 - Key functions changed
 - Any issues to watch for
 
-**Last session:** 2026-01-27 (Session 2)
-- **Added localStorage caching for team data** with 24-hour TTL to improve load times
-  - New `teamCacheMetadata` object tracks cache timestamps per team
+**Last session:** 2026-01-27 (Session 3)
+- **Added localStorage caching for team data** with 7-day TTL to improve load times
+  - `teamCacheMetadata` object tracks cache timestamps per team
   - `isTeamCacheValid(teamID)` checks if cache is within TTL
   - `updateTeamCache(teamID, teamData)` stores data with timestamp
-  - `loadTeamData()` now uses cache-first strategy: checks cache before API
-  - Cache automatically invalidated when local changes are saved (via `saveToLocalStorage()`)
-  - Cache metadata persisted to localStorage alongside team data
-- **Performance improvement:** Team load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
+  - `loadTeamData()` uses cache-first strategy: checks cache before API
+  - Cache persisted to localStorage immediately after API fetch (survives app close)
+- **Added localStorage caching for teams list** (landing page)
+  - `teamsListCache` and `teamsListCacheTime` track cached teams
+  - `isTeamsListCacheValid()` checks if teams list cache is valid
+  - `invalidateTeamsListCache()` clears cache on team create/update
+  - `loadTeams(forceRefresh)` supports bypassing cache
+- **Cache invalidation** happens automatically when:
+  - Creating a new team → `loadTeams(true)` forces refresh
+  - Updating team settings → `invalidateTeamsListCache()` called
+  - Syncing scores/lineup → `saveToLocalStorage()` updates cache
+- **7-day TTL** chosen because weekly games mean cache invalidates naturally
+- **Performance improvement:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
 - All 172 tests passing, deployed to production
 
 ### Key functions changed
 - `src/js/app.js`:
-  - Added `teamCacheMetadata`, `TEAM_CACHE_TTL_MS` (24 hours)
-  - Added `isTeamCacheValid()`, `updateTeamCache()`
-  - Modified `saveToLocalStorage()` to persist `teamCacheMeta`
-  - Modified `loadFromLocalStorage()` to restore cache metadata
-  - Modified `loadTeamData()` for cache-first loading
+  - Added `teamCacheMetadata`, `teamsListCache`, `teamsListCacheTime`
+  - Added `TEAM_CACHE_TTL_MS` (7 days)
+  - Added `isTeamCacheValid()`, `updateTeamCache()`, `isTeamsListCacheValid()`, `invalidateTeamsListCache()`
+  - Modified `saveToLocalStorage()` to persist cache metadata and teams list
+  - Modified `loadFromLocalStorage()` to restore all cache data
+  - Modified `loadTeamData()` for cache-first loading with immediate persist
+  - Modified `loadTeams()` with `forceRefresh` param and cache-first loading
+  - Modified `updateTeamSettingsAPI()` to invalidate teams list cache
+  - Modified `closeGameDetail()` to persist cache after sync
 
 ### Console logs for debugging
-- `[Cache] Using cached data for team X` - cache hit (fast path)
-- `[Cache] Fetched and cached data for team X` - cache miss (API fetch)
+- `[Cache] Using cached data for team X` - team data cache hit
+- `[Cache] Fetched and cached data for team X` - team data cache miss
+- `[Cache] Using cached teams list` - teams list cache hit
+- `[Cache] Fetched and cached teams list` - teams list cache miss
+- `[Cache] Teams list cache invalidated` - cache cleared after create/update
 
 ---
 
-## Deployment summary (2026-01-27 Session 2)
-- GitHub: pushed to `master` with localStorage caching feature
+## Deployment summary (2026-01-27 Session 3)
+- GitHub: pushed to `master` with full caching implementation
 - Cloudflare Pages: deployed with latest build
 - Apps Script: no changes (still using @56)
 
