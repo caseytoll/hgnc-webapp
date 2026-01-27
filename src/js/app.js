@@ -765,24 +765,28 @@ async function loadTeams(forceRefresh = false) {
     renderTeamList();
 
     // If a read-only slug was requested on startup, attempt to auto-select the matching team
+
     try {
       if (state.readOnly && state.requestedTeamSlug) {
         const slug = state.requestedTeamSlug;
-        const matched = state.teams.find(t => {
+        let matched = null;
+        for (const t of state.teams) {
           const nameSlug = slugify(t.teamName || t.teamID);
           const seasonSlug = (t.season && t.season.toString().trim()) ? slugify(`${t.teamName}-${t.season}`) : null;
           const idSlug = (t.teamID || '').toLowerCase();
           const fallbackSlug = slugify(`${t.teamName}-${t.teamID}`);
-          return slug === nameSlug || slug === seasonSlug || slug === idSlug || slug === fallbackSlug;
-        });
+          const allSlugs = [nameSlug, seasonSlug, idSlug, fallbackSlug].filter(Boolean);
+          console.log(`[ReadOnly Debug] Team: ${t.teamName} | Slugs:`, allSlugs, '| Requested:', slug);
+          if (allSlugs.includes(slug)) {
+            matched = t;
+            break;
+          }
+        }
         if (matched) {
           console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
-          // Mark global read-only and add class for CSS masking
           window.isReadOnlyView = true;
           document.body.classList.add('read-only');
-          // Show a small read-only pill for parents
           try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
-          // Load the team (this will render the main app view)
           selectTeam(matched.teamID);
         } else {
           console.warn('[App] No team matched slug:', slug);
