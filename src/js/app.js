@@ -538,6 +538,13 @@ async function loadTeams() {
         return t;
       });
 
+      // Send teams fetch metric to server-side diagnostics
+      try {
+        sendClientMetric('teams-fetch', teamsFetchMs, (state.teams || []).length);
+      } catch (e) {
+        console.warn('[Metric] Failed to send teams-fetch metric:', e);
+      }
+
       // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
       if (state.currentTeam) {
         const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
@@ -637,6 +644,48 @@ async function loadTeams() {
     } catch (e) {
       console.warn('[Metric] Measurement failed:', e);
     }
+  }
+}
+
+// Helper to send a client metric (used for teams-fetch and other small metrics)
+function sendClientMetric(name, value, teams) {
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
+
+    const sendMetricWithRetry = async (attempt = 1) => {
+      try {
+        const resp = await fetch(metricUrl, { method: 'GET', keepalive: true });
+        try {
+          const data = await resp.json();
+          if (data && data.success === false && attempt <= 1) {
+            await new Promise(r => setTimeout(r, 500));
+            return sendMetricWithRetry(attempt + 1);
+          }
+          console.log('[Metric] Sent', name, 'metric, server response:', data);
+          return data;
+        } catch (parseErr) {
+          if (attempt <= 1) {
+            await new Promise(r => setTimeout(r, 500));
+            return sendMetricWithRetry(attempt + 1);
+          }
+          console.log('[Metric] Sent', name, 'metric, non-JSON response status:', resp.status);
+          return null;
+        }
+      } catch (err) {
+        if (attempt <= 1) {
+          await new Promise(r => setTimeout(r, 500));
+          return sendMetricWithRetry(attempt + 1);
+        }
+        console.warn('[Metric] Failed to send metric after retry:', err.message);
+        return null;
+      }
+    };
+
+    sendMetricWithRetry().catch(err => console.warn('[Metric] sendClientMetric error:', err.message));
+  } catch (e) {
+    console.warn('[Metric] sendClientMetric init error:', e);
   }
 }
 
