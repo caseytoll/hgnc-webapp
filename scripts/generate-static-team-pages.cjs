@@ -164,6 +164,7 @@ async function main(){
   const teams = teamsData.teams || [];
 
   const created = [];
+  const usedSlugs = new Set();
 
   for (const t of teams) {
     if (t.archived) continue;
@@ -174,7 +175,16 @@ async function main(){
       console.log('Fetching team data for', t.teamName);
       const teamResp = await fetchJson(teamDataUrl);
       const teamData = teamResp.teamData;
-      const slug = slugify(t.teamName || t.teamID);
+
+      // Build slug: prefer name-season when season exists, else append teamID to name
+      const base = slugify(t.teamName || t.teamID);
+      let slug = (t.season && t.season.toString().trim()) ? `${base}-${slugify(t.season)}` : `${base}-${teamID}`;
+      // Ensure uniqueness
+      if (usedSlugs.has(slug)) {
+        slug = `${slug}-${teamID}`;
+      }
+      usedSlugs.add(slug);
+
       const dir = path.join(outDir, 'teams', slug);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const html = renderTeamPage(t, teamData);
@@ -193,7 +203,7 @@ async function main(){
         console.log('Also wrote viewer static page at', path.join(vdir, 'index.html'));
       }
 
-      created.push({ path: `/teams/${slug}/`, teamID, name: t.teamName });
+      created.push({ path: `/teams/${slug}/`, teamID, name: t.teamName, slug });
       console.log('Created static team page for', t.teamName);
     } catch (e) {
       console.error('Failed to generate for', t.teamName, e.message || e);

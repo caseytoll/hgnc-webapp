@@ -70,10 +70,19 @@ async function main() {
 
   // Create a small index for convenience
   const created = [];
+  const usedSlugs = new Set();
 
   teams.filter(t => !t.archived).forEach(team => {
     const name = team.teamName || team.name || team.sheetName || team.teamID;
-    const slug = slugify(name) || team.teamID;
+    // Build slug: prefer name-season when a season exists, otherwise suffix with teamID
+    const base = slugify(name);
+    let slug = (team.season && team.season.toString().trim()) ? `${base}-${slugify(team.season)}` : `${base}-${team.teamID}`;
+    // Ensure uniqueness across generated slugs
+    if (usedSlugs.has(slug)) {
+      slug = `${slug}-${team.teamID}`;
+    }
+    usedSlugs.add(slug);
+
     // Create compact portal path at /p/<slug>/index.html to avoid exposing project name
     // Primary redirect page
     const filename = `hgnc-team-portal-${slug}.html`;

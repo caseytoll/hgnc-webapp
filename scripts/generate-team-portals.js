@@ -62,13 +62,18 @@ async function main() {
 
   // Create a small index for convenience
   const created = [];
+  const usedSlugs = new Set();
 
   teams.filter(t => !t.archived).forEach(team => {
     const name = team.teamName || team.name || team.sheetName || team.teamID;
-    const slug = slugify(name) || team.teamID;
+    const base = slugify(name);
+    let slug = (team.season && team.season.toString().trim()) ? `${base}-${slugify(team.season)}` : `${base}-${team.teamID}`;
+    if (usedSlugs.has(slug)) slug = `${slug}-${team.teamID}`;
+    usedSlugs.add(slug);
     const filename = `hgnc-team-portal-${slug}.html`;
     const filepath = path.join(outDir, filename);
-    const target = `/viewer/?team=${encodeURIComponent(team.teamID)}`;
+    // Keep target consistent with new static team pages
+    const target = `/teams/${slug}/`;
 
     const html = `<!doctype html>
 <html lang="en">
