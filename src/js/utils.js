@@ -60,6 +60,25 @@ export function formatDate(dateStr) {
 }
 
 /**
+ * Formats a date/time string into the user's regional date/time format.
+ * Falls back to an ISO string if parsing fails.
+ * @param {string} dateStr
+ * @returns {string}
+ */
+export function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const locale = navigator.language || 'en-AU';
+  // Use compact date and time style
+  try {
+    return d.toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return d.toISOString();
+  }
+}
+
+/**
  * Validates a player name.
  * @param {string} name - The name to validate
  * @returns {{ valid: boolean, error?: string }}

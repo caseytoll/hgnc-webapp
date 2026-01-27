@@ -1,0 +1,17 @@
+{
+  "teamID": "hazelglen6",
+  "teamName": "Hazel Glen 6",
+  "ladderUrl": "https://websites.mygameday.app/comp_info.cgi?a=LADDER&compID=655969&c=0-9074-0-602490-0",
+  "lastUpdated": "2026-01-27T00:00:00.000Z",
+  "ladder": {
+    "headers": ["POS", "TEAM", "P", "W", "L", "D", "B", "FF", "FG", "For", "Agst", "%", "% Won"],
+    "rows": [
+      {"POS":"1","TEAM":"Montmorency 4","P":"7","W":"5","L":"2","D":"0","B":"0","FF":"0","FG":"0","For":"83","Agst":"50","%":"166.00","% Won":"71.43"},
+      {"POS":"2","TEAM":"Hazel Glen 6","P":"7","W":"4","L":"3","D":"0","B":"0","FF":"0","FG":"0","For":"103","Agst":"68","%":"151.47","% Won":"57.14"},
+      {"POS":"3","TEAM":"Heat 6","P":"7","W":"3","L":"4","D":"0","B":"0","FF":"0","FG":"0","For":"80","Agst":"80","%":"100.00","% Won":"42.86"},
+      {"POS":"4","TEAM":"Kilmore10","P":"6","W":"2","L":"4","D":"0","B":"1","FF":"0","FG":"0","For":"86","Agst":"77","%":"111.69","% Won":"33.33"},
+      {"POS":"5","TEAM":"Hurstbridge 8","P":"6","W":"2","L":"4","D":"0","B":"1","FF":"0","FG":"0","For":"65","Agst":"82","%":"79.27","% Won":"33.33"},
+      {"POS":"6","TEAM":"Kilmore 9","P":"7","W":"0","L":"7","D":"0","B":"0","FF":"0","FG":"0","For":"73","Agst":"133","%":"54.89","% Won":"0.00"}
+    ]
+  }
+}

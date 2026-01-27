@@ -171,7 +171,8 @@ function getSpreadsheet() {
                 teamName: t.name,
                 sheetName: t.sheetName,
                 archived: t.archived || false,
-                playerCount: playerCount
+                playerCount: playerCount,
+                ladderUrl: t.ladderApi || ''
               };
             });
             result = { success: true, teams: pwaTeams };
@@ -228,6 +229,24 @@ function getSpreadsheet() {
               }
             } catch (parseErr) {
               result = { success: false, error: 'Invalid settings JSON: ' + parseErr.message };
+            }
+          }
+          break;
+
+        case 'getTeamRow':
+          var qTeamID = e.parameter.teamID || '';
+          if (!qTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              var row = getTeamRowByID(qTeamID);
+              if (row.error) {
+                result = { success: false, error: row.error };
+              } else {
+                result = { success: true, row: row };
+              }
+            } catch (errGet) {
+              result = { success: false, error: errGet.message };
             }
           }
           break;
@@ -1113,6 +1132,9 @@ function updateTeamSettings(teamID, settings) {
         if (settings.season !== undefined) {
           teamsSheet.getRange(row, 3).setValue(settings.season); // Column C = Season
         }
+        if (settings.ladderUrl !== undefined) {
+          teamsSheet.getRange(row, 7).setValue(settings.ladderUrl); // Column G = Ladder API
+        }
         if (settings.archived !== undefined) {
           teamsSheet.getRange(row, 9).setValue(settings.archived ? 'true' : ''); // Column I = Archived
         }
@@ -1124,6 +1146,36 @@ function updateTeamSettings(teamID, settings) {
     throw new Error("Team not found: " + teamID);
   } catch (e) {
     Logger.log("Error in updateTeamSettings: " + e.message);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Return the raw Teams sheet row for a given teamID (columns A..I)
+ */
+function getTeamRowByID(teamID) {
+  try {
+    var ss = getSpreadsheet();
+    var teamsSheet = ss.getSheetByName('Teams');
+    var data = teamsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] == teamID) {
+        var row = data[i];
+        return {
+          teamID: row[0],
+          year: row[1],
+          season: row[2],
+          name: row[3],
+          sheetName: row[4],
+          ladderName: row[5],
+          ladderApi: row[6],
+          resultsApi: row[7],
+          archived: row[8]
+        };
+      }
+    }
+    return { error: 'Team not found' };
+  } catch (e) {
     return { error: e.message };
   }
 }
