@@ -759,8 +759,9 @@ async function loadTeamData(teamID) {
         // Transform data from Sheet format to PWA format
         state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
 
-        // Cache the fresh data with timestamp
+        // Cache the fresh data with timestamp and persist to localStorage
         updateTeamCache(teamID, state.currentTeamData);
+        saveToLocalStorage();
         console.log('[Cache] Fetched and cached data for team', teamID);
 
         hideLoading();
