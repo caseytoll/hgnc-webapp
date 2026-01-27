@@ -338,6 +338,22 @@ Notes
 - This approach avoids creating one static file per team and keeps URLs clean and human-friendly.
 - If you prefer static redirect pages instead, use `npm run generate:team-portals` (already added) which writes `public/hgnc-team-portal-<slug>.html` redirect pages. To have Pages generate them during build, set the `GS_API_URL` environment variable in your Pages project and the `prebuild` script will run automatically during build.
 
+---
+
+## Cloudflare Worker (optional, recommended)
+
+If you want the Viewer domain to serve the static pages directly and have more control (token gating, caching), deploy the Worker at your Cloudflare account:
+
+1. Create a Cloudflare API token with `Workers` and `Account . Workers Scripts` write permissions and add it to GitHub as `CF_API_TOKEN` (Repository Settings → Secrets).
+2. Edit `wrangler.toml.example` and set your `account_id` and optional `route` (or configure route in the dashboard).
+3. Deploy the example worker with GitHub Actions (Run `Deploy Team Portal Worker` workflow or push `workers/` files).
+
+Worker behavior
+- Handles:
+  - `/p/<slug>/` (redirects to `/teams/<slug>/` on the Viewer domain)
+  - `/teams/<slug>/` (proxies static HTML from CDN and rewrites canonical links to the Viewer domain)
+- Optional token gating via `WORKER_PORTAL_TOKEN` (set as a Worker environment variable or via Cloudflare dashboard).
+
 ## Security
 
 This application implements several security measures:
