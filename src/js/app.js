@@ -768,7 +768,13 @@ async function loadTeams(forceRefresh = false) {
     try {
       if (state.readOnly && state.requestedTeamSlug) {
         const slug = state.requestedTeamSlug;
-        const matched = state.teams.find(t => slugify(t.teamName || t.teamID) === slug || (t.teamID || '').toLowerCase() === slug);
+        const matched = state.teams.find(t => {
+          const nameSlug = slugify(t.teamName || t.teamID);
+          const seasonSlug = (t.season && t.season.toString().trim()) ? slugify(`${t.teamName}-${t.season}`) : null;
+          const idSlug = (t.teamID || '').toLowerCase();
+          const fallbackSlug = slugify(`${t.teamName}-${t.teamID}`);
+          return slug === nameSlug || slug === seasonSlug || slug === idSlug || slug === fallbackSlug;
+        });
         if (matched) {
           console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
           // Mark global read-only and add class for CSS masking
