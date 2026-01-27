@@ -14,6 +14,11 @@ jobs:
         run: |
           set -e
           GS_API_URL="${{ secrets.GS_API_URL }}"
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "WARNING: GS_API_URL not set; skipping diagnostic check"
+            echo "SPIKE=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           curl -s -G "$GS_API_URL" --data-urlencode "api=true" --data-urlencode "action=getDiagnostics" --data-urlencode "limit=50" -o diag.json
           jq -r '.diagnostics[] | select(.metric=="getTeams_totalMs") | "\(.timestamp) \(.value)"' diag.json | head -n 20 > recent_getteams.txt || true
           # Check for any values > 2000ms

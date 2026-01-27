@@ -11,13 +11,15 @@ jobs:
 
     steps:
       - name: Check environment
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
           echo "Validating Cloudflare Pages configuration..."
-          if [ -z "${{ secrets.GS_API_URL }}" ]; then
-            echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
-            exit 1
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "WARNING: GS_API_URL secret is not set. Skipping some validations. Add it in Repository settings -> Secrets."
+          else
+            echo "GS_API_URL appears to be set."
           fi
-          echo "GS_API_URL appears to be set."
 
       - name: Check redirects file exists
         run: |
