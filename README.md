@@ -18,7 +18,7 @@ A mobile-first web application for managing Hazel Glen Netball Club team rosters
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js **20+** (required for ladder scraper and CI)
 - npm 9+
 
 ## Installation
@@ -118,6 +118,9 @@ src/js/
 ### Data Sources
 
 The app supports two data sources:
+
+Ladder automation:
+- The repository includes a scheduled GitHub Action (`.github/workflows/daily-ladder.yml`) that runs the ladder scraper (`scripts/fetch-ladder.js`) daily and on-demand. The workflow reads the Apps Script `getTeams` API (via the `GS_API_URL` secret), fetches each team's `ladderUrl`, writes `public/ladder-<teamID>.json`, and commits changes to `master` which triggers a Cloudflare Pages redeploy.
 
 1. **Mock Data** (default): Uses `src/js/mock-data.js` for offline development
 2. **Live API**: Connects to Google Apps Script backend (configure in `src/js/config.js`)

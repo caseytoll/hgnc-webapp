@@ -74,7 +74,7 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 
 **Tech:** Vanilla JS (ES modules), Vite 7.x, Vitest, Google Apps Script backend
 
-**Prerequisites:** Node.js 18+, npm 9+, clasp (for Apps Script deployment)
+**Prerequisites:** Node.js 20+ (required for ladder scraper compatibility), npm 9+, clasp (for Apps Script deployment)
 
 ### Main App Files (`src/js/`)
 - `app.js` - Main application logic, global `state` object
@@ -152,17 +152,27 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 - **Where it's stored:** The `ladderUrl` value is persisted in the `Teams` sheet (column G). The Apps Script `getTeams` response includes `ladderUrl`, and `updateTeamSettings` persists it.
 - **Frontend behavior:** The client fetches a static JSON file `public/ladder-<teamID>.json` (created by the scraper). The Ladder view shows a `lastUpdated` timestamp, highlights the current team row, and provides a portrait "Show extra columns" toggle (persisted per team in `localStorage`). The layout is responsive (portrait/landscape rules, container queries) and respects `prefers-reduced-motion` for animations. Errors are handled gracefully; when the ladder JSON is unavailable the Ladder tab is hidden or shows an error message.
 - **JSON format:** Generated JSON contains an ISO `lastUpdated` timestamp and a `ladder` array of rows (summary fields like teamName, played, won, lost, goalsFor/against, percentage). Example: `{ "lastUpdated": "2026-01-26T12:34:56Z", "ladder": [{...}, ...] }`.
-- **Scraper script:** `scripts/fetch-ladder.js` fetches team list (from `teams.json` or the `getTeams` API), requests each `ladderUrl`, parses the HTML (Cheerio) and writes `public/ladder-<teamID>.json`. Run locally with Node 18+.
+- **Scraper script:** `scripts/fetch-ladder.js` fetches the team list (from a local `teams.json` or the Apps Script `getTeams` API), requests each `ladderUrl`, parses the HTML (Cheerio) and writes `public/ladder-<teamID>.json`.
 
-  Local usage examples:
-  - Use local teams file:
+  Notes & runtime:
+  - **Requires Node.js 20+** for modern fetch/undici compatibility. Ensure your CI uses Node 20 (the workflow uses `actions/setup-node@v4` with `node-version: '20'`).
+  - CLI flags:
+    - `--api <GS_API_URL>` — fetch teams via Apps Script `getTeams` (recommended in CI)
+    - `--teams <file>` — read a local teams JSON file
+    - `--out <dir>` — output directory (usually `public/`)
+    - `--only-ladder-url <url>` — process only teams with this exact ladder URL
+    - `--only-team-id <teamID>` — process only a single team by `teamID`
+  - Example (local):
     ```bash
     node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
     ```
-  - Use Apps Script API (production):
+  - Example (production using Apps Script):
     ```bash
-    node scripts/fetch-ladder.js --api "https://script.google.com/macros/s/REPLACE_WITH_DEPLOY_ID/exec?action=getTeams" --out public/
+    GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
+      node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
     ```
+  - Logging & error handling: the scraper logs per-team fetch attempts and errors (HTTP failures or parse issues) and continues processing other teams. It writes `ladder-<teamID>.json` when parsing succeeds.
+  - If you need to debug a single team quickly, use `--only-ladder-url` or `--only-team-id` to limit requests and surface errors faster.
 - **Automation:** A **Daily Ladder Update** workflow (`.github/workflows/daily-ladder.yml`) has been added to run `scripts/fetch-ladder.js` on a schedule and via manual dispatch. The workflow uses the `GS_API_URL` repository secret (Apps Script `getTeams` endpoint) to fetch ladder URLs for *all teams* returned by `getTeams`, generates `public/ladder-*.json`, and commits any changes to `master` so Cloudflare Pages will deploy the updated ladders. To enable it, set `GS_API_URL` in your repository Secrets (Settings → Secrets) and trigger it manually in the Actions tab or rely on the daily schedule.
 - **Deployment notes:** After generating and committing `public/ladder-*.json`, deploy to Cloudflare Pages (see Deployment commands). Ensure the Apps Script deployment referenced in `src/js/config.js` is the correct, published deployment that includes `getTeams`/`updateTeamSettings` with `ladderUrl` support.
 - **Debug helpers:** `apps-script/Code.js` includes `getTeamRowByID()` used for verification. Remove it if you prefer a minimal API surface.
