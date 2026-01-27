@@ -18,6 +18,7 @@ High-priority secrets
 - SLACK_WEBHOOK_URL (optional)
   - Incoming webhook URL for notifications (monitoring alerts)
 
+
 Workflows & behavior
 --------------------
 - `generate-team-portals.yml`
@@ -30,7 +31,10 @@ Workflows & behavior
     - `getTeams` fetch check
     - `getDiagnostics` check for `getTeams_totalMs` spikes (>2000ms)
   - On issues, sends a Slack message (if `SLACK_WEBHOOK_URL`) or opens a GitHub issue.
+  - **Requires** `permissions: issues: write` in the job definition for issue creation.
+  - All `github-script` API calls must use `github.rest.issues.*` (not `github.issues.*`).
   - Will skip monitoring if `GS_API_URL` is not set.
+  - If you see `Resource not accessible by integration`, check workflow permissions.
 
 - `deploy-worker.yml` & `bind-worker-routes.yml`
   - `deploy-worker.yml` can publish the Worker if `CF_API_TOKEN` is present. If missing, the job now skips gracefully.

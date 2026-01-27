@@ -1,3 +1,17 @@
+## Continuous Integration & Monitoring
+
+### Monitor Workflow (API Health)
+This project uses a scheduled GitHub Actions workflow (`monitor-api.yml`) to monitor the health and latency of the Google Apps Script API. The workflow:
+- Checks the `/ping` and `/getTeams` endpoints
+- Detects latency spikes in `getTeams_totalMs`
+- Sends alerts to Slack (if configured) and/or creates a GitHub issue on failure or spike
+
+**Important:**
+- The workflow requires `permissions: issues: write` in the job definition to allow issue creation.
+- All GitHub API calls in `github-script` must use `github.rest.issues.*` (not `github.issues.*`).
+- If you see `Resource not accessible by integration`, check that the workflow has the correct permissions.
+
+See `docs/CI.md` for more details and troubleshooting.
 # HGNC Team Manager
 
 > **Developer Guide:** See `CLAUDE.md` for project status, troubleshooting, and developer notes.
