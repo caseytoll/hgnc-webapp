@@ -2645,6 +2645,7 @@ window.handlePositionClick = function(position, playerName) {
 };
 
 window.toggleCaptain = function(playerName) {
+  if (!ensureNotReadOnly('toggleCaptain')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2661,6 +2662,7 @@ window.toggleCaptain = function(playerName) {
 };
 
 window.assignPosition = function(position) {
+  if (!ensureNotReadOnly('assignPosition')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2711,10 +2713,11 @@ function renderAvailabilityList() {
     <div class="availability-list">
       ${players.map(p => {
         const isAvailable = availableIDs.includes(p.id);
+        const disabled = window.isReadOnlyView ? 'disabled' : '';
         return `
           <div class="availability-item">
             <input type="checkbox" class="availability-checkbox"
-                   ${isAvailable ? 'checked' : ''}
+                   ${isAvailable ? 'checked' : ''} ${disabled}
                    onchange="toggleAvailability('${escapeAttr(p.id)}', this.checked)">
             <div class="availability-name">${escapeHtml(p.name)}</div>
             <div class="availability-status">${isAvailable ? 'Available' : 'Unavailable'}</div>
@@ -2726,6 +2729,7 @@ function renderAvailabilityList() {
 }
 
 window.toggleAvailability = function(playerID, available) {
+  if (!ensureNotReadOnly('toggleAvailability')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2771,6 +2775,8 @@ function renderScoringInputs() {
 
   const createPlayerScoreRow = (quarter, field, value, position, playerVal) => {
     const playerName = resolvePlayerName(playerVal);
+    const disabled = window.isReadOnlyView ? 'disabled' : '';
+    const btnProps = window.isReadOnlyView ? '' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}',`;
     return `
       <div class="player-score-row">
         <div class="player-score-info">
@@ -2778,10 +2784,10 @@ function renderScoringInputs() {
           <span class="player-score-position">${escapeHtml(position)}</span>
         </div>
         <div class="score-stepper">
-          <button class="stepper-btn stepper-minus" onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', -1)" aria-label="Decrease">−</button>
-          <input type="number" class="scoring-input" id="score-${escapeAttr(quarter)}-${escapeAttr(field)}" min="0" value="${escapeAttr(value)}"
+          <button class="stepper-btn stepper-minus" ${window.isReadOnlyView ? 'disabled' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', -1)"`} aria-label="Decrease">−</button>
+          <input type="number" class="scoring-input" id="score-${escapeAttr(quarter)}-${escapeAttr(field)}" min="0" value="${escapeAttr(value)}" ${disabled}
                  onchange="updateScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', this.value)" inputmode="numeric">
-          <button class="stepper-btn stepper-plus" onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', 1)" aria-label="Increase">+</button>
+          <button class="stepper-btn stepper-plus" ${window.isReadOnlyView ? 'disabled' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', 1)"`} aria-label="Increase">+</button>
         </div>
       </div>
     `;
@@ -2895,6 +2901,7 @@ window.toggleScoringQuarter = function(quarter) {
 };
 
 window.updateScore = function(quarter, field, value) {
+  if (!ensureNotReadOnly('updateScore')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2917,6 +2924,7 @@ window.updateScore = function(quarter, field, value) {
 };
 
 window.adjustScore = function(quarter, field, delta) {
+  if (!ensureNotReadOnly('adjustScore')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2972,6 +2980,7 @@ function flashAutosaveIndicator() {
 }
 
 window.finalizeGame = async function() {
+  if (!ensureNotReadOnly('finalizeGame')) return;
   const game = state.currentGame;
   if (!game || !game.lineup) return;
 

@@ -3317,6 +3317,19 @@ body.read-only .top-bar .icon-btn[onclick*="openGameSettings"] {
   opacity: 0 !important;
 }
 
+/* Make position slots non-interactive in read-only mode */
+body.read-only .position-slot {
+  pointer-events: none !important;
+  opacity: 0.95;
+}
+
+/* Disable stepper buttons & inputs in read-only mode */
+body.read-only .score-stepper .stepper-btn,
+body.read-only .score-stepper .scoring-input {
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+}
+
 /* Read-only pill (small indicator in top bar) */
 .read-only-pill {
   display: inline-block;
