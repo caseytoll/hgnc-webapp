@@ -144,6 +144,19 @@ function getSpreadsheet() {
           break;
 
         case 'getTeams':
+          // Try script cache first (short TTL) to reduce response latency
+          try {
+            var cache = CacheService.getScriptCache();
+            var cached = cache.get('getTeamsResponse');
+            if (cached) {
+              Logger.log('getTeams: cache hit');
+              result = JSON.parse(cached);
+              break;
+            }
+          } catch (e) {
+            Logger.log('getTeams: cache read failed: ' + e.message);
+          }
+
           var teams = loadMasterTeamList();
           if (teams.error) {
             result = { success: false, error: teams.error };
@@ -176,6 +189,14 @@ function getSpreadsheet() {
               };
             });
             result = { success: true, teams: pwaTeams };
+
+            // Cache the response for 300s (5 minutes)
+            try {
+              cache.put('getTeamsResponse', JSON.stringify(result), 300);
+              Logger.log('getTeams: cached response for 300s');
+            } catch (e) {
+              Logger.log('getTeams: cache put failed: ' + e.message);
+            }
           }
           break;
 
@@ -273,6 +294,16 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'getDiagnostics':
+          var limit = parseInt(e.parameter.limit || '50', 10) || 50;
+          try {
+            var diag = getDiagnostics(limit);
+            result = { success: true, diagnostics: diag };
+          } catch (errDiag) {
+            result = { success: false, error: errDiag.message };
+          }
+          break;
+
         case 'createTeam':
           var createYear = e.parameter.year || new Date().getFullYear();
           var createSeason = e.parameter.season || 'Season 1';
@@ -295,6 +326,15 @@ function getSpreadsheet() {
             result = { success: false, error: libraryData.error };
           } else {
             result = { success: true, playerLibrary: libraryData };
+          }
+          break;
+
+        case 'rebuildPlayerCounts':
+          try {
+            var rebuildResult = rebuildPlayerCounts();
+            result = { success: true, result: rebuildResult };
+          } catch (errRebuild) {
+            result = { success: false, error: errRebuild.message };
           }
           break;
 
@@ -1032,8 +1072,8 @@ function ensureTeamsSheetStructure() {
       return;
     }
 
-    var headers = teamsSheet.getRange(1, 1, 1, 9).getValues()[0];
-    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived'];
+    var headers = teamsSheet.getRange(1, 1, 1, 10).getValues()[0];
+    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count'];
     var needsUpdate = false;
 
     for (var i = 0; i < expectedHeaders.length; i++) {
@@ -1044,7 +1084,7 @@ function ensureTeamsSheetStructure() {
     }
 
     if (needsUpdate) {
-      teamsSheet.getRange(1, 1, 1, 9).setValues([headers]);
+      teamsSheet.getRange(1, 1, 1, 10).setValues([headers]);
       Logger.log("Updated Teams sheet headers: " + JSON.stringify(headers));
     }
   } catch (e) {
@@ -1074,15 +1114,56 @@ function loadMasterTeamList() {
         ladderName: row[5] || '', // Column F
         ladderApi: row[6] || '',  // Column G
         resultsApi: row[7] || '', // Column H
-        archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE' // Column I
+        archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE', // Column I
+        playerCount: parseInt(row[9], 10) || 0 // Column J
       };
-      Logger.log("Loaded team: " + team.name + ", archived=" + team.archived);
+      Logger.log("Loaded team: " + team.name + ", archived=" + team.archived + ", players=" + team.playerCount);
       return team;
     });
     Logger.log("Total teams loaded: " + teams.length);
     return teams;
   } catch (e) {
     Logger.log("Error in loadMasterTeamList: " + e.message);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Rebuilds player counts for all teams by reading each team's A1 JSON and updating the Teams sheet.
+ * Use sparingly (admin operation) to initialize or repair counts after a migration.
+ */
+function rebuildPlayerCounts() {
+  try {
+    var ss = getSpreadsheet();
+    var teamsSheet = ss.getSheetByName('Teams');
+    if (!teamsSheet) return { error: 'Teams sheet not found' };
+
+    var data = teamsSheet.getDataRange().getValues();
+    var updated = 0;
+
+    // Start from row index 1 (skip header)
+    for (var i = 1; i < data.length; i++) {
+      try {
+        var sheetName = data[i][4];
+        if (!sheetName) continue;
+        var teamSheet = ss.getSheetByName(sheetName);
+        if (!teamSheet) continue;
+        var json = teamSheet.getRange('A1').getValue() || '{}';
+        var teamData = JSON.parse(json || '{}');
+        var pc = (teamData.players && Array.isArray(teamData.players)) ? teamData.players.length : 0;
+        teamsSheet.getRange(i + 1, 10).setValue(pc);
+        updated++;
+      } catch (e) {
+        Logger.log('rebuildPlayerCounts: failed for row ' + (i + 1) + ': ' + e.message);
+      }
+    }
+
+    // Invalidate getTeams cache
+    try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('rebuildPlayerCounts: invalidated getTeams cache'); } catch (e) { Logger.log('rebuildPlayerCounts: failed to invalidate cache: ' + e.message); }
+
+    return { success: true, updated: updated };
+  } catch (e) {
+    Logger.log('Error in rebuildPlayerCounts: ' + e.message);
     return { error: e.message };
   }
 }
@@ -1096,8 +1177,10 @@ function createNewTeam(year, season, name, ladderName, ladderApi, resultsApi) {
     var newTeamSheet = ss.insertSheet(sheetName);
     var initialData = { players: [], games: [] };
     newTeamSheet.getRange('A1').setValue(JSON.stringify(initialData));
-    // Columns: teamID, year, season, name, sheetName, ladderName, ladderApi, resultsApi
-    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || ""]);
+    // Columns: teamID, year, season, name, sheetName, ladderName, ladderApi, resultsApi, archived, playerCount
+    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || "", '', 0]);
+    // Invalidate cached teams list
+    try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('createNewTeam: invalidated getTeams cache'); } catch (e) { Logger.log('createNewTeam: failed to invalidate cache: ' + e.message); }
     return loadMasterTeamList();
   } catch (e) {
     Logger.log(e);
@@ -1119,6 +1202,7 @@ function updateTeam(teamID, year, season, name, ladderName, ladderApi, resultsAp
         Logger.log("Updating row " + row + " with values: " + JSON.stringify(updateValues));
         teamsSheet.getRange(row, 2, 1, 7).setValues(updateValues);
         Logger.log("Update successful, loading master team list");
+        try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('updateTeam: invalidated getTeams cache'); } catch (e) { Logger.log('updateTeam: failed to invalidate cache: ' + e.message); }
         return loadMasterTeamList();
       }
     }
@@ -1162,6 +1246,14 @@ function updateTeamSettings(teamID, settings) {
         }
 
         Logger.log("updateTeamSettings successful for row " + row);
+        // Invalidate cached teams list to reflect changes immediately
+        try {
+          var cache = CacheService.getScriptCache();
+          cache.remove('getTeamsResponse');
+          Logger.log('updateTeamSettings: invalidated getTeams cache');
+        } catch (e) {
+          Logger.log('updateTeamSettings: failed to invalidate cache: ' + e.message);
+        }
         return { success: true };
       }
     }
@@ -1192,7 +1284,8 @@ function getTeamRowByID(teamID) {
           ladderName: row[5],
           ladderApi: row[6],
           resultsApi: row[7],
-          archived: row[8]
+          archived: row[8],
+          playerCount: parseInt(row[9], 10) || 0
         };
       }
     }
@@ -1224,6 +1317,30 @@ function logClientMetric(name, value, teams, extra) {
   }
 }
 
+/**
+ * Return the most recent Diagnostics rows (newest first)
+ */
+function getDiagnostics(limit) {
+  try {
+    var ss = getSpreadsheet();
+    var sheetName = 'Diagnostics';
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return [];
+    var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+    // Remove header, map to objects
+    var rows = data.slice(1).map(function(r) {
+      return { timestamp: r[0], metric: r[1], value: r[2], teams: r[3], extra: r[4] };
+    });
+    // Return newest 'limit' rows
+    rows.reverse();
+    return rows.slice(0, limit);
+  } catch (e) {
+    Logger.log('Error in getDiagnostics: ' + e.message);
+    throw e;
+  }
+}
+
 function deleteTeam(teamID, sheetName) {
   try {
     var ss = getSpreadsheet();
@@ -1239,6 +1356,8 @@ function deleteTeam(teamID, sheetName) {
         break;
       }
     }
+    // Invalidate cached teams list
+    try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('deleteTeam: invalidated getTeams cache'); } catch (e) { Logger.log('deleteTeam: failed to invalidate cache: ' + e.message); }
     return loadMasterTeamList();
   } catch (e) {
     Logger.log(e);
@@ -1276,6 +1395,27 @@ function saveTeamData(sheetName, teamDataJSON, statsDataJSON) {
     if (statsDataJSON) {
       teamSheet.getRange('B1').setValue(statsDataJSON);
     }
+
+    // Update player count in Teams sheet for this team (column J / index 10)
+    try {
+      var teamData = JSON.parse(teamDataJSON || '{}');
+      var pc = (teamData.players && Array.isArray(teamData.players)) ? teamData.players.length : 0;
+      var ss = getSpreadsheet();
+      var teamsSheet = ss.getSheetByName('Teams');
+      var data = teamsSheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][4] == sheetName) { // Sheet Name column = index 4
+          teamsSheet.getRange(i + 1, 10).setValue(pc); // Column J = Player Count
+          Logger.log('Updated playerCount for ' + sheetName + ' to ' + pc);
+          break;
+        }
+      }
+      // Invalidate cached teams list so next getTeams returns updated counts
+      try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('saveTeamData: invalidated getTeams cache'); } catch (e) { Logger.log('saveTeamData: failed to invalidate cache: ' + e.message); }
+    } catch (e) {
+      Logger.log('Failed to update playerCount for ' + sheetName + ': ' + e.message);
+    }
+
     return "OK";
   } catch (e) {
     Logger.log(e);
