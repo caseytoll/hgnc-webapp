@@ -1,0 +1,39 @@
+name: Monitor getTeams latency
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check_latency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch diagnostics
+        id: fetch
+        run: |
+          set -e
+          GS_API_URL="${{ secrets.GS_API_URL }}"
+          curl -s -G "$GS_API_URL" --data-urlencode "api=true" --data-urlencode "action=getDiagnostics" --data-urlencode "limit=50" -o diag.json
+          jq -r '.diagnostics[] | select(.metric=="getTeams_totalMs") | "\(.timestamp) \(.value)"' diag.json | head -n 20 > recent_getteams.txt || true
+          # Check for any values > 2000ms
+          if awk '{ if ($2 > 2000) { print $0; exit 0 } }' recent_getteams.txt; then
+            echo "SPIKE=1" >> $GITHUB_OUTPUT
+          else
+            echo "SPIKE=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create issue for spike
+        if: ${{ steps.fetch.outputs.SPIKE == '1' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const body = fs.existsSync('recent_getteams.txt') ? fs.readFileSync('recent_getteams.txt','utf8') : 'No details';
+            await github.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'ALERT: getTeams_totalMs spike detected',
+              body: `A spike in getTeams_totalMs (>2000ms) was detected.\n\nRecent entries:\n\n${body}\n\nWorkflow run: ${process.env.GITHUB_RUN_URL}`
+            });
