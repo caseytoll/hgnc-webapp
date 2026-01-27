@@ -583,9 +583,24 @@ async function loadTeams() {
           try {
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
             const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-            // Fire-and-forget
-            fetch(`${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`)
-              .catch(err => console.warn('[Metric] Failed to send metric:', err.message));
+            // Fire-and-forget with success logging and keepalive for page unloads
+            try {
+              const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`;
+
+              // Prefer fetch with keepalive (supported in modern browsers) and log server response when available
+              fetch(metricUrl, { method: 'GET', keepalive: true })
+                .then(async (resp) => {
+                  try {
+                    const data = await resp.json();
+                    console.log('[Metric] Sent app-load metric, server response:', data);
+                  } catch (parseErr) {
+                    console.log('[Metric] Sent app-load metric, non-JSON response status:', resp.status);
+                  }
+                })
+                .catch(err => console.warn('[Metric] Failed to send metric:', err.message));
+            } catch (e) {
+              console.warn('[Metric] Error while sending metric:', e.message);
+            }
           } catch (e) {
             console.warn('[Metric] Error sending metric:', e);
           }
