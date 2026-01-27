@@ -4437,6 +4437,121 @@ function removePlayerFromLibrary(teamID, playerID) {
 }
 
 // ========================================
+// ========================================
+// SYSTEM SETTINGS
+// ========================================
+
+/**
+ * Show system settings view
+ */
+window.showSystemSettings = function() {
+  showView('system-settings-view');
+  renderSystemSettings();
+};
+
+/**
+ * Render system settings content
+ */
+function renderSystemSettings() {
+  const content = document.getElementById('system-settings-content');
+  if (!content) return;
+
+  // Calculate cache stats
+  const teamsCached = Object.keys(apiTeamCache).length;
+  const teamsListCached = teamsListCache ? 'Yes' : 'No';
+  const teamsListAge = teamsListCacheTime ? formatCacheAge(teamsListCacheTime) : 'N/A';
+
+  // Get individual team cache ages
+  const teamCacheDetails = Object.keys(teamCacheMetadata).map(teamID => {
+    const meta = teamCacheMetadata[teamID];
+    const team = state.teams?.find(t => t.teamID === teamID);
+    const name = team?.teamName || teamID;
+    const age = meta?.cachedAt ? formatCacheAge(meta.cachedAt) : 'Unknown';
+    return `<div class="settings-row"><span>${escapeHtml(name)}</span><span>${age}</span></div>`;
+  }).join('');
+
+  // Calculate localStorage usage
+  let storageUsed = 0;
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    storageUsed = data ? (data.length / 1024).toFixed(1) : 0;
+  } catch (e) {}
+
+  content.innerHTML = `
+    <div class="settings-section">
+      <h3>App Info</h3>
+      <div class="settings-row"><span>Version</span><span>v__APP_VERSION__</span></div>
+      <div class="settings-row"><span>Data Source</span><span>${state.dataSource}</span></div>
+      <div class="settings-row"><span>Online</span><span>${navigator.onLine ? 'Yes' : 'No'}</span></div>
+      <div class="settings-row"><span>Teams Loaded</span><span>${state.teams?.length || 0}</span></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Cache Status</h3>
+      <div class="settings-row"><span>Teams List Cached</span><span>${teamsListCached}</span></div>
+      <div class="settings-row"><span>Teams List Age</span><span>${teamsListAge}</span></div>
+      <div class="settings-row"><span>Team Data Cached</span><span>${teamsCached} team(s)</span></div>
+      <div class="settings-row"><span>Cache TTL</span><span>7 days</span></div>
+    </div>
+
+    ${teamsCached > 0 ? `
+    <div class="settings-section">
+      <h3>Cached Teams</h3>
+      ${teamCacheDetails}
+    </div>
+    ` : ''}
+
+    <div class="settings-section">
+      <h3>Storage</h3>
+      <div class="settings-row"><span>localStorage Used</span><span>${storageUsed} KB</span></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Actions</h3>
+      <button class="btn btn-secondary" onclick="clearAllCaches()" style="width: 100%; margin-bottom: 8px;">
+        Clear Cache & Reload
+      </button>
+      <p style="font-size: 12px; color: var(--text-secondary); text-align: center;">
+        Clears all cached data and reloads the app
+      </p>
+    </div>
+  `;
+}
+
+/**
+ * Format cache age for display
+ */
+function formatCacheAge(isoTime) {
+  const age = Date.now() - new Date(isoTime).getTime();
+  const mins = Math.floor(age / (1000 * 60));
+  const hours = Math.floor(age / (1000 * 60 * 60));
+  const days = Math.floor(age / (1000 * 60 * 60 * 24));
+
+  if (days > 0) return days + ' day(s) ago';
+  if (hours > 0) return hours + 'h ' + (mins % 60) + 'm ago';
+  return mins + ' min(s) ago';
+}
+
+/**
+ * Clear all caches and reload the app
+ */
+window.clearAllCaches = function() {
+  // Clear in-memory caches
+  Object.keys(apiTeamCache).forEach(k => delete apiTeamCache[k]);
+  Object.keys(teamCacheMetadata).forEach(k => delete teamCacheMetadata[k]);
+  teamsListCache = null;
+  teamsListCacheTime = null;
+
+  // Save cleared state to localStorage
+  saveToLocalStorage();
+
+  showToast('Cache cleared', 'success');
+
+  // Reload after short delay to show toast
+  setTimeout(() => location.reload(), 500);
+};
+
+// ========================================
 // DEV TOOLS
 // ========================================
 

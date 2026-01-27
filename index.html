@@ -45,7 +45,7 @@
       <div class="splash-header">
         <img src="/icons/splash-logo.png" alt="HGNC Logo" class="splash-logo">
         <h1>HGNC Team Manager</h1>
-        <p style="font-size: 10px; opacity: 0.5; margin-top: 8px;">v__APP_VERSION__</p>
+        <p onclick="showSystemSettings()" style="font-size: 10px; opacity: 0.5; margin-top: 8px; cursor: pointer;">v__APP_VERSION__</p>
       </div>
 
       <!-- Segmented Control -->
@@ -85,6 +85,20 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ========================================
+         SYSTEM SETTINGS VIEW
+         ======================================== -->
+    <div id="system-settings-view" class="view">
+      <header class="app-header">
+        <button class="back-btn" onclick="showView('team-selector-view')">←</button>
+        <h1>System</h1>
+        <div style="width: 44px;"></div>
+      </header>
+      <main class="content" id="system-settings-content">
+        <!-- Populated by renderSystemSettings() -->
+      </main>
     </div>
 
     <!-- ========================================
