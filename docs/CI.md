@@ -52,6 +52,8 @@ If you have access to a Pages-specific API or a token with Pages permissions, we
 Next steps for you
 ------------------
 - Add the required secrets to the repository settings: `GS_API_URL`, `VIEWER_BASE_URL` (and `CF_API_TOKEN` if you want Worker automation).
+
+> **Note:** For Cloudflare Pages prebuild to run in the Pages build environment, set `GS_API_URL` and `VIEWER_BASE_URL` as **Environment Variables** in the Pages project settings (Project → Settings → Environment variables). Relying only on GitHub repository secrets will not populate the Pages build environment.
 - If you want alerts in Slack, set `SLACK_WEBHOOK_URL`.
 
 If you'd like, I can:
