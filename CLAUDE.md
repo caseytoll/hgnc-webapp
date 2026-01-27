@@ -245,59 +245,57 @@ Update this section at the end of each session:
 - Any issues to watch for
 
 **Last session:** 2026-01-27 (Session 3)
-- **Added localStorage caching for team data** with 7-day TTL to improve load times
-  - `teamCacheMetadata` object tracks cache timestamps per team
-  - `isTeamCacheValid(teamID)` checks if cache is within TTL
-  - `updateTeamCache(teamID, teamData)` stores data with timestamp
-  - `loadTeamData()` uses cache-first strategy: checks cache before API
-  - Cache persisted to localStorage immediately after API fetch (survives app close)
-- **Added localStorage caching for teams list** (landing page)
+
+### Features added
+- **localStorage caching for team data** with 7-day TTL
+  - `teamCacheMetadata` tracks cache timestamps per team
+  - `loadTeamData()` uses cache-first strategy
+  - Cache persisted immediately after API fetch (survives app close/swipe up)
+- **localStorage caching for teams list** (landing page)
   - `teamsListCache` and `teamsListCacheTime` track cached teams
-  - `isTeamsListCacheValid()` checks if teams list cache is valid
-  - `invalidateTeamsListCache()` clears cache on team create/update
   - `loadTeams(forceRefresh)` supports bypassing cache
 - **Cache invalidation** happens automatically when:
-  - Creating a new team → `loadTeams(true)` forces refresh
-  - Updating team settings → `invalidateTeamsListCache()` called
-  - Syncing scores/lineup → `saveToLocalStorage()` updates cache
-- **7-day TTL** chosen because weekly games mean cache invalidates naturally
-- **Performance improvement:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
-- **Added System Settings page** accessible by clicking version number
-  - Shows app info: version, data source, online status, teams loaded
-  - Shows cache status: teams list age, cached teams count, individual team cache ages
-  - Shows storage: localStorage usage in KB
-  - "Clear Cache & Reload" button for manual cache invalidation
-- All 172 tests passing, deployed to production
+  - Creating a new team → forces refresh
+  - Updating team settings → invalidates teams list
+  - Syncing scores/lineup → updates team data cache
+- **System Settings page** accessible by clicking version number
+  - Shows: app version, data source, online status, teams loaded
+  - Shows: cache status, cached teams with ages, localStorage usage
+  - "Clear Cache & Reload" button for manual invalidation
+- **Performance:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
 
-### Key functions changed
+### UI fixes
+- **Player Detail:** Moved Save/Delete buttons from modal footer to Edit tab only
+- **Team Settings Icon:** Replaced broken icon with standard gear/cog SVG
+- **System Settings:** Fixed header safe area for iPhone notch/dynamic island
+
+### Key files changed
 - `src/js/app.js`:
-  - Added `teamCacheMetadata`, `teamsListCache`, `teamsListCacheTime`
-  - Added `TEAM_CACHE_TTL_MS` (7 days)
-  - Added `isTeamCacheValid()`, `updateTeamCache()`, `isTeamsListCacheValid()`, `invalidateTeamsListCache()`
-  - Added `showSystemSettings()`, `renderSystemSettings()`, `formatCacheAge()`, `clearAllCaches()`
-  - Modified `saveToLocalStorage()` to persist cache metadata and teams list
-  - Modified `loadFromLocalStorage()` to restore all cache data
-  - Modified `loadTeamData()` for cache-first loading with immediate persist
-  - Modified `loadTeams()` with `forceRefresh` param and cache-first loading
-  - Modified `updateTeamSettingsAPI()` to invalidate teams list cache
-  - Modified `closeGameDetail()` to persist cache after sync
+  - Cache variables: `teamCacheMetadata`, `teamsListCache`, `teamsListCacheTime`, `TEAM_CACHE_TTL_MS` (7 days)
+  - Cache functions: `isTeamCacheValid()`, `updateTeamCache()`, `isTeamsListCacheValid()`, `invalidateTeamsListCache()`
+  - System settings: `showSystemSettings()`, `renderSystemSettings()`, `formatCacheAge()`, `clearAllCaches()`
+  - Modified: `saveToLocalStorage()`, `loadFromLocalStorage()`, `loadTeamData()`, `loadTeams()`, `updateTeamSettingsAPI()`, `closeGameDetail()`, `openPlayerDetail()`
 - `index.html`:
-  - Made version number clickable (`onclick="showSystemSettings()"`)
-  - Added `system-settings-view` with header and content container
+  - Clickable version number with `onclick="showSystemSettings()"`
+  - New `system-settings-view` with safe area header
+  - Updated Team Settings icon SVG
 - `src/css/styles.css`:
-  - Added `.settings-section` and `.settings-row` styles for system settings
+  - System settings styles with iPhone safe area support
+  - `.player-edit-actions` for Edit tab buttons
 
 ### Console logs for debugging
 - `[Cache] Using cached data for team X` - team data cache hit
 - `[Cache] Fetched and cached data for team X` - team data cache miss
 - `[Cache] Using cached teams list` - teams list cache hit
 - `[Cache] Fetched and cached teams list` - teams list cache miss
-- `[Cache] Teams list cache invalidated` - cache cleared after create/update
+- `[Cache] Teams list cache invalidated` - cache cleared
+
+All 172 tests passing, deployed to production.
 
 ---
 
 ## Deployment summary (2026-01-27 Session 3)
-- GitHub: pushed to `master` with caching + system settings
+- GitHub: pushed to `master` with caching, system settings, UI fixes
 - Cloudflare Pages: deployed with latest build
 - Apps Script: no changes (still using @56)
 
