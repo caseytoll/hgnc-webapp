@@ -1,0 +1,135 @@
+name: Monitor API (consolidated)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes
+  workflow_dispatch: {}
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check configuration
+        run: |
+          if [ -z "${{ secrets.GS_API_URL }}" ]; then
+            echo "GS_API_URL not set; skipping monitor checks"
+            exit 0
+          fi
+
+      - name: Ping endpoint
+        id: ping
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+        run: |
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "WARNING: GS_API_URL not set; skipping ping check"
+            echo "ping_failed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          PING_URL="${GS_API_URL}?api=true&action=ping"
+          echo "Pinging $PING_URL"
+          resp=$(curl -sSfL "$PING_URL" || true)
+          if [ -z "$resp" ]; then
+            echo "ping_failed=true" >> $GITHUB_OUTPUT
+          else
+            ok=$(echo "$resp" | jq -r '.success // "false"')
+            if [ "$ok" != "true" ]; then
+              echo "ping_failed=true" >> $GITHUB_OUTPUT
+            else
+              echo "ping_failed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Fetch getTeams & diagnostics
+        id: fetch
+        run: |
+          TEAMS_URL="${{ secrets.GS_API_URL }}?api=true&action=getTeams"
+          DIAG_URL="${{ secrets.GS_API_URL }}?api=true&action=getDiagnostics&limit=50"
+
+          teams_resp=$(curl -sSfL "$TEAMS_URL" || true)
+          if [ -z "$teams_resp" ]; then
+            echo "teams_failed=true" >> $GITHUB_OUTPUT
+          else
+            success=$(echo "$teams_resp" | jq -r '.success // "false"')
+            if [ "$success" != "true" ]; then
+              echo "teams_failed=true" >> $GITHUB_OUTPUT
+            else
+              echo "teams_failed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          diag_resp=$(curl -sSfL "$DIAG_URL" || true)
+          echo "$diag_resp" | jq -r '.diagnostics[] | select(.metric=="getTeams_totalMs") | .value' > values.txt || true
+          THRESHOLD_MS=${THRESHOLD_MS:-2000}
+          REQUIRED_SPIKES=${REQUIRED_SPIKES:-3}
+          COUNT=$(awk -v th="$THRESHOLD_MS" 'BEGIN{c=0} {if($1>th) c++} END{print c}' values.txt)
+          spike=0
+          if [ "$COUNT" -ge "$REQUIRED_SPIKES" ]; then
+            spike=1
+          fi
+          recent=$(cat values.txt | head -n 10 | paste -sd "," - | sed 's/,$//')
+          echo "spike=$spike" >> $GITHUB_OUTPUT
+          echo "spike_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "recent_values=$recent" >> $GITHUB_OUTPUT
+
+      - name: Notify on issues (Slack or GitHub Issue)
+        if: ${{ steps.ping.outputs.ping_failed == 'true' || steps.fetch.outputs.teams_failed == 'true' || steps.fetch.outputs.spike == '1' }}
+        uses: actions/github-script@v6
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pingFailed = `${{ steps.ping.outputs.ping_failed }}` === 'true';
+            const teamsFailed = `${{ steps.fetch.outputs.teams_failed }}` === 'true';
+            const spike = `${{ steps.fetch.outputs.spike }}` === '1';
+            const spikeCount = `${{ steps.fetch.outputs.spike_count }}` || '0';
+            const recent = `${{ steps.fetch.outputs.recent_values }}` || '';
+            const runUrl = process.env.GITHUB_RUN_URL || `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const title = spike ? `ALERT: getTeams_totalMs spike detected (${spikeCount} entries > threshold)` : 'Monitor alert: API issue';
+            const body = `Monitor alert:\n- pingFailed: ${pingFailed}\n- teamsFailed: ${teamsFailed}\n- spike: ${spike} (${spikeCount})\n- recent_values: ${recent}\n\nRun: ${runUrl}`;
+
+            // If Slack webhook available, try to post to Slack first
+            if (process.env.SLACK_WEBHOOK_URL) {
+              try {
+                const fetch = require('node-fetch');
+                await fetch(process.env.SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: title + '\n' + body }) });
+                console.log('Posted alert to Slack.');
+                // Also create or comment on a GitHub issue for tracking if spike
+                if (spike) {
+                  const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                  const existing = issues.data.find(i => i.title && i.title.startsWith('ALERT: getTeams_totalMs spike detected'));
+                  if (existing) {
+                    await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                  } else {
+                    await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                  }
+                }
+              } catch (e) {
+                console.warn('Failed to post to Slack:', e.message || e);
+                // Fallback to creating a GitHub issue
+                const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                const existing = issues.data.find(i => i.title && i.title.startsWith(title));
+                if (existing) {
+                  await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                } else {
+                  await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                }
+              }
+            } else {
+              // No Slack, create (or comment on) GitHub issue
+              const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+              const existing = issues.data.find(i => i.title && i.title.startsWith(title));
+              if (existing) {
+                await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+              } else {
+                await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+              }
+            }
+
+      - name: Summary
+        run: |
+          echo "Ping failed: ${{ steps.ping.outputs.ping_failed }}"
+          echo "Teams failed: ${{ steps.fetch.outputs.teams_failed }}"
+          echo "Spike: ${{ steps.fetch.outputs.spike }}"
