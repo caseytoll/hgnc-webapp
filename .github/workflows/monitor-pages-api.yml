@@ -1,0 +1,53 @@
+name: Monitor Pages API
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # every 30 minutes
+  workflow_dispatch: {}
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check ping endpoint
+        run: |
+          set -e
+          if [ -z "${{ secrets.GS_API_URL }}" ]; then
+            echo "GS_API_URL not set; skipping API monitor."
+            exit 0
+          fi
+          PING_URL="${{ secrets.GS_API_URL }}?api=true&action=ping"
+          echo "Pinging $PING_URL"
+          resp=$(curl -sSfL "$PING_URL" || true)
+          if [ -z "$resp" ]; then
+            echo "Ping failed or returned empty response"
+            gh issue create --title "API Ping failed" --body "The ping endpoint returned no response on $(date)." || true
+            exit 1
+          fi
+          ok=$(echo "$resp" | jq -r '.success // empty')
+          if [ "$ok" != "true" ]; then
+            echo "Ping endpoint returned failure: $resp"
+            gh issue create --title "API Ping returned failure" --body "Response: $resp" || true
+            exit 1
+          fi
+          echo "Ping OK"
+
+      - name: Fetch getTeams and report
+        run: |
+          TEAMS_URL="${{ secrets.GS_API_URL }}?api=true&action=getTeams"
+          echo "Fetching $TEAMS_URL"
+          resp=$(curl -sSfL "$TEAMS_URL" || true)
+          if [ -z "$resp" ]; then
+            echo "getTeams failed or returned empty response"
+            gh issue create --title "getTeams failed" --body "Empty response from getTeams on $(date)." || true
+            exit 1
+          fi
+          success=$(echo "$resp" | jq -r '.success // empty')
+          if [ "$success" != "true" ]; then
+            echo "getTeams returned failure: $resp"
+            gh issue create --title "getTeams returned failure" --body "Response: $resp" || true
+            exit 1
+          fi
+          count=$(echo "$resp" | jq '.teams | length')
+          echo "getTeams returned $count teams"

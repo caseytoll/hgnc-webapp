@@ -572,11 +572,66 @@ async function loadTeams(forceRefresh = false) {
         }
       }
     } else {
-      // Check if we have valid cached teams list
-      if (!forceRefresh && isTeamsListCacheValid() && teamsListCache) {
+      // Determine if cache is usable (invalid if empty)
+      const cacheUsable = !forceRefresh && isTeamsListCacheValid() && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
+
+      if (cacheUsable) {
         console.log('[Cache] Using cached teams list');
         state.teams = teamsListCache.teams;
         state.teamSheetMap = teamsListCache.teamSheetMap;
+
+        // Background revalidation: fetch latest teams and update if changed
+        (async () => {
+          try {
+            console.log('[Cache] Background teams revalidation started');
+            try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
+            if (!resp.ok) {
+              console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
+              try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+              return;
+            }
+            const data = await resp.json();
+            if (data && data.success === false) {
+              console.warn('[Cache] Background revalidation server returned error:', data.error);
+              try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+              return;
+            }
+            const freshTeams = (data.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName }));
+
+            // Lightweight comparison by teamID + playerCount + name
+            const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
+            const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
+
+            if (oldSig !== newSig) {
+              console.log('[Cache] Teams list updated on server; refreshing UI');
+              // Update state and caches
+              state.teams = freshTeams.map(t => ({ ...t }));
+              state.teamSheetMap = {};
+              state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
+              teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+              teamsListCacheTime = new Date().toISOString();
+              saveToLocalStorage();
+
+              try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
+              try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
+
+              try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
+            } else {
+              // Refresh cache timestamp to avoid immediate revalidation
+              teamsListCacheTime = new Date().toISOString();
+              try { saveToLocalStorage(); } catch (e) { /* noop */ }
+              try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            }
+          } catch (err) {
+            console.warn('[Cache] Background teams revalidation failed:', err.message || err);
+            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+          }
+        })();
+
       } else {
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -639,6 +694,9 @@ async function loadTeams(forceRefresh = false) {
     renderTeamList();
   } catch (error) {
     console.error('[App] Failed to load teams:', error);
+    // Persist a short diagnostic for debugging on devices
+    try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (e) { /* noop */ }
+    try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
     showToast('Failed to load teams', 'error');
   } finally {
     hideLoading();
@@ -4485,6 +4543,7 @@ function renderSystemSettings() {
       <div class="settings-row"><span>Data Source</span><span>${state.dataSource}</span></div>
       <div class="settings-row"><span>Online</span><span>${navigator.onLine ? 'Yes' : 'No'}</span></div>
       <div class="settings-row"><span>Teams Loaded</span><span>${state.teams?.length || 0}</span></div>
+      <div class="settings-row"><span>Last teams fetch error</span><span id="last-teams-error">${(window.lastTeamsFetchError) ? window.lastTeamsFetchError : 'None'}</span></div>
     </div>
 
     <div class="settings-section">
@@ -4512,8 +4571,11 @@ function renderSystemSettings() {
       <button class="btn btn-secondary" onclick="clearAllCaches()" style="width: 100%; margin-bottom: 8px;">
         Clear Cache & Reload
       </button>
+      <button class="btn btn-outline" onclick="forceFetchTeams()" style="width: 100%; margin-bottom: 8px;">
+        Force fetch teams (bypass cache)
+      </button>
       <p style="font-size: 12px; color: var(--text-secondary); text-align: center;">
-        Clears all cached data and reloads the app
+        Clears cached data and forces a fresh teams fetch from the server
       </p>
     </div>
   `;
@@ -4594,6 +4656,50 @@ window.reloadData = function() {
     loadTeamData(state.currentTeam.teamID);
   } else {
     loadTeams();
+  }
+};
+
+// Force a direct fetch to the server bypassing local cache
+window.forceFetchTeams = async function() {
+  showLoading();
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
+    if (!resp.ok) {
+      const errMsg = `Server responded ${resp.status}`;
+      window.lastTeamsFetchError = errMsg;
+      showToast('Failed to fetch teams', 'error');
+      console.warn('[ForceFetch] Failed:', errMsg);
+      return;
+    }
+    const data = await resp.json();
+    if (data && data.success === false) {
+      window.lastTeamsFetchError = data.error || 'API returned failure';
+      showToast('Failed to fetch teams', 'error');
+      console.warn('[ForceFetch] API error:', window.lastTeamsFetchError);
+      return;
+    }
+
+    const teams = (data.teams || []).map(t => ({ ...t }));
+    state.teams = teams;
+    state.teamSheetMap = state.teamSheetMap || {};
+    state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
+
+    teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+    teamsListCacheTime = new Date().toISOString();
+    saveToLocalStorage();
+
+    try { renderTeamList(); } catch (e) { console.warn('[ForceFetch] Failed to render', e); }
+    showToast('Teams fetched', 'success');
+    window.lastTeamsFetchError = null;
+  } catch (err) {
+    window.lastTeamsFetchError = (err && err.message) ? err.message : String(err);
+    console.warn('[ForceFetch] Error:', window.lastTeamsFetchError);
+    showToast('Failed to fetch teams', 'error');
+  } finally {
+    hideLoading();
+    renderSystemSettings();
   }
 };
 

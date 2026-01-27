@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "description": "Hazel Glen Netball Club team management app",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run generate:team-portals",
     "build": "vite build",
     "preview": "vite preview",
+    "generate:team-portals": "node scripts/generate-team-portals.cjs --api \"$GS_API_URL\" --out public/",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"

@@ -1,0 +1,32 @@
+name: Validate Pages Config
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check environment
+        run: |
+          echo "Validating Cloudflare Pages configuration..."
+          if [ -z "${{ secrets.GS_API_URL }}" ]; then
+            echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
+            exit 1
+          fi
+          echo "GS_API_URL appears to be set."
+
+      - name: Check redirects file exists
+        run: |
+          if [ ! -f public/_redirects ]; then
+            echo "WARNING: public/_redirects not found. Ensure SPA rewrites are configured for Cloudflare Pages."
+          else
+            echo "Found public/_redirects." 
+          fi
+
+      - name: Check prebuild script
+        run: |
+          node -e "const p=require('./package.json'); if(!p.scripts || !p.scripts.prebuild){console.error('ERROR: prebuild script not configured (runs portal generator).'); process.exit(1);} console.log('prebuild script present');"
