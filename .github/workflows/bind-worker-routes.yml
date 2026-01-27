@@ -19,8 +19,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CF_API_TOKEN:-}" ]; then
-            echo "CF_API_TOKEN not set; aborting"
-            exit 1
+            echo "WARNING: CF_API_TOKEN not set; cannot bind routes automatically."
+            echo "Manual step required: Go to Cloudflare Dashboard → Workers → select '$WORKER_NAME' → Add route:"
+            echo "  - $VIEWER_DOMAIN/teams/*"
+            echo "  - $VIEWER_DOMAIN/p/*"
+            echo "Once added, re-run this workflow to verify the binding."
+            exit 0
           fi
 
           echo "Checking for zone for $VIEWER_DOMAIN..."
@@ -28,12 +32,13 @@ jobs:
 
           ZONE_COUNT=$(echo "$ZONE_JSON" | jq -r '.result | length')
           if [ "$ZONE_COUNT" -eq 0 ]; then
-            echo "::error::Zone for $VIEWER_DOMAIN not found in your account. Pages domains are often managed by Cloudflare and cannot be bound via the Zones API."
+            echo "WARNING: Zone for $VIEWER_DOMAIN not found in your account. Pages domains are often managed by Cloudflare and cannot be bound via the Zones API."
             echo "Manual step required: Go to Cloudflare Dashboard → Workers → select '$WORKER_NAME' → Add route:"
             echo "  - $VIEWER_DOMAIN/teams/*"
             echo "  - $VIEWER_DOMAIN/p/*"
             echo "Once added, re-run this workflow to verify the binding."
-            exit 1
+            # Do not fail the entire workflow as this is a common situation for Pages domains
+            exit 0
           fi
 
           ZONE_ID=$(echo "$ZONE_JSON" | jq -r '.result[0].id')
