@@ -38,6 +38,20 @@ jobs:
             echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
             exit 1
           fi
+
+          echo "Checking ping via curl (follows redirects)..."
+          PING_JSON=$(curl -sSL --fail "${GS_API_URL}?api=true&action=ping" || true)
+          if [ -z "$PING_JSON" ]; then
+            echo "ERROR: Ping endpoint failed or returned empty response via curl"
+            echo "Response: $PING_JSON"
+            exit 1
+          fi
+          if ! echo "$PING_JSON" | jq -e '.success==true' >/dev/null 2>&1; then
+            echo "ERROR: Ping endpoint returned unexpected response via curl: $PING_JSON"
+            exit 1
+          fi
+
+          echo "Ping OK via curl; running JS validator as double-check..."
           node scripts/validate-gs-api.cjs
 
       - name: Generate team portals
