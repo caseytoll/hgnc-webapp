@@ -262,6 +262,11 @@ Update this section at the end of each session:
   - Syncing scores/lineup → `saveToLocalStorage()` updates cache
 - **7-day TTL** chosen because weekly games mean cache invalidates naturally
 - **Performance improvement:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
+- **Added System Settings page** accessible by clicking version number
+  - Shows app info: version, data source, online status, teams loaded
+  - Shows cache status: teams list age, cached teams count, individual team cache ages
+  - Shows storage: localStorage usage in KB
+  - "Clear Cache & Reload" button for manual cache invalidation
 - All 172 tests passing, deployed to production
 
 ### Key functions changed
@@ -269,12 +274,18 @@ Update this section at the end of each session:
   - Added `teamCacheMetadata`, `teamsListCache`, `teamsListCacheTime`
   - Added `TEAM_CACHE_TTL_MS` (7 days)
   - Added `isTeamCacheValid()`, `updateTeamCache()`, `isTeamsListCacheValid()`, `invalidateTeamsListCache()`
+  - Added `showSystemSettings()`, `renderSystemSettings()`, `formatCacheAge()`, `clearAllCaches()`
   - Modified `saveToLocalStorage()` to persist cache metadata and teams list
   - Modified `loadFromLocalStorage()` to restore all cache data
   - Modified `loadTeamData()` for cache-first loading with immediate persist
   - Modified `loadTeams()` with `forceRefresh` param and cache-first loading
   - Modified `updateTeamSettingsAPI()` to invalidate teams list cache
   - Modified `closeGameDetail()` to persist cache after sync
+- `index.html`:
+  - Made version number clickable (`onclick="showSystemSettings()"`)
+  - Added `system-settings-view` with header and content container
+- `src/css/styles.css`:
+  - Added `.settings-section` and `.settings-row` styles for system settings
 
 ### Console logs for debugging
 - `[Cache] Using cached data for team X` - team data cache hit
@@ -286,7 +297,7 @@ Update this section at the end of each session:
 ---
 
 ## Deployment summary (2026-01-27 Session 3)
-- GitHub: pushed to `master` with full caching implementation
+- GitHub: pushed to `master` with caching + system settings
 - Cloudflare Pages: deployed with latest build
 - Apps Script: no changes (still using @56)
 
