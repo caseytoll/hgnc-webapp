@@ -40,7 +40,7 @@ jobs:
           fi
 
           echo "Running ladder fetcher against: ${GS_API_URL}"
-          node scripts/fetch-ladder.js --api "${GS_API_URL}" --out public/
+          node scripts/fetch-ladder.js --api "${GS_API_URL}" --out public/ --only-ladder-url "https://websites.mygameday.app/comp_info.cgi?a=LADDER&compID=655969&c=0-9074-0-602490-0"
 
           # Show any generated ladder files for visibility
           ls -l public/ladder-*.json || echo "No ladder-*.json files generated"
