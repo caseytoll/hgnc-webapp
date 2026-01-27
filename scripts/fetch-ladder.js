@@ -43,6 +43,21 @@ function parseLadder(html) {
 }
 
 async function main() {
+  // CLI arguments
+  const argv = process.argv.slice(2);
+  let onlyLadderUrl = null;
+  let onlyTeamID = null;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--only-ladder-url' && argv[i+1]) {
+      onlyLadderUrl = argv[i+1];
+      i++;
+    }
+    if (argv[i] === '--only-team-id' && argv[i+1]) {
+      onlyTeamID = argv[i+1];
+      i++;
+    }
+  }
+
   let teams = [];
   if (fs.existsSync(TEAMS_PATH)) {
     try {
@@ -70,10 +85,27 @@ async function main() {
     process.exit(1);
   }
 
+  // Filter teams if requested
+  if (onlyTeamID) {
+    teams = teams.filter(t => t.teamID === onlyTeamID);
+    console.log(`Filtering to teamID=${onlyTeamID} — ${teams.length} match(es)`);
+  } else if (onlyLadderUrl) {
+    teams = teams.filter(t => (t.ladderUrl || t.ladderApi || '') === onlyLadderUrl);
+    console.log(`Filtering to ladderUrl=${onlyLadderUrl} — ${teams.length} match(es)`);
+  }
+
+  if (teams.length === 0) {
+    console.log('No teams to process after applying filters — exiting.');
+    return;
+  }
+
   for (const team of teams) {
     // Support both ladderUrl (client field) and ladderApi (sheet column)
     const ladderUrl = team.ladderUrl || team.ladderApi || '';
-    if (!ladderUrl) continue;
+    if (!ladderUrl) {
+      console.log(`Skipping ${team.teamName || team.teamID} — no ladderUrl`);
+      continue;
+    }
     try {
       console.log(`Fetching ladder for ${team.teamName || team.teamID}...`);
       const html = await fetchLadder(ladderUrl);
