@@ -11,8 +11,8 @@
     "prebuild": "npm run generate:team-portals",
     "build": "vite build",
     "preview": "vite preview",
-    "generate:team-portals": "node scripts/generate-team-portals.cjs --api \"$GS_API_URL\" --out public/",
-    "generate:static-teams": "node scripts/generate-static-team-pages.cjs --api \"$GS_API_URL\" --out public/",
+    "generate:team-portals": "node scripts/generate-team-portals.cjs --out public/",
+    "generate:static-teams": "node scripts/generate-static-team-pages.cjs --out public/",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
