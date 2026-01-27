@@ -2209,6 +2209,11 @@ window.openGameDetail = function(gameID) {
   renderScoringInputs();
 
   showView('game-detail-view');
+
+  // Ensure the Read-only pill is visible on game detail for parents
+  if (window.isReadOnlyView) {
+    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (e) { /* noop */ }
+  }
 };
 
 window.closeGameDetail = async function() {
@@ -2717,21 +2722,26 @@ function renderAvailabilityList() {
         return `
           <div class="availability-item">
             <input type="checkbox" class="availability-checkbox"
-                   ${isAvailable ? 'checked' : ''} ${disabled}
+                   data-player-id="${escapeAttr(p.id)}"
+                   ${isAvailable ? 'checked' : ''} ${disabled} aria-disabled="${window.isReadOnlyView ? 'true' : 'false'}"
                    onchange="toggleAvailability('${escapeAttr(p.id)}', this.checked)">
             <div class="availability-name">${escapeHtml(p.name)}</div>
             <div class="availability-status">${isAvailable ? 'Available' : 'Unavailable'}</div>
           </div>
-        `;
+        `; 
       }).join('')}
     </div>
   `;
 }
 
 window.toggleAvailability = function(playerID, available) {
-  if (!ensureNotReadOnly('toggleAvailability')) return;
+  if (!ensureNotReadOnly('toggleAvailability')) {
+    // If blocked, re-render to reset any transient UI changes (checkbox flip from click)
+    try { renderAvailabilityList(); } catch (e) { /* noop */ }
+    return;
+  }
   const game = state.currentGame;
-  if (!game) return;
+  if (!game) return; 
 
   if (!game.availablePlayerIDs) {
     game.availablePlayerIDs = state.currentTeamData.players.map(p => p.id);
