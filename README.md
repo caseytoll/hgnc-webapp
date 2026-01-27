@@ -120,7 +120,7 @@ src/js/
 The app supports two data sources:
 
 Ladder automation:
-- The repository includes a scheduled GitHub Action (`.github/workflows/daily-ladder.yml`) that runs the ladder scraper (`scripts/fetch-ladder.js`) daily and on-demand. The workflow reads the Apps Script `getTeams` API (via the `GS_API_URL` secret), fetches each team's `ladderUrl`, writes `public/ladder-<teamID>.json`, and commits changes to `master` which triggers a Cloudflare Pages redeploy.
+- The repository includes a scheduled GitHub Action (`.github/workflows/daily-ladder.yml`) that runs the ladder scraper (`scripts/fetch-ladder.js`) daily and on-demand. The workflow reads the Apps Script `getTeams` API (via the `GS_API_URL` secret), fetches each team's `ladderUrl`, writes `public/ladder-<teamID>.json`, and commits changes to `master` which triggers a Cloudflare Pages redeploy. Ensure `GS_API_URL` is set to the latest Apps Script deployment (e.g., deployment @56 `AKfycbx5g7fIW28n...`) so the workflow sees `ladderUrl` and diagnostics endpoints.
 
 1. **Mock Data** (default): Uses `src/js/mock-data.js` for offline development
 2. **Live API**: Connects to Google Apps Script backend (configure in `src/js/config.js`)

@@ -253,7 +253,29 @@ Update this section at the end of each session:
   - Browser favicon (32x32)
   - PWA icons (192x192, 512x512)
   - Apple touch icon (180x180)
-- Added player count to `getTeams` API response (displayed on landing page team cards)
+- Persisted `playerCount` to the `Teams` sheet (Column J) and returned it in `getTeams` to avoid per-team sheet reads; added `rebuildPlayerCounts` API to recompute counts and added automatic update of counts in `saveTeamData` (improves `getTeams` performance)
+- Added timing instrumentation to `getTeams` (metrics: `getTeams_totalMs`, `getTeams_cache_hit`, `getTeams_cache_miss_readMs`, `getTeams_loadMasterListMs`, `getTeams_cache_putMs`) and recorded metrics to the `Diagnostics` sheet via `logClientMetric()` to help monitor and tune performance
 - **Added Ladder integration:** Implemented ladder scraping script (`scripts/fetch-ladder.js`) that generates `public/ladder-<teamID>.json`; updated `apps-script/Code.js` to persist `ladderUrl` (`updateTeamSettings`) and include it in `getTeams`; added frontend Ladder tab that conditionally displays and fetches the per-team JSON, with responsive portrait/landscape behavior, a per-team "Show extra columns" toggle (persisted in `localStorage`), and accessibility/reduced-motion support. Sample ladder JSONs were committed to `public/` during testing. Documentation updated (CLAUDE.md) to explain usage and automation options.
 - All icons generated from `docs/HGNC Logo.jpg` using macOS `sips`
 - All 172 tests passing, deployed to production
+
+---
+
+## Deployment summary (2026-01-27)
+- GitHub: all code changes pushed to `master` (latest commits include instrumentation and player count changes)
+- Apps Script deployments:
+  - @56 — `AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd` (getTeams timing instrumentation + playerCount support) — currently used by the app
+  - @55 — `AKfycbzDYbesIxbGVQ3NtQorZ5eO8muR16js5VEogZanlt54rWGCgTJ0kF2GhxBluoKqearN` (playerCount column + rebuildPlayerCounts)
+  - @54 — `AKfycbwWb3mo...` (previous caching/invalidation deployment)
+- Cloudflare Pages: site redeployed with latest build → https://master.hgnc-team-manager.pages.dev (deployment completed)
+
+### Admin commands
+- Rebuild player counts (admin):
+  `?api=true&action=rebuildPlayerCounts` (GET)
+- Force-deploy site (locally):
+  `npm run build && npx wrangler pages deploy dist --project-name=hgnc-team-manager --branch=master --commit-dirty=true`
+
+---
+
+Please let me know if you want continuous monitoring or alerts for `getTeams_totalMs > 2000ms` and I'll add a simple poller / GitHub Action or Slack webhook to notify on spikes.
+
