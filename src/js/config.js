@@ -4,7 +4,7 @@ export const API_CONFIG = {
   // Your current deployed Apps Script web app URL
   // This is used for all server calls (loading data, saving lineups, etc.)
   // Use the Apps Script deployment that includes ladderUrl support
-  baseUrl: 'https://script.google.com/macros/s/AKfycbxl3nsI-Y3pChZp-ogLZiqtdFDrudHFyz72oFAb3XDiRdStt2bu6P8PeI2yCZ4GmsLd/exec',
+  baseUrl: 'https://script.google.com/macros/s/AKfycbyhM_kN9sBeH-eKhl4GpoW8kuw_VSulTgWDtEhq4iIcDj_uEz-HCxuD4lox5lFKBm_A/exec',
 
   // Set to true to use mock data for offline development
   useMockData: false,
