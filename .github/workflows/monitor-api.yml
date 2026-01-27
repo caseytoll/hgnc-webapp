@@ -61,9 +61,17 @@ jobs:
 
           diag_resp=$(curl -sSfL "$DIAG_URL" || true)
           echo "$diag_resp" | jq -r '.diagnostics[] | select(.metric=="getTeams_totalMs") | .value' > values.txt || true
+          THRESHOLD_MS=${THRESHOLD_MS:-2000}
+          REQUIRED_SPIKES=${REQUIRED_SPIKES:-3}
+          COUNT=$(awk -v th="$THRESHOLD_MS" 'BEGIN{c=0} {if($1>th) c++} END{print c}' values.txt)
           spike=0
-          if awk '{ if ($1 > 2000) { exit 0 } }' values.txt; then spike=1; fi
+          if [ "$COUNT" -ge "$REQUIRED_SPIKES" ]; then
+            spike=1
+          fi
+          recent=$(cat values.txt | head -n 10 | paste -sd "," - | sed 's/,$//')
           echo "spike=$spike" >> $GITHUB_OUTPUT
+          echo "spike_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "recent_values=$recent" >> $GITHUB_OUTPUT
 
       - name: Notify on issues (Slack or GitHub Issue)
         if: ${{ steps.ping.outputs.ping_failed == 'true' || steps.fetch.outputs.teams_failed == 'true' || steps.fetch.outputs.spike == '1' }}
@@ -76,20 +84,48 @@ jobs:
             const pingFailed = `${{ steps.ping.outputs.ping_failed }}` === 'true';
             const teamsFailed = `${{ steps.fetch.outputs.teams_failed }}` === 'true';
             const spike = `${{ steps.fetch.outputs.spike }}` === '1';
+            const spikeCount = `${{ steps.fetch.outputs.spike_count }}` || '0';
+            const recent = `${{ steps.fetch.outputs.recent_values }}` || '';
             const runUrl = process.env.GITHUB_RUN_URL || `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            const body = `Monitor alert:\n- pingFailed: ${pingFailed}\n- teamsFailed: ${teamsFailed}\n- spike: ${spike}\n\nRun: ${runUrl}`;
+            const title = spike ? `ALERT: getTeams_totalMs spike detected (${spikeCount} entries > threshold)` : 'Monitor alert: API issue';
+            const body = `Monitor alert:\n- pingFailed: ${pingFailed}\n- teamsFailed: ${teamsFailed}\n- spike: ${spike} (${spikeCount})\n- recent_values: ${recent}\n\nRun: ${runUrl}`;
 
+            // If Slack webhook available, try to post to Slack first
             if (process.env.SLACK_WEBHOOK_URL) {
               try {
                 const fetch = require('node-fetch');
-                await fetch(process.env.SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: body }) });
+                await fetch(process.env.SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: title + '\n' + body }) });
                 console.log('Posted alert to Slack.');
+                // Also create or comment on a GitHub issue for tracking if spike
+                if (spike) {
+                  const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                  const existing = issues.data.find(i => i.title && i.title.startsWith('ALERT: getTeams_totalMs spike detected'));
+                  if (existing) {
+                    await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                  } else {
+                    await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                  }
+                }
               } catch (e) {
                 console.warn('Failed to post to Slack:', e.message || e);
-                await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Monitor alert: API issue (Slack failed)', body });
+                // Fallback to creating a GitHub issue
+                const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                const existing = issues.data.find(i => i.title && i.title.startsWith(title));
+                if (existing) {
+                  await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                } else {
+                  await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                }
               }
             } else {
-              await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Monitor alert: API issue', body });
+              // No Slack, create (or comment on) GitHub issue
+              const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+              const existing = issues.data.find(i => i.title && i.title.startsWith(title));
+              if (existing) {
+                await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+              } else {
+                await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+              }
             }
 
       - name: Summary
