@@ -1,0 +1,45 @@
+name: Deploy Pages Site
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GS_API_URL: ${{ secrets.GS_API_URL }}
+      VIEWER_BASE_URL: ${{ secrets.VIEWER_BASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify environment
+        run: |
+          if [ -z "${GS_API_URL:-}" ]; then echo "ERROR: GS_API_URL not set. Add it to repo secrets or set Pages project env."; exit 1; fi
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then echo "ERROR: CF_API_TOKEN not set. Add it to repo secrets as 'CF_API_TOKEN'."; exit 1; fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (includes prebuild generator)
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+          VIEWER_BASE_URL: ${{ secrets.VIEWER_BASE_URL }}
+        run: npm run build
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          echo "Deploying Pages site 'hgnc-team-manager' from dist/ ..."
+          wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
