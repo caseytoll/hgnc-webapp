@@ -4698,6 +4698,27 @@ function renderSystemSettings() {
     </div>
 
     <div class="settings-section">
+      <h3>Read-only Links</h3>
+      <div class="settings-row" style="grid-template-columns: 1fr auto; font-weight: 700;">
+        <span>Team</span><span>Link</span>
+      </div>
+      ${ (state.teams || []).filter(t => !t.archived).map(t => {
+        // Build a slug consistent with the static generator
+        const base = (t.teamName || t.teamID || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let slug = (t.season && t.season.toString().trim()) ? `${base}-${(t.season||'').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}` : `${base}-${t.teamID}`;
+        const teamUrl = `${location.origin}/teams/${slug}/`;
+        const portalUrl = `${location.origin}/p/${slug}/`;
+        return `<div class="settings-row"><span>${escapeHtml(t.teamName || t.teamID)}<br><small style="color:var(--text-secondary)">${escapeHtml(t.season||'')}</small></span><span style="display:flex;gap:8px;align-items:center;">
+              <a class="btn btn-sm" href="${teamUrl}" target="_blank" rel="noopener">Open</a>
+              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','team')">Copy</button>
+              <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open Portal</a>
+              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','portal')">Copy</button>
+            </span></div>`;
+      }).join('') }
+
+    </div>
+
+    <div class="settings-section">
       <h3>Actions</h3>
       <button class="btn btn-secondary" onclick="clearAllCaches()" style="width: 100%; margin-bottom: 8px;">
         Clear Cache & Reload
@@ -4841,6 +4862,35 @@ window.clearCache = function() {
   state.stats = null;
   showView('team-selector-view');
   loadTeams();
+};
+
+// Copy read-only URL to clipboard (team or portal)
+window.copyReadOnlyUrl = async function(slug, type = 'team') {
+  try {
+    const origin = location.origin;
+    const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url);
+      showToast('Copied link to clipboard', 'success');
+    } else {
+      const tmp = document.createElement('input');
+      tmp.value = url;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      tmp.remove();
+      showToast('Copied link to clipboard', 'success');
+    }
+  } catch (err) {
+    console.warn('[Copy] Failed to copy URL', err);
+    showToast('Failed to copy link', 'error');
+  }
+};
+
+window.openReadOnlyUrl = function(slug, type = 'team') {
+  const origin = location.origin;
+  const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
+  window.open(url, '_blank', 'noopener');
 };
 
 // Utility functions are imported from utils.js
