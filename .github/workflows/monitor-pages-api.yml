@@ -1,9 +1,10 @@
 name: Monitor Pages API
 
 on:
-  schedule:
-    - cron: '*/30 * * * *' # every 30 minutes
   workflow_dispatch: {}
+
+# Deprecated: consolidated into .github/workflows/monitor-api.yml
+# Use the consolidated monitor (ping + getTeams + diagnostics) instead.
 
 jobs:
   check-api:

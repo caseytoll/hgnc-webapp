@@ -1,9 +1,10 @@
 name: Monitor getTeams latency
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: {}
+
+# Deprecated: this check has been consolidated into .github/workflows/monitor-api.yml
+# Use the consolidated monitor (ping + getTeams + diagnostics) instead.
 
 jobs:
   check_latency:
