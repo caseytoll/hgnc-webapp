@@ -163,7 +163,7 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
     ```bash
     node scripts/fetch-ladder.js --api "https://script.google.com/macros/s/REPLACE_WITH_DEPLOY_ID/exec?action=getTeams" --out public/
     ```
-- **Automation (recommended):** Add a GitHub Action to run `scripts/fetch-ladder.js` daily, commit generated `public/ladder-*.json` files, and push to `main` so Cloudflare Pages deploys the updated ladder automatically. I can add a sample workflow if you'd like.
+- **Automation:** A **Daily Ladder Update** workflow (`.github/workflows/daily-ladder.yml`) has been added to run `scripts/fetch-ladder.js` on a schedule and via manual dispatch. The workflow uses the `GS_API_URL` repository secret (Apps Script `getTeams` endpoint) to fetch ladder URLs, generates `public/ladder-*.json`, and commits any changes to `master` so Cloudflare Pages will deploy the updated ladders. To enable it, set `GS_API_URL` in your repository Secrets (Settings → Secrets) and trigger it manually in the Actions tab or rely on the daily schedule.
 - **Deployment notes:** After generating and committing `public/ladder-*.json`, deploy to Cloudflare Pages (see Deployment commands). Ensure the Apps Script deployment referenced in `src/js/config.js` is the correct, published deployment that includes `getTeams`/`updateTeamSettings` with `ladderUrl` support.
 - **Debug helpers:** `apps-script/Code.js` includes `getTeamRowByID()` used for verification. Remove it if you prefer a minimal API surface.
 
