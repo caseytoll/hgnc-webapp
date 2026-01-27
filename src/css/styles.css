@@ -3308,6 +3308,15 @@ body.read-only [data-admin-only] {
   opacity: 0 !important;
 }
 
+/* Hide small inline add buttons and settings in read-only view */
+body.read-only .btn.btn-sm,
+body.read-only .top-bar .icon-btn[onclick*="openTeamSettings"],
+body.read-only .top-bar .icon-btn[onclick*="openGameSettings"] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
 .player-edit-actions .btn {
   flex: 1;
 }
