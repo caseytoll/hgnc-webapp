@@ -546,33 +546,31 @@ window.ensureNotReadOnly = function(action = '') {
   return true;
 };
 
-// Show a persistent, dismissible banner for parents when in read-only mode
-window.showReadOnlyBanner = function(teamName, slug) {
+// Show an always-visible small "Read-only" pill in the top bar for parents
+window.showReadOnlyPill = function(teamName) {
   try {
-    const key = `readOnlyBannerDismissed.${slug || ''}`;
-    if (sessionStorage.getItem(key) === '1') return;
-    if (document.getElementById('read-only-banner')) return;
+    // If already shown, update tooltip/team text
+    const existing = document.getElementById('read-only-pill');
+    if (existing) {
+      existing.title = teamName ? `Read-only — ${teamName}` : 'Read-only';
+      return;
+    }
 
-    const banner = document.createElement('div');
-    banner.id = 'read-only-banner';
-    banner.className = 'read-only-banner';
-    banner.innerHTML = `
-      <div class="banner-inner">
-        <strong>Read‑only view</strong>
-        ${teamName ? ' — ' + escapeHtml(teamName) : ''}
-        <button class="btn btn-ghost btn-sm" id="dismiss-read-only-banner" aria-label="Dismiss read-only banner">Dismiss</button>
-      </div>
-    `;
+    const pill = document.createElement('div');
+    pill.id = 'read-only-pill';
+    pill.className = 'read-only-pill';
+    pill.textContent = 'Read‑only';
+    if (teamName) pill.title = `Read-only — ${teamName}`;
 
-    // Insert banner at top of body
-    document.body.insertBefore(banner, document.body.firstChild);
-
-    document.getElementById('dismiss-read-only-banner').addEventListener('click', () => {
-      try { sessionStorage.setItem(key, '1'); } catch (e) { /* noop */ }
-      banner.remove();
-    });
+    // Place pill in the top-bar title area if available, otherwise append to body
+    const topTitle = document.querySelector('.top-bar .top-bar-title');
+    if (topTitle) {
+      topTitle.appendChild(pill);
+    } else {
+      document.body.insertBefore(pill, document.body.firstChild);
+    }
   } catch (e) {
-    console.warn('[Banner] Failed to show read-only banner:', e.message || e);
+    console.warn('[Pill] Failed to show read-only pill:', e.message || e);
   }
 };
 
@@ -776,8 +774,8 @@ async function loadTeams(forceRefresh = false) {
           // Mark global read-only and add class for CSS masking
           window.isReadOnlyView = true;
           document.body.classList.add('read-only');
-          // Show a small dismissible banner for parents
-          try { showReadOnlyBanner(matched.teamName, slug); } catch (e) { /* noop */ }
+          // Show a small read-only pill for parents
+          try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
           // Load the team (this will render the main app view)
           selectTeam(matched.teamID);
         } else {
