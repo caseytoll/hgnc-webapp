@@ -98,33 +98,33 @@ jobs:
                 console.log('Posted alert to Slack.');
                 // Also create or comment on a GitHub issue for tracking if spike
                 if (spike) {
-                  const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                  const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
                   const existing = issues.data.find(i => i.title && i.title.startsWith('ALERT: getTeams_totalMs spike detected'));
                   if (existing) {
-                    await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                    await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
                   } else {
-                    await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                    await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
                   }
                 }
               } catch (e) {
                 console.warn('Failed to post to Slack:', e.message || e);
                 // Fallback to creating a GitHub issue
-                const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+                const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
                 const existing = issues.data.find(i => i.title && i.title.startsWith(title));
                 if (existing) {
-                  await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                  await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
                 } else {
-                  await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                  await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
                 }
               }
             } else {
               // No Slack, create (or comment on) GitHub issue
-              const issues = await github.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+              const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
               const existing = issues.data.find(i => i.title && i.title.startsWith(title));
               if (existing) {
-                await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+                await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
               } else {
-                await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+                await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
               }
             }
 
