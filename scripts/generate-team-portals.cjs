@@ -36,14 +36,26 @@ function fetchJson(url, redirects = 0) {
 async function main() {
   const argv = require('minimist')(process.argv.slice(2));
   const outDir = path.resolve(argv.out || 'public');
-  const apiUrl = argv.api;
+  // Accept API URL and viewer base from CLI or environment variables to support CI and Pages builds
+  const apiUrl = argv.api || process.env.GS_API_URL || null;
   const teamsFile = argv.teams;
   const viewerOut = argv['viewer-out'] ? path.resolve(argv['viewer-out']) : null;
-  const baseUrl = argv['base-url'] ? argv['base-url'].replace(/\/$/, '') : null;
+  const baseUrl = (argv['base-url'] ? argv['base-url'] : process.env.VIEWER_BASE_URL || null);
 
   if (!fs.existsSync(outDir)) {
     console.error('Output dir not found:', outDir);
     process.exit(1);
+  }
+
+  if (!apiUrl && !teamsFile) {
+    console.error('Specify --api <GS_API_URL> or set GS_API_URL environment variable, or use --teams <file.json>');
+    process.exit(1);
+  }
+
+  if (!apiUrl) {
+    console.log('Using teams from file or environment; no GS_API_URL provided.');
+  } else {
+    console.log('Using GS_API_URL:', apiUrl.replace(/([^:\/]+@)?(.{8}).+(.{4})/, '***REDACTED***'));
   }
 
   let teams = [];
