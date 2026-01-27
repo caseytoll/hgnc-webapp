@@ -29,25 +29,63 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate team portals
+      - name: Validate Apps Script API URL
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
+          echo "Validating GS_API_URL..."
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
+            exit 1
+          fi
+
+          echo "Checking ping via curl (follows redirects)..."
+          PING_JSON=$(curl -sSL --fail "${GS_API_URL}?api=true&action=ping" || true)
+          if [ -z "$PING_JSON" ]; then
+            echo "ERROR: Ping endpoint failed or returned empty response via curl"
+            echo "Response: $PING_JSON"
+            exit 1
+          fi
+          if ! echo "$PING_JSON" | jq -e '.success==true' >/dev/null 2>&1; then
+            echo "ERROR: Ping endpoint returned unexpected response via curl: $PING_JSON"
+            exit 1
+          fi
+
+          echo "Ping OK via curl. (JS validator skipped in CI; keep local validator for troubleshooting)"
+      - name: Generate team portals
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+          VIEWER_BASE_URL: ${{ secrets.VIEWER_BASE_URL }}
+        run: |
           echo "Fetching teams and generating portal pages..."
-          node scripts/generate-team-portals.cjs --api "$GS_API_URL" --out public/
+          if [ -z "${VIEWER_BASE_URL:-}" ]; then
+            echo "ERROR: VIEWER_BASE_URL secret is not set. Add it in Repository settings -> Secrets."
+            exit 1
+          fi
+          node scripts/generate-team-portals.cjs --api "$GS_API_URL" --out public/ --viewer-out viewer/public --base-url "$VIEWER_BASE_URL"
 
       - name: Generate full static team pages
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
+          VIEWER_BASE_URL: ${{ secrets.VIEWER_BASE_URL }}
         run: |
           echo "Generating full read-only static team pages..."
-          node scripts/generate-static-team-pages.cjs --api "$GS_API_URL" --out public/
+          if [ -z "${GS_API_URL:-}" ] || [ -z "${VIEWER_BASE_URL:-}" ]; then
+            echo "WARNING: GS_API_URL or VIEWER_BASE_URL not set; skipping static page generation."
+            exit 0
+          fi
+          node scripts/generate-static-team-pages.cjs --api "$GS_API_URL" --out public/ --viewer-out viewer/public --base-url "$VIEWER_BASE_URL"
 
       - name: Commit generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/hgnc-team-portal-*.html public/p/** public/team-portal-index.json public/teams/** public/team-static-index.json || true
+          git add public/hgnc-team-portal-*.html public/p/** public/team-portal-index.json public/teams/** public/team-static-index.json viewer/public/p/** viewer/public/teams/** || true
+          # Smoke test: only attempt commit if viewer output dir contains files
+          if [ -z "$(ls -A viewer/public/teams 2>/dev/null)" ] && [ -z "$(ls -A viewer/public/p 2>/dev/null)" ]; then
+            echo "No viewer output found; nothing to commit."
+            exit 0
+          fi
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
