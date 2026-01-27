@@ -29,6 +29,7 @@ import {
   escapeAttr,
   delay,
   formatDate,
+  formatDateTime,
   validatePlayerName,
   validateRound,
   validateYear,
@@ -56,6 +57,7 @@ import {
   validateImportedTeamData
 } from './share-utils.js';
 import html2canvas from 'html2canvas';
+import { setDataSource as apiSetDataSource } from './api.js';
 
 // ========================================
 // STATE MANAGEMENT
@@ -195,9 +197,26 @@ loadTheme();
 // INITIALIZATION
 // ========================================
 
+const DATA_SOURCE_KEY = 'hgnc.dataSource';
+
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
+
+  // Restore persisted data source preference (if any)
+  const savedSource = localStorage.getItem(DATA_SOURCE_KEY);
+  if (savedSource) {
+    state.dataSource = savedSource;
+    const dsEl = document.getElementById('dev-status');
+    if (dsEl) dsEl.textContent = `Source: ${savedSource}`;
+
+    // Reflect persisted source in the dev panel select control
+    const select = document.getElementById('data-source-select');
+    if (select) select.value = savedSource;
+  }
+
+  // Ensure API module respects the current data source preference before loading teams
+  apiSetDataSource(state.dataSource);
   loadTeams();
 });
 
@@ -231,6 +250,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <option value="NFNL">NFNL</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
+        <input type="url" class="form-input" id="new-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/...">
+      </div>
     `, `
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="addNewTeam()">Add Team</button>
@@ -241,9 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameInput = document.getElementById('new-team-name');
     const yearInput = document.getElementById('new-team-year');
     const seasonInput = document.getElementById('new-team-season');
+    const ladderUrlInput = document.getElementById('new-team-ladder-url');
     const name = nameInput.value.trim();
     const year = parseInt(yearInput.value);
     const season = seasonInput.value;
+    const ladderUrl = ladderUrlInput.value.trim();
 
     // Validation
     if (!name) {
@@ -278,6 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoading();
 
     try {
+      // Add ladderUrl to new team object
+      // ...existing code...
+      // When saving the new team, include ladderUrl
+      // If you have a saveTeam or similar function, update it to accept ladderUrl
+      // Example:
+      // const newTeam = { teamName: name, year, season, ladderUrl };
+      // ...existing code...
       if (state.dataSource === 'api') {
         // Call API to create team
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -467,8 +499,18 @@ async function loadTeams() {
         teamName: t.teamName,
         playerCount: t.players.length,
         gameCount: t.games.length,
-        archived: t.archived || false
+        archived: t.archived || false,
+        ladderUrl: t.ladderUrl || ''
       }));
+
+      // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
+      if (state.currentTeam) {
+        const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+        if (updated) {
+          state.currentTeam = updated;
+          try { renderMainApp(); } catch(e) { console.warn('[App] Failed to re-render after teams update', e); }
+        }
+      }
     } else {
       // Use proxy for local dev to bypass CORS
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -487,6 +529,19 @@ async function loadTeams() {
         state.teamSheetMap[t.teamID] = t.sheetName;
         return t;
       });
+
+      // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
+      if (state.currentTeam) {
+        const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+        if (updated) {
+          state.currentTeam = updated;
+          try {
+            renderMainApp();
+          } catch (e) {
+            console.warn('[App] Failed to re-render after teams update', e);
+          }
+        }
+      }
       console.log('[App] Loaded', state.teams.length, 'teams');
 
       // Also load player library from API
@@ -810,6 +865,97 @@ function renderMainApp() {
   // Render content
   renderSchedule();
   renderRoster();
+
+  // Render Ladder Tab if ladderUrl is set
+  renderLadderTab(team);
+// ========================================
+// LADDER TAB RENDERING
+// ========================================
+
+function renderLadderTab(team) {
+  // Debug: log team ladderUrl presence
+  console.log('[Ladder] renderLadderTab called for', team?.teamID, 'ladderUrl:', team?.ladderUrl);
+
+  // Use the bottom nav and main tab content area that are present in the DOM
+  const navContainer = document.querySelector('.bottom-nav');
+  const tabPanelContainer = document.querySelector('.tab-content-area');
+  if (!navContainer || !tabPanelContainer) {
+    console.warn('[Ladder] Required DOM containers not found');
+    return;
+  }
+
+  // Remove existing ladder tab if present
+  const existingNav = navContainer.querySelector('.nav-item[data-tab="ladder"]');
+  if (existingNav) existingNav.remove();
+  const existingPanel = tabPanelContainer.querySelector('#tab-ladder');
+  if (existingPanel) existingPanel.remove();
+
+  if (!team.ladderUrl) return; // Hide tab if no ladderUrl
+
+  // Add Ladder tab to nav (insert before the Stats button to keep order)
+  const ladderNav = document.createElement('button');
+  ladderNav.className = 'nav-item';
+  ladderNav.dataset.tab = 'ladder';
+  ladderNav.innerHTML = `
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="6" y1="2" x2="6" y2="22" />
+      <line x1="18" y1="2" x2="18" y2="22" />
+      <line x1="6" y1="6" x2="18" y2="6" />
+      <line x1="6" y1="12" x2="18" y2="12" />
+      <line x1="6" y1="18" x2="18" y2="18" />
+    </svg>
+    <span>Ladder</span>
+  `;
+  ladderNav.setAttribute('aria-label', 'Ladder');
+  ladderNav.title = 'Ladder';
+  ladderNav.onclick = () => window.switchTab('ladder');
+  // Insert before the Stats button if present
+  const statsBtn = navContainer.querySelector('.nav-item[data-tab="stats"]');
+  if (statsBtn) {
+    navContainer.insertBefore(ladderNav, statsBtn);
+  } else {
+    navContainer.appendChild(ladderNav);
+  }
+
+  // Add Ladder tab panel
+  const ladderPanel = document.createElement('div');
+  ladderPanel.className = 'tab-panel';
+  ladderPanel.id = 'tab-ladder';
+  ladderPanel.innerHTML = `<div id="ladder-content"><div class="ladder-loading">Loading ladder...</div></div>`;
+  // Append to the tab content area
+  tabPanelContainer.appendChild(ladderPanel);
+
+  // Fetch and render ladder JSON
+  fetch(`/ladder-${team.teamID}.json`)
+    .then(res => res.json())
+    .then(data => {
+      const ladderDiv = ladderPanel.querySelector('#ladder-content');
+      if (!data.ladder || !data.ladder.rows || !data.ladder.headers) {
+        ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available.</div>`;
+        return;
+      }
+      // Build header metadata (determine numeric columns)
+      const headers = data.ladder.headers;
+      const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|%|% Won|PTS)$/i.test(h));
+
+      let formatted = formatDateTime(data.lastUpdated || '');
+      let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}</div>`;
+      html += '<div class="ladder-container"><table class="ladder-table"><thead><tr>' + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + '</tr></thead><tbody>';
+
+      html += data.ladder.rows.map(row => {
+        const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
+        const isCurrent = team && team.teamName && rowTeamName.includes(String(team.teamName || '').toLowerCase());
+        return '<tr class="' + (isCurrent ? 'highlight' : '') + '">' + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + '</tr>';
+      }).join('');
+
+      html += '</tbody></table></div>';
+      ladderDiv.innerHTML = html;
+    })
+    .catch(() => {
+      const ladderDiv = ladderPanel.querySelector('#ladder-content');
+      ladderDiv.innerHTML = `<div class="ladder-error">Failed to load ladder. Please try again later.</div>`;
+    });
+}
 }
 
 // ========================================
@@ -3154,6 +3300,10 @@ window.openTeamSettings = function() {
         ).join('')}
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
+      <input type="url" class="form-input" id="edit-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${escapeAttr(team.ladderUrl || '')}">
+    </div>
     <div class="settings-divider"></div>
     <div class="form-group">
       <label class="form-label">Data Management</label>
@@ -3272,6 +3422,8 @@ window.saveTeamSettings = async function() {
   const yearInput = document.getElementById('edit-team-year');
   const year = parseInt(yearInput.value);
   const season = document.getElementById('edit-team-season').value;
+  const ladderUrlInput = document.getElementById('edit-team-ladder-url');
+  const ladderUrl = ladderUrlInput.value.trim();
 
   // Validation
   if (!name) {
@@ -3311,12 +3463,14 @@ window.saveTeamSettings = async function() {
     state.currentTeam.teamName = name;
     state.currentTeam.year = year;
     state.currentTeam.season = season;
+    state.currentTeam.ladderUrl = ladderUrl;
 
     // Also update in currentTeamData
     if (state.currentTeamData) {
       state.currentTeamData.teamName = name;
       state.currentTeamData.year = year;
       state.currentTeamData.season = season;
+      state.currentTeamData.ladderUrl = ladderUrl;
     }
 
     // Update in teams list
@@ -3325,10 +3479,11 @@ window.saveTeamSettings = async function() {
       teamInList.teamName = name;
       teamInList.year = year;
       teamInList.season = season;
+      teamInList.ladderUrl = ladderUrl;
     }
 
     // Save to backend
-    await updateTeamSettingsAPI(state.currentTeam.teamID, { teamName: name, year, season });
+    await updateTeamSettingsAPI(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl });
 
     saveToLocalStorage();
     renderMainApp();
@@ -4078,8 +4233,16 @@ window.toggleDevPanel = function() {
 
 window.setDataSource = function(source) {
   state.dataSource = source;
-  document.getElementById('dev-status').textContent = `Source: ${source}`;
+  // Persist preference so it survives hard refresh
+  try { localStorage.setItem(DATA_SOURCE_KEY, source); } catch (e) { /* ignore */ }
+  // Update both app state and API layer
+  try { apiSetDataSource(source); } catch (e) { console.warn('API module not available:', e); }
+  const dsEl = document.getElementById('dev-status');
+  if (dsEl) dsEl.textContent = `Source: ${source}`;
   console.log(`[Dev] Data source: ${source}`);
+
+  // Immediately reload teams so the UI reflects the selected source
+  try { loadTeams(); } catch (e) { console.warn('[Dev] Failed to reload teams after data source change', e); }
 };
 
 window.reloadData = function() {

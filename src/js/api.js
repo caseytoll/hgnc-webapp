@@ -104,7 +104,8 @@ export async function loadTeams() {
       season: t.season,
       teamName: t.teamName,
       playerCount: t.players.length,
-      gameCount: t.games.length
+      gameCount: t.games.length,
+      ladderUrl: t.ladderUrl || ''
     }));
   }
 

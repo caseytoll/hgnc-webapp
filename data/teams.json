@@ -1,0 +1,8 @@
+[
+  {
+    "teamID": "hazelglen6",
+    "teamName": "Hazel Glen 6",
+    "ladderUrl": "https://websites.mygameday.app/comp_info.cgi?a=LADDER&compID=655969&c=0-9074-0-602490-0"
+  }
+  // Add more teams here, each with a unique teamID, teamName, and ladderUrl if available
+]
