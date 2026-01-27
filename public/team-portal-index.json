@@ -4,13 +4,13 @@
     "teamID": "team_1763710520310",
     "name": "Hazel Glen 6",
     "slug": "hazel-glen-6",
-    "target": "/viewer/?team=team_1763710520310"
+    "target": "https://hgnc-gameday.pages.dev/viewer/?team=team_1763710520310"
   },
   {
     "path": "/p/u11-flames/",
     "teamID": "team_1769463454483",
     "name": "U11 Flames",
     "slug": "u11-flames",
-    "target": "/viewer/?team=team_1769463454483"
+    "target": "https://hgnc-gameday.pages.dev/viewer/?team=team_1769463454483"
   }
 ]
