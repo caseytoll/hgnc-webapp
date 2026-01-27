@@ -1,0 +1,92 @@
+name: Monitor API (consolidated)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes
+  workflow_dispatch: {}
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check configuration
+        run: |
+          if [ -z "${{ secrets.GS_API_URL }}" ]; then
+            echo "GS_API_URL not set; skipping monitor checks"
+            exit 0
+          fi
+
+      - name: Ping endpoint
+        id: ping
+        run: |
+          PING_URL="${{ secrets.GS_API_URL }}?api=true&action=ping"
+          echo "Pinging $PING_URL"
+          resp=$(curl -sSfL "$PING_URL" || true)
+          if [ -z "$resp" ]; then
+            echo "ping_failed=true" >> $GITHUB_OUTPUT
+          else
+            ok=$(echo "$resp" | jq -r '.success // "false"')
+            if [ "$ok" != "true" ]; then
+              echo "ping_failed=true" >> $GITHUB_OUTPUT
+            else
+              echo "ping_failed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Fetch getTeams & diagnostics
+        id: fetch
+        run: |
+          TEAMS_URL="${{ secrets.GS_API_URL }}?api=true&action=getTeams"
+          DIAG_URL="${{ secrets.GS_API_URL }}?api=true&action=getDiagnostics&limit=50"
+
+          teams_resp=$(curl -sSfL "$TEAMS_URL" || true)
+          if [ -z "$teams_resp" ]; then
+            echo "teams_failed=true" >> $GITHUB_OUTPUT
+          else
+            success=$(echo "$teams_resp" | jq -r '.success // "false"')
+            if [ "$success" != "true" ]; then
+              echo "teams_failed=true" >> $GITHUB_OUTPUT
+            else
+              echo "teams_failed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          diag_resp=$(curl -sSfL "$DIAG_URL" || true)
+          echo "$diag_resp" | jq -r '.diagnostics[] | select(.metric=="getTeams_totalMs") | .value' > values.txt || true
+          spike=0
+          if awk '{ if ($1 > 2000) { exit 0 } }' values.txt; then spike=1; fi
+          echo "spike=$spike" >> $GITHUB_OUTPUT
+
+      - name: Notify on issues (Slack or GitHub Issue)
+        if: ${{ steps.ping.outputs.ping_failed == 'true' || steps.fetch.outputs.teams_failed == 'true' || steps.fetch.outputs.spike == '1' }}
+        uses: actions/github-script@v6
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pingFailed = `${{ steps.ping.outputs.ping_failed }}` === 'true';
+            const teamsFailed = `${{ steps.fetch.outputs.teams_failed }}` === 'true';
+            const spike = `${{ steps.fetch.outputs.spike }}` === '1';
+            const runUrl = process.env.GITHUB_RUN_URL || `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const body = `Monitor alert:\n- pingFailed: ${pingFailed}\n- teamsFailed: ${teamsFailed}\n- spike: ${spike}\n\nRun: ${runUrl}`;
+
+            if (process.env.SLACK_WEBHOOK_URL) {
+              try {
+                const fetch = require('node-fetch');
+                await fetch(process.env.SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: body }) });
+                console.log('Posted alert to Slack.');
+              } catch (e) {
+                console.warn('Failed to post to Slack:', e.message || e);
+                await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Monitor alert: API issue (Slack failed)', body });
+              }
+            } else {
+              await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Monitor alert: API issue', body });
+            }
+
+      - name: Summary
+        run: |
+          echo "Ping failed: ${{ steps.ping.outputs.ping_failed }}"
+          echo "Teams failed: ${{ steps.fetch.outputs.teams_failed }}"
+          echo "Spike: ${{ steps.fetch.outputs.spike }}"
