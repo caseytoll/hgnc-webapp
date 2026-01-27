@@ -91,15 +91,39 @@ const STORAGE_KEY = 'teamManagerData';
 // Cache for API team data (separate from mockTeams)
 const apiTeamCache = {};
 
+// Cache metadata for TTL tracking
+const teamCacheMetadata = {};
+const TEAM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Check if cached team data is still valid (within TTL)
+ */
+function isTeamCacheValid(teamID) {
+  const meta = teamCacheMetadata[teamID];
+  if (!meta || !apiTeamCache[teamID]) return false;
+  const age = Date.now() - new Date(meta.cachedAt).getTime();
+  return age < TEAM_CACHE_TTL_MS;
+}
+
+/**
+ * Update team cache with fresh data and timestamp
+ */
+function updateTeamCache(teamID, teamData) {
+  apiTeamCache[teamID] = teamData;
+  teamCacheMetadata[teamID] = { cachedAt: new Date().toISOString() };
+}
+
 function saveToLocalStorage() {
   try {
-    // If using API and have current team data, cache it
+    // If using API and have current team data, cache it with timestamp
     if (state.dataSource === 'api' && state.currentTeamData) {
-      apiTeamCache[state.currentTeamData.teamID] = state.currentTeamData;
+      const teamID = state.currentTeamData.teamID;
+      updateTeamCache(teamID, state.currentTeamData);
     }
     const dataToSave = {
       teams: mockTeams,
       apiTeams: apiTeamCache,
+      teamCacheMeta: teamCacheMetadata,
       playerLibrary: state.playerLibrary,
       lastSaved: new Date().toISOString()
     };
@@ -157,6 +181,10 @@ function loadFromLocalStorage() {
       // Load API team cache
       if (data.apiTeams) {
         Object.assign(apiTeamCache, data.apiTeams);
+      }
+      // Load cache metadata for TTL tracking
+      if (data.teamCacheMeta) {
+        Object.assign(teamCacheMetadata, data.teamCacheMeta);
       }
       console.log('[Storage] Data loaded from', data.lastSaved);
       return true;
@@ -713,57 +741,30 @@ async function loadTeamData(teamID) {
       await delay(300); // Slightly longer to see skeleton effect
       state.currentTeamData = mockTeams.find(t => t.teamID === teamID);
     } else {
-      showLoading();
-      // Use proxy for local dev to bypass CORS
-      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-      const sheetName = state.teamSheetMap?.[teamID] || '';
-      const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
-      const data = await response.json();
-      if (data.success === false) {
-        throw new Error(data.error || 'API request failed');
-      }
-      // Transform data from Sheet format to PWA format
-      state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
+      // Check if we have valid cached data (within TTL)
+      if (isTeamCacheValid(teamID)) {
+        console.log('[Cache] Using cached data for team', teamID);
+        state.currentTeamData = apiTeamCache[teamID];
+      } else {
+        showLoading();
+        // Use proxy for local dev to bypass CORS
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const sheetName = state.teamSheetMap?.[teamID] || '';
+        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
+        const data = await response.json();
+        if (data.success === false) {
+          throw new Error(data.error || 'API request failed');
+        }
+        // Transform data from Sheet format to PWA format
+        state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
 
-      // Merge any locally cached changes (e.g., player edits not yet synced)
-      const cachedTeam = apiTeamCache[teamID];
-      if (cachedTeam) {
-        // Merge player changes (fillIn, favPosition, name)
-        state.currentTeamData.players.forEach(player => {
-          const cachedPlayer = cachedTeam.players?.find(p => p.id === player.id);
-          if (cachedPlayer) {
-            player.fillIn = cachedPlayer.fillIn;
-            player.favPosition = cachedPlayer.favPosition;
-            player.name = cachedPlayer.name;
-          }
-        });
-        // Add any locally-added players not in Sheet
-        cachedTeam.players?.forEach(cachedPlayer => {
-          if (!state.currentTeamData.players.find(p => p.id === cachedPlayer.id)) {
-            state.currentTeamData.players.push(cachedPlayer);
-          }
-        });
-        // Merge game changes (lineup, scores, availability)
-        state.currentTeamData.games.forEach(game => {
-          const cachedGame = cachedTeam.games?.find(g => g.gameID === game.gameID);
-          if (cachedGame) {
-            game.lineup = cachedGame.lineup || game.lineup;
-            game.scores = cachedGame.scores || game.scores;
-            game.availablePlayerIDs = cachedGame.availablePlayerIDs || game.availablePlayerIDs;
-            game.status = cachedGame.status || game.status;
-          }
-        });
-        // Add any locally-added games not in Sheet
-        cachedTeam.games?.forEach(cachedGame => {
-          if (!state.currentTeamData.games.find(g => g.gameID === cachedGame.gameID)) {
-            state.currentTeamData.games.push(cachedGame);
-          }
-        });
-        console.log('[Storage] Merged local changes for team', teamID);
-      }
+        // Cache the fresh data with timestamp
+        updateTeamCache(teamID, state.currentTeamData);
+        console.log('[Cache] Fetched and cached data for team', teamID);
 
-      hideLoading();
+        hideLoading();
+      }
     }
 
     state.currentTeam = state.teams.find(t => t.teamID === teamID);
