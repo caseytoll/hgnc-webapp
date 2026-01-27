@@ -269,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (m && m.groups && m.groups.slug) {
       state.readOnly = true;
       state.requestedTeamSlug = m.groups.slug.toLowerCase();
+      state.forceApiForReadOnly = true; // prefer live API when parents use /teams/<slug>/ locally
       console.log('[App] Read-only team slug requested:', state.requestedTeamSlug);
       // Set global flag to allow other modules to quickly detect read-only mode
       window.isReadOnlyView = true;
@@ -289,6 +290,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reflect persisted source in the dev panel select control
     const select = document.getElementById('data-source-select');
     if (select) select.value = savedSource;
+  } else if (state.forceApiForReadOnly) {
+    // If a read-only slug was requested locally, prefer API so teams can be found
+    state.dataSource = 'api';
+    console.log('[Dev] No saved dataSource; forcing API for read-only view');
+    const dsEl = document.getElementById('dev-status'); if (dsEl) dsEl.textContent = 'Source: api (forced for read-only)';
   }
 
   // Ensure API module respects the current data source preference before loading teams
