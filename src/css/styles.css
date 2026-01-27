@@ -3317,24 +3317,22 @@ body.read-only .top-bar .icon-btn[onclick*="openGameSettings"] {
   opacity: 0 !important;
 }
 
-/* Read-only banner */
-.read-only-banner {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(90deg, #111827, #1f2937);
-  color: #fff;
-  padding: 10px 12px;
-  z-index: 9999;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  font-size: 0.95rem;
+/* Read-only pill (small indicator in top bar) */
+.read-only-pill {
+  display: inline-block;
+  margin-left: 12px;
+  background: rgba(125, 90, 255, 0.12);
+  color: #7c3aed;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  border: 1px solid rgba(124, 58, 237, 0.12);
 }
-.read-only-banner .banner-inner { max-width: 1100px; margin: 0 auto; display:flex; justify-content:space-between; align-items:center; gap:12px }
-.read-only-banner .btn { opacity: 0.95 }
-body.read-only .read-only-banner { display: block }
-body.read-only { padding-top: 48px; }
+.read-only-pill[title] { cursor: default }
+body.read-only .read-only-pill { display: inline-block }
+
 
 
 .player-edit-actions .btn {
