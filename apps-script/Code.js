@@ -251,6 +251,28 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'logClientMetric':
+          // Simple diagnostics logger - appends a row to Diagnostics sheet
+          var metricName = e.parameter.name || '';
+          var metricValue = e.parameter.value || '';
+          var metricTeams = e.parameter.teams || '';
+          var metricExtra = e.parameter.extra || '';
+          if (!metricName) {
+            result = { success: false, error: 'name parameter is required' };
+          } else {
+            try {
+              var logResult = logClientMetric(metricName, metricValue, metricTeams, metricExtra);
+              if (logResult.error) {
+                result = { success: false, error: logResult.error };
+              } else {
+                result = { success: true };
+              }
+            } catch (errLog) {
+              result = { success: false, error: errLog.message };
+            }
+          }
+          break;
+
         case 'createTeam':
           var createYear = e.parameter.year || new Date().getFullYear();
           var createSeason = e.parameter.season || 'Season 1';
@@ -1176,6 +1198,28 @@ function getTeamRowByID(teamID) {
     }
     return { error: 'Team not found' };
   } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Append a client metric to a Diagnostics sheet for later inspection
+ */
+function logClientMetric(name, value, teams, extra) {
+  try {
+    var ss = getSpreadsheet();
+    var sheetName = 'Diagnostics';
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      // Create sheet with headers
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow(['timestamp', 'metric', 'value', 'teams', 'extra']);
+    }
+    var timestamp = new Date();
+    sheet.appendRow([timestamp.toISOString(), name, String(value), String(teams), String(extra)]);
+    return { success: true };
+  } catch (e) {
+    Logger.log('Error in logClientMetric: ' + e.message);
     return { error: e.message };
   }
 }
