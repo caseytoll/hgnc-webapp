@@ -530,6 +530,22 @@ window.showToast = function(message, type = 'info') {
   }, 3000);
 };
 
+// Read-only guard helper (use before performing UI/write actions)
+window.ensureNotReadOnly = function(action = '') {
+  try {
+    if (typeof window !== 'undefined' && window.isReadOnlyView) {
+      // Friendly notification for parents
+      try { showToast('Read-only view: action disabled', 'info'); } catch (e) { /* noop */ }
+      console.warn('[Read-only] blocked action:', action);
+      return false;
+    }
+  } catch (e) {
+    // If anything goes wrong, don't block by default
+    console.warn('[Read-only] guard error:', e.message || e);
+  }
+  return true;
+};
+
 // ========================================
 // MODAL MANAGEMENT
 // ========================================
@@ -3087,7 +3103,7 @@ window.openPlayerDetail = function(playerID) {
   openModal(`${escapeHtml(player.name)}`, `
     <div class="player-detail-tabs">
       <button class="player-detail-tab active" onclick="switchPlayerTab('stats')">Stats</button>
-      <button class="player-detail-tab" onclick="switchPlayerTab('edit')">Edit</button>
+      ${!window.isReadOnlyView ? `<button class="player-detail-tab" onclick="switchPlayerTab('edit')">Edit</button>` : ''}
     </div>
 
     <div id="player-tab-stats" class="player-tab-content active">
@@ -3144,6 +3160,7 @@ window.openPlayerDetail = function(playerID) {
       ` : '<div class="empty-state"><p>No game data yet</p></div>'}
     </div>
 
+    ${!window.isReadOnlyView ? `
     <div id="player-tab-edit" class="player-tab-content">
       <div class="form-group">
         <label class="form-label">Name</label>
@@ -3176,6 +3193,7 @@ window.openPlayerDetail = function(playerID) {
         <button class="btn btn-primary" onclick="savePlayer('${escapeAttr(playerID)}')">Save Changes</button>
       </div>
     </div>
+    ` : ''}
   `);
 };
 
@@ -3261,6 +3279,7 @@ function calculatePlayerStats(player) {
 }
 
 window.savePlayer = async function(playerID) {
+  if (!ensureNotReadOnly('savePlayer')) return;
   const player = state.currentTeamData.players.find(p => p.id === playerID);
   if (!player) {
     showToast('Player not found', 'error');
@@ -3352,6 +3371,7 @@ window.savePlayer = async function(playerID) {
 };
 
 window.deletePlayer = async function(playerID) {
+  if (!ensureNotReadOnly('deletePlayer')) return;
   if (!confirm('Delete this player?')) return;
 
   state.currentTeamData.players = state.currentTeamData.players.filter(p => p.id !== playerID);
@@ -3375,6 +3395,7 @@ window.deletePlayer = async function(playerID) {
 };
 
 window.openAddPlayerModal = function() {
+  if (!ensureNotReadOnly('openAddPlayerModal')) return;
   openModal('Add Player', `
     <div class="form-group">
       <label class="form-label">Name</label>
@@ -3437,6 +3458,7 @@ function setFieldSuccess(input) {
 }
 
 window.addPlayer = async function() {
+  if (!ensureNotReadOnly('addPlayer')) return;
   const nameInput = document.getElementById('new-player-name');
   const name = nameInput.value.trim();
 
@@ -3511,6 +3533,7 @@ window.addPlayer = async function() {
 // ========================================
 
 window.openAddGameModal = function() {
+  if (!ensureNotReadOnly('openAddGameModal')) return;
   const nextRound = (state.currentTeamData?.games?.length || 0) + 1;
 
   openModal('Add Game', `
@@ -3541,6 +3564,7 @@ window.openAddGameModal = function() {
 };
 
 window.addGame = async function() {
+  if (!ensureNotReadOnly('addGame')) return;
   const opponentInput = document.getElementById('new-game-opponent');
   const opponent = opponentInput.value.trim();
   const roundInput = document.getElementById('new-game-round');
@@ -3844,6 +3868,7 @@ window.saveTeamSettings = async function() {
 };
 
 window.openGameSettings = function() {
+  if (!ensureNotReadOnly('openGameSettings')) return;
   const game = state.currentGame;
   if (!game) return;
 
