@@ -29,15 +29,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Apps Script API URL
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+        run: |
+          echo "Validating GS_API_URL..."
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
+            exit 1
+          fi
+          node scripts/validate-gs-api.cjs
+
       - name: Generate team portals
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
           VIEWER_BASE_URL: ${{ secrets.VIEWER_BASE_URL }}
         run: |
           echo "Fetching teams and generating portal pages..."
-          if [ -z "${GS_API_URL:-}" ] || [ -z "${VIEWER_BASE_URL:-}" ]; then
-            echo "WARNING: GS_API_URL or VIEWER_BASE_URL not set; skipping generation. Set the secrets to enable generation."
-            exit 0
+          if [ -z "${VIEWER_BASE_URL:-}" ]; then
+            echo "ERROR: VIEWER_BASE_URL secret is not set. Add it in Repository settings -> Secrets."
+            exit 1
           fi
           node scripts/generate-team-portals.cjs --api "$GS_API_URL" --out public/ --viewer-out viewer/public --base-url "$VIEWER_BASE_URL"
 
