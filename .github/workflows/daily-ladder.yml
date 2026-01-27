@@ -1,0 +1,49 @@
+name: Daily Ladder Update
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # daily at 02:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ladder-update
+  cancel-in-progress: true
+
+jobs:
+  update-ladders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ladder fetcher
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+        run: |
+          # Run the fetcher against the Apps Script API configured in repo secrets
+          node scripts/fetch-ladder.js --api "${GS_API_URL}" --out public/ || true
+
+      - name: Commit changes
+        run: |
+          if [ -n "$(git status --porcelain public/ladder-*.json 2>/dev/null)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/ladder-*.json
+            git commit -m "chore: update ladders [skip ci]" || echo "nothing to commit"
+            git push origin HEAD:master
+          else
+            echo "No ladder updates"
+          fi
