@@ -3291,6 +3291,18 @@ h4 { font-size: 1rem; }
   display: block;
 }
 
+.player-edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.player-edit-actions .btn {
+  flex: 1;
+}
+
 .player-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -4214,6 +4226,7 @@ h4 { font-size: 1rem; }
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
@@ -4237,8 +4250,9 @@ h4 { font-size: 1rem; }
 
 #system-settings-view .content {
   padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   overflow-y: auto;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 60px - env(safe-area-inset-top, 0px));
 }
 
 .settings-section {

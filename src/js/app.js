@@ -3062,10 +3062,11 @@ window.openPlayerDetail = function(playerID) {
         </label>
         <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px; margin-left: 24px;">Track this player's stats across teams and seasons</p>
       </div>
+      <div class="player-edit-actions">
+        <button class="btn btn-ghost" onclick="deletePlayer('${escapeAttr(playerID)}')">Delete Player</button>
+        <button class="btn btn-primary" onclick="savePlayer('${escapeAttr(playerID)}')">Save Changes</button>
+      </div>
     </div>
-  `, `
-    <button class="btn btn-ghost" onclick="deletePlayer('${escapeAttr(playerID)}')">Delete</button>
-    <button class="btn btn-primary" onclick="savePlayer('${escapeAttr(playerID)}')">Save</button>
   `);
 };
 
