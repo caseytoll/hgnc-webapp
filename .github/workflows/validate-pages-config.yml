@@ -10,6 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Check environment
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
@@ -31,4 +39,9 @@ jobs:
 
       - name: Check prebuild script
         run: |
+          # Ensure package.json is available and check prebuild script
+          if [ ! -f package.json ]; then
+            echo "ERROR: package.json not found in repository root. Ensure this workflow runs after checkout."
+            exit 1
+          fi
           node -e "const p=require('./package.json'); if(!p.scripts || !p.scripts.prebuild){console.error('ERROR: prebuild script not configured (runs portal generator).'); process.exit(1);} console.log('prebuild script present');"
