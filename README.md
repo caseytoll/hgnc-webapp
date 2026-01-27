@@ -336,7 +336,14 @@ Deployment rewrite rules
 
 Notes
 - This approach avoids creating one static file per team and keeps URLs clean and human-friendly.
-- If you prefer static redirect pages instead, use `npm run generate:team-portals` (already added) which writes `public/hgnc-team-portal-<slug>.html` redirect pages. To have Pages generate them during build, set the `GS_API_URL` environment variable in your Pages project and the `prebuild` script will run automatically during build.
+- If you prefer static redirect pages or full static read-only pages, use the generator scripts:
+  - `npm run generate:team-portals` — generates compact portal redirect pages (`public/hgnc-team-portal-<slug>.html`) and viewer redirects under `/p/<slug>/`.
+  - `npm run generate:static-teams` — generates full static read-only pages under `public/teams/<slug>/` (Viewer-friendly pages that are safe for parents/spectators).
+- Slug format is now **season-aware** (`name-season`), with a fallback to `name-teamID` to ensure uniqueness across seasons.
+
+- The Viewer UI now shows a **Read‑only pill** in the game detail when a read-only page is open, and write controls (availability, lineup assignment, scoring) are disabled. System Settings contains a **Read‑only Links** section with copy/open helpers for each team to make it easy to share parent-friendly URLs.
+
+- To have Pages generate portals during build, set the `GS_API_URL` environment variable in your Pages project so the `prebuild` script runs automatically during build.
 
 ---
 
