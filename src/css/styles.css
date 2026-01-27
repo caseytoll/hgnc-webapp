@@ -3299,6 +3299,62 @@ h4 { font-size: 1rem; }
   border-top: 1px solid var(--border-color);
 }
 
+/* Read-only view helpers */
+body.read-only .player-edit-actions,
+body.read-only #add-team-btn,
+body.read-only [data-admin-only] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Hide small inline add buttons and settings in read-only view */
+body.read-only .btn.btn-sm,
+body.read-only .top-bar .icon-btn[onclick*="openTeamSettings"],
+body.read-only .top-bar .icon-btn[onclick*="openGameSettings"] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Make position slots non-interactive in read-only mode */
+body.read-only .position-slot {
+  pointer-events: none !important;
+  opacity: 0.95;
+}
+
+/* Disable stepper buttons & inputs in read-only mode */
+body.read-only .score-stepper .stepper-btn,
+body.read-only .score-stepper .scoring-input {
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+}
+
+/* Read-only pill (small indicator in top bar) */
+.read-only-pill {
+  display: inline-block;
+  margin-left: 12px;
+  background: rgba(125, 90, 255, 0.12);
+  color: #7c3aed;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  border: 1px solid rgba(124, 58, 237, 0.12);
+}
+.read-only-pill[title] { cursor: default }
+body.read-only .read-only-pill { display: inline-block }
+
+/* Disable availability toggles in read-only mode */
+body.read-only .availability-checkbox {
+  pointer-events: none !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+
+
 .player-edit-actions .btn {
   flex: 1;
 }

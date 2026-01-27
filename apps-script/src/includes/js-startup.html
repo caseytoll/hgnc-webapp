@@ -72,14 +72,12 @@
             
             function applyOwnerModeUI() {
                 try {
-                    var readOnlyBanner = document.getElementById('read-only-banner');
-                    console.log('[applyOwnerModeUI] isOwner():', isOwner(), 'readOnlyBanner found:', !!readOnlyBanner);
+                    var readOnlyPill = document.getElementById('read-only-pill');
+                    console.log('[applyOwnerModeUI] isOwner():', isOwner(), 'readOnlyPill found:', !!readOnlyPill);
                     if (isOwner()) {
-                        // Hide read-only banner for owners
-                        if (readOnlyBanner) {
-                            readOnlyBanner.classList.add('hidden');
-                        }
-
+                        // Hide read-only pill for owners
+                        if (readOnlyPill) {
+                            readOnlyPill.classList.add('hidden');
                         // Show "Create New Team" button
                         var addTeamButton = document.getElementById('show-add-team-modal');
                         if (addTeamButton) {

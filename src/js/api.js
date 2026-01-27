@@ -27,6 +27,17 @@ function updateStatus(message) {
 async function callAppsScript(action, params = {}) {
   updateStatus(`Calling ${action}...`);
 
+  // Protect write operations when running in a read-only view
+  try {
+    const writeActions = new Set(['saveTeamData', 'savePlayerLibrary', 'updateTeam', 'deletePlayer', 'addPlayer']);
+    if (typeof window !== 'undefined' && window.isReadOnlyView && writeActions.has(action)) {
+      throw new Error('Read-only view: write operations are disabled');
+    }
+  } catch (e) {
+    // If window isn't available or some error occurs we fall through to attempt the call
+    if (e.message && e.message.startsWith('Read-only view')) throw e;
+  }
+
   try {
     // Use proxy for local dev, direct URL for production
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
