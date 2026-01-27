@@ -29,16 +29,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Apps Script API URL
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+        run: |
+          echo "Validating GS_API_URL..."
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "ERROR: GS_API_URL secret is not set. Add it in Settings → Secrets → Actions as 'GS_API_URL'."
+            exit 1
+          fi
+          node scripts/validate-gs-api.cjs
+
       - name: Run ladder fetcher
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
-          # Fail early if the Apps Script URL is not configured
-          if [ -z "${GS_API_URL}" ]; then
-            echo "ERROR: GS_API_URL secret is not set. Add it in Settings → Secrets → Actions as 'GS_API_URL'."
-            exit 1
-          fi
-
           echo "Running ladder fetcher against: ${GS_API_URL}"
           # Fetch ladders for all teams returned by the Apps Script getTeams API
           node scripts/fetch-ladder.js --api "${GS_API_URL}" --out public/

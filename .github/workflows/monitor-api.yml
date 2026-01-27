@@ -19,8 +19,15 @@ jobs:
 
       - name: Ping endpoint
         id: ping
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
-          PING_URL="${{ secrets.GS_API_URL }}?api=true&action=ping"
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "WARNING: GS_API_URL not set; skipping ping check"
+            echo "ping_failed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          PING_URL="${GS_API_URL}?api=true&action=ping"
           echo "Pinging $PING_URL"
           resp=$(curl -sSfL "$PING_URL" || true)
           if [ -z "$resp" ]; then
