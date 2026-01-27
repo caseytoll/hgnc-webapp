@@ -148,15 +148,30 @@ function getSpreadsheet() {
           if (teams.error) {
             result = { success: false, error: teams.error };
           } else {
-            // Transform to PWA format
+            // Transform to PWA format with player counts
+            var ss = getSpreadsheet();
             var pwaTeams = teams.map(function(t) {
+              var playerCount = 0;
+              try {
+                var teamSheet = ss.getSheetByName(t.sheetName);
+                if (teamSheet) {
+                  var teamDataJSON = teamSheet.getRange('A1').getValue();
+                  if (teamDataJSON) {
+                    var teamData = JSON.parse(teamDataJSON);
+                    playerCount = (teamData.players || []).length;
+                  }
+                }
+              } catch (e) {
+                Logger.log('Error getting player count for ' + t.sheetName + ': ' + e.message);
+              }
               return {
                 teamID: t.teamID,
                 year: t.year,
                 season: t.season,
                 teamName: t.name,
                 sheetName: t.sheetName,
-                archived: t.archived || false
+                archived: t.archived || false,
+                playerCount: playerCount
               };
             });
             result = { success: true, teams: pwaTeams };
