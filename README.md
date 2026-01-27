@@ -336,7 +336,18 @@ Deployment rewrite rules
 
 Notes
 - This approach avoids creating one static file per team and keeps URLs clean and human-friendly.
-- If you prefer static redirect pages instead, use `npm run generate:team-portals` (already added) which writes `public/hgnc-team-portal-<slug>.html` redirect pages. To have Pages generate them during build, set the `GS_API_URL` environment variable in your Pages project and the `prebuild` script will run automatically during build.
+- If you prefer static redirect pages or full static read-only pages, use the generator scripts:
+  - `npm run generate:team-portals` — generates compact portal redirect pages (`public/hgnc-team-portal-<slug>.html`) and viewer redirects under `/p/<slug>/`.
+  - `npm run generate:static-teams` — generates full static read-only pages under `public/teams/<slug>/`.
+- To have Pages generate portals during build, set the `GS_API_URL` environment variable in your Pages project so the `prebuild` script runs automatically during build.
+
+**Previewing generated pages locally:** Serve the `public/` directory locally, for example:
+
+```bash
+cd public
+python3 -m http.server 5000 --bind 0.0.0.0
+# Visit http://localhost:5000/teams/<slug>/ or http://localhost:5000/p/<slug>.html
+```
 
 ---
 
