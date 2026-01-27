@@ -597,6 +597,18 @@ async function loadTeams() {
   }
 }
 
+// Dev helper: show persisted app timing metrics
+window.showAppMetrics = function() {
+  try {
+    const history = JSON.parse(localStorage.getItem('hgnc.appMetrics') || '[]');
+    console.table(history);
+    return history;
+  } catch (e) {
+    console.warn('Failed to read app metrics:', e);
+    return [];
+  }
+};
+
 async function loadTeamData(teamID) {
   // Show skeletons immediately for better perceived performance
   showView('main-app-view');
