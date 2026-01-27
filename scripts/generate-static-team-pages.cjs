@@ -150,11 +150,22 @@ function getInitials(name){
 async function main(){
   const argv = require('minimist')(process.argv.slice(2));
   const outDir = path.resolve(argv.out || 'public');
-  const apiUrl = argv.api;
+  let apiUrl = argv.api || process.env.GS_API_URL || null;
   const viewerOut = argv['viewer-out'] ? path.resolve(argv['viewer-out']) : null;
-  const baseUrl = argv['base-url'] ? argv['base-url'].replace(/\/$/, '') : null;
+  let baseUrl = (argv['base-url'] ? argv['base-url'].replace(/\/$/, '') : process.env.VIEWER_BASE_URL || null);
+
+  // Expand literal placeholders if passed through package.json (e.g. "$GS_API_URL")
+  if (apiUrl && apiUrl.startsWith('$')) {
+    apiUrl = process.env.GS_API_URL || null;
+    if (apiUrl) console.log('Expanded GS_API_URL from environment.');
+  }
+  if (baseUrl && baseUrl.startsWith('$')) {
+    baseUrl = process.env.VIEWER_BASE_URL || null;
+    if (baseUrl) console.log('Expanded VIEWER_BASE_URL from environment.');
+  }
+
   if (!apiUrl){
-    console.error('Specify --api <GS_API_URL>'); process.exit(1);
+    console.error('Specify --api <GS_API_URL> or set GS_API_URL environment variable.'); process.exit(1);
   }
   if (!fs.existsSync(outDir)) { console.error('Output dir missing:', outDir); process.exit(1); }
 

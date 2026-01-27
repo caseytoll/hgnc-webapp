@@ -37,10 +37,20 @@ async function main() {
   const argv = require('minimist')(process.argv.slice(2));
   const outDir = path.resolve(argv.out || 'public');
   // Accept API URL and viewer base from CLI or environment variables to support CI and Pages builds
-  const apiUrl = argv.api || process.env.GS_API_URL || null;
+  let apiUrl = argv.api || process.env.GS_API_URL || null;
   const teamsFile = argv.teams;
   const viewerOut = argv['viewer-out'] ? path.resolve(argv['viewer-out']) : null;
-  const baseUrl = (argv['base-url'] ? argv['base-url'] : process.env.VIEWER_BASE_URL || null);
+  let baseUrl = (argv['base-url'] ? argv['base-url'] : process.env.VIEWER_BASE_URL || null);
+
+  // Handle cases where CI/build may pass the literal "$GS_API_URL" (unexpanded) — fall back to env
+  if (apiUrl && apiUrl.startsWith('$')) {
+    apiUrl = process.env.GS_API_URL || null;
+    if (apiUrl) console.log('Expanded GS_API_URL from environment.');
+  }
+  if (baseUrl && baseUrl.startsWith('$')) {
+    baseUrl = process.env.VIEWER_BASE_URL || null;
+    if (baseUrl) console.log('Expanded VIEWER_BASE_URL from environment.');
+  }
 
   if (!fs.existsSync(outDir)) {
     console.error('Output dir not found:', outDir);
