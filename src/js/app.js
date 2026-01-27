@@ -93,7 +93,7 @@ const apiTeamCache = {};
 
 // Cache metadata for TTL tracking
 const teamCacheMetadata = {};
-const TEAM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const TEAM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Teams list cache (for landing page)
 let teamsListCache = null;
@@ -2064,6 +2064,8 @@ window.closeGameDetail = async function() {
   if (state.dataSource === 'api' && navigator.onLine && state.currentTeamData) {
     try {
       await syncToGoogleSheets();
+      // Update cache with synced data
+      saveToLocalStorage();
       console.log('[App] Synced team data on game close');
     } catch (err) {
       console.error('[App] Failed to sync on game close:', err);
