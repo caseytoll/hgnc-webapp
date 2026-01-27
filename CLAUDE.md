@@ -218,7 +218,13 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 ---
 
+
 ## Troubleshooting
+
+### Monitor Workflow (GitHub Actions)
+- If the monitor workflow fails with `Cannot read properties of undefined (reading 'listForRepo')`, update all API calls to use `github.rest.issues.*`.
+- If you see `Resource not accessible by integration`, add `permissions: issues: write` to the job in the workflow YAML.
+- See `docs/CI.md` for more CI troubleshooting.
 
 **Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost. Safari has issues with Vite 7.x localhost handling.
 
@@ -244,7 +250,12 @@ Update this section at the end of each session:
 - Key functions changed
 - Any issues to watch for
 
-**Last session:** 2026-01-27 (Session 3)
+**Last session:** 2026-01-28 (Session 4)
+### CI/Monitoring fixes
+- **Monitor workflow now creates issues reliably**
+  - Updated all `github-script` calls to use `github.rest.issues.*`
+  - Added `permissions: issues: write` to workflow job
+  - Documented troubleshooting for monitor workflow errors
 
 ### Features added
 - **localStorage caching for team data** with 7-day TTL
