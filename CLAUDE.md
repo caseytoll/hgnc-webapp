@@ -146,6 +146,27 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 
 ---
 
+## Ladder Integration 🔧
+
+- **Purpose:** Fetch and display NFNL ladder data per team when a `ladderUrl` is provided in Team Settings. The Ladder tab is shown on a team's page only when a `ladderUrl` exists for that team.
+- **Where it's stored:** The `ladderUrl` value is persisted in the `Teams` sheet (column G). The Apps Script `getTeams` response includes `ladderUrl`, and `updateTeamSettings` persists it.
+- **Frontend behavior:** The client fetches a static JSON file `public/ladder-<teamID>.json` (created by the scraper). The Ladder view shows a `lastUpdated` timestamp, highlights the current team row, and provides a portrait "Show extra columns" toggle (persisted per team in `localStorage`). The layout is responsive (portrait/landscape rules, container queries) and respects `prefers-reduced-motion` for animations. Errors are handled gracefully; when the ladder JSON is unavailable the Ladder tab is hidden or shows an error message.
+- **JSON format:** Generated JSON contains an ISO `lastUpdated` timestamp and a `ladder` array of rows (summary fields like teamName, played, won, lost, goalsFor/against, percentage). Example: `{ "lastUpdated": "2026-01-26T12:34:56Z", "ladder": [{...}, ...] }`.
+- **Scraper script:** `scripts/fetch-ladder.js` fetches team list (from `teams.json` or the `getTeams` API), requests each `ladderUrl`, parses the HTML (Cheerio) and writes `public/ladder-<teamID>.json`. Run locally with Node 18+.
+
+  Local usage examples:
+  - Use local teams file:
+    ```bash
+    node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
+    ```
+  - Use Apps Script API (production):
+    ```bash
+    node scripts/fetch-ladder.js --api "https://script.google.com/macros/s/REPLACE_WITH_DEPLOY_ID/exec?action=getTeams" --out public/
+    ```
+- **Automation (recommended):** Add a GitHub Action to run `scripts/fetch-ladder.js` daily, commit generated `public/ladder-*.json` files, and push to `main` so Cloudflare Pages deploys the updated ladder automatically. I can add a sample workflow if you'd like.
+- **Deployment notes:** After generating and committing `public/ladder-*.json`, deploy to Cloudflare Pages (see Deployment commands). Ensure the Apps Script deployment referenced in `src/js/config.js` is the correct, published deployment that includes `getTeams`/`updateTeamSettings` with `ladderUrl` support.
+- **Debug helpers:** `apps-script/Code.js` includes `getTeamRowByID()` used for verification. Remove it if you prefer a minimal API surface.
+
 ## API
 
 **Endpoints** (via Apps Script):
@@ -223,5 +244,6 @@ Update this section at the end of each session:
   - PWA icons (192x192, 512x512)
   - Apple touch icon (180x180)
 - Added player count to `getTeams` API response (displayed on landing page team cards)
+- **Added Ladder integration:** Implemented ladder scraping script (`scripts/fetch-ladder.js`) that generates `public/ladder-<teamID>.json`; updated `apps-script/Code.js` to persist `ladderUrl` (`updateTeamSettings`) and include it in `getTeams`; added frontend Ladder tab that conditionally displays and fetches the per-team JSON, with responsive portrait/landscape behavior, a per-team "Show extra columns" toggle (persisted in `localStorage`), and accessibility/reduced-motion support. Sample ladder JSONs were committed to `public/` during testing. Documentation updated (CLAUDE.md) to explain usage and automation options.
 - All icons generated from `docs/HGNC Logo.jpg` using macOS `sips`
 - All 172 tests passing, deployed to production
