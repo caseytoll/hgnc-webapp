@@ -407,6 +407,11 @@ window.openGameDetail = function(gameID) {
   renderScoringDisplay();
 
   showView('game-detail-view');
+
+  if (window.isReadOnlyView) {
+    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (e) { /* noop */ }
+  }
+
   haptic(50);
 };
 

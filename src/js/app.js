@@ -263,6 +263,23 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
 
+  // Detect a read-only team slug in the path: /teams/<slug>/
+  try {
+    const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
+    if (m && m.groups && m.groups.slug) {
+      state.readOnly = true;
+      state.requestedTeamSlug = m.groups.slug.toLowerCase();
+      state.forceApiForReadOnly = true; // prefer live API when parents use /teams/<slug>/ locally
+      console.log('[App] Read-only team slug requested:', state.requestedTeamSlug);
+      // Set global flag to allow other modules to quickly detect read-only mode
+      window.isReadOnlyView = true;
+    } else {
+      state.readOnly = false;
+    }
+  } catch (e) {
+    console.warn('[App] Path parsing failed:', e.message || e);
+  }
+
   // Restore persisted data source preference (if any)
   const savedSource = localStorage.getItem(DATA_SOURCE_KEY);
   if (savedSource) {
@@ -273,6 +290,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reflect persisted source in the dev panel select control
     const select = document.getElementById('data-source-select');
     if (select) select.value = savedSource;
+  } else if (state.forceApiForReadOnly) {
+    // If a read-only slug was requested locally, prefer API so teams can be found
+    state.dataSource = 'api';
+    console.log('[Dev] No saved dataSource; forcing API for read-only view');
+    const dsEl = document.getElementById('dev-status'); if (dsEl) dsEl.textContent = 'Source: api (forced for read-only)';
   }
 
   // Ensure API module respects the current data source preference before loading teams
@@ -508,6 +530,50 @@ window.showToast = function(message, type = 'info') {
   }, 3000);
 };
 
+// Read-only guard helper (use before performing UI/write actions)
+window.ensureNotReadOnly = function(action = '') {
+  try {
+    if (typeof window !== 'undefined' && window.isReadOnlyView) {
+      // Friendly notification for parents
+      try { showToast('Read-only view: action disabled', 'info'); } catch (e) { /* noop */ }
+      console.warn('[Read-only] blocked action:', action);
+      return false;
+    }
+  } catch (e) {
+    // If anything goes wrong, don't block by default
+    console.warn('[Read-only] guard error:', e.message || e);
+  }
+  return true;
+};
+
+// Show an always-visible small "Read-only" pill in the top bar for parents
+window.showReadOnlyPill = function(teamName) {
+  try {
+    // If already shown, update tooltip/team text
+    const existing = document.getElementById('read-only-pill');
+    if (existing) {
+      existing.title = teamName ? `Read-only — ${teamName}` : 'Read-only';
+      return;
+    }
+
+    const pill = document.createElement('div');
+    pill.id = 'read-only-pill';
+    pill.className = 'read-only-pill';
+    pill.textContent = 'Read‑only';
+    if (teamName) pill.title = `Read-only — ${teamName}`;
+
+    // Place pill in the top-bar title area if available, otherwise append to body
+    const topTitle = document.querySelector('.top-bar .top-bar-title');
+    if (topTitle) {
+      topTitle.appendChild(pill);
+    } else {
+      document.body.insertBefore(pill, document.body.firstChild);
+    }
+  } catch (e) {
+    console.warn('[Pill] Failed to show read-only pill:', e.message || e);
+  }
+};
+
 // ========================================
 // MODAL MANAGEMENT
 // ========================================
@@ -548,6 +614,11 @@ window.togglePlayerExpand = function(card) {
 async function loadTeams(forceRefresh = false) {
   showLoading();
   console.log('[App] loadTeams() called, dataSource:', state.dataSource, 'forceRefresh:', forceRefresh);
+
+  // Helper: create slugs from team names to match /teams/<slug>/ URLs
+  function slugify(s) {
+    return (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
 
   try {
     if (state.dataSource === 'mock') {
@@ -692,6 +763,35 @@ async function loadTeams(forceRefresh = false) {
     }
 
     renderTeamList();
+
+    // If a read-only slug was requested on startup, attempt to auto-select the matching team
+    try {
+      if (state.readOnly && state.requestedTeamSlug) {
+        const slug = state.requestedTeamSlug;
+        const matched = state.teams.find(t => {
+          const nameSlug = slugify(t.teamName || t.teamID);
+          const seasonSlug = (t.season && t.season.toString().trim()) ? slugify(`${t.teamName}-${t.season}`) : null;
+          const idSlug = (t.teamID || '').toLowerCase();
+          const fallbackSlug = slugify(`${t.teamName}-${t.teamID}`);
+          return slug === nameSlug || slug === seasonSlug || slug === idSlug || slug === fallbackSlug;
+        });
+        if (matched) {
+          console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
+          // Mark global read-only and add class for CSS masking
+          window.isReadOnlyView = true;
+          document.body.classList.add('read-only');
+          // Show a small read-only pill for parents
+          try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
+          // Load the team (this will render the main app view)
+          selectTeam(matched.teamID);
+        } else {
+          console.warn('[App] No team matched slug:', slug);
+        }
+      }
+    } catch (e) {
+      console.warn('[App] Error handling read-only selection:', e.message || e);
+    }
+
   } catch (error) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
@@ -2115,6 +2215,11 @@ window.openGameDetail = function(gameID) {
   renderScoringInputs();
 
   showView('game-detail-view');
+
+  // Ensure the Read-only pill is visible on game detail for parents
+  if (window.isReadOnlyView) {
+    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (e) { /* noop */ }
+  }
 };
 
 window.closeGameDetail = async function() {
@@ -2551,6 +2656,7 @@ window.handlePositionClick = function(position, playerName) {
 };
 
 window.toggleCaptain = function(playerName) {
+  if (!ensureNotReadOnly('toggleCaptain')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2567,6 +2673,7 @@ window.toggleCaptain = function(playerName) {
 };
 
 window.assignPosition = function(position) {
+  if (!ensureNotReadOnly('assignPosition')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2617,23 +2724,30 @@ function renderAvailabilityList() {
     <div class="availability-list">
       ${players.map(p => {
         const isAvailable = availableIDs.includes(p.id);
+        const disabled = window.isReadOnlyView ? 'disabled' : '';
         return `
           <div class="availability-item">
             <input type="checkbox" class="availability-checkbox"
-                   ${isAvailable ? 'checked' : ''}
+                   data-player-id="${escapeAttr(p.id)}"
+                   ${isAvailable ? 'checked' : ''} ${disabled} aria-disabled="${window.isReadOnlyView ? 'true' : 'false'}"
                    onchange="toggleAvailability('${escapeAttr(p.id)}', this.checked)">
             <div class="availability-name">${escapeHtml(p.name)}</div>
             <div class="availability-status">${isAvailable ? 'Available' : 'Unavailable'}</div>
           </div>
-        `;
+        `; 
       }).join('')}
     </div>
   `;
 }
 
 window.toggleAvailability = function(playerID, available) {
+  if (!ensureNotReadOnly('toggleAvailability')) {
+    // If blocked, re-render to reset any transient UI changes (checkbox flip from click)
+    try { renderAvailabilityList(); } catch (e) { /* noop */ }
+    return;
+  }
   const game = state.currentGame;
-  if (!game) return;
+  if (!game) return; 
 
   if (!game.availablePlayerIDs) {
     game.availablePlayerIDs = state.currentTeamData.players.map(p => p.id);
@@ -2677,6 +2791,8 @@ function renderScoringInputs() {
 
   const createPlayerScoreRow = (quarter, field, value, position, playerVal) => {
     const playerName = resolvePlayerName(playerVal);
+    const disabled = window.isReadOnlyView ? 'disabled' : '';
+    const btnProps = window.isReadOnlyView ? '' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}',`;
     return `
       <div class="player-score-row">
         <div class="player-score-info">
@@ -2684,10 +2800,10 @@ function renderScoringInputs() {
           <span class="player-score-position">${escapeHtml(position)}</span>
         </div>
         <div class="score-stepper">
-          <button class="stepper-btn stepper-minus" onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', -1)" aria-label="Decrease">−</button>
-          <input type="number" class="scoring-input" id="score-${escapeAttr(quarter)}-${escapeAttr(field)}" min="0" value="${escapeAttr(value)}"
+          <button class="stepper-btn stepper-minus" ${window.isReadOnlyView ? 'disabled' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', -1)"`} aria-label="Decrease">−</button>
+          <input type="number" class="scoring-input" id="score-${escapeAttr(quarter)}-${escapeAttr(field)}" min="0" value="${escapeAttr(value)}" ${disabled}
                  onchange="updateScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', this.value)" inputmode="numeric">
-          <button class="stepper-btn stepper-plus" onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', 1)" aria-label="Increase">+</button>
+          <button class="stepper-btn stepper-plus" ${window.isReadOnlyView ? 'disabled' : `onclick="adjustScore('${escapeAttr(quarter)}', '${escapeAttr(field)}', 1)"`} aria-label="Increase">+</button>
         </div>
       </div>
     `;
@@ -2801,6 +2917,7 @@ window.toggleScoringQuarter = function(quarter) {
 };
 
 window.updateScore = function(quarter, field, value) {
+  if (!ensureNotReadOnly('updateScore')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2823,6 +2940,7 @@ window.updateScore = function(quarter, field, value) {
 };
 
 window.adjustScore = function(quarter, field, delta) {
+  if (!ensureNotReadOnly('adjustScore')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -2878,6 +2996,7 @@ function flashAutosaveIndicator() {
 }
 
 window.finalizeGame = async function() {
+  if (!ensureNotReadOnly('finalizeGame')) return;
   const game = state.currentGame;
   if (!game || !game.lineup) return;
 
@@ -2933,6 +3052,7 @@ window.calculateGameTotal = window.finalizeGame;
 
 async function syncToGoogleSheets() {
   console.log('[syncToGoogleSheets] Starting...');
+  if (window.isReadOnlyView) throw new Error('Read-only view: sync/write operations are disabled');
 
   if (!state.currentTeamData || !state.teamSheetMap) {
     throw new Error('No team data to sync');
@@ -2984,6 +3104,8 @@ async function syncToGoogleSheets() {
  * Update team settings (name, year, season, archived) in the backend
  */
 async function updateTeamSettingsAPI(teamID, settings) {
+  if (window.isReadOnlyView) throw new Error('Read-only view: updateTeamSettings is disabled');
+
   if (state.dataSource === 'mock') {
     // For mock data, just update local state
     return { success: true };
@@ -3036,7 +3158,7 @@ window.openPlayerDetail = function(playerID) {
   openModal(`${escapeHtml(player.name)}`, `
     <div class="player-detail-tabs">
       <button class="player-detail-tab active" onclick="switchPlayerTab('stats')">Stats</button>
-      <button class="player-detail-tab" onclick="switchPlayerTab('edit')">Edit</button>
+      ${!window.isReadOnlyView ? `<button class="player-detail-tab" onclick="switchPlayerTab('edit')">Edit</button>` : ''}
     </div>
 
     <div id="player-tab-stats" class="player-tab-content active">
@@ -3093,6 +3215,7 @@ window.openPlayerDetail = function(playerID) {
       ` : '<div class="empty-state"><p>No game data yet</p></div>'}
     </div>
 
+    ${!window.isReadOnlyView ? `
     <div id="player-tab-edit" class="player-tab-content">
       <div class="form-group">
         <label class="form-label">Name</label>
@@ -3125,6 +3248,7 @@ window.openPlayerDetail = function(playerID) {
         <button class="btn btn-primary" onclick="savePlayer('${escapeAttr(playerID)}')">Save Changes</button>
       </div>
     </div>
+    ` : ''}
   `);
 };
 
@@ -3210,6 +3334,7 @@ function calculatePlayerStats(player) {
 }
 
 window.savePlayer = async function(playerID) {
+  if (!ensureNotReadOnly('savePlayer')) return;
   const player = state.currentTeamData.players.find(p => p.id === playerID);
   if (!player) {
     showToast('Player not found', 'error');
@@ -3301,6 +3426,7 @@ window.savePlayer = async function(playerID) {
 };
 
 window.deletePlayer = async function(playerID) {
+  if (!ensureNotReadOnly('deletePlayer')) return;
   if (!confirm('Delete this player?')) return;
 
   state.currentTeamData.players = state.currentTeamData.players.filter(p => p.id !== playerID);
@@ -3324,6 +3450,7 @@ window.deletePlayer = async function(playerID) {
 };
 
 window.openAddPlayerModal = function() {
+  if (!ensureNotReadOnly('openAddPlayerModal')) return;
   openModal('Add Player', `
     <div class="form-group">
       <label class="form-label">Name</label>
@@ -3386,6 +3513,7 @@ function setFieldSuccess(input) {
 }
 
 window.addPlayer = async function() {
+  if (!ensureNotReadOnly('addPlayer')) return;
   const nameInput = document.getElementById('new-player-name');
   const name = nameInput.value.trim();
 
@@ -3460,6 +3588,7 @@ window.addPlayer = async function() {
 // ========================================
 
 window.openAddGameModal = function() {
+  if (!ensureNotReadOnly('openAddGameModal')) return;
   const nextRound = (state.currentTeamData?.games?.length || 0) + 1;
 
   openModal('Add Game', `
@@ -3490,6 +3619,7 @@ window.openAddGameModal = function() {
 };
 
 window.addGame = async function() {
+  if (!ensureNotReadOnly('addGame')) return;
   const opponentInput = document.getElementById('new-game-opponent');
   const opponent = opponentInput.value.trim();
   const roundInput = document.getElementById('new-game-round');
@@ -3793,6 +3923,7 @@ window.saveTeamSettings = async function() {
 };
 
 window.openGameSettings = function() {
+  if (!ensureNotReadOnly('openGameSettings')) return;
   const game = state.currentGame;
   if (!game) return;
 
@@ -4567,6 +4698,27 @@ function renderSystemSettings() {
     </div>
 
     <div class="settings-section">
+      <h3>Read-only Links</h3>
+      <div class="settings-row" style="grid-template-columns: 1fr auto; font-weight: 700;">
+        <span>Team</span><span>Link</span>
+      </div>
+      ${ (state.teams || []).filter(t => !t.archived).map(t => {
+        // Build a slug consistent with the static generator
+        const base = (t.teamName || t.teamID || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let slug = (t.season && t.season.toString().trim()) ? `${base}-${(t.season||'').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}` : `${base}-${t.teamID}`;
+        const teamUrl = `${location.origin}/teams/${slug}/`;
+        const portalUrl = `${location.origin}/p/${slug}/`;
+        return `<div class="settings-row"><span>${escapeHtml(t.teamName || t.teamID)}<br><small style="color:var(--text-secondary)">${escapeHtml(t.season||'')}</small></span><span style="display:flex;gap:8px;align-items:center;">
+              <a class="btn btn-sm" href="${teamUrl}" target="_blank" rel="noopener">Open</a>
+              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','team')">Copy</button>
+              <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open Portal</a>
+              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','portal')">Copy</button>
+            </span></div>`;
+      }).join('') }
+
+    </div>
+
+    <div class="settings-section">
       <h3>Actions</h3>
       <button class="btn btn-secondary" onclick="clearAllCaches()" style="width: 100%; margin-bottom: 8px;">
         Clear Cache & Reload
@@ -4710,6 +4862,35 @@ window.clearCache = function() {
   state.stats = null;
   showView('team-selector-view');
   loadTeams();
+};
+
+// Copy read-only URL to clipboard (team or portal)
+window.copyReadOnlyUrl = async function(slug, type = 'team') {
+  try {
+    const origin = location.origin;
+    const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url);
+      showToast('Copied link to clipboard', 'success');
+    } else {
+      const tmp = document.createElement('input');
+      tmp.value = url;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      tmp.remove();
+      showToast('Copied link to clipboard', 'success');
+    }
+  } catch (err) {
+    console.warn('[Copy] Failed to copy URL', err);
+    showToast('Failed to copy link', 'error');
+  }
+};
+
+window.openReadOnlyUrl = function(slug, type = 'team') {
+  const origin = location.origin;
+  const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
+  window.open(url, '_blank', 'noopener');
 };
 
 // Utility functions are imported from utils.js
