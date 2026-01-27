@@ -95,6 +95,10 @@ const apiTeamCache = {};
 const teamCacheMetadata = {};
 const TEAM_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Teams list cache (for landing page)
+let teamsListCache = null;
+let teamsListCacheTime = null;
+
 /**
  * Check if cached team data is still valid (within TTL)
  */
@@ -103,6 +107,24 @@ function isTeamCacheValid(teamID) {
   if (!meta || !apiTeamCache[teamID]) return false;
   const age = Date.now() - new Date(meta.cachedAt).getTime();
   return age < TEAM_CACHE_TTL_MS;
+}
+
+/**
+ * Check if teams list cache is valid
+ */
+function isTeamsListCacheValid() {
+  if (!teamsListCache || !teamsListCacheTime) return false;
+  const age = Date.now() - new Date(teamsListCacheTime).getTime();
+  return age < TEAM_CACHE_TTL_MS;
+}
+
+/**
+ * Invalidate teams list cache (called after create/update team)
+ */
+function invalidateTeamsListCache() {
+  teamsListCache = null;
+  teamsListCacheTime = null;
+  console.log('[Cache] Teams list cache invalidated');
 }
 
 /**
@@ -124,6 +146,8 @@ function saveToLocalStorage() {
       teams: mockTeams,
       apiTeams: apiTeamCache,
       teamCacheMeta: teamCacheMetadata,
+      teamsListCache: teamsListCache,
+      teamsListCacheTime: teamsListCacheTime,
       playerLibrary: state.playerLibrary,
       lastSaved: new Date().toISOString()
     };
@@ -185,6 +209,11 @@ function loadFromLocalStorage() {
       // Load cache metadata for TTL tracking
       if (data.teamCacheMeta) {
         Object.assign(teamCacheMetadata, data.teamCacheMeta);
+      }
+      // Load teams list cache
+      if (data.teamsListCache) {
+        teamsListCache = data.teamsListCache;
+        teamsListCacheTime = data.teamsListCacheTime;
       }
       console.log('[Storage] Data loaded from', data.lastSaved);
       return true;
@@ -360,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Reload teams from API to get the new team with proper sheetName
-        await loadTeams();
+        await loadTeams(true); // Force refresh to bypass cache
         showToast('Team added', 'success');
       } else {
         // Mock mode - store locally
@@ -516,9 +545,9 @@ window.togglePlayerExpand = function(card) {
 // DATA LOADING
 // ========================================
 
-async function loadTeams() {
+async function loadTeams(forceRefresh = false) {
   showLoading();
-  console.log('[App] loadTeams() called, dataSource:', state.dataSource);
+  console.log('[App] loadTeams() called, dataSource:', state.dataSource, 'forceRefresh:', forceRefresh);
 
   try {
     if (state.dataSource === 'mock') {
@@ -543,34 +572,50 @@ async function loadTeams() {
         }
       }
     } else {
-      // Use proxy for local dev to bypass CORS
-      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-      console.log('[App] Fetching teams from:', baseUrl);
-      // Measure teams fetch time
-      const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
-      const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
-      const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
-      console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
-      const data = await response.json();
-      console.log('[App] API response:', data);
-      // Quick visible metric for teams fetch
-      try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
-      if (data.success === false) {
-        throw new Error(data.error || 'API request failed');
-      }
-      // Cache sheetName mapping for later use
-      state.teams = (data.teams || []).map(t => {
+      // Check if we have valid cached teams list
+      if (!forceRefresh && isTeamsListCacheValid() && teamsListCache) {
+        console.log('[Cache] Using cached teams list');
+        state.teams = teamsListCache.teams;
+        state.teamSheetMap = teamsListCache.teamSheetMap;
+      } else {
+        // Use proxy for local dev to bypass CORS
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        console.log('[App] Fetching teams from:', baseUrl);
+        // Measure teams fetch time
+        const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
+        const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
+        const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
+        console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
+        const data = await response.json();
+        console.log('[App] API response:', data);
+        // Quick visible metric for teams fetch
+        try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
+        if (data.success === false) {
+          throw new Error(data.error || 'API request failed');
+        }
+        // Cache sheetName mapping for later use
         state.teamSheetMap = state.teamSheetMap || {};
-        state.teamSheetMap[t.teamID] = t.sheetName;
-        return t;
-      });
+        state.teams = (data.teams || []).map(t => {
+          state.teamSheetMap[t.teamID] = t.sheetName;
+          return t;
+        });
 
-      // Send teams fetch metric to server-side diagnostics
-      try {
-        sendClientMetric('teams-fetch', teamsFetchMs, (state.teams || []).length);
-      } catch (e) {
-        console.warn('[Metric] Failed to send teams-fetch metric:', e);
+        // Cache the teams list
+        teamsListCache = {
+          teams: state.teams,
+          teamSheetMap: state.teamSheetMap
+        };
+        teamsListCacheTime = new Date().toISOString();
+        saveToLocalStorage();
+        console.log('[Cache] Fetched and cached teams list');
+
+        // Send teams fetch metric to server-side diagnostics
+        try {
+          sendClientMetric('teams-fetch', teamsFetchMs, (state.teams || []).length);
+        } catch (e) {
+          console.warn('[Metric] Failed to send teams-fetch metric:', e);
+        }
       }
 
       // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
@@ -2904,6 +2949,9 @@ async function updateTeamSettingsAPI(teamID, settings) {
   if (data.success === false) {
     throw new Error(data.error || 'Failed to update team settings');
   }
+
+  // Invalidate teams list cache since team settings changed
+  invalidateTeamsListCache();
 
   return data;
 }
