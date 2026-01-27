@@ -144,39 +144,39 @@ function getSpreadsheet() {
           break;
 
         case 'getTeams':
+          // Instrumentation: measure cache read, teams load, cache put, and total time
+          var apiStart = new Date().getTime();
+
           // Try script cache first (short TTL) to reduce response latency
           try {
             var cache = CacheService.getScriptCache();
+            var cacheReadStart = Date.now();
             var cached = cache.get('getTeamsResponse');
+            var cacheReadMs = Date.now() - cacheReadStart;
             if (cached) {
-              Logger.log('getTeams: cache hit');
+              Logger.log('getTeams: cache hit (read ' + cacheReadMs + 'ms)');
+              try { logClientMetric('getTeams_cache_hit', cacheReadMs, 0, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
               result = JSON.parse(cached);
+              // Record total time (very small)
+              try { logClientMetric('getTeams_totalMs', Date.now() - apiStart, (result.teams || []).length, 'cache-hit'); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
               break;
+            } else {
+              Logger.log('getTeams: cache miss (read ' + cacheReadMs + 'ms)');
+              try { logClientMetric('getTeams_cache_miss_readMs', cacheReadMs, 0, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
             }
           } catch (e) {
             Logger.log('getTeams: cache read failed: ' + e.message);
           }
 
+          var teamsLoadStart = Date.now();
           var teams = loadMasterTeamList();
+          var teamsLoadMs = Date.now() - teamsLoadStart;
+
           if (teams.error) {
             result = { success: false, error: teams.error };
           } else {
-            // Transform to PWA format with player counts
-            var ss = getSpreadsheet();
+            // Transform to PWA format using precomputed playerCount from Teams sheet
             var pwaTeams = teams.map(function(t) {
-              var playerCount = 0;
-              try {
-                var teamSheet = ss.getSheetByName(t.sheetName);
-                if (teamSheet) {
-                  var teamDataJSON = teamSheet.getRange('A1').getValue();
-                  if (teamDataJSON) {
-                    var teamData = JSON.parse(teamDataJSON);
-                    playerCount = (teamData.players || []).length;
-                  }
-                }
-              } catch (e) {
-                Logger.log('Error getting player count for ' + t.sheetName + ': ' + e.message);
-              }
               return {
                 teamID: t.teamID,
                 year: t.year,
@@ -184,20 +184,32 @@ function getSpreadsheet() {
                 teamName: t.name,
                 sheetName: t.sheetName,
                 archived: t.archived || false,
-                playerCount: playerCount,
+                playerCount: t.playerCount || 0,
                 ladderUrl: t.ladderApi || ''
               };
             });
+
             result = { success: true, teams: pwaTeams };
 
-            // Cache the response for 300s (5 minutes)
+            // Cache the response for 300s (5 minutes) and record put timing
             try {
+              var cachePutStart = Date.now();
               cache.put('getTeamsResponse', JSON.stringify(result), 300);
-              Logger.log('getTeams: cached response for 300s');
+              var cachePutMs = Date.now() - cachePutStart;
+              Logger.log('getTeams: cached response for 300s (put ' + cachePutMs + 'ms)');
+              try { logClientMetric('getTeams_cache_putMs', cachePutMs, pwaTeams.length, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
             } catch (e) {
               Logger.log('getTeams: cache put failed: ' + e.message);
             }
+
+            // Log loadMasterTeamList duration and overall timings
+            try { logClientMetric('getTeams_loadMasterListMs', teamsLoadMs, pwaTeams.length, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
           }
+
+          var totalMs = Date.now() - apiStart;
+          Logger.log('getTeams: total ' + totalMs + 'ms');
+          try { logClientMetric('getTeams_totalMs', totalMs, (result.teams || []).length, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
+          break;
           break;
 
         case 'getTeamData':
