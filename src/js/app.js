@@ -519,10 +519,15 @@ async function loadTeams() {
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
       const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
       console.log('[App] Fetching teams from:', baseUrl);
+      // Measure teams fetch time
+      const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
       const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
-      console.log('[App] Response status:', response.status);
+      const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
+      console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
       const data = await response.json();
       console.log('[App] API response:', data);
+      // Quick visible metric for teams fetch
+      try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
       if (data.success === false) {
         throw new Error(data.error || 'API request failed');
       }
@@ -588,16 +593,39 @@ async function loadTeams() {
               const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`;
 
               // Prefer fetch with keepalive (supported in modern browsers) and log server response when available
-              fetch(metricUrl, { method: 'GET', keepalive: true })
-                .then(async (resp) => {
+              const sendMetricWithRetry = async (attempt = 1) => {
+                try {
+                  const resp = await fetch(metricUrl, { method: 'GET', keepalive: true });
                   try {
                     const data = await resp.json();
                     console.log('[Metric] Sent app-load metric, server response:', data);
+                    if (data && data.success === false && attempt <= 1) {
+                      console.log('[Metric] Server responded with failure; retrying metric POST (attempt', attempt + 1, ')');
+                      await new Promise(r => setTimeout(r, 500));
+                      return sendMetricWithRetry(attempt + 1);
+                    }
+                    return data;
                   } catch (parseErr) {
                     console.log('[Metric] Sent app-load metric, non-JSON response status:', resp.status);
+                    if (attempt <= 1) {
+                      console.log('[Metric] Retrying metric POST (non-JSON response) - attempt', attempt + 1);
+                      await new Promise(r => setTimeout(r, 500));
+                      return sendMetricWithRetry(attempt + 1);
+                    }
+                    return null;
                   }
-                })
-                .catch(err => console.warn('[Metric] Failed to send metric:', err.message));
+                } catch (err) {
+                  if (attempt <= 1) {
+                    console.log('[Metric] Metric send failed, retrying (attempt', attempt + 1, ')', err.message);
+                    await new Promise(r => setTimeout(r, 500));
+                    return sendMetricWithRetry(attempt + 1);
+                  }
+                  console.warn('[Metric] Failed to send metric after retry:', err.message);
+                  return null;
+                }
+              };
+
+              sendMetricWithRetry().catch(err => console.warn('[Metric] sendMetricWithRetry error:', err.message));
             } catch (e) {
               console.warn('[Metric] Error while sending metric:', e.message);
             }
