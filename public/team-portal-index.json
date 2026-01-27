@@ -1,16 +1,16 @@
 [
   {
-    "path": "/p/hazel-glen-6/",
+    "path": "/p/hazel-glen-6-nfnl/",
     "teamID": "team_1763710520310",
     "name": "Hazel Glen 6",
-    "slug": "hazel-glen-6",
-    "target": "https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/viewer/public/teams/hazel-glen-6/"
+    "slug": "hazel-glen-6-nfnl",
+    "target": "https://hgnc-gameday.pages.dev/teams/hazel-glen-6-nfnl/"
   },
   {
-    "path": "/p/u11-flames/",
+    "path": "/p/u11-flames-season-1/",
     "teamID": "team_1769463454483",
     "name": "U11 Flames",
-    "slug": "u11-flames",
-    "target": "https://cdn.jsdelivr.net/gh/caseytoll/hgnc-webapp@master/viewer/public/teams/u11-flames/"
+    "slug": "u11-flames-season-1",
+    "target": "https://hgnc-gameday.pages.dev/teams/u11-flames-season-1/"
   }
 ]
