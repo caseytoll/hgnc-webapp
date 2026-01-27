@@ -222,5 +222,6 @@ Update this section at the end of each session:
   - Browser favicon (32x32)
   - PWA icons (192x192, 512x512)
   - Apple touch icon (180x180)
+- Added player count to `getTeams` API response (displayed on landing page team cards)
 - All icons generated from `docs/HGNC Logo.jpg` using macOS `sips`
 - All 172 tests passing, deployed to production

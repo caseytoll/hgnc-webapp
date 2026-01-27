@@ -149,13 +149,13 @@ https://script.google.com/macros/s/AKfycb.../exec
 
 #### 2. Get Teams
 - **Endpoint:** `?api=true&action=getTeams`
-- **Description:** Returns a list of all teams (basic info).
+- **Description:** Returns a list of all teams with basic info and player counts.
 - **Response:**
   ```json
   {
     "success": true,
     "teams": [
-      { "teamID": "...", "year": 2025, "season": "Season 1", "teamName": "U11 Thunder", "sheetName": "..." },
+      { "teamID": "...", "year": 2025, "season": "Season 1", "teamName": "U11 Thunder", "sheetName": "...", "archived": false, "playerCount": 8 },
       ...
     ]
   }
