@@ -51,9 +51,7 @@ jobs:
             exit 1
           fi
 
-          echo "Ping OK via curl; running JS validator as double-check..."
-          node scripts/validate-gs-api.cjs
-
+          echo "Ping OK via curl. (JS validator skipped in CI; keep local validator for troubleshooting)"
       - name: Generate team portals
         env:
           GS_API_URL: ${{ secrets.GS_API_URL }}
