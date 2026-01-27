@@ -307,6 +307,37 @@ To test on your iPhone:
 2. Tap the menu (three dots)
 3. Select "Add to Home screen"
 
+---
+
+## Viewer SPA routing (clean team URLs)
+
+The viewer app supports path-based routing for friendly team URLs so you can use links like:
+
+- `/team/<slug>` (e.g. `/team/hazel-glen-6`)
+- `/viewer/team/<slug>`
+- `/viewer/<slug>` (convenience fallback)
+
+The Viewer will auto-select the team by teamID or by slugified team name and open the read-only view.
+
+Deployment rewrite rules
+
+- Netlify (add to `public/_redirects` or `netlify.toml`):
+
+```
+# Redirect team paths to viewer app (200 -> rewrite for SPA)
+/team/*    /viewer/index.html   200
+/viewer/*  /viewer/index.html   200
+```
+
+- Cloudflare Pages: create a `_redirects` file with the same rules (Pages supports `_redirects`), or set the "Custom 404" fallback to `/viewer/index.html` in Pages settings so unknown routes serve the SPA. Also add `GS_API_URL` as an Environment Variable in the Pages project settings to enable the prebuild portal generation step.
+
+- S3 + CloudFront:
+  - Configure CloudFront to return `index.html` (the viewer's `index.html`) for 404s and set error caching to 0; use a Lambda@Edge or CloudFront Function to rewrite `/team/*` to `/viewer/` if needed.
+
+Notes
+- This approach avoids creating one static file per team and keeps URLs clean and human-friendly.
+- If you prefer static redirect pages instead, use `npm run generate:team-portals` (already added) which writes `public/hgnc-team-portal-<slug>.html` redirect pages. To have Pages generate them during build, set the `GS_API_URL` environment variable in your Pages project and the `prebuild` script will run automatically during build.
+
 ## Security
 
 This application implements several security measures:

@@ -1,0 +1,16 @@
+[
+  {
+    "file": "hgnc-team-portal-hazel-glen-6.html",
+    "teamID": "team_1763710520310",
+    "name": "Hazel Glen 6",
+    "slug": "hazel-glen-6",
+    "target": "/viewer/?team=team_1763710520310"
+  },
+  {
+    "file": "hgnc-team-portal-u11-flames.html",
+    "teamID": "team_1769463454483",
+    "name": "U11 Flames",
+    "slug": "u11-flames",
+    "target": "/viewer/?team=team_1769463454483"
+  }
+]

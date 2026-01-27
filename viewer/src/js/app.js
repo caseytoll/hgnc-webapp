@@ -42,6 +42,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   await loadTeams();
   renderTeamList();
+
+  // Auto-select team if provided via URL param (?team=teamID|slug) or path (/team/<slug> or /viewer/team/<slug>)
+  try {
+    // Use router helper
+    import('./router.js').then(({ resolveTeamParamFromLocation }) => {
+      const teamID = resolveTeamParamFromLocation(state.teams || [], window.location.pathname, window.location.search);
+      if (teamID) setTimeout(() => selectTeam(teamID), 50);
+    }).catch(err => console.warn('[Viewer] Router import failed:', err));
+  } catch (err) {
+    console.warn('[Viewer] Auto-select team failed:', err);
+  }
 });
 
 function initTheme() {
