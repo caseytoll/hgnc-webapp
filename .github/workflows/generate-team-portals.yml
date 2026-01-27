@@ -34,16 +34,23 @@ jobs:
           GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
           echo "Fetching teams and generating portal pages..."
-          node scripts/generate-team-portals.js --api "$GS_API_URL" --out public/
+          node scripts/generate-team-portals.cjs --api "$GS_API_URL" --out public/
+
+      - name: Generate full static team pages
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
+        run: |
+          echo "Generating full read-only static team pages..."
+          node scripts/generate-static-team-pages.cjs --api "$GS_API_URL" --out public/
 
       - name: Commit generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/hgnc-team-portal-*.html public/team-portal-index.json || true
+          git add public/hgnc-team-portal-*.html public/p/** public/team-portal-index.json public/teams/** public/team-static-index.json || true
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update generated team portal pages [skip ci]"
+            git commit -m "chore: update generated portal & static team pages [skip ci]"
             git push origin HEAD:master
           fi
