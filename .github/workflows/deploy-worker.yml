@@ -31,5 +31,6 @@ jobs:
             exit 1
           fi
           # Use example config - update account_id/route or configure in dashboard
-          echo "Deploying Worker (wrangler publish)..."
-          wrangler publish workers/team-portal-worker.js --compatibility-date 2026-01-01
+          echo "Deploying Worker (wrangler deploy)..."
+          # Deploy and bind routes for Viewer domain so /teams/* and /p/* are served by the Worker
+          wrangler deploy workers/team-portal-worker.js --compatibility-date 2026-01-01 --name hgnc-team-portals-worker --routes "hgnc-gameday.pages.dev/teams/*" --routes "hgnc-gameday.pages.dev/p/*"
