@@ -52,8 +52,8 @@ export default defineConfig({
     // Proxy API calls to bypass CORS during local development
     proxy: {
       '/gas-proxy': {
-        // Updated to latest deployed Apps Script web app (deployment @51)
-        target: 'https://script.google.com/macros/s/AKfycbxl3nsI-Y3pChZp-ogLZiqtdFDrudHFyz72oFAb3XDiRdStt2bu6P8PeI2yCZ4GmsLd/exec',
+        // Updated to latest deployed Apps Script web app (deployment @55)
+        target: 'https://script.google.com/macros/s/AKfycbzDYbesIxbGVQ3NtQorZ5eO8muR16js5VEogZanlt54rWGCgTJ0kF2GhxBluoKqearN/exec',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/gas-proxy/, ''),
         followRedirects: true
