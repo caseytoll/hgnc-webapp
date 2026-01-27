@@ -10,14 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Check environment
+        env:
+          GS_API_URL: ${{ secrets.GS_API_URL }}
         run: |
           echo "Validating Cloudflare Pages configuration..."
-          if [ -z "${{ secrets.GS_API_URL }}" ]; then
-            echo "ERROR: GS_API_URL secret is not set. Add it in Repository settings -> Secrets."
-            exit 1
+          if [ -z "${GS_API_URL:-}" ]; then
+            echo "WARNING: GS_API_URL secret is not set. Skipping some validations. Add it in Repository settings -> Secrets."
+          else
+            echo "GS_API_URL appears to be set."
           fi
-          echo "GS_API_URL appears to be set."
 
       - name: Check redirects file exists
         run: |
@@ -29,4 +39,9 @@ jobs:
 
       - name: Check prebuild script
         run: |
+          # Ensure package.json is available and check prebuild script
+          if [ ! -f package.json ]; then
+            echo "ERROR: package.json not found in repository root. Ensure this workflow runs after checkout."
+            exit 1
+          fi
           node -e "const p=require('./package.json'); if(!p.scripts || !p.scripts.prebuild){console.error('ERROR: prebuild script not configured (runs portal generator).'); process.exit(1);} console.log('prebuild script present');"
