@@ -72,15 +72,18 @@ async function main() {
   teams.filter(t => !t.archived).forEach(team => {
     const name = team.teamName || team.name || team.sheetName || team.teamID;
     const slug = slugify(name) || team.teamID;
-    const filename = `hgnc-team-portal-${slug}.html`;
-    const filepath = path.join(outDir, filename);
+    // Create compact portal path at /p/<slug>/index.html to avoid exposing project name
+    const dir = path.join(outDir, 'p', slug);
+    const filepath = path.join(dir, 'index.html');
     const target = `/viewer/?team=${encodeURIComponent(team.teamID)}`;
 
+    // Minimal redirect page with noindex for search engines
     const html = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
   <title>${name} - HGNC Team Portal</title>
   <meta http-equiv="refresh" content="0; url=${target}">
   <link rel="canonical" href="${target}">
@@ -90,12 +93,14 @@ async function main() {
 </body>
 </html>`;
 
+    // Ensure target directory exists
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filepath, html, 'utf8');
-    created.push({ file: filename, teamID: team.teamID, name, slug, target });
-    console.log('Created:', filename, '→', target);
+    created.push({ path: `/p/${slug}/`, teamID: team.teamID, name, slug, target });
+    console.log('Created:', filepath, '→', target);
   });
 
-  // Write index file
+  // Write index file with new path keys
   const indexPath = path.join(outDir, 'team-portal-index.json');
   fs.writeFileSync(indexPath, JSON.stringify(created, null, 2), 'utf8');
   console.log('Wrote index:', indexPath);
