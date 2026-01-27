@@ -59,6 +59,9 @@ import {
 import html2canvas from 'html2canvas';
 import { setDataSource as apiSetDataSource } from './api.js';
 
+// Performance mark: earliest practical marker for app start
+try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop */ }
+
 // ========================================
 // STATE MANAGEMENT
 // ========================================
@@ -554,6 +557,43 @@ async function loadTeams() {
     showToast('Failed to load teams', 'error');
   } finally {
     hideLoading();
+
+    // Mark app ready and measure load time (from app-start)
+    try {
+      if (performance && performance.mark && performance.measure) {
+        performance.mark('app-ready');
+        performance.measure('app-load', 'app-start', 'app-ready');
+        const entries = performance.getEntriesByName('app-load');
+        if (entries && entries.length) {
+          const duration = Math.round(entries[0].duration);
+          console.log(`[Metric] app-load-time: ${duration}ms (teams:${state.teams.length})`);
+
+          // Persist a short history in localStorage for quick inspection
+          try {
+            const key = 'hgnc.appMetrics';
+            const history = JSON.parse(localStorage.getItem(key) || '[]');
+            history.push({ t: new Date().toISOString(), metric: 'app-load', value: duration, teams: state.teams.length });
+            // keep last 20
+            localStorage.setItem(key, JSON.stringify(history.slice(-20)));
+          } catch (e) {
+            console.warn('[Metric] Failed to persist metric:', e);
+          }
+
+          // Send metric to server-side diagnostics (best-effort)
+          try {
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            // Fire-and-forget
+            fetch(`${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`)
+              .catch(err => console.warn('[Metric] Failed to send metric:', err.message));
+          } catch (e) {
+            console.warn('[Metric] Error sending metric:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Metric] Measurement failed:', e);
+    }
   }
 }
 
