@@ -3317,6 +3317,26 @@ body.read-only .top-bar .icon-btn[onclick*="openGameSettings"] {
   opacity: 0 !important;
 }
 
+/* Read-only banner */
+.read-only-banner {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #111827, #1f2937);
+  color: #fff;
+  padding: 10px 12px;
+  z-index: 9999;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  font-size: 0.95rem;
+}
+.read-only-banner .banner-inner { max-width: 1100px; margin: 0 auto; display:flex; justify-content:space-between; align-items:center; gap:12px }
+.read-only-banner .btn { opacity: 0.95 }
+body.read-only .read-only-banner { display: block }
+body.read-only { padding-top: 48px; }
+
+
 .player-edit-actions .btn {
   flex: 1;
 }

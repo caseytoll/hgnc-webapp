@@ -546,6 +546,36 @@ window.ensureNotReadOnly = function(action = '') {
   return true;
 };
 
+// Show a persistent, dismissible banner for parents when in read-only mode
+window.showReadOnlyBanner = function(teamName, slug) {
+  try {
+    const key = `readOnlyBannerDismissed.${slug || ''}`;
+    if (sessionStorage.getItem(key) === '1') return;
+    if (document.getElementById('read-only-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'read-only-banner';
+    banner.className = 'read-only-banner';
+    banner.innerHTML = `
+      <div class="banner-inner">
+        <strong>Read‑only view</strong>
+        ${teamName ? ' — ' + escapeHtml(teamName) : ''}
+        <button class="btn btn-ghost btn-sm" id="dismiss-read-only-banner" aria-label="Dismiss read-only banner">Dismiss</button>
+      </div>
+    `;
+
+    // Insert banner at top of body
+    document.body.insertBefore(banner, document.body.firstChild);
+
+    document.getElementById('dismiss-read-only-banner').addEventListener('click', () => {
+      try { sessionStorage.setItem(key, '1'); } catch (e) { /* noop */ }
+      banner.remove();
+    });
+  } catch (e) {
+    console.warn('[Banner] Failed to show read-only banner:', e.message || e);
+  }
+};
+
 // ========================================
 // MODAL MANAGEMENT
 // ========================================
@@ -746,6 +776,8 @@ async function loadTeams(forceRefresh = false) {
           // Mark global read-only and add class for CSS masking
           window.isReadOnlyView = true;
           document.body.classList.add('read-only');
+          // Show a small dismissible banner for parents
+          try { showReadOnlyBanner(matched.teamName, slug); } catch (e) { /* noop */ }
           // Load the team (this will render the main app view)
           selectTeam(matched.teamID);
         } else {
