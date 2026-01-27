@@ -244,7 +244,7 @@ Update this section at the end of each session:
 - Key functions changed
 - Any issues to watch for
 
-**Last session:** 2026-01-27
+**Last session:** 2026-01-27 (Completed)
 - Changed API sync from GET to POST requests to handle large data payloads (was hitting URL length limits)
 - Added automatic build versioning via Vite plugin (`vite.config.js`) - generates YYYYMMDDHHMM timestamps in Melbourne timezone
 - Fixed game sorting to display by round number (not insertion order)
@@ -255,9 +255,26 @@ Update this section at the end of each session:
   - Apple touch icon (180x180)
 - Persisted `playerCount` to the `Teams` sheet (Column J) and returned it in `getTeams` to avoid per-team sheet reads; added `rebuildPlayerCounts` API to recompute counts and added automatic update of counts in `saveTeamData` (improves `getTeams` performance)
 - Added timing instrumentation to `getTeams` (metrics: `getTeams_totalMs`, `getTeams_cache_hit`, `getTeams_cache_miss_readMs`, `getTeams_loadMasterListMs`, `getTeams_cache_putMs`) and recorded metrics to the `Diagnostics` sheet via `logClientMetric()` to help monitor and tune performance
+- Added client-side metrics (teams-fetch, app-load) and server-side collection; client now reports metrics and Diagnostics records them for analysis
 - **Added Ladder integration:** Implemented ladder scraping script (`scripts/fetch-ladder.js`) that generates `public/ladder-<teamID>.json`; updated `apps-script/Code.js` to persist `ladderUrl` (`updateTeamSettings`) and include it in `getTeams`; added frontend Ladder tab that conditionally displays and fetches the per-team JSON, with responsive portrait/landscape behavior, a per-team "Show extra columns" toggle (persisted in `localStorage`), and accessibility/reduced-motion support. Sample ladder JSONs were committed to `public/` during testing. Documentation updated (CLAUDE.md) to explain usage and automation options.
+- Added GitHub workflows: release creator (on tag) and monitoring action (checks `getTeams_totalMs` and files a GitHub issue on spikes)
+- Deployed AppScript instrumentation (deployment @56) and made Cloudflare Pages deploy (https://master.hgnc-team-manager.pages.dev). Created Git tag and GitHub release `v2026-01-27` with release notes.
 - All icons generated from `docs/HGNC Logo.jpg` using macOS `sips`
 - All 172 tests passing, deployed to production
+
+---
+
+## 2026-01-27 session — what changed (detailed)
+- Persisted Player Count to `Teams` sheet (column J) and updated `saveTeamData` to update counts automatically.
+- Added `rebuildPlayerCounts` API and ran it to populate counts across all teams.
+- Reworked `getTeams` to use persisted `playerCount` (no per-team A1 reads), added server-side caching and cache invalidation hooks.
+- Added getTeams timing instrumentation and metrics: `getTeams_totalMs`, `getTeams_cache_hit`, `getTeams_cache_miss_readMs`, `getTeams_loadMasterListMs`, `getTeams_cache_putMs` and logged them into `Diagnostics` via `logClientMetric()`.
+- Added client-side metrics for `teams-fetch` and `app-load` and send them to server Diagnostics.
+- Added GitHub Action monitor (`.github/workflows/monitor-getTeams.yml`) to run every 15 minutes and open an issue if `getTeams_totalMs > 2000ms` for any recent entry.
+- Built and deployed Cloudflare Pages site and created GitHub release `v2026-01-27` with release notes at `RELEASE_NOTES/v2026-01-27.md`.
+- Updated README and scripts docs to note `GS_API_URL` needs to point at the latest Apps Script deployment (e.g. @56) for ladder scraping and diagnostics to work.
+
+
 
 ---
 
