@@ -3299,6 +3299,15 @@ h4 { font-size: 1rem; }
   border-top: 1px solid var(--border-color);
 }
 
+/* Read-only view helpers */
+body.read-only .player-edit-actions,
+body.read-only #add-team-btn,
+body.read-only [data-admin-only] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
 .player-edit-actions .btn {
   flex: 1;
 }

@@ -263,6 +263,22 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
 
+  // Detect a read-only team slug in the path: /teams/<slug>/
+  try {
+    const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
+    if (m && m.groups && m.groups.slug) {
+      state.readOnly = true;
+      state.requestedTeamSlug = m.groups.slug.toLowerCase();
+      console.log('[App] Read-only team slug requested:', state.requestedTeamSlug);
+      // Set global flag to allow other modules to quickly detect read-only mode
+      window.isReadOnlyView = true;
+    } else {
+      state.readOnly = false;
+    }
+  } catch (e) {
+    console.warn('[App] Path parsing failed:', e.message || e);
+  }
+
   // Restore persisted data source preference (if any)
   const savedSource = localStorage.getItem(DATA_SOURCE_KEY);
   if (savedSource) {
@@ -549,6 +565,11 @@ async function loadTeams(forceRefresh = false) {
   showLoading();
   console.log('[App] loadTeams() called, dataSource:', state.dataSource, 'forceRefresh:', forceRefresh);
 
+  // Helper: create slugs from team names to match /teams/<slug>/ URLs
+  function slugify(s) {
+    return (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
+
   try {
     if (state.dataSource === 'mock') {
       await delay(300);
@@ -692,6 +713,27 @@ async function loadTeams(forceRefresh = false) {
     }
 
     renderTeamList();
+
+    // If a read-only slug was requested on startup, attempt to auto-select the matching team
+    try {
+      if (state.readOnly && state.requestedTeamSlug) {
+        const slug = state.requestedTeamSlug;
+        const matched = state.teams.find(t => slugify(t.teamName || t.teamID) === slug || (t.teamID || '').toLowerCase() === slug);
+        if (matched) {
+          console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
+          // Mark global read-only and add class for CSS masking
+          window.isReadOnlyView = true;
+          document.body.classList.add('read-only');
+          // Load the team (this will render the main app view)
+          selectTeam(matched.teamID);
+        } else {
+          console.warn('[App] No team matched slug:', slug);
+        }
+      }
+    } catch (e) {
+      console.warn('[App] Error handling read-only selection:', e.message || e);
+    }
+
   } catch (error) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
@@ -2933,6 +2975,7 @@ window.calculateGameTotal = window.finalizeGame;
 
 async function syncToGoogleSheets() {
   console.log('[syncToGoogleSheets] Starting...');
+  if (window.isReadOnlyView) throw new Error('Read-only view: sync/write operations are disabled');
 
   if (!state.currentTeamData || !state.teamSheetMap) {
     throw new Error('No team data to sync');
@@ -2984,6 +3027,8 @@ async function syncToGoogleSheets() {
  * Update team settings (name, year, season, archived) in the backend
  */
 async function updateTeamSettingsAPI(teamID, settings) {
+  if (window.isReadOnlyView) throw new Error('Read-only view: updateTeamSettings is disabled');
+
   if (state.dataSource === 'mock') {
     // For mock data, just update local state
     return { success: true };
