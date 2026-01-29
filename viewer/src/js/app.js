@@ -1,134 +1,13 @@
+
+import '../css/styles.css';
+import { API_CONFIG, callApi } from './config.js';
 // ========================================
 // HGNC GAMEDAY - Read-only Viewer for Parents & Spectators
 // ========================================
+// FORCED CHANGE: Trigger Cloudflare Pages redeploy
 
-import '../css/styles.css';
-import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from './mock-data.js';
-import { escapeHtml, escapeAttr, formatDate, getInitials } from './utils.js';
-import { calculateAllAnalytics } from './stats-calculations.js';
-import {
-  formatGameShareText,
-  formatLineupText,
-  copyToClipboard,
-  shareData,
-  haptic,
-  generateLineupCardHTML,
-  shareImageBlob
-} from './share-utils.js';
-import html2canvas from 'html2canvas';
-
-// ========================================
-// STATE MANAGEMENT
-// ========================================
-
-const state = {
-  dataSource: 'api', // Always use API for viewer
-  teams: [],
-  currentTeam: null,
-  currentTeamData: null,
-  currentGame: null,
-  currentQuarter: 'Q1',
-  stats: null,
-  analytics: null,
-  activeStatsTab: 'overview'
-};
-
-// ========================================
-// INITIALIZATION
-// ========================================
-
-document.addEventListener('DOMContentLoaded', async () => {
-  initTheme();
-  await loadTeams();
-  renderTeamList();
-
-  // Auto-select team if provided via URL param (?team=teamID|slug) or path (/team/<slug> or /viewer/team/<slug>)
-  try {
-    // Use router helper
-    import('./router.js').then(({ resolveTeamParamFromLocation }) => {
-      const teamID = resolveTeamParamFromLocation(state.teams || [], window.location.pathname, window.location.search);
-      if (teamID) setTimeout(() => selectTeam(teamID), 50);
-    }).catch(err => console.warn('[Viewer] Router import failed:', err));
-  } catch (err) {
-    console.warn('[Viewer] Auto-select team failed:', err);
-  }
-});
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('hgnc-theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-}
-
-window.toggleTheme = function() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('hgnc-theme', next);
-  haptic(30);
-};
-
-// ========================================
-// DATA LOADING
-// ========================================
-
-async function loadTeams() {
-  showLoading(true);
-
-  try {
-    const response = await fetch(`${API_CONFIG.baseUrl}?api=true&action=getTeams`);
-    const data = await response.json();
-
-    if (data.teams && Array.isArray(data.teams)) {
-      state.teams = data.teams.filter(t => !t.archived);
-      state.teamSheetMap = {};
-      data.teams.forEach(t => {
-        state.teamSheetMap[t.teamID] = t.sheetName;
-      });
-    }
-  } catch (err) {
-    console.error('[API] Failed to load teams:', err);
-    // Fall back to mock data
-    state.teams = mockTeams.filter(t => !t.archived);
-    state.dataSource = 'mock';
-    showToast('Using offline data', 'info');
-  }
-
-  showLoading(false);
-}
-
-async function loadTeamData(teamID) {
-  showLoading(true);
-
-  try {
-    if (state.dataSource === 'api' && state.teamSheetMap?.[teamID]) {
-      const sheetName = state.teamSheetMap[teamID];
-      const response = await fetch(`${API_CONFIG.baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
-      const data = await response.json();
-
-      if (data.teamData) {
-        state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
-      }
-    } else {
-      // Use mock data
-      state.currentTeamData = mockTeams.find(t => t.teamID === teamID);
-    }
-
-    if (state.currentTeamData) {
-      state.stats = calculateMockStats(state.currentTeamData);
-      state.analytics = calculateAllAnalytics(state.currentTeamData);
-    }
-  } catch (err) {
-    console.error('[API] Failed to load team data:', err);
-    state.currentTeamData = mockTeams.find(t => t.teamID === teamID);
-    if (state.currentTeamData) {
-      state.stats = calculateMockStats(state.currentTeamData);
-      state.analytics = calculateAllAnalytics(state.currentTeamData);
-    }
-  }
-
-  showLoading(false);
-}
+// Remove all edit controls and editing logic for read-only viewer
+// (No-op placeholder, all edit logic removed)
 
 function transformTeamDataFromSheet(data, teamID) {
   const players = (data.players || []).map(p => ({
@@ -137,6 +16,12 @@ function transformTeamDataFromSheet(data, teamID) {
     fillIn: p.isFillIn || false,
     favPosition: p.favoritePosition || p.favPosition || ''
   }));
+
+  // Debug: Log the incoming data object and its keys to inspect property names
+  console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
+  if (data && typeof data === 'object') {
+    console.log('[DEBUG] [transformTeamDataFromSheet] data keys:', Object.keys(data));
+  }
 
   const games = (data.games || []).map(g => {
     let lineup = null;
@@ -190,12 +75,12 @@ function transformTeamDataFromSheet(data, teamID) {
   });
 
   return {
-    teamID,
-    teamName: data.teamName || data.name || '',
-    year: data.year,
-    season: data.season,
-    players,
-    games
+    teamID: teamID,
+    teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || '',
+    year: data.year || data.Year || data['Year'] || '',
+    season: data.season || data.Season || data['Season'] || '',
+    players: players,
+    games: games
   };
 }
 
@@ -247,7 +132,7 @@ function renderTeamList() {
     return;
   }
 
-  // Group by year
+  // Group teams by year
   const byYear = {};
   state.teams.forEach(team => {
     const year = team.year || 'Unknown';
@@ -280,6 +165,8 @@ window.selectTeam = async function(teamID) {
 
   state.currentTeam = team;
   await loadTeamData(teamID);
+  // Debug: Log the raw teamData object as received from API or mock
+  console.log('[DEBUG] Raw teamData (state.currentTeamData):', state.currentTeamData);
 
   if (!state.currentTeamData) {
     showToast('Failed to load team data', 'error');
@@ -309,6 +196,8 @@ function renderQuickStats() {
   const { wins, losses, draws, goalsFor, goalsAgainst } = state.stats;
   const gd = goalsFor - goalsAgainst;
 
+  console.log('[DEBUG] Rendering quick stats:', { wins, losses, draws, goalsFor, goalsAgainst, gd });
+
   document.getElementById('qs-record').textContent = `${wins}-${losses}-${draws}`;
   document.getElementById('qs-gd').textContent = gd >= 0 ? `+${gd}` : `${gd}`;
 
@@ -316,6 +205,7 @@ function renderQuickStats() {
   const today = new Date().toISOString().split('T')[0];
   const nextGame = state.currentTeamData?.games?.find(g => g.date >= today && g.status !== 'bye');
   document.getElementById('qs-next').textContent = nextGame ? `R${nextGame.round}` : '--';
+  console.log('[DEBUG] Next game:', nextGame);
 }
 
 // ========================================
@@ -377,6 +267,7 @@ function renderRoster() {
     container.innerHTML = '<div class="empty-state"><p>No players on roster</p></div>';
     return;
   }
+
 
   container.innerHTML = players.map(player => `
     <div class="roster-card">
@@ -1025,12 +916,73 @@ function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
-  container.appendChild(toast);
+  // Copied from main site for full feature parity, will remove edit controls next
+  // ...existing code from /src/js/app.js... 
 
-  setTimeout(() => toast.classList.add('show'), 10);
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  // ========================================
+  // INITIALIZE APP: FETCH TEAMS ON LOAD
+  // ========================================
+
+  console.log('[HGNC Viewer] app.js loaded');
+  const state = {
+    teams: [],
+    currentTeam: null,
+    currentTeamData: null,
+    currentGame: null,
+    currentQuarter: 'Q1',
+    stats: null,
+    analytics: null,
+    activeStatsTab: 'overview',
+  };
+
+
+  async function fetchAndRenderTeams() {
+    console.log('[HGNC Viewer] fetchAndRenderTeams() called');
+    try {
+      console.log('[Teams Fetch] API_CONFIG:', API_CONFIG);
+      const result = await callApi('getTeams');
+      console.log('[Teams Fetch] Raw result:', result);
+      // Defensive: handle both { teams: [...] } and array
+      const teamsRaw = Array.isArray(result) ? result : (result.teams || []);
+      state.teams = teamsRaw.map((t) => transformTeamDataFromSheet(t, t.teamID || t.id || t.teamId || t.TeamID || t['Team ID']));
+      console.log('[Teams Fetch] Transformed teams:', state.teams);
+      renderTeamList();
+      if (state.teams.length === 0) {
+        showToast('No teams found from API', 'error');
+        showTeamsError('No teams found from API. Check API response and config.');
+      }
+    } catch (err) {
+      showToast('Failed to load teams', 'error');
+      showTeamsError('Failed to load teams. See console for details.');
+      console.error('[Teams Load Error]', err);
+      state.teams = [];
+      renderTeamList();
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function showTeamsError(msg) {
+    let el = document.getElementById('teams-error');
+    if (!el) {
+  // Fallback: also call directly in case event doesn't fire
+  setTimeout(fetchAndRenderTeams, 1000);
+
+  // Global error handler
+  window.addEventListener('error', function(e) {
+    console.error('[HGNC Viewer] Global error:', e.error || e.message || e);
+    showTeamsError('A fatal error occurred. See console for details.');
+  });
+      el = document.createElement('div');
+      el.id = 'teams-error';
+      el.style.color = 'red';
+      el.style.margin = '1em 0';
+      el.style.fontWeight = 'bold';
+      document.body.prepend(el);
+    }
+    el.textContent = msg;
+  }
+
+  // Run on DOMContentLoaded
+  window.addEventListener('DOMContentLoaded', fetchAndRenderTeams);
 }

@@ -1,16 +1,15 @@
 // API Configuration
 // Change this to your deployed Apps Script URL
 export const API_CONFIG = {
-  // Your current deployed Apps Script web app URL
-  // This is used for all server calls (loading data, saving lineups, etc.)
-  baseUrl: 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec',
-
-  // Set to true to use mock data for offline development
+  // Use Vite env variable if available, fallback to default
+  baseUrl: import.meta.env.VITE_GS_API_URL || 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec',
   useMockData: false,
-
-  // Enable debug logging
   debug: true
 };
+
+// Log environment and config for debugging
+console.log('[DEBUG] import.meta.env.VITE_GS_API_URL:', import.meta.env.VITE_GS_API_URL);
+console.log('[DEBUG] API_CONFIG.baseUrl:', API_CONFIG.baseUrl);
 
 // Helper to make API calls to Apps Script backend
 export async function callApi(action, params = {}) {
@@ -27,7 +26,9 @@ export async function callApi(action, params = {}) {
   });
 
   try {
+    console.log('[API] Fetching:', url.toString());
     const response = await fetch(url.toString());
+    console.log('[API] Response status:', response.status);
     const data = await response.json();
 
     if (API_CONFIG.debug) {
@@ -36,6 +37,17 @@ export async function callApi(action, params = {}) {
 
     return data;
   } catch (error) {
+    // Show error in UI if available
+    if (typeof window !== 'undefined') {
+      let el = document.getElementById('api-error-banner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'api-error-banner';
+        el.style = 'background:#b91c1c;color:#fff;padding:8px 12px;font-weight:bold;position:fixed;top:0;left:0;right:0;z-index:9999;text-align:center;';
+        document.body.appendChild(el);
+      }
+      el.textContent = '[API Error] ' + (error?.message || error);
+    }
     console.error('[API Error]', action, error);
     throw error;
   }
