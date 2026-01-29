@@ -13,6 +13,8 @@ export function resolveTeamParamFromLocation(teams, pathname, searchString) {
       teamParam = decodeURIComponent(pathParts[tIndex + 1]);
     } else if (pathParts[0] === 'viewer' && pathParts.length > 1) {
       teamParam = decodeURIComponent(pathParts[1]);
+    } else if (pathParts[0] === 'teams' && pathParts.length > 1) {
+      teamParam = decodeURIComponent(pathParts[1]);
     }
   }
 
@@ -22,8 +24,12 @@ export function resolveTeamParamFromLocation(teams, pathname, searchString) {
   let match = teams.find(t => t.teamID === teamParam);
   if (match) return match.teamID;
 
-  // Try slug match
+  // Match by slug property if present
   const target = decodeURIComponent(teamParam).toLowerCase();
+  match = teams.find(t => (t.slug && slugify(t.slug) === slugify(target)));
+  if (match) return match.teamID;
+
+  // Try slugified teamName
   match = teams.find(t => slugify(t.teamName) === slugify(target));
   return match ? match.teamID : null;
 }

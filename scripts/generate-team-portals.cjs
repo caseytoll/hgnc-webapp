@@ -105,45 +105,9 @@ async function main() {
     }
     usedSlugs.add(slug);
 
-    // Create compact portal path at /p/<slug>/index.html to avoid exposing project name
-    // Primary redirect page
-    const filename = `hgnc-team-portal-${slug}.html`;
-    const filepath = path.join(outDir, filename);
-    // Prefer static team URL (direct read-only page) to avoid viewer auto-select issues
-    const target = `${baseUrl ? baseUrl : ''}/teams/${slug}/`;
-
-    // Minimal redirect page with noindex for search engines
-    const html = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex">
-  <title>${name} - HGNC Team Portal</title>
-  <meta http-equiv="refresh" content="0; url=${target}">
-  <link rel="canonical" href="${target}">
-</head>
-<body>
-  <p>Redirecting to <a href="${target}">${name} portal</a>…</p>
-</body>
-</html>`;
-
-    // Write to primary output
-    fs.writeFileSync(filepath, html, 'utf8');
-
-    // Also option to write into the Viewer public folder so Viewer site can serve compact URLs
-    if (viewerOut) {
-      const dir = path.join(viewerOut, 'p', slug);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      // Prefer the static /teams/<slug>/ URL so portal short links always land on read-only snapshots
-      const viewerTarget = `${baseUrl ? baseUrl : ''}/teams/${slug}/`;
-      const viewerHtml = html.replace(new RegExp(target, 'g'), viewerTarget);
-      fs.writeFileSync(path.join(dir, 'index.html'), viewerHtml, 'utf8');
-      console.log('Also wrote viewer portal at', path.join(dir, 'index.html'));
-    }
-
-    created.push({ path: `/p/${slug}/`, teamID: team.teamID, name, slug, target });
-    console.log('Created:', filepath, '→', target);
+    // Only create /teams/<slug>/ entries, do not generate /p/<slug>/index.html or any redirect files
+    created.push({ path: `/teams/${slug}/`, teamID: team.teamID, name, slug });
+    console.log('Created team portal path:', `/teams/${slug}/`);
   });
 
   // Write index file with new path keys

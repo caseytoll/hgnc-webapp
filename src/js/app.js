@@ -1,3 +1,24 @@
+// Helper to generate the canonical team slug (matches deploy script)
+function teamSlug(team) {
+  // Slugify: teamName, year, season (all required)
+  const slugify = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  if (!team.teamName || !team.year || !team.season) return null;
+  return [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-');
+}
+// --- Early redirect for gameday subdomain ---
+try {
+  const subdomainMatch = window.location.hostname.match(/^hgnc-gameday-([a-z0-9\-]+)\.pages\.dev$/i);
+  if (subdomainMatch && subdomainMatch[1]) {
+    const foundSlug = subdomainMatch[1].toLowerCase();
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+      window.location.replace(`/teams/${foundSlug}/`);
+      // Prevent further script execution
+      throw new Error('Redirecting to team page');
+    }
+  }
+} catch (e) {
+  if (e.message !== 'Redirecting to team page') console.warn('[App] Early redirect error:', e.message || e);
+}
 // ========================================
 // EXPORT MOCK DATA (DEV TOOL)
 // ========================================
@@ -263,21 +284,39 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
 
-  // Detect a read-only team slug in the path: /teams/<slug>/
+  // Detect read-only mode and team slug from gameday subdomain or /teams/<slug>/ path
   try {
-    const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
-    if (m && m.groups && m.groups.slug) {
+    let foundSlug = null;
+    // 1. Check for gameday subdomain: hgnc-gameday-<slug>.pages.dev
+    const subdomainMatch = window.location.hostname.match(/^hgnc-gameday-([a-z0-9\-]+)\.pages\.dev$/i);
+    if (subdomainMatch && subdomainMatch[1]) {
+      foundSlug = subdomainMatch[1].toLowerCase();
       state.readOnly = true;
-      state.requestedTeamSlug = m.groups.slug.toLowerCase();
-      state.forceApiForReadOnly = true; // prefer live API when parents use /teams/<slug>/ locally
-      console.log('[App] Read-only team slug requested:', state.requestedTeamSlug);
-      // Set global flag to allow other modules to quickly detect read-only mode
+      state.requestedTeamSlug = foundSlug;
+      state.forceApiForReadOnly = true;
       window.isReadOnlyView = true;
+      console.log('[App] Read-only mode (gameday subdomain):', foundSlug);
+      // If on the root or team selection page, redirect to the team page
+      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        window.location.replace(`/teams/${foundSlug}/`);
+        return;
+      }
     } else {
-      state.readOnly = false;
+      // 2. Fallback: /teams/<slug>/ path (for local dev)
+      const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
+      if (m && m.groups && m.groups.slug) {
+        foundSlug = m.groups.slug.toLowerCase();
+        state.readOnly = true;
+        state.requestedTeamSlug = foundSlug;
+        state.forceApiForReadOnly = true;
+        window.isReadOnlyView = true;
+        console.log('[App] Read-only team slug requested (local dev):', foundSlug);
+      } else {
+        state.readOnly = false;
+      }
     }
   } catch (e) {
-    console.warn('[App] Path parsing failed:', e.message || e);
+    console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
   // Restore persisted data source preference (if any)
@@ -771,13 +810,9 @@ async function loadTeams(forceRefresh = false) {
         const slug = state.requestedTeamSlug;
         let matched = null;
         for (const t of state.teams) {
-          const nameSlug = slugify(t.teamName || t.teamID);
-          const seasonSlug = (t.season && t.season.toString().trim()) ? slugify(`${t.teamName}-${t.season}`) : null;
-          const idSlug = (t.teamID || '').toLowerCase();
-          const fallbackSlug = slugify(`${t.teamName}-${t.teamID}`);
-          const allSlugs = [nameSlug, seasonSlug, idSlug, fallbackSlug].filter(Boolean);
-          console.log(`[ReadOnly Debug] Team: ${t.teamName} | Slugs:`, allSlugs, '| Requested:', slug);
-          if (allSlugs.includes(slug)) {
+          const canonical = teamSlug(t);
+          console.log(`[ReadOnly Debug] Team: ${t.teamName} | Canonical Slug:`, canonical, '| Requested:', slug);
+          if (canonical === slug) {
             matched = t;
             break;
           }
@@ -789,7 +824,7 @@ async function loadTeams(forceRefresh = false) {
           try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
           selectTeam(matched.teamID);
         } else {
-          console.warn('[App] No team matched slug:', slug);
+          console.warn('[App] No team matched canonical slug:', slug);
         }
       }
     } catch (e) {
@@ -1079,35 +1114,46 @@ async function syncPlayerLibrary() {
 // ========================================
 
 function renderTeamList() {
+
   const container = document.getElementById('team-list');
-  const showArchived = state.showArchivedTeams || false;
+  if (!container) return;
 
-  // Separate active and archived teams
-  const activeTeams = state.teams.filter(t => !t.archived);
-  const archivedTeams = state.teams.filter(t => t.archived);
 
-  let html = '';
+  // Define archivedTeams and showArchived for use in UI
+  const archivedTeams = state.teams.filter(team => team.archived);
+  let showArchived = state.showArchivedTeams ?? false;
 
-  // Active teams section
-  if (activeTeams.length === 0) {
-    html += `
-      <div class="empty-state">
-        <div class="empty-state-icon">🏐</div>
-        <p>No active teams. Add a new team to get started!</p>
-      </div>
-    `;
-  } else {
-    html += activeTeams.map(team => `
-      <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-        <div class="team-card-icon">🏐</div>
-        <div class="team-card-info">
-          <div class="team-card-name">${escapeHtml(team.teamName)}</div>
-          <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
-        </div>
-        <div class="team-card-arrow">→</div>
-      </div>
-    `).join('');
+  if (state.teams.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No teams available</p></div>';
+    return;
   }
+
+  // Group teams by year
+  const byYear = {};
+  state.teams.forEach(team => {
+    const year = team.year || 'Unknown';
+    if (!byYear[year]) byYear[year] = [];
+    byYear[year].push(team);
+  });
+
+  const years = Object.keys(byYear).sort((a, b) => b - a);
+
+
+  let html = years.map(year => `
+    <div class="team-year-group">
+      <div class="team-year-header">${escapeHtml(year)}</div>
+      ${byYear[year].map(team => `
+        <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+          <div class="team-avatar">${escapeHtml(getInitials(team.teamName))}</div>
+          <div class="team-info">
+            <div class="team-name">${escapeHtml(team.teamName)}</div>
+            <div class="team-meta">${escapeHtml(team.season || '')}</div>
+          </div>
+          <div class="team-arrow">→</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
 
   // Archived teams section (always visible if there are archived teams)
   if (archivedTeams.length > 0) {
@@ -1675,7 +1721,7 @@ function renderStatsLeaders(container) {
 
       <div class="leaderboard-grid">
         <!-- Top Scorer -->
-        <div class="leaderboard-card">
+       
           <div class="leaderboard-header">Top Scorer</div>
           ${offensive.topScorersByTotal.length > 0 ? `
             <div class="leaderboard-player">
@@ -3704,6 +3750,12 @@ window.addGame = async function() {
 window.openTeamSettings = function() {
   const team = state.currentTeam;
   const isArchived = team.archived || false;
+  // Generate canonical parent portal link
+  const slugify = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const slug = team.teamName && team.year && team.season
+    ? [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-')
+    : '';
+  const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
   openModal('Team Settings', `
     <div class="form-group">
       <label class="form-label">Team Name</label>
@@ -3724,6 +3776,14 @@ window.openTeamSettings = function() {
     <div class="form-group">
       <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
       <input type="url" class="form-input" id="edit-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${escapeAttr(team.ladderUrl || '')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Parent Portal Link <span class="form-label-desc">(read-only, for parents)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" class="form-input" value="${portalUrl}" readonly style="flex:1;min-width:0;">
+        <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>showToast('Copied!','success'))">Copy</button>
+        <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open</a>
+      </div>
     </div>
     <div class="settings-divider"></div>
     <div class="form-group">
@@ -4702,24 +4762,22 @@ function renderSystemSettings() {
     </div>
 
     <div class="settings-section">
-      <h3>Read-only Links</h3>
+      <h3>Parent Portal Links</h3>
       <div class="settings-row" style="grid-template-columns: 1fr auto; font-weight: 700;">
-        <span>Team</span><span>Link</span>
+        <span>Team</span><span>Parent Portal</span>
       </div>
       ${ (state.teams || []).filter(t => !t.archived).map(t => {
-        // Build a slug consistent with the static generator
-        const base = (t.teamName || t.teamID || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        let slug = (t.season && t.season.toString().trim()) ? `${base}-${(t.season||'').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}` : `${base}-${t.teamID}`;
-        const teamUrl = `${location.origin}/teams/${slug}/`;
-        const portalUrl = `${location.origin}/p/${slug}/`;
+        const slugify = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const slug = t.teamName && t.year && t.season
+          ? [slugify(t.teamName), String(t.year), slugify(t.season)].filter(Boolean).join('-')
+          : '';
+        const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
         return `<div class="settings-row"><span>${escapeHtml(t.teamName || t.teamID)}<br><small style="color:var(--text-secondary)">${escapeHtml(t.season||'')}</small></span><span style="display:flex;gap:8px;align-items:center;">
-              <a class="btn btn-sm" href="${teamUrl}" target="_blank" rel="noopener">Open</a>
-              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','team')">Copy</button>
-              <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open Portal</a>
-              <button class="btn btn-sm btn-outline" onclick="copyReadOnlyUrl('${escapeAttr(slug)}','portal')">Copy</button>
+              <input type="text" class="form-input" value="${portalUrl}" readonly style="flex:1;min-width:0;max-width:260px;">
+              <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>showToast('Copied!','success'))">Copy</button>
+              <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open</a>
             </span></div>`;
       }).join('') }
-
     </div>
 
     <div class="settings-section">

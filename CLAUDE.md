@@ -245,68 +245,32 @@ node --check src/js/app.js
 
 ## Session Handoff
 
-Update this section at the end of each session:
-- Features added/modified
-- Key functions changed
-- Any issues to watch for
+**Last session:** 2026-01-30 (Session 5)
 
-**Last session:** 2026-01-28 (Session 4)
-### CI/Monitoring fixes
-- **Monitor workflow now creates issues reliably**
-  - Updated all `github-script` calls to use `github.rest.issues.*`
-  - Added `permissions: issues: write` to workflow job
-  - Documented troubleshooting for monitor workflow errors
+### Major Features & Changes
+- **Unified team slug logic**: All team slugs (for deployment, navigation, and portal links) now use the same canonical format: `slugify(teamName) + '-' + year + '-' + slugify(season)`.
+- **Automated per-team parent portal deployment**: Each team’s read-only SPA is deployed to a unique Cloudflare Pages subdomain (e.g., `hgnc-gameday-<slug>.pages.dev`).
+- **SPA read-only navigation**: When accessed via a gameday subdomain, the SPA auto-navigates directly to the correct team’s page using the canonical slug logic.
+- **System settings and team settings UI**: (Planned) The system settings page will show a single list of all parent portal links (one per team, using the canonical slug). Each team’s settings modal will also display and allow copying the parent portal link for that team.
+- **Deployment scripts**: Updated to always use API data and canonical slug logic for all deployments.
+- **Bugfixes**: Fixed navigation and slug-matching issues that previously prevented seamless parent portal access.
 
-### Features added
-- **localStorage caching for team data** with 7-day TTL
-  - `teamCacheMetadata` tracks cache timestamps per team
-  - `loadTeamData()` uses cache-first strategy
-  - Cache persisted immediately after API fetch (survives app close/swipe up)
-- **localStorage caching for teams list** (landing page)
-  - `teamsListCache` and `teamsListCacheTime` track cached teams
-  - `loadTeams(forceRefresh)` supports bypassing cache
-- **Cache invalidation** happens automatically when:
-  - Creating a new team → forces refresh
-  - Updating team settings → invalidates teams list
-  - Syncing scores/lineup → updates team data cache
-- **System Settings page** accessible by clicking version number
-  - Shows: app version, data source, online status, teams loaded
-  - Shows: cache status, cached teams with ages, localStorage usage
-  - "Clear Cache & Reload" button for manual invalidation
-- **Performance:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
-
-### UI fixes
-- **Player Detail:** Moved Save/Delete buttons from modal footer to Edit tab only
-- **Team Settings Icon:** Replaced broken icon with standard gear/cog SVG
-- **System Settings:** Fixed header safe area for iPhone notch/dynamic island
+### Outstanding/Future Work
+- **Manual UI update required**: The parent portal link UI (system settings and team settings modal) must be updated to use the canonical slug and new link format. See the session notes and code snippets for the exact implementation.
+- **Documentation review**: Ensure all user-facing and developer docs reflect the new parent portal deployment and navigation model.
+- **Test all portal links**: After UI update, verify that all parent portal links work as expected for every team and season.
 
 ### Key files changed
-- `src/js/app.js`:
-  - Cache variables: `teamCacheMetadata`, `teamsListCache`, `teamsListCacheTime`, `TEAM_CACHE_TTL_MS` (7 days)
-  - Cache functions: `isTeamCacheValid()`, `updateTeamCache()`, `isTeamsListCacheValid()`, `invalidateTeamsListCache()`
-  - System settings: `showSystemSettings()`, `renderSystemSettings()`, `formatCacheAge()`, `clearAllCaches()`
-  - Modified: `saveToLocalStorage()`, `loadFromLocalStorage()`, `loadTeamData()`, `loadTeams()`, `updateTeamSettingsAPI()`, `closeGameDetail()`, `openPlayerDetail()`
-- `index.html`:
-  - Clickable version number with `onclick="showSystemSettings()"`
-  - New `system-settings-view` with safe area header
-  - Updated Team Settings icon SVG
-- `src/css/styles.css`:
-  - System settings styles with iPhone safe area support
-  - `.player-edit-actions` for Edit tab buttons
+- `src/js/app.js`: Unified slug logic, SPA navigation, deployment script integration, and (pending) parent portal link UI.
+- `scripts/deploy-parent-portals-deploy.cjs`: Always uses API data and canonical slug logic.
+- `README.md`, `CLAUDE.md`: (Pending) Update documentation to reflect new deployment and navigation model.
 
 ### Console logs for debugging
-- `[Cache] Using cached data for team X` - team data cache hit
-- `[Cache] Fetched and cached data for team X` - team data cache miss
-- `[Cache] Using cached teams list` - teams list cache hit
-- `[Cache] Fetched and cached teams list` - teams list cache miss
-- `[Cache] Teams list cache invalidated` - cache cleared
+- `[ReadOnly Debug] Team: ... | Canonical Slug: ... | Requested: ...` — SPA slug matching
+- `[App] Auto-selecting team for read-only view: ...` — SPA navigation
 
 All 172 tests passing, deployed to production.
 
 ---
-
-## Deployment summary (2026-01-27 Session 3)
-- GitHub: pushed to `master` with caching, system settings, UI fixes
-- Cloudflare Pages: deployed with latest build
-- Apps Script: no changes (still using @56)
+- **Performance:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
 

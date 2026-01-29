@@ -167,6 +167,12 @@ export function transformTeamDataFromSheet(data, teamID) {
     favPosition: p.favoritePosition || p.favPosition || ''
   }));
 
+  // Debug: Log the incoming data object and its keys to inspect property names
+  console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
+  if (data && typeof data === 'object') {
+    console.log('[DEBUG] [transformTeamDataFromSheet] data keys:', Object.keys(data));
+  }
+
   // Transform games
   const games = (data.games || []).map(g => {
     // Convert quarters array to lineup object
@@ -223,12 +229,12 @@ export function transformTeamDataFromSheet(data, teamID) {
   });
 
   return {
-    teamID,
-    teamName: data.teamName || data.name || '',
-    year: data.year,
-    season: data.season,
-    players,
-    games
+    teamID: teamID,
+    teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || '',
+    year: data.year || data.Year || data['Year'] || '',
+    season: data.season || data.Season || data['Season'] || '',
+    players: players,
+    games: games
   };
 }
 

@@ -1,18 +1,12 @@
-## Continuous Integration & Monitoring
-
-### Monitor Workflow (API Health)
-This project uses a scheduled GitHub Actions workflow (`monitor-api.yml`) to monitor the health and latency of the Google Apps Script API. The workflow:
-- Checks the `/ping` and `/getTeams` endpoints
-- Detects latency spikes in `getTeams_totalMs`
-- Sends alerts to Slack (if configured) and/or creates a GitHub issue on failure or spike
-
-**Important:**
-- The workflow requires `permissions: issues: write` in the job definition to allow issue creation.
-- All GitHub API calls in `github-script` must use `github.rest.issues.*` (not `github.issues.*`).
-- If you see `Resource not accessible by integration`, check that the workflow has the correct permissions.
-
-See `docs/CI.md` for more details and troubleshooting.
 # HGNC Team Manager
+
+> **Session 2026-01-30 Update:**
+> - Unified team slug logic for all deployments, navigation, and portal links (slugify(teamName) + '-' + year + '-' + slugify(season)).
+> - Automated per-team parent portal deployment: each team’s SPA is deployed to a unique Cloudflare Pages subdomain (e.g., hgnc-gameday-<slug>.pages.dev).
+> - SPA now auto-navigates to the correct team page in read-only mode using canonical slug logic.
+> - (Planned) System settings and team settings UI will show/copy the canonical parent portal link for each team.
+> - Outstanding: Manual UI update required for parent portal links in both system and team settings. See CLAUDE.md for code and details.
+> - All 172 tests passing, deployed to production.
 
 > **Developer Guide:** See `CLAUDE.md` for project status, troubleshooting, and developer notes.
 
