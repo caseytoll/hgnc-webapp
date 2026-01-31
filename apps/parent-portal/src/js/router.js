@@ -29,7 +29,15 @@ export function resolveTeamParamFromLocation(teams, pathname, searchString) {
   match = teams.find(t => (t.slug && slugify(t.slug) === slugify(target)));
   if (match) return match.teamID;
 
-  // Try slugified teamName
+  // Try full slug match: teamName-year-season format
+  match = teams.find(t => {
+    if (!t.teamName || !t.year || !t.season) return false;
+    const expectedSlug = [slugify(t.teamName), String(t.year), slugify(t.season)].filter(Boolean).join('-');
+    return slugify(expectedSlug) === slugify(target);
+  });
+  if (match) return match.teamID;
+
+  // Try slugified teamName (fallback)
   match = teams.find(t => slugify(t.teamName) === slugify(target));
   return match ? match.teamID : null;
 }

@@ -547,5 +547,83 @@ export const mockTeams = [
         }
       }
     ]
+  },
+  {
+    "teamID": "team_u11_flames_2025_season_2",
+    "year": 2025,
+    "season": "Season 2",
+    "teamName": "U11 Flames",
+    "players": [
+      {
+        "id": "p_flames_1",
+        "name": "Alice",
+        "favPosition": "GS",
+        "fillIn": false
+      },
+      {
+        "id": "p_flames_2",
+        "name": "Bob",
+        "favPosition": "GA",
+        "fillIn": false
+      }
+    ],
+    "games": [
+      {
+        "gameID": "g_flames_1",
+        "round": 1,
+        "opponent": "Test Opponent",
+        "date": "2025-01-15",
+        "time": "10:00",
+        "location": "Home",
+        "status": "normal",
+        "scores": {
+          "us": 10,
+          "opponent": 5
+        },
+        "availablePlayerIDs": [
+          "p_flames_1",
+          "p_flames_2"
+        ],
+        "lineup": {
+          "Q1": {
+            "GS": "Alice",
+            "GA": "Bob",
+            "ourGsGoals": 3,
+            "ourGaGoals": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "teamID": "team_1763710520310",
+    "year": 2025,
+    "season": "NFNL",
+    "teamName": "Hazel Glen 6",
+    "players": [
+      {
+        "id": "p1",
+        "name": "Player 1",
+        "fillIn": false,
+        "favPosition": "GS"
+      },
+      {
+        "id": "p2",
+        "name": "Player 2",
+        "fillIn": false,
+        "favPosition": "GA"
+      }
+    ],
+    "games": [
+      {
+        "gameID": "game1",
+        "round": 1,
+        "date": "2025-02-01",
+        "time": "10:00",
+        "location": "Hazel Glen",
+        "opponent": "Opponent Team",
+        "status": "upcoming"
+      }
+    ]
   }
 ];

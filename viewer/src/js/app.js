@@ -1,6 +1,39 @@
 
 import '../css/styles.css';
 import { API_CONFIG, callApi } from './config.js';
+import { resolveTeamParamFromLocation } from './router.js';
+import {
+  escapeHtml,
+  escapeAttr,
+  delay,
+  formatDate,
+  formatDateTime,
+  validatePlayerName,
+  validateRound,
+  validateYear,
+  validatePosition,
+  validateLocation,
+  validateSeason,
+  isDuplicateName,
+  generateId,
+  getInitials
+} from '../../../common/utils.js';
+import { calculateAllAnalytics } from '../../../common/stats-calculations.js';
+import {
+  formatGameShareText,
+  formatLineupText,
+  copyToClipboard,
+  shareData,
+  downloadJson,
+  toggleFullscreen,
+  isFullscreen,
+  haptic,
+  generateLineupCardHTML,
+  shareImageBlob,
+  triggerJsonImport,
+  validateImportedTeamData
+} from '../../../common/share-utils.js';
+import { mockTeams, calculateMockStats } from '../../../common/mock-data.js';
 // ========================================
 // HGNC GAMEDAY - Read-only Viewer for Parents & Spectators
 // ========================================
@@ -102,6 +135,16 @@ window.switchTab = function(tabName) {
     panel.classList.toggle('active', panel.id === `tab-${tabName}`);
   });
 
+  // Block interaction with the Schedule tab if on schedule
+  const overlay = document.getElementById('schedule-block-overlay');
+  if (tabName === 'schedule' && overlay) {
+    overlay.style.display = 'block';
+    overlay.onclick = function(e) { e.stopPropagation(); e.preventDefault(); };
+  } else if (overlay) {
+    overlay.style.display = 'none';
+    overlay.onclick = null;
+  }
+
   if (tabName === 'stats') {
     renderStats();
   }
@@ -177,6 +220,12 @@ window.selectTeam = async function(teamID) {
   document.getElementById('current-team-name').textContent = state.currentTeamData.teamName;
   document.getElementById('current-team-season').textContent = `${state.currentTeamData.year} ${state.currentTeamData.season}`;
 
+  // Show Create Parent Portal button if user is coach/admin (stub: always show for now)
+  const portalBtn = document.getElementById('create-parent-portal-btn');
+  if (portalBtn) {
+    portalBtn.style.display = '';
+  }
+
   // Render content
   renderQuickStats();
   renderSchedule();
@@ -184,6 +233,56 @@ window.selectTeam = async function(teamID) {
 
   showView('main-app-view');
   haptic(50);
+
+  // Trap user on team page: push dummy state so back doesn't go to selector
+  if (window.history && window.history.pushState) {
+    window.history.pushState({teamLock: true}, '', window.location.pathname + window.location.search);
+  }
+  // Listen for back navigation and force stay on team page
+  if (!window.__hgnc_trap_popstate) {
+    window.addEventListener('popstate', function (e) {
+      // If the state is not our teamLock, push it again
+      if (!e.state || !e.state.teamLock) {
+        window.history.pushState({teamLock: true}, '', window.location.pathname + window.location.search);
+      }
+    });
+    window.__hgnc_trap_popstate = true;
+  }
+};
+
+// Handler for Create Parent Portal button
+window.createParentPortal = async function() {
+  const btn = document.getElementById('create-parent-portal-btn');
+  if (!state.currentTeamData) {
+    showToast('No team selected', 'error');
+    return;
+  }
+  btn.disabled = true;
+  showLoading(true);
+  try {
+    const resp = await fetch('/api/create-parent-portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teamName: state.currentTeamData.teamName,
+        teamID: state.currentTeamData.teamID,
+        season: state.currentTeamData.season,
+        year: state.currentTeamData.year
+      })
+    });
+    const data = await resp.json();
+    if (data.success && data.url) {
+      showToast('Parent portal created!');
+      window.open(data.url, '_blank');
+    } else {
+      showToast(data.error || 'Failed to create portal', 'error');
+    }
+  } catch (err) {
+    showToast('Error creating portal', 'error');
+  } finally {
+    btn.disabled = false;
+    showLoading(false);
+  }
 };
 
 // ========================================
@@ -228,7 +327,10 @@ function renderSchedule() {
     let resultClass = '';
     let scoreDisplay = '';
 
-    if (hasScores) {
+    if (game.status === 'abandoned') {
+      scoreDisplay = 'Abandoned';
+      resultClass = 'abandoned';
+    } else if (hasScores) {
       const us = game.scores.us || 0;
       const them = game.scores.opponent || 0;
       if (us > them) resultClass = 'win';
@@ -946,7 +1048,25 @@ function showToast(message, type = 'info') {
       const teamsRaw = Array.isArray(result) ? result : (result.teams || []);
       state.teams = teamsRaw.map((t) => transformTeamDataFromSheet(t, t.teamID || t.id || t.teamId || t.TeamID || t['Team ID']));
       console.log('[Teams Fetch] Transformed teams:', state.teams);
-      renderTeamList();
+      // --- Auto-select team if URL contains a team slug or ID ---
+      const pathname = window.location.pathname;
+      const search = window.location.search;
+      const teamID = resolveTeamParamFromLocation(state.teams, pathname, search);
+      if (teamID) {
+        // Hide team selector, show team page directly
+        await window.selectTeam(teamID);
+        // Trap user on team page: replace history so back doesn't go to selector
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        // Listen for back navigation and force stay on team page
+        window.addEventListener('popstate', function (e) {
+          // Always push the team page back if user tries to go back
+          window.history.pushState(null, '', window.location.pathname + window.location.search);
+        });
+      } else {
+        renderTeamList();
+      }
       if (state.teams.length === 0) {
         showToast('No teams found from API', 'error');
         showTeamsError('No teams found from API. Check API response and config.');

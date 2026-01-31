@@ -44,7 +44,7 @@ window.exportMockData = function() {
 
 import '../css/styles.css';
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from './mock-data.js';
+import { mockTeams, calculateMockStats } from '../../common/mock-data.js';
 import {
   escapeHtml,
   escapeAttr,
@@ -60,8 +60,8 @@ import {
   isDuplicateName,
   generateId,
   getInitials
-} from './utils.js';
-import { calculateAllAnalytics } from './stats-calculations.js';
+} from '../../common/utils.js';
+import { calculateAllAnalytics } from '../../common/stats-calculations.js';
 import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import {
   formatGameShareText,
@@ -76,7 +76,7 @@ import {
   shareImageBlob,
   triggerJsonImport,
   validateImportedTeamData
-} from './share-utils.js';
+} from '../../common/share-utils.js';
 import html2canvas from 'html2canvas';
 import { setDataSource as apiSetDataSource } from './api.js';
 
@@ -1121,43 +1121,43 @@ function renderTeamList() {
 
   // Define archivedTeams and showArchived for use in UI
   const archivedTeams = state.teams.filter(team => team.archived);
+  const activeTeams = state.teams.filter(team => !team.archived);
   let showArchived = state.showArchivedTeams ?? false;
 
-  if (state.teams.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No teams available</p></div>';
-    return;
-  }
+  if (activeTeams.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No active teams available</p></div>';
+  } else {
+    // Group active teams by year
+    const byYear = {};
+    activeTeams.forEach(team => {
+      const year = team.year || 'Unknown';
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(team);
+    });
 
-  // Group teams by year
-  const byYear = {};
-  state.teams.forEach(team => {
-    const year = team.year || 'Unknown';
-    if (!byYear[year]) byYear[year] = [];
-    byYear[year].push(team);
-  });
+    const years = Object.keys(byYear).sort((a, b) => b - a);
 
-  const years = Object.keys(byYear).sort((a, b) => b - a);
-
-
-  let html = years.map(year => `
-    <div class="team-year-group">
-      <div class="team-year-header">${escapeHtml(year)}</div>
-      ${byYear[year].map(team => `
-        <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-          <div class="team-avatar">${escapeHtml(getInitials(team.teamName))}</div>
-          <div class="team-info">
-            <div class="team-name">${escapeHtml(team.teamName)}</div>
-            <div class="team-meta">${escapeHtml(team.season || '')}</div>
+    let html = years.map(year => `
+      <div class="team-year-group">
+        <div class="team-year-header">${escapeHtml(year)}</div>
+        ${byYear[year].map(team => `
+          <div class="team-card active" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+            <div class="team-card-icon">🏐</div>
+            <div class="team-card-info">
+              <div class="team-card-name">${escapeHtml(team.teamName)}</div>
+              <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+            </div>
+            <div class="team-card-arrow">→</div>
           </div>
-          <div class="team-arrow">→</div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
+        `).join('')}
+      </div>
+    `).join('');
+    container.innerHTML = html;
+  }
 
   // Archived teams section (always visible if there are archived teams)
   if (archivedTeams.length > 0) {
-    html += `
+    let archivedHtml = `
       <div class="archived-section">
         <button class="archived-section-header" onclick="toggleArchivedTeams()">
           <div class="archived-section-title">
@@ -1184,9 +1184,9 @@ function renderTeamList() {
         ` : ''}
       </div>
     `;
+    // Append archived section after active teams
+    container.innerHTML += archivedHtml;
   }
-
-  container.innerHTML = html;
 
   // Update library count badge
   updateLibraryCount();
@@ -1247,6 +1247,14 @@ function renderMainApp() {
   // Update header - textContent is safe, no escaping needed
   document.getElementById('current-team-name').textContent = team.teamName;
   document.getElementById('current-team-season').textContent = `${team.year} ${team.season}`;
+
+  // REMOVE any dynamically rendered back/switch team button in the top bar if present
+  // (Legacy: some builds injected a back arrow for switching teams)
+  const topBar = document.querySelector('#main-app-view .top-bar');
+  if (topBar) {
+    const legacyBackBtn = topBar.querySelector('.icon-btn.switch-team');
+    if (legacyBackBtn) legacyBackBtn.remove();
+  }
 
   // Update quick stats
   document.getElementById('qs-record').textContent = `${stats.wins}-${stats.losses}-${stats.draws}`;
@@ -1414,7 +1422,10 @@ function renderSchedule() {
     let resultClass = '';
     let scoreDisplay = '';
 
-    if (game.scores) {
+    if (game.status === 'abandoned') {
+      scoreDisplay = `<div class="game-score-label">Abandoned</div>`;
+      resultClass = 'abandoned';
+    } else if (game.scores) {
       const { us, opponent } = game.scores;
       if (us > opponent) resultClass = 'win';
       else if (us < opponent) resultClass = 'loss';
@@ -3755,7 +3766,7 @@ window.openTeamSettings = function() {
   const slug = team.teamName && team.year && team.season
     ? [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-')
     : '';
-  const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
+  const portalUrl = slug ? `https://5072979e.hgnc-gameday.pages.dev/teams/${slug}/` : '';
   openModal('Team Settings', `
     <div class="form-group">
       <label class="form-label">Team Name</label>
@@ -4771,7 +4782,7 @@ function renderSystemSettings() {
         const slug = t.teamName && t.year && t.season
           ? [slugify(t.teamName), String(t.year), slugify(t.season)].filter(Boolean).join('-')
           : '';
-        const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
+        const portalUrl = slug ? `https://5072979e.hgnc-gameday.pages.dev/teams/${slug}/` : '';
         return `<div class="settings-row"><span>${escapeHtml(t.teamName || t.teamID)}<br><small style="color:var(--text-secondary)">${escapeHtml(t.season||'')}</small></span><span style="display:flex;gap:8px;align-items:center;">
               <input type="text" class="form-input" value="${portalUrl}" readonly style="flex:1;min-width:0;max-width:260px;">
               <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>showToast('Copied!','success'))">Copy</button>

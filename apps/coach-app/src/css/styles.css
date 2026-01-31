@@ -248,6 +248,7 @@ h4 { font-size: 1rem; }
   margin-bottom: var(--space-lg);
 }
 
+
 .team-card {
   background: var(--bg-card);
   backdrop-filter: blur(10px);
@@ -262,6 +263,58 @@ h4 { font-size: 1rem; }
   align-items: center;
   gap: var(--space-md);
   -webkit-tap-highlight-color: transparent;
+}
+
+.team-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+  color: var(--primary-700);
+  transition: background 0.2s, color 0.2s;
+}
+
+.team-card.active .team-card-icon {
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  color: #fff;
+}
+
+.team-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-card-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.team-card.active .team-card-name {
+  color: var(--text-primary);
+}
+
+.team-card-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.team-card.active .team-card-meta {
+  color: var(--text-primary);
+}
+
+.team-card-arrow {
+  color: var(--text-muted);
+  font-size: 1.25rem;
 }
 
 .team-card:active {
@@ -4349,4 +4402,6 @@ body.read-only .availability-checkbox {
   font-weight: 500;
   font-size: 14px;
   text-align: right;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }

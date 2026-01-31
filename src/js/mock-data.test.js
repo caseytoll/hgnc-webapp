@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mockTeams, calculateMockStats } from './mock-data.js';
+import { mockTeams, calculateMockStats } from '../../common/mock-data.js';
 
 // ========================================
 // MOCK DATA STRUCTURE TESTS

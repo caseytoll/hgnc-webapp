@@ -1,12 +1,11 @@
+// ...existing code...
+All parent and team portals are now served via a single read-only SPA (Single Page Application) at https://hgnc-gameday.pages.dev. Team-specific landing pages are handled by SPA routing (e.g., /teams/{slug}). Static HTML generation scripts, per-team deploys, and old portal artifacts have been removed and are no longer required.
+// ...existing code...
 # HGNC Team Manager
 
-> **Session 2026-01-30 Update:**
-> - Unified team slug logic for all deployments, navigation, and portal links (slugify(teamName) + '-' + year + '-' + slugify(season)).
-> - Automated per-team parent portal deployment: each team’s SPA is deployed to a unique Cloudflare Pages subdomain (e.g., hgnc-gameday-<slug>.pages.dev).
-> - SPA now auto-navigates to the correct team page in read-only mode using canonical slug logic.
-> - (Planned) System settings and team settings UI will show/copy the canonical parent portal link for each team.
-> - Outstanding: Manual UI update required for parent portal links in both system and team settings. See CLAUDE.md for code and details.
-> - All 172 tests passing, deployed to production.
+> **Two Applications:**
+> - **Coach's App** (main directory): Full-featured PWA with editing capabilities for coaches
+> - **Parent Portal** (`apps/parent-portal/` directory): Read-only SPA for parents and spectators
 
 > **Developer Guide:** See `CLAUDE.md` for project status, troubleshooting, and developer notes.
 
@@ -14,15 +13,27 @@ A mobile-first web application for managing Hazel Glen Netball Club team rosters
 
 ## Features
 
+### Coach's App (Full Access)
 - **Team Management**: Create and manage multiple teams with player rosters
 - **Game Scheduling**: Track games with dates, times, locations, and opponents
 - **Lineup Builder**: Visual drag-and-drop lineup builder for each quarter
 - **Live Scoring**: Enter scores during games with +/- buttons for easy input
 - **Statistics**: View team records, goal scorers, and player stats
+- **Career Tracking**: Track player stats across multiple teams and seasons
+- **Data Editing**: Full CRUD operations for teams, players, games, and lineups
+
+### Parent Portal (Read-Only)
+- **Team Information**: View team rosters and basic information
+- **Game Schedules**: See upcoming games and results
+- **Live Scores**: View scores as they are entered by coaches
+- **Statistics**: Access to team records and player stats
+- **Shareable Links**: Direct links to specific team information
+
+### Both Applications
 - **PWA Support**: Install on your home screen for offline access
 - **Cloud Sync**: Data saved to Google Sheets via Apps Script API
 - **Offline Support**: Works offline with localStorage, syncs when online
-- **Career Tracking**: Track player stats across multiple teams and seasons
+- **Mobile Optimized**: Responsive design for all devices
 
 ## Prerequisites
 
@@ -40,6 +51,7 @@ A mobile-first web application for managing Hazel Glen Netball Club team rosters
 2. Install dependencies:
    ```bash
    npm install
+````
    ```
 
 3. Start the development server:
@@ -66,27 +78,53 @@ If you see a Vite error about "invalid JS syntax" in `src/js/app.js`, check brac
 
 ```
 webapp-local-dev/
-├── index.html              # Main HTML file
+├── index.html              # Coach's App HTML file
 ├── package.json            # Project dependencies
-├── vite.config.js          # Vite configuration (if present)
+├── vite.config.js          # Vite configuration for Coach's App
 ├── public/
-│   ├── manifest.json       # PWA manifest
+│   ├── manifest.json       # PWA manifest for Coach's App
 │   ├── sw.js              # Service worker for offline support
 │   └── icons/             # App icons (favicon, PWA, apple-touch-icon)
-└── src/
-    ├── css/
-    │   └── styles.css     # All styles (CSS custom properties)
-    └── js/
-        ├── app.js         # Main application logic
-        ├── config.js      # API configuration
-        └── mock-data.js   # Mock data for development
+├── apps/
+│   ├── coach-app/         # Coach's App (Full Editing)
+│   │   ├── index.html     # App entry point
+│   │   ├── package.json   # Dependencies and scripts
+│   │   ├── vite.config.js # Build configuration
+│   │   ├── vitest.config.js # Test configuration
+│   │   ├── public/        # PWA assets (manifest, icons, service worker)
+│   │   └── src/
+│   │       ├── css/       # Stylesheets
+│   │       └── js/        # Application code and tests
+│   └── parent-portal/     # Parent Portal (Read-Only)
+│       ├── index.html     # App entry point
+│       ├── package.json   # Dependencies and scripts
+│       ├── vite.config.js # Build configuration
+│       ├── vitest.config.js # Test configuration
+│       ├── public/        # PWA assets (manifest, icons, service worker)
+│       └── src/
+│           ├── css/       # Stylesheets
+│           └── js/        # Application code and tests
+└── common/                 # Shared modules between both apps
+    ├── utils.js           # Utility functions
+    ├── stats-calculations.js # Statistics calculations
+    ├── share-utils.js     # Sharing functionality
+    └── mock-data.js       # Mock data and calculations
 ```
 
 ### Available Scripts
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+#### Coach's App Scripts
+- `npm run dev` - Start development server for Coach's App with hot reload
+- `npm run build` - Build Coach's App for production
+- `npm run preview` - Preview Coach's App production build locally
+
+#### Parent Portal Scripts
+- `cd apps/parent-portal && npm run dev` - Start development server for Parent Portal
+- `cd apps/parent-portal && npm run build` - Build Parent Portal for production
+- `npm run build:readonly` - Build Parent Portal in read-only mode
+- `npm run deploy:readonly-viewer` - Build and deploy Parent Portal to production
+
+#### Testing Scripts
 - `npm test` - Run tests in watch mode
 - `npm run test:run` - Run tests once
 - `npm run test:coverage` - Run tests with coverage report
@@ -125,15 +163,22 @@ src/js/
 
 ### Data Sources
 
-The app supports two data sources:
+#### Coach's App
+The Coach's App supports two data sources for full editing capabilities:
 
-Ladder automation:
-- The repository includes a scheduled GitHub Action (`.github/workflows/daily-ladder.yml`) that runs the ladder scraper (`scripts/fetch-ladder.js`) daily and on-demand. The workflow reads the Apps Script `getTeams` API (via the `GS_API_URL` secret), fetches each team's `ladderUrl`, writes `public/ladder-<teamID>.json`, and commits changes to `master` which triggers a Cloudflare Pages redeploy. Ensure `GS_API_URL` is set to the latest Apps Script deployment (e.g., deployment @56 `AKfycbx5g7fIW28n...`) so the workflow sees `ladderUrl` and diagnostics endpoints.
-
-1. **Mock Data** (default): Uses `src/js/mock-data.js` for offline development
-2. **Live API**: Connects to Google Apps Script backend (configure in `src/js/config.js`)
+1. **Mock Data** (default for development): Uses `src/js/mock-data.js` for offline development
+2. **Live API**: Connects to Google Apps Script backend for production data (configure in `src/js/config.js`)
 
 Toggle between sources using the DEV panel in the bottom-right corner (only visible on localhost).
+
+#### Parent Portal
+The Parent Portal uses the same Live API data source as the Coach's App, but operates in read-only mode with all editing features disabled.
+
+#### Ladder Integration
+Both applications support ladder integration:
+- The repository includes a scheduled GitHub Action (`.github/workflows/daily-ladder.yml`) that runs the ladder scraper (`scripts/fetch-ladder.js`) daily and on-demand
+- The workflow reads the Apps Script `getTeams` API (via the `GS_API_URL` secret), fetches each team's `ladderUrl`, writes `public/ladder-<teamID>.json`, and commits changes to `master`
+- This triggers a Cloudflare Pages redeploy, making updated ladder data available to both applications
 
 ## API Endpoints (Google Apps Script Web App)
 
@@ -317,35 +362,32 @@ To test on your iPhone:
 
 ---
 
-## Viewer SPA routing (clean team URLs)
+## Parent Portal SPA routing (clean team URLs)
 
-The viewer app supports path-based routing for friendly team URLs so you can use links like:
+The Parent Portal supports path-based routing for friendly team URLs so you can use links like:
 
-- `/team/<slug>` (e.g. `/team/hazel-glen-6`)
-- `/viewer/team/<slug>`
-- `/viewer/<slug>` (convenience fallback)
+- `/teams/<slug>` (e.g. `/teams/hazel-glen-6-2026-season-1`)
 
-The Viewer will auto-select the team by teamID or by slugified team name and open the read-only view.
+The Parent Portal will auto-select the team by canonical slug and open the read-only view.
 
 Deployment rewrite rules
 
-- Netlify (add to `public/_redirects` or `netlify.toml`):
+- Cloudflare Pages: Set the "Custom 404" fallback to `/index.html` in Pages settings so unknown routes serve the SPA. This enables client-side routing for team-specific URLs.
+
+- Netlify (if used):
 
 ```
-# Redirect team paths to viewer app (200 -> rewrite for SPA)
-/team/*    /viewer/index.html   200
-/viewer/*  /viewer/index.html   200
+# Redirect team paths to parent portal (200 -> rewrite for SPA)
+/teams/*   /index.html   200
 ```
 
-- Cloudflare Pages: create a `_redirects` file with the same rules (Pages supports `_redirects`), or set the "Custom 404" fallback to `/viewer/index.html` in Pages settings so unknown routes serve the SPA. Also add `GS_API_URL` as an Environment Variable in the Pages project settings to enable the prebuild portal generation step.
-
-- S3 + CloudFront:
-  - Configure CloudFront to return `index.html` (the viewer's `index.html`) for 404s and set error caching to 0; use a Lambda@Edge or CloudFront Function to rewrite `/team/*` to `/viewer/` if needed.
+- S3 + CloudFront (legacy):
+  - Configure CloudFront to return `index.html` for 404s and set error caching to 0; use a Lambda@Edge or CloudFront Function to rewrite `/teams/*` to `/` if needed.
 
 Notes
-- This approach avoids creating one static file per team and keeps URLs clean and human-friendly.
-- If you prefer static redirect pages or full static read-only pages, use the generator scripts:
-  - `npm run generate:team-portals` — generates compact portal redirect pages (`public/hgnc-team-portal-<slug>.html`) and viewer redirects under `/p/<slug>/`.
+- The current Parent Portal uses SPA routing and doesn't require static file generation or complex redirects.
+- Legacy static generation scripts are still available if needed:
+  - `npm run generate:team-portals` — generates compact portal redirect pages (`public/hgnc-team-portal-<slug>.html`) and redirects under `/p/<slug>/`.
   - `npm run generate:static-teams` — generates full static read-only pages under `public/teams/<slug>/`.
 - To have Pages generate portals during build, set the `GS_API_URL` environment variable in your Pages project so the `prebuild` script runs automatically during build.
 
@@ -359,19 +401,28 @@ python3 -m http.server 5000 --bind 0.0.0.0
 
 ---
 
-## Cloudflare Worker (optional, recommended)
+## Cloudflare Worker (legacy, optional)
 
-If you want the Viewer domain to serve the static pages directly and have more control (token gating, caching), deploy the Worker at your Cloudflare account:
+The current Parent Portal uses SPA routing and doesn't require a Cloudflare Worker. However, if you previously deployed a worker for static page serving, it may still be in use.
+
+To deploy the Cloudflare Worker proxy (recommended):
 
 1. Create a Cloudflare API token with `Workers` and `Account . Workers Scripts` write permissions and add it to GitHub as `CF_API_TOKEN` (Repository Settings → Secrets).
-2. Edit `wrangler.toml.example` and set your `account_id` and optional `route` (or configure route in the dashboard).
-3. Deploy the example worker with GitHub Actions (Run `Deploy Team Portal Worker` workflow or push `workers/` files).
+2. Edit `wrangler.toml.example` and set your `account_id` (and optionally `route`) or configure the route in the Cloudflare dashboard.
+3. Deploy the worker with the provided GitHub Action (Run the `Deploy Team Portal Worker` workflow or push changes in `workers/`).
 
-Worker behavior
-- Handles:
-  - `/p/<slug>/` (redirects to `/teams/<slug>/` on the Viewer domain)
-  - `/teams/<slug>/` (proxies static HTML from CDN and rewrites canonical links to the Viewer domain)
-- Optional token gating via `WORKER_PORTAL_TOKEN` (set as a Worker environment variable or via Cloudflare dashboard).
+What the worker does:
+- Proxies API requests sent to `/api/*` on your domain to the Google Apps Script endpoint and injects proper CORS headers so the parent portal (or other static pages) can call the API reliably.
+- Keeps the legacy `/teams/*` static HTML routing features (still supported).
+
+After deploying the worker, set your Parent Portal environment variable in Cloudflare Pages:
+- `VITE_GS_API_PROXY_URL` → `https://<your-worker-subdomain-or-route>/api`
+
+Note: If you set the worker URL without `/api`, the app will append `/api` automatically when constructing requests.
+
+Legacy worker behavior (no longer used by default):
+- Optional token gating via `WORKER_PORTAL_TOKEN` (set as secret if you need token gating)
+
 
 ## Security
 
@@ -397,3 +448,39 @@ This application implements several security measures:
 ## License
 
 ISC
+
+## Deployment
+
+### Coach's App
+- **Production URL:** https://hgnc-team-manager.pages.dev
+- **Hosting:** Cloudflare Pages
+
+#### Deploying the Coach's App
+1. Build the site:
+  ```bash
+  npm run build
+  ```
+2. Deploy to Cloudflare Pages **production** (main branch):
+  ```bash
+  npx wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main
+  ```
+  - This ensures the deployment goes to the live production URL: https://hgnc-team-manager.pages.dev
+  - If you deploy from a different branch, it will create a preview deployment only.
+
+### Parent Portal
+- **Production URL:** https://hgnc-gameday.pages.dev
+- **Hosting:** Cloudflare Pages
+
+#### Deploying the Parent Portal
+1. Build the read-only viewer:
+  ```bash
+  npm run build:readonly
+  ```
+2. Deploy to Cloudflare Pages:
+  ```bash
+  npm run deploy:readonly-viewer
+  ```
+  - This deploys to https://hgnc-gameday.pages.dev
+  - Team-specific pages are accessible via SPA routing (e.g., `/teams/{slug}`)
+
+- For more deployment details, see [docs/deployment-cloudflare.md](docs/deployment-cloudflare.md).

@@ -1,6 +1,6 @@
 // API Layer - Switches between mock data and real Apps Script backend
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from './mock-data.js';
+import { mockTeams, calculateMockStats } from '../../../../common/mock-data.js';
 
 // Current data source: 'mock' or 'api'
 let dataSource = 'mock';
@@ -41,6 +41,7 @@ async function callAppsScript(action, params = {}) {
   try {
     // Use proxy for local dev, direct URL for production
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
+
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
     const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
     const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
@@ -56,13 +57,17 @@ async function callAppsScript(action, params = {}) {
       url.searchParams.set(key, value);
     });
 
+    // Add cache-busting param
+    url.searchParams.set('t', Date.now());
+
     if (API_CONFIG.debug) {
       console.log(`[API] GET ${url.toString()}`);
     }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      redirect: 'follow'
+      redirect: 'follow',
+      cache: 'no-store'
     });
 
     // Apps Script returns JSONP-style or JSON

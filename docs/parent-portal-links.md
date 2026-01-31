@@ -18,14 +18,16 @@ Parent portal links allow coaches to easily share a read-only view of their team
 ## Link Format
 Links are generated using the following format:
 
-    https://hgnc-gameday-[team-slug].pages.dev/teams/[team-slug]/
+    https://hgnc-gameday.pages.dev/teams/[team-slug]
 
-Where `[team-slug]` is based on the team’s name, year, and season (all lowercased and hyphenated).
+Where `[team-slug]` is based on the team’s name, year, and season using the canonical format: `slugify(teamName) + '-' + year + '-' + slugify(season)`.
 
 ## How It Works
-- Links are generated dynamically in the UI using the team’s data.
-- No manual configuration is required.
-- Archived teams are excluded from the list.
+- Links are generated dynamically in the UI using the team's canonical slug
+- The Parent Portal SPA automatically routes to the correct team page based on the slug
+- No manual configuration is required
+- Archived teams are excluded from the list
+- All teams share the same domain with SPA routing handling team selection
 
 ## Sharing
 - Use the **Copy** button to copy a link to your clipboard for easy sharing with parents.

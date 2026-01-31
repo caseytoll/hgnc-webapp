@@ -1,41 +1,55 @@
-# HGNC Viewer Automation & Deployment Guide
+# HGNC Parent Portal Automation & Deployment Guide
 
 ## Overview
-This document describes the fully automated process for building, testing, and deploying the Hazel Glen Netball Club (HGNC) read-only viewer for all teams. The process ensures:
-- All editing is disabled in the viewer (read-only enforcement)
-- Team-specific landing and portal pages are generated
-- Formatting and features match the main app
+This document describes the fully automated process for building, testing, and deploying the Hazel Glen Netball Club (HGNC) Parent Portal - the read-only viewer SPA for parents and spectators. The Parent Portal is separate from the Coach's App and provides view-only access to team information.
+
+The process ensures:
+- All editing controls are hidden/disabled in the Parent Portal (`/viewer/src/js/app.js`)
+- All mutation actions are blocked (read-only enforcement)
+- Team-specific landing pages are handled by SPA routing (e.g., `/teams/{slug}`)
+- Formatting and features are optimized for read-only viewing
 - All automation is robust and test-verified
+
+## Applications
+
+### Coach's App (`/`)
+- **Location:** Root directory
+- **Purpose:** Full-featured PWA for coaches with editing capabilities
+- **Build:** `npm run build`
+- **Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager`
+
+### Parent Portal (`/viewer/`)
+- **Location:** `viewer/` directory
+- **Purpose:** Read-only SPA for parents and spectators
+- **Build:** `npm run build:readonly`
+- **Deploy:** `npm run deploy:readonly-viewer`
 
 ## Automation Steps
 
 ### 1. Validate Read-Only Enforcement
-- All editing controls are hidden/disabled in the viewer (`/viewer/src/js/app.js`)
+- All editing controls are hidden/disabled in the Parent Portal (`/viewer/src/js/app.js`)
 - All mutation actions are blocked
-- Parity with main app is maintained
+- Parity with Coach's App viewing features is maintained
 
 ### 2. Build Process
-- Run `npm run build:readonly:team` for team-specific builds
-- Run `npm run build:readonly` for general read-only viewer build
-- Run `npm run build` for the main app
-- Output is written to `/viewer/dist/` for the viewer
+- Run `npm run build:readonly` for the Parent Portal SPA build
+- Run `npm run build` for the Coach's App
+- Output is written to `/viewer/dist/` for the Parent Portal
 
-### 3. Team-Specific Routing & Portals
-- Run `node scripts/generate-team-portals.cjs --api <GS_API_URL> --out public/` to generate static portal pages for each team
-- Output: `/public/hgnc-team-portal-<slug>.html` and `/public/team-portal-index.json`
+### 3. Team-Specific Routing
+- Team-specific landing pages are handled by SPA routing at https://hgnc-gameday.pages.dev (e.g., `/teams/{slug}`)
+- No static HTML generation or per-team deploys required
 
 ### 4. Testing & Validation
 - Run `npm run test:run` to execute all unit and integration tests
 - All tests must pass (172/172 passing as of last run)
 
 ### 5. Deployment
-- Use `npm run deploy:readonly-viewer` or `npm run deploy:readonly-viewer:team` for production deploys
-- Deploys to Cloudflare Pages (or configured static host)
+- Use `npm run deploy:readonly-viewer` for production deploys of the SPA to Cloudflare Pages.
 
 ## Scripts Reference
-- `build:readonly` / `build:readonly:team`: Build viewer in read-only mode
-- `generate:team-portals`: Generate static team portal pages
-- `deploy:readonly-viewer`: Build and deploy the viewer
+- `build:readonly`: Build viewer in read-only mode
+- `deploy:readonly-viewer`: Build and deploy the SPA viewer
 
 ## Maintenance Notes
 - All scripts are in `/scripts/` and referenced in `package.json`

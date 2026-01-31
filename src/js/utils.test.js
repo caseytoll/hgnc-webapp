@@ -14,7 +14,7 @@ import {
   isDuplicateName,
   generateId,
   getInitials
-} from './utils.js';
+} from '../../common/utils.js';
 
 // ========================================
 // XSS PREVENTION TESTS
