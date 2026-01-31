@@ -2,8 +2,8 @@
 import { API_CONFIG } from './config.js';
 import { mockTeams, calculateMockStats } from '../../../../common/mock-data.js';
 
-// Current data source: 'mock' or 'api'
-let dataSource = 'mock';
+// Current data source: always use live API
+let dataSource = 'api';
 
 // Cache for team sheetNames (needed to map teamID to sheetName for API calls)
 const teamSheetMap = new Map();

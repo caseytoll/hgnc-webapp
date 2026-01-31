@@ -88,7 +88,7 @@ try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop *
 // ========================================
 
 const state = {
-  dataSource: (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168')) ? 'mock' : 'api',
+  dataSource: 'api', // Always use live API
   teams: [],
   currentTeam: null,
   currentTeamData: null,
@@ -319,22 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
-  // Restore persisted data source preference (if any)
-  const savedSource = localStorage.getItem(DATA_SOURCE_KEY);
-  if (savedSource) {
-    state.dataSource = savedSource;
-    const dsEl = document.getElementById('dev-status');
-    if (dsEl) dsEl.textContent = `Source: ${savedSource}`;
-
-    // Reflect persisted source in the dev panel select control
-    const select = document.getElementById('data-source-select');
-    if (select) select.value = savedSource;
-  } else if (state.forceApiForReadOnly) {
-    // If a read-only slug was requested locally, prefer API so teams can be found
-    state.dataSource = 'api';
-    console.log('[Dev] No saved dataSource; forcing API for read-only view');
-    const dsEl = document.getElementById('dev-status'); if (dsEl) dsEl.textContent = 'Source: api (forced for read-only)';
-  }
+  // Always use live API - ignore any saved 'mock' preference
+  state.dataSource = 'api';
+  localStorage.removeItem(DATA_SOURCE_KEY); // Clear any old mock setting
 
   // Ensure API module respects the current data source preference before loading teams
   apiSetDataSource(state.dataSource);
