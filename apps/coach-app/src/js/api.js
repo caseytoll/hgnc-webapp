@@ -239,7 +239,9 @@ export function transformTeamDataFromSheet(data, teamID) {
     year: data.year || data.Year || data['Year'] || '',
     season: data.season || data.Season || data['Season'] || '',
     players: players,
-    games: games
+    games: games,
+    // Preserve server timestamp for stale data detection
+    _lastModified: data._lastModified || null
   };
 }
 

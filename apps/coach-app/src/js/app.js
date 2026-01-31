@@ -44,7 +44,6 @@ window.exportMockData = function() {
 
 import '../css/styles.css';
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from '../../../../common/mock-data.js';
 import {
   escapeHtml,
   escapeAttr,
@@ -62,6 +61,7 @@ import {
   getInitials
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
+import { calculateMockStats } from '../../../../common/mock-data.js';
 import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import {
   formatGameShareText,
@@ -78,7 +78,6 @@ import {
   validateImportedTeamData
 } from '../../../../common/share-utils.js';
 import html2canvas from 'html2canvas';
-import { setDataSource as apiSetDataSource } from './api.js';
 
 // Performance mark: earliest practical marker for app start
 try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop */ }
@@ -88,7 +87,6 @@ try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop *
 // ========================================
 
 const state = {
-  dataSource: 'api', // Always use live API
   teams: [],
   currentTeam: null,
   currentTeamData: null,
@@ -149,6 +147,15 @@ function invalidateTeamsListCache() {
 }
 
 /**
+ * Invalidate a specific team's cache (used when stale data is detected)
+ */
+function invalidateTeamCache(teamID) {
+  delete apiTeamCache[teamID];
+  delete teamCacheMetadata[teamID];
+  console.log('[Cache] Team cache invalidated for', teamID);
+}
+
+/**
  * Update team cache with fresh data and timestamp
  */
 function updateTeamCache(teamID, teamData) {
@@ -159,12 +166,11 @@ function updateTeamCache(teamID, teamData) {
 function saveToLocalStorage() {
   try {
     // If using API and have current team data, cache it with timestamp
-    if (state.dataSource === 'api' && state.currentTeamData) {
+    if (state.currentTeamData) {
       const teamID = state.currentTeamData.teamID;
       updateTeamCache(teamID, state.currentTeamData);
     }
     const dataToSave = {
-      teams: mockTeams,
       apiTeams: apiTeamCache,
       teamCacheMeta: teamCacheMetadata,
       teamsListCache: teamsListCache,
@@ -183,42 +189,6 @@ function loadFromLocalStorage() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const data = JSON.parse(saved);
-      // Merge saved data into mockTeams, and add any new teams from localStorage
-      if (data.teams) {
-        data.teams.forEach(savedTeam => {
-          let team = mockTeams.find(t => t.teamID === savedTeam.teamID);
-          if (team) {
-            // Update games with saved data
-            savedTeam.games.forEach(savedGame => {
-              const game = team.games.find(g => g.gameID === savedGame.gameID);
-              if (game) {
-                // Restore all game fields
-                game.lineup = savedGame.lineup || game.lineup;
-                game.scores = savedGame.scores || game.scores;
-                game.availablePlayerIDs = savedGame.availablePlayerIDs || game.availablePlayerIDs;
-                game.status = savedGame.status || game.status;
-                game.opponent = savedGame.opponent || game.opponent;
-                game.round = savedGame.round || game.round;
-                game.date = savedGame.date || game.date;
-                game.time = savedGame.time || game.time;
-                game.location = savedGame.location || game.location;
-              } else {
-                // Game doesn't exist in mockTeams, add it
-                team.games.push(savedGame);
-              }
-            });
-            // Update other team fields (e.g., players, archived status)
-            team.players = savedTeam.players || team.players;
-            team.archived = savedTeam.archived || false;
-            team.teamName = savedTeam.teamName || team.teamName;
-            team.year = savedTeam.year || team.year;
-            team.season = savedTeam.season || team.season;
-          } else {
-            // Team does not exist in mockTeams, so add it
-            mockTeams.push(savedTeam);
-          }
-        });
-      }
       // Load player library
       if (data.playerLibrary) {
         state.playerLibrary = data.playerLibrary;
@@ -278,8 +248,6 @@ loadTheme();
 // INITIALIZATION
 // ========================================
 
-const DATA_SOURCE_KEY = 'hgnc.dataSource';
-
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Team Manager...');
   loadFromLocalStorage();
@@ -319,12 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
-  // Always use live API - ignore any saved 'mock' preference
-  state.dataSource = 'api';
-  localStorage.removeItem(DATA_SOURCE_KEY); // Clear any old mock setting
-
-  // Ensure API module respects the current data source preference before loading teams
-  apiSetDataSource(state.dataSource);
   loadTeams();
 });
 
@@ -418,57 +380,26 @@ document.addEventListener('DOMContentLoaded', () => {
       // Example:
       // const newTeam = { teamName: name, year, season, ladderUrl };
       // ...existing code...
-      if (state.dataSource === 'api') {
-        // Call API to create team
-        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-        const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
-        url.searchParams.set('api', 'true');
-        url.searchParams.set('action', 'createTeam');
-        url.searchParams.set('year', year);
-        url.searchParams.set('season', season);
-        url.searchParams.set('name', name);
+      // Call API to create team
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+      url.searchParams.set('api', 'true');
+      url.searchParams.set('action', 'createTeam');
+      url.searchParams.set('year', year);
+      url.searchParams.set('season', season);
+      url.searchParams.set('name', name);
 
-        const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
-        const data = await response.json();
+      const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+      const data = await response.json();
 
-        if (data.success === false) {
-          throw new Error(data.error || 'Failed to create team');
-        }
-
-        // Reload teams from API to get the new team with proper sheetName
-        await loadTeams(true); // Force refresh to bypass cache
-        showToast('Team added', 'success');
-      } else {
-        // Mock mode - store locally
-        const newTeam = {
-          teamID: 'team_' + Date.now(),
-          year,
-          season,
-          teamName: name,
-          players: [],
-          games: []
-        };
-
-        if (Array.isArray(window.mockTeams)) {
-          window.mockTeams.push(newTeam);
-        } else if (Array.isArray(mockTeams)) {
-          mockTeams.push(newTeam);
-        }
-
-        state.teams.push({
-          teamID: newTeam.teamID,
-          year: newTeam.year,
-          season: newTeam.season,
-          teamName: newTeam.teamName,
-          playerCount: 0,
-          gameCount: 0
-        });
-
-        saveToLocalStorage();
-        renderTeamList();
-        showToast('Team added', 'success');
+      if (data.success === false) {
+        throw new Error(data.error || 'Failed to create team');
       }
+
+      // Reload teams from API to get the new team with proper sheetName
+      await loadTeams(true); // Force refresh to bypass cache
+      showToast('Team added', 'success');
     } catch (error) {
       console.error('[App] Failed to add team:', error);
       showToast('Failed to add team: ' + error.message, 'error');
@@ -639,7 +570,7 @@ window.togglePlayerExpand = function(card) {
 
 async function loadTeams(forceRefresh = false) {
   showLoading();
-  console.log('[App] loadTeams() called, dataSource:', state.dataSource, 'forceRefresh:', forceRefresh);
+  console.log('[App] loadTeams() called, forceRefresh:', forceRefresh);
 
   // Helper: create slugs from team names to match /teams/<slug>/ URLs
   function slugify(s) {
@@ -647,146 +578,123 @@ async function loadTeams(forceRefresh = false) {
   }
 
   try {
-    if (state.dataSource === 'mock') {
-      await delay(300);
-      state.teams = mockTeams.map(t => ({
-        teamID: t.teamID,
-        year: t.year,
-        season: t.season,
-        teamName: t.teamName,
-        playerCount: t.players.length,
-        gameCount: t.games.length,
-        archived: t.archived || false,
-        ladderUrl: t.ladderUrl || ''
-      }));
+    // Determine if cache is usable (invalid if empty)
+    const cacheUsable = !forceRefresh && isTeamsListCacheValid() && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
 
-      // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
-      if (state.currentTeam) {
-        const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
-        if (updated) {
-          state.currentTeam = updated;
-          try { renderMainApp(); } catch(e) { console.warn('[App] Failed to re-render after teams update', e); }
-        }
-      }
-    } else {
-      // Determine if cache is usable (invalid if empty)
-      const cacheUsable = !forceRefresh && isTeamsListCacheValid() && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
+    if (cacheUsable) {
+      console.log('[Cache] Using cached teams list');
+      state.teams = teamsListCache.teams;
+      state.teamSheetMap = teamsListCache.teamSheetMap;
 
-      if (cacheUsable) {
-        console.log('[Cache] Using cached teams list');
-        state.teams = teamsListCache.teams;
-        state.teamSheetMap = teamsListCache.teamSheetMap;
-
-        // Background revalidation: fetch latest teams and update if changed
-        (async () => {
-          try {
-            console.log('[Cache] Background teams revalidation started');
-            try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-
-            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-            const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
-            if (!resp.ok) {
-              console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
-              try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-              return;
-            }
-            const data = await resp.json();
-            if (data && data.success === false) {
-              console.warn('[Cache] Background revalidation server returned error:', data.error);
-              try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-              return;
-            }
-            const freshTeams = (data.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName }));
-
-            // Lightweight comparison by teamID + playerCount + name
-            const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
-            const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
-
-            if (oldSig !== newSig) {
-              console.log('[Cache] Teams list updated on server; refreshing UI');
-              // Update state and caches
-              state.teams = freshTeams.map(t => ({ ...t }));
-              state.teamSheetMap = {};
-              state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
-              teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
-              teamsListCacheTime = new Date().toISOString();
-              saveToLocalStorage();
-
-              try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
-              try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
-
-              try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
-            } else {
-              // Refresh cache timestamp to avoid immediate revalidation
-              teamsListCacheTime = new Date().toISOString();
-              try { saveToLocalStorage(); } catch (e) { /* noop */ }
-              try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-            }
-          } catch (err) {
-            console.warn('[Cache] Background teams revalidation failed:', err.message || err);
-            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-          }
-        })();
-
-      } else {
-        // Use proxy for local dev to bypass CORS
-        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-        console.log('[App] Fetching teams from:', baseUrl);
-        // Measure teams fetch time
-        const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
-        const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
-        const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
-        console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
-        const data = await response.json();
-        console.log('[App] API response:', data);
-        // Quick visible metric for teams fetch
-        try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
-        if (data.success === false) {
-          throw new Error(data.error || 'API request failed');
-        }
-        // Cache sheetName mapping for later use
-        state.teamSheetMap = state.teamSheetMap || {};
-        state.teams = (data.teams || []).map(t => {
-          state.teamSheetMap[t.teamID] = t.sheetName;
-          return t;
-        });
-
-        // Cache the teams list
-        teamsListCache = {
-          teams: state.teams,
-          teamSheetMap: state.teamSheetMap
-        };
-        teamsListCacheTime = new Date().toISOString();
-        saveToLocalStorage();
-        console.log('[Cache] Fetched and cached teams list');
-
-        // Send teams fetch metric to server-side diagnostics
+      // Background revalidation: fetch latest teams and update if changed
+      (async () => {
         try {
-          sendClientMetric('teams-fetch', teamsFetchMs, (state.teams || []).length);
-        } catch (e) {
-          console.warn('[Metric] Failed to send teams-fetch metric:', e);
-        }
-      }
+          console.log('[Cache] Background teams revalidation started');
+          try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
-      // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
-      if (state.currentTeam) {
-        const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
-        if (updated) {
-          state.currentTeam = updated;
-          try {
-            renderMainApp();
-          } catch (e) {
-            console.warn('[App] Failed to re-render after teams update', e);
+          const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+          const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+          const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
+          if (!resp.ok) {
+            console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
+            try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            return;
           }
+          const data = await resp.json();
+          if (data && data.success === false) {
+            console.warn('[Cache] Background revalidation server returned error:', data.error);
+            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            return;
+          }
+          const freshTeams = (data.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName }));
+
+          // Lightweight comparison by teamID + playerCount + name
+          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
+          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
+
+          if (oldSig !== newSig) {
+            console.log('[Cache] Teams list updated on server; refreshing UI');
+            // Update state and caches
+            state.teams = freshTeams.map(t => ({ ...t }));
+            state.teamSheetMap = {};
+            state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
+            teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+            teamsListCacheTime = new Date().toISOString();
+            saveToLocalStorage();
+
+            try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
+            try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
+
+            try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
+          } else {
+            // Refresh cache timestamp to avoid immediate revalidation
+            teamsListCacheTime = new Date().toISOString();
+            try { saveToLocalStorage(); } catch (e) { /* noop */ }
+            try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+          }
+        } catch (err) {
+          console.warn('[Cache] Background teams revalidation failed:', err.message || err);
+          try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+        }
+      })();
+
+    } else {
+      // Use proxy for local dev to bypass CORS
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      console.log('[App] Fetching teams from:', baseUrl);
+      // Measure teams fetch time
+      const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
+      const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
+      const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
+      console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
+      const data = await response.json();
+      console.log('[App] API response:', data);
+      // Quick visible metric for teams fetch
+      try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
+      if (data.success === false) {
+        throw new Error(data.error || 'API request failed');
+      }
+      // Cache sheetName mapping for later use
+      state.teamSheetMap = state.teamSheetMap || {};
+      state.teams = (data.teams || []).map(t => {
+        state.teamSheetMap[t.teamID] = t.sheetName;
+        return t;
+      });
+
+      // Cache the teams list
+      teamsListCache = {
+        teams: state.teams,
+        teamSheetMap: state.teamSheetMap
+      };
+      teamsListCacheTime = new Date().toISOString();
+      saveToLocalStorage();
+      console.log('[Cache] Fetched and cached teams list');
+
+      // Send teams fetch metric to server-side diagnostics
+      try {
+        sendClientMetric('teams-fetch', teamsFetchMs, (state.teams || []).length);
+      } catch (e) {
+        console.warn('[Metric] Failed to send teams-fetch metric:', e);
+      }
+    }
+
+    // If a team is already selected, update the currentTeam reference so we pick up new fields like ladderUrl
+    if (state.currentTeam) {
+      const updated = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+      if (updated) {
+        state.currentTeam = updated;
+        try {
+          renderMainApp();
+        } catch (e) {
+          console.warn('[App] Failed to re-render after teams update', e);
         }
       }
-      console.log('[App] Loaded', state.teams.length, 'teams');
-
-      // Also load player library from API
-      await loadPlayerLibraryFromAPI();
     }
+    console.log('[App] Loaded', state.teams.length, 'teams');
+
+    // Also load player library from API
+    await loadPlayerLibraryFromAPI();
 
     renderTeamList();
 
@@ -966,35 +874,30 @@ async function loadTeamData(teamID) {
   renderStatsSkeleton();
 
   try {
-    if (state.dataSource === 'mock') {
-      await delay(300); // Slightly longer to see skeleton effect
-      state.currentTeamData = mockTeams.find(t => t.teamID === teamID);
+    // Check if we have valid cached data (within TTL)
+    if (isTeamCacheValid(teamID)) {
+      console.log('[Cache] Using cached data for team', teamID);
+      state.currentTeamData = apiTeamCache[teamID];
     } else {
-      // Check if we have valid cached data (within TTL)
-      if (isTeamCacheValid(teamID)) {
-        console.log('[Cache] Using cached data for team', teamID);
-        state.currentTeamData = apiTeamCache[teamID];
-      } else {
-        showLoading();
-        // Use proxy for local dev to bypass CORS
-        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-        const sheetName = state.teamSheetMap?.[teamID] || '';
-        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
-        const data = await response.json();
-        if (data.success === false) {
-          throw new Error(data.error || 'API request failed');
-        }
-        // Transform data from Sheet format to PWA format
-        state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
-
-        // Cache the fresh data with timestamp and persist to localStorage
-        updateTeamCache(teamID, state.currentTeamData);
-        saveToLocalStorage();
-        console.log('[Cache] Fetched and cached data for team', teamID);
-
-        hideLoading();
+      showLoading();
+      // Use proxy for local dev to bypass CORS
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      const sheetName = state.teamSheetMap?.[teamID] || '';
+      const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
+      const data = await response.json();
+      if (data.success === false) {
+        throw new Error(data.error || 'API request failed');
       }
+      // Transform data from Sheet format to PWA format
+      state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
+
+      // Cache the fresh data with timestamp and persist to localStorage
+      updateTeamCache(teamID, state.currentTeamData);
+      saveToLocalStorage();
+      console.log('[Cache] Fetched and cached data for team', teamID);
+
+      hideLoading();
     }
 
     state.currentTeam = state.teams.find(t => t.teamID === teamID);
@@ -1022,8 +925,6 @@ async function loadTeamData(teamID) {
  * Load player library from API (called after loadTeams for API mode)
  */
 async function loadPlayerLibraryFromAPI() {
-  if (state.dataSource !== 'api') return;
-
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
     const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
@@ -1061,7 +962,7 @@ async function loadPlayerLibraryFromAPI() {
  * Sync player library to API (called after mutations)
  */
 async function syncPlayerLibrary() {
-  if (state.dataSource !== 'api' || !navigator.onLine) return;
+  if (!navigator.onLine) return;
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -1872,6 +1773,31 @@ function renderStatsLeaders(container) {
         </div>
       ` : '<div class="empty-state"><p>No defenders yet</p></div>'}
     </div>
+
+    <!-- All Goaling Pairs -->
+    <div class="stats-section">
+      <div class="stats-section-title">Goaling Pair Averages</div>
+      ${offensive.topScoringPairsByTotal.length > 0 ? `
+        <div class="scorers-table">
+          <div class="scorers-table-header">
+            <span class="col-rank">#</span>
+            <span class="col-name">Pair</span>
+            <span class="col-avg">Avg/Qtr</span>
+            <span class="col-goals">Goals</span>
+            <span class="col-qtrs">Qtrs</span>
+          </div>
+          ${[...offensive.topScoringPairsByTotal].sort((a, b) => b.avg - a.avg).map((p, i) => `
+            <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
+              <span class="col-rank">${i + 1}</span>
+              <span class="col-name">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
+              <span class="col-avg">${p.avg}</span>
+              <span class="col-goals">${p.goals}</span>
+              <span class="col-qtrs">${p.quarters}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-state"><p>No goaling pairs yet</p></div>'}
+    </div>
   `;
 }
 
@@ -2272,7 +2198,7 @@ window.openGameDetail = function(gameID) {
 
 window.closeGameDetail = async function() {
   // Sync changes before leaving game detail view
-  if (state.dataSource === 'api' && navigator.onLine && state.currentTeamData) {
+  if (navigator.onLine && state.currentTeamData) {
     try {
       await syncToGoogleSheets();
       // Update cache with synced data
@@ -2480,8 +2406,8 @@ window.confirmImport = async function() {
   // Save to localStorage
   saveToLocalStorage();
 
-  // Sync to Google Sheets if in API mode
-  if (state.dataSource === 'api' && navigator.onLine) {
+  // Sync to Google Sheets if in API mode and online
+  if (navigator.onLine) {
     try {
       showLoading();
       await syncToGoogleSheets();
@@ -3076,7 +3002,7 @@ window.finalizeGame = async function() {
   saveToLocalStorage();
 
   // Sync to Google Sheets if using API mode and online
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       showToast('Syncing to cloud...', 'info');
       await syncToGoogleSheets();
@@ -3122,10 +3048,12 @@ async function syncToGoogleSheets() {
   const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
 
   // Use POST for large data payloads
+  // Include clientLastModified to detect stale data conflicts
   const postBody = {
     action: 'saveTeamData',
     sheetName: sheetName,
-    teamData: JSON.stringify(saveData)
+    teamData: JSON.stringify(saveData),
+    clientLastModified: state.currentTeamData._lastModified || null
   };
 
   console.log('[syncToGoogleSheets] Using POST, body size:', JSON.stringify(postBody).length);
@@ -3141,9 +3069,23 @@ async function syncToGoogleSheets() {
   const data = await response.json();
   console.log('[syncToGoogleSheets] Response data:', data);
 
+  // Handle stale data conflict
+  if (data.error === 'STALE_DATA') {
+    console.warn('[syncToGoogleSheets] Stale data detected - server has newer version');
+    showToast('Another device has updated this data. Refreshing...', 'warning');
+    // Reload fresh data from server
+    invalidateTeamCache(teamID);
+    await loadTeamData(teamID);
+    throw new Error('Data was updated by another device. Your view has been refreshed with the latest data.');
+  }
+
   if (data.success === false) {
     throw new Error(data.error || 'Sync failed');
   }
+
+  // Update local _lastModified to match what server now has
+  state.currentTeamData._lastModified = Date.now();
+  saveToLocalStorage();
 
   return data;
 }
@@ -3151,13 +3093,8 @@ async function syncToGoogleSheets() {
 /**
  * Update team settings (name, year, season, archived) in the backend
  */
-async function updateTeamSettingsAPI(teamID, settings) {
+async function updateTeamSettings(teamID, settings) {
   if (window.isReadOnlyView) throw new Error('Read-only view: updateTeamSettings is disabled');
-
-  if (state.dataSource === 'mock') {
-    // For mock data, just update local state
-    return { success: true };
-  }
 
   const sheetName = state.teamSheetMap?.[teamID];
   if (!sheetName) {
@@ -3456,7 +3393,7 @@ window.savePlayer = async function(playerID) {
   renderRoster();
 
   // Sync to Google Sheets if using API mode and online
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncToGoogleSheets();
       // Also sync player library if it changed
@@ -3484,7 +3421,7 @@ window.deletePlayer = async function(playerID) {
   renderRoster();
 
   // Sync to Google Sheets if using API mode and online
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncToGoogleSheets();
       showToast('Player deleted (synced)', 'info');
@@ -3614,8 +3551,8 @@ window.addPlayer = async function() {
   renderRoster();
 
   // Sync to Google Sheets if using API mode and online
-  console.log('[Sync] addPlayer - dataSource:', state.dataSource, 'online:', navigator.onLine);
-  if (state.dataSource === 'api' && navigator.onLine) {
+  console.log('[Sync] addPlayer - online:', navigator.onLine);
+  if (navigator.onLine) {
     try {
       console.log('[Sync] Calling syncToGoogleSheets...');
       await syncToGoogleSheets();
@@ -3728,7 +3665,7 @@ window.addGame = async function() {
   renderMainApp();
 
   // Sync to Google Sheets if using API mode and online
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncToGoogleSheets();
       showToast('Game added (synced)', 'success');
@@ -3836,7 +3773,7 @@ window.archiveTeam = async function() {
     if (teamInList) teamInList.archived = true;
 
     // Save to backend
-    await updateTeamSettingsAPI(team.teamID, { archived: true });
+    await updateTeamSettings(team.teamID, { archived: true });
 
     saveToLocalStorage();
     showToast(`${teamName} archived`, 'success');
@@ -3875,7 +3812,7 @@ window.unarchiveTeam = async function() {
     if (teamInList) teamInList.archived = false;
 
     // Save to backend
-    await updateTeamSettingsAPI(team.teamID, { archived: false });
+    await updateTeamSettings(team.teamID, { archived: false });
 
     saveToLocalStorage();
     showToast(`${teamName} restored`, 'success');
@@ -3962,7 +3899,7 @@ window.saveTeamSettings = async function() {
     }
 
     // Save to backend
-    await updateTeamSettingsAPI(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl });
+    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl });
 
     saveToLocalStorage();
     renderMainApp();
@@ -4487,7 +4424,7 @@ window.removeFromLibrary = async function(globalId) {
   updateLibraryCount();
 
   // Sync to API
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncPlayerLibrary();
       showToast('Player removed (synced)', 'info');
@@ -4577,7 +4514,7 @@ window.linkToExistingPlayer = async function(globalId, teamID, playerID) {
   updateLibraryCount();
 
   // Sync to API
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncPlayerLibrary();
       showToast(`${player.name} linked (synced)`, 'success');
@@ -4620,7 +4557,7 @@ window.createLibraryEntry = async function(player, team, teamID, playerID) {
   updateLibraryCount();
 
   // Sync to API
-  if (state.dataSource === 'api' && navigator.onLine) {
+  if (navigator.onLine) {
     try {
       await syncPlayerLibrary();
       showToast(`${player.name} added to Players (synced)`, 'success');
@@ -4746,7 +4683,7 @@ function renderSystemSettings() {
       <h3>App Info</h3>
       <div class="settings-row"><span>Version</span><span>v${__APP_VERSION__}</span></div>
       <div class="settings-row"><span>API Endpoint</span><span>${API_CONFIG.baseUrl}</span></div>
-      <div class="settings-row"><span>Data Source</span><span>${state.dataSource}</span></div>
+      <div class="settings-row"><span>API Status</span><span class="api-status-live">Live</span></div>
       <div class="settings-row"><span>Online</span><span>${navigator.onLine ? 'Yes' : 'No'}</span></div>
       <div class="settings-row"><span>Teams Loaded</span><span>${state.teams?.length || 0}</span></div>
       <div class="settings-row"><span>Last Sync</span><span>${lastSyncTime}</span></div>
@@ -4844,133 +4781,6 @@ window.clearAllCaches = function() {
 
   // Reload after short delay to show toast
   setTimeout(() => location.reload(), 500);
-};
-
-// ========================================
-// DEV TOOLS
-// ========================================
-
-// Hide dev tools in production (non-localhost environments)
-const isDevEnvironment = window.location.hostname === 'localhost' ||
-                         window.location.hostname === '127.0.0.1' ||
-                         window.location.hostname.includes('192.168.');
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (!isDevEnvironment) {
-    const devIndicator = document.getElementById('dev-indicator');
-    const devPanel = document.getElementById('dev-panel');
-    if (devIndicator) devIndicator.style.display = 'none';
-    if (devPanel) devPanel.style.display = 'none';
-  }
-});
-
-window.toggleDevPanel = function() {
-  if (!isDevEnvironment) return;
-  document.getElementById('dev-panel').classList.toggle('hidden');
-};
-
-window.setDataSource = function(source) {
-  state.dataSource = source;
-  // Persist preference so it survives hard refresh
-  try { localStorage.setItem(DATA_SOURCE_KEY, source); } catch (e) { /* ignore */ }
-  // Update both app state and API layer
-  try { apiSetDataSource(source); } catch (e) { console.warn('API module not available:', e); }
-  const dsEl = document.getElementById('dev-status');
-  if (dsEl) dsEl.textContent = `Source: ${source}`;
-  console.log(`[Dev] Data source: ${source}`);
-
-  // Immediately reload teams so the UI reflects the selected source
-  try { loadTeams(); } catch (e) { console.warn('[Dev] Failed to reload teams after data source change', e); }
-};
-
-window.reloadData = function() {
-  if (state.currentTeam) {
-    loadTeamData(state.currentTeam.teamID);
-  } else {
-    loadTeams();
-  }
-};
-
-// Force a direct fetch to the server bypassing local cache
-window.forceFetchTeams = async function() {
-  showLoading();
-  try {
-    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-    const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
-    if (!resp.ok) {
-      const errMsg = `Server responded ${resp.status}`;
-      window.lastTeamsFetchError = errMsg;
-      showToast('Failed to fetch teams', 'error');
-      console.warn('[ForceFetch] Failed:', errMsg);
-      return;
-    }
-    const data = await resp.json();
-    if (data && data.success === false) {
-      window.lastTeamsFetchError = data.error || 'API returned failure';
-      showToast('Failed to fetch teams', 'error');
-      console.warn('[ForceFetch] API error:', window.lastTeamsFetchError);
-      return;
-    }
-
-    const teams = (data.teams || []).map(t => ({ ...t }));
-    state.teams = teams;
-    state.teamSheetMap = state.teamSheetMap || {};
-    state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
-
-    teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
-    teamsListCacheTime = new Date().toISOString();
-    saveToLocalStorage();
-
-    try { renderTeamList(); } catch (e) { console.warn('[ForceFetch] Failed to render', e); }
-    showToast('Teams fetched', 'success');
-    window.lastTeamsFetchError = null;
-  } catch (err) {
-    window.lastTeamsFetchError = (err && err.message) ? err.message : String(err);
-    console.warn('[ForceFetch] Error:', window.lastTeamsFetchError);
-    showToast('Failed to fetch teams', 'error');
-  } finally {
-    hideLoading();
-    renderSystemSettings();
-  }
-};
-
-window.clearCache = function() {
-  state.teams = [];
-  state.currentTeam = null;
-  state.currentTeamData = null;
-  state.stats = null;
-  showView('team-selector-view');
-  loadTeams();
-};
-
-// Copy read-only URL to clipboard (team or portal)
-window.copyReadOnlyUrl = async function(slug, type = 'team') {
-  try {
-    const origin = location.origin;
-    const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(url);
-      showToast('Copied link to clipboard', 'success');
-    } else {
-      const tmp = document.createElement('input');
-      tmp.value = url;
-      document.body.appendChild(tmp);
-      tmp.select();
-      document.execCommand('copy');
-      tmp.remove();
-      showToast('Copied link to clipboard', 'success');
-    }
-  } catch (err) {
-    console.warn('[Copy] Failed to copy URL', err);
-    showToast('Failed to copy link', 'error');
-  }
-};
-
-window.openReadOnlyUrl = function(slug, type = 'team') {
-  const origin = location.origin;
-  const url = type === 'portal' ? `${origin}/p/${slug}/` : `${origin}/teams/${slug}/`;
-  window.open(url, '_blank', 'noopener');
 };
 
 // Utility functions are imported from utils.js
