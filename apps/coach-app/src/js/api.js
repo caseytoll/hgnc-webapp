@@ -168,7 +168,7 @@ export function transformTeamDataFromSheet(data, teamID) {
   const players = (data.players || []).map(p => ({
     id: p.id,
     name: p.name,
-    fillIn: p.isFillIn || false,
+    fillIn: p.isFillIn || p.fillIn || false,
     favPosition: p.favoritePosition || p.favPosition || ''
   }));
 
@@ -224,7 +224,7 @@ export function transformTeamDataFromSheet(data, teamID) {
       opponent: g.opponent,
       date: g.date,
       time: g.time || '',
-      location: g.court ? `Court ${g.court}` : (g.location || ''),
+      location: g.court ? `Court ${g.court}` : (g.location || g.venue || ''),
       status: g.status || 'upcoming',
       captain: g.captain || null,
       scores,
