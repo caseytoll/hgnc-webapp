@@ -83,13 +83,16 @@ function getSpreadsheet() {
         case 'saveTeamData':
           var sheetNameSave = postData.sheetName || '';
           var teamDataJSON = postData.teamData || '';
+          var clientLastModified = postData.clientLastModified || null;
           if (!sheetNameSave || !teamDataJSON) {
             result = { success: false, error: 'sheetName and teamData are required' };
           } else {
             // teamData is already a string from the POST body
-            var saveResult = saveTeamData(sheetNameSave, typeof teamDataJSON === 'string' ? teamDataJSON : JSON.stringify(teamDataJSON), null);
+            var saveResult = saveTeamData(sheetNameSave, typeof teamDataJSON === 'string' ? teamDataJSON : JSON.stringify(teamDataJSON), null, clientLastModified);
             if (saveResult === "OK") {
               result = { success: true };
+            } else if (saveResult && saveResult.error === 'STALE_DATA') {
+              result = saveResult;
             } else {
               result = { success: false, error: saveResult.error || 'Save failed' };
             }
@@ -1396,13 +1399,42 @@ function loadTeamData(sheetName) {
   }
 }
 
-function saveTeamData(sheetName, teamDataJSON, statsDataJSON) {
+function saveTeamData(sheetName, teamDataJSON, statsDataJSON, clientLastModified) {
   try {
     var ss = getSpreadsheet();
     var teamSheet = ss.getSheetByName(sheetName);
     if (!teamSheet) {
       throw new Error('Team data sheet not found: ' + sheetName);
     }
+
+    // Check for stale data conflict if client provides its last known modification time
+    if (clientLastModified) {
+      var existingJSON = teamSheet.getRange('A1').getValue();
+      if (existingJSON) {
+        try {
+          var existingData = JSON.parse(existingJSON);
+          var serverLastModified = existingData._lastModified || 0;
+          // If server data is newer than what client last saw, reject the save
+          if (serverLastModified > clientLastModified) {
+            return {
+              success: false,
+              error: 'STALE_DATA',
+              message: 'Server has newer data. Please refresh before saving.',
+              serverLastModified: serverLastModified
+            };
+          }
+        } catch (e) {
+          // If we can't parse existing data, allow the save
+          Logger.log('Could not check stale data: ' + e.message);
+        }
+      }
+    }
+
+    // Add timestamp to the data being saved
+    var teamData = JSON.parse(teamDataJSON || '{}');
+    teamData._lastModified = Date.now();
+    teamDataJSON = JSON.stringify(teamData);
+
     teamSheet.getRange('A1').setValue(teamDataJSON);
     if (statsDataJSON) {
       teamSheet.getRange('B1').setValue(statsDataJSON);

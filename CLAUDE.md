@@ -154,6 +154,8 @@ Data syncs to Google Sheets at these points:
 
 Data is always saved to localStorage first for offline support, then synced to the backend when online.
 
+**Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data. This prevents old browser tabs from overwriting newer changes.
+
 **Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
 
 ---
