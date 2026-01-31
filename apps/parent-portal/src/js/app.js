@@ -501,7 +501,7 @@ function renderStats() {
   const players = state.currentTeamData.players || [];
 
   const totalGames = games.length;
-  const completedGames = games.filter(g => g.completed).length;
+  const completedGames = games.filter(g => g.status === 'normal' && g.scores).length;
 
   container.innerHTML = `
     <div class="stats-overview">
