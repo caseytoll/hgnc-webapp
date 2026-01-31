@@ -40,6 +40,20 @@
   </script>
 </head>
 <body class="preload">
+  <!-- Overlay to block back arrow area -->
+  <style>
+    .block-back-arrow-area {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 64px;
+      height: 64px;
+      z-index: 9999;
+      background: transparent;
+      pointer-events: auto;
+    }
+  </style>
+  <div class="block-back-arrow-area"></div>
   <!-- Skip to main content link for keyboard navigation -->
   <a href="#main-content" class="skip-link">Skip to main content</a>
   

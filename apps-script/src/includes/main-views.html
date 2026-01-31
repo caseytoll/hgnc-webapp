@@ -1,3 +1,17 @@
+      <!-- Overlay to block back arrow area -->
+      <style>
+        .block-back-arrow-area {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 64px;
+          height: 64px;
+          z-index: 9999;
+          background: transparent;
+          pointer-events: auto;
+        }
+      </style>
+      <div class="block-back-arrow-area"></div>
     <!-- INSIGHTS MENU VIEW -->
     <div id="insights-view" class="view hidden">
       <!-- Refresh Button (outside dashboard container so it's always visible) -->
@@ -106,7 +120,7 @@
       <div class="stats-page" style="max-width: 600px;">
         <!-- Unified Header -->
         <div class="stats-header">
-          <button class="stats-back-btn" onclick="showView('insights-view')" aria-label="Back to Insights">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="stats-header-text">
             <h1 class="stats-title">Team Performance</h1>
             <p class="stats-subtitle" id="insights-season-stats">Season statistics overview</p>
@@ -351,7 +365,7 @@
     <div id="insights-offensive-leaders-view" class="view hidden">
       <div class="offense-page">
         <div class="offense-header">
-          <button class="offense-back-btn" onclick="showView('insights-view')" aria-label="Back to Insights">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="offense-header-text">
             <h1 class="offense-title">Offensive Leaders</h1>
             <p class="offense-subtitle">Goal scoring analysis</p>
@@ -397,7 +411,7 @@
     <div id="insights-defensive-wall-view" class="view hidden">
       <div class="defense-page">
         <div class="defense-header">
-          <button class="defense-back-btn" onclick="showView('insights-view')" aria-label="Back to Insights">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="defense-header-text">
             <h1 class="defense-title">Defensive Wall</h1>
             <p class="defense-subtitle">Goals against analysis</p>
@@ -458,8 +472,7 @@
       </section>
     </div>
     <div id="admin-view" class="view hidden">
-      <button class="back-button" onclick="showTeamSelector()">🏠
-      Home</button>
+      <!-- Back/Home button removed for parent-facing portal -->
       <section class="card">
         <h3 class="card-title" style="margin-bottom: 12px;">
         NetballConnect Auth Token</h3>
@@ -513,8 +526,7 @@
     </div>
     <div id="game-detail-view" class="view hidden">
       <header class="game-detail-header">
-        <button class="back-button" onclick=
-        "showView('fixture-view')">← Back to Fixture</button>
+        <!-- Back button removed for parent-facing portal -->
         <h1 id="game-detail-title" class="page-title">vs
         Opponent</h1>
         <button id="fullscreen-toggle-btn" class="icon-btn" onclick="toggleFullscreen()" 
@@ -616,7 +628,7 @@
     <div id="player-detail-view" class="view hidden">
       <header class="game-detail-header">
         <h1 id="player-detail-name" class="page-title">Player Name</h1>
-        <button class="back-button" onclick="showView('players-view')">← Back to Players</button>
+        <!-- Back button removed for parent-facing portal -->
       </header>
       <section class="card">
         <h3 class="card-title" style="margin-bottom: 12px;">Season Summary</h3>
@@ -649,7 +661,7 @@
     <div id="insights-team-record-view" class="view hidden">
       <div class="stats-page">
         <div class="stats-header">
-          <button class="stats-back-btn" onclick="showView('insights-team-performance-view')" aria-label="Back">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="stats-header-text">
             <h1 class="stats-title">Round by Round</h1>
             <p class="stats-subtitle">Game-by-game results</p>
@@ -732,7 +744,7 @@
     <div id="insights-player-analysis-view" class="view hidden">
       <div class="analysis-page">
         <div class="analysis-header">
-          <button class="analysis-back-btn" onclick="showView('insights-view')" aria-label="Back to Insights">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="analysis-header-text">
             <h1 class="analysis-title">Player Analysis</h1>
             <p class="analysis-subtitle">Season leaders and performance metrics</p>
@@ -852,7 +864,7 @@
       <div class="unified-stats">
         <!-- Hero Header -->
         <div class="us-hero">
-          <button class="us-back-btn" onclick="showView('insights-view')" aria-label="Back">←</button>
+          <!-- Back arrow removed for parent-facing portal -->
           <div class="us-hero-content">
             <div class="us-team-name" id="us-team-name">Team Name</div>
             <div class="us-season" id="us-season">Season</div>
@@ -1275,12 +1287,12 @@
 
   <div id="season-summary-view" class="view hidden">
     <div class="view-header">
-      <button class="back-button" onclick="hideView('season-summary-view')" aria-label="Back to previous view">←</button>
+      <!-- Back button removed for parent-facing portal -->
       <h2>Season Summary</h2>
     </div>
     <div id="season-summary-slides" style="background: var(--primary-color); min-height: 400px; display: flex; align-items: center; justify-content: center;"></div>
     <div class="summary-nav">
-      <button id="summary-prev" onclick="navigateSummary(-1)">← Back</button>
+      <!-- Back button removed for parent-facing portal -->
       <span id="slide-counter" style="color: white; font-weight: 600;">1 / 1</span>
       <button id="summary-next" onclick="navigateSummary(1)">Next →</button>
     </div>

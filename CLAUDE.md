@@ -4,23 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HGNC Team Manager is a PWA for managing Hazel Glen Netball Club teams. Features include roster management, game scheduling, lineup planning, live scoring, and analytics. Works offline via service worker.
+HGNC Team Manager consists of two Progressive Web Apps (PWAs) for managing Hazel Glen Netball Club teams:
 
-**Target user:** Junior netball coach who needs fair playing time distribution and offline access at games.
+- **Coach's App** (`apps/coach-app/`): Full-featured PWA with editing capabilities for coaches
+- **Parent Portal** (`apps/parent-portal/`): Read-only SPA for parents and spectators
 
-**Status:** Development complete. All features working. Ready for production use.
-
-| Resource | URL |
-|----------|-----|
-| Production | https://hgnc-team-manager.pages.dev |
-| Viewer App | https://hgnc-gameday.pages.dev |
-| GitHub | https://github.com/caseytoll/hgnc-webapp |
+| Application | URL | Access Level |
+|-------------|-----|--------------|
+| Coach's App | https://hgnc-team-manager.pages.dev | Full editing access |
+| Parent Portal | https://hgnc-gameday.pages.dev | Read-only access |
 
 ---
 
 ## Commands
 
-### Main App (root directory)
+### Coach's App (run from root directory)
 
 ```bash
 npm run dev              # Dev server (port 3000)
@@ -29,38 +27,29 @@ npm run build            # Production build → dist/
 npm test                 # Run tests in watch mode
 npm run test:run         # Run tests once
 npm run test:coverage    # Tests with coverage
-npx vitest src/js/utils.test.js  # Run single test file
-npm run preview          # Preview production build locally
+npx vitest src/js/utils.test.js  # Run single test file (from apps/coach-app/)
 ```
 
-### Viewer App (`viewer/` directory)
-
-Read-only app for parents/spectators to view schedules and stats.
+### Parent Portal
 
 ```bash
-cd viewer
+cd apps/parent-portal
 npm run dev              # Dev server
 npm run build            # Production build
 npm run test:run         # Run tests once
-npx vitest src/js/utils.test.js  # Run single test file
 ```
 
 ### Deployment
 
-**IMPORTANT:** Always commit to GitHub AND deploy to Cloudflare. GitHub is the source of truth for version control; Cloudflare hosts the live site.
-
-**Main App:**
+**Coach's App:**
 ```bash
-# 1. Commit to GitHub
-git add -A && git commit -m "feat: Description of changes" && git push origin master
-
-# 2. Deploy to Cloudflare
+git add -A && git commit -m "feat: Description" && git push origin master
 npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
 ```
 
-**Viewer App:**
+**Parent Portal:**
 ```bash
-cd viewer && npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
+npm run build:readonly && npm run deploy:readonly-viewer
 ```
 
 **Backend (Apps Script):**
@@ -74,36 +63,41 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 
 **Tech:** Vanilla JS (ES modules), Vite 7.x, Vitest, Google Apps Script backend
 
-**Prerequisites:** Node.js 20+ (required for ladder scraper compatibility), npm 9+, clasp (for Apps Script deployment)
+**Prerequisites:** Node.js 20+, npm 9+, clasp (for Apps Script deployment)
 
-### Main App Files (`src/js/`)
-- `app.js` - Main application logic, global `state` object
-- `api.js` - Data transformation functions (sheet ↔ PWA format)
-- `config.js` - API endpoint URL, `useMockData` toggle
-- `utils.js` - Utility functions (escapeHtml, formatters, localStorage wrappers)
-- `mock-data.js` - Mock data AND `calculateMockStats()` used for all data sources
-- `stats-calculations.js` - Advanced stats (leaderboards, combos, analytics)
-- `share-utils.js` - Lineup card generation, sharing
+### Directory Structure
 
-### Viewer App Files (`viewer/src/js/`)
-- `app.js` - Main viewer logic with inline API calls
-- `utils.js`, `mock-data.js`, `stats-calculations.js`, `share-utils.js` - Shared modules
-- `config.js` - API endpoint configuration
+```
+webapp-local-dev/
+├── apps/
+│   ├── coach-app/           # Coach's App (Full Editing)
+│   │   ├── src/js/app.js    # Main app logic, global state object
+│   │   ├── src/js/api.js    # Data transformation (sheet ↔ PWA format)
+│   │   ├── src/js/config.js # API endpoint, useMockData toggle
+│   │   └── src/js/*.test.js # Test files
+│   └── parent-portal/       # Parent Portal (Read-Only)
+│       ├── src/js/app.js    # Read-only app logic
+│       ├── src/js/router.js # URL routing for team pages
+│       └── src/js/*.test.js # Test files
+├── common/                  # Shared modules (imported by both apps)
+│   ├── utils.js             # escapeHtml, formatters, localStorage wrappers
+│   ├── mock-data.js         # Mock data AND calculateMockStats()
+│   ├── stats-calculations.js # Leaderboards, combos, analytics
+│   └── share-utils.js       # Lineup card generation, sharing
+├── apps-script/             # Google Apps Script backend
+│   └── Code.js              # API handlers and business logic
+└── scripts/                 # Build and utility scripts
+    └── fetch-ladder.js      # Ladder scraper for NFNL data
+```
 
-### Backend Files (`apps-script/`)
-- `Code.js` - Main API handlers and business logic
-- `.clasp.json` - Clasp configuration for deployment
+### Key Patterns
 
-**Test files:** `*.test.js` alongside source files
-- Main app: 172 tests (utils 55, share-utils 57, mock-data 20, stats-calculations 40)
-- Viewer app: 172 tests (same distribution)
-
-**Patterns:**
-- Single HTML file with `<div class="view">` sections (show/hide via `display`)
+- Single HTML file per app with `<div class="view">` sections (show/hide via `display`)
 - Global `state` object in app.js holds current team, game, players
 - All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
 - Always use `escapeHtml()` for user input to prevent XSS
 - CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility
+- Shared modules imported from `../../common/` in both apps
 - No linter configured; code style is vanilla JS with ES modules
 
 ---
@@ -112,9 +106,7 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 
 ```javascript
 // Team (from getTeams API)
-{
-  teamID, teamName, year, season, sheetName, archived
-}
+{ teamID, teamName, year, season, sheetName, archived, ladderUrl }
 
 // Team Data (from getTeamData API)
 {
@@ -128,54 +120,11 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
   Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals },
   Q2: { ... }, Q3: { ... }, Q4: { ... }
 }
-
-// Player Library (career tracking across teams/seasons)
-{
-  players: [{
-    globalId: 'gp_123',
-    name: 'Emma Smith',
-    createdAt: '2026-01-26T...',
-    linkedInstances: [
-      { teamID, playerID, teamName, year, season }
-    ]
-  }]
-}
 ```
 
 **Positions:** GS, GA, WA, C, WD, GD, GK
 
 ---
-
-## Ladder Integration 🔧
-
-- **Purpose:** Fetch and display NFNL ladder data per team when a `ladderUrl` is provided in Team Settings. The Ladder tab is shown on a team's page only when a `ladderUrl` exists for that team.
-- **Where it's stored:** The `ladderUrl` value is persisted in the `Teams` sheet (column G). The Apps Script `getTeams` response includes `ladderUrl`, and `updateTeamSettings` persists it.
-- **Frontend behavior:** The client fetches a static JSON file `public/ladder-<teamID>.json` (created by the scraper). The Ladder view shows a `lastUpdated` timestamp, highlights the current team row, and provides a portrait "Show extra columns" toggle (persisted per team in `localStorage`). The layout is responsive (portrait/landscape rules, container queries) and respects `prefers-reduced-motion` for animations. Errors are handled gracefully; when the ladder JSON is unavailable the Ladder tab is hidden or shows an error message.
-- **JSON format:** Generated JSON contains an ISO `lastUpdated` timestamp and a `ladder` array of rows (summary fields like teamName, played, won, lost, goalsFor/against, percentage). Example: `{ "lastUpdated": "2026-01-26T12:34:56Z", "ladder": [{...}, ...] }`.
-- **Scraper script:** `scripts/fetch-ladder.js` fetches the team list (from a local `teams.json` or the Apps Script `getTeams` API), requests each `ladderUrl`, parses the HTML (Cheerio) and writes `public/ladder-<teamID>.json`.
-
-  Notes & runtime:
-  - **Requires Node.js 20+** for modern fetch/undici compatibility. Ensure your CI uses Node 20 (the workflow uses `actions/setup-node@v4` with `node-version: '20'`).
-  - CLI flags:
-    - `--api <GS_API_URL>` — fetch teams via Apps Script `getTeams` (recommended in CI)
-    - `--teams <file>` — read a local teams JSON file
-    - `--out <dir>` — output directory (usually `public/`)
-    - `--only-ladder-url <url>` — process only teams with this exact ladder URL
-    - `--only-team-id <teamID>` — process only a single team by `teamID`
-  - Example (local):
-    ```bash
-    node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
-    ```
-  - Example (production using Apps Script):
-    ```bash
-    GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
-      node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
-    ```
-  - Logging & error handling: the scraper logs per-team fetch attempts and errors (HTTP failures or parse issues) and continues processing other teams. It writes `ladder-<teamID>.json` when parsing succeeds.
-  - If you need to debug a single team quickly, use `--only-ladder-url` or `--only-team-id` to limit requests and surface errors faster.
-- **Automation:** A **Daily Ladder Update** workflow (`.github/workflows/daily-ladder.yml`) has been added to run `scripts/fetch-ladder.js` on a schedule and via manual dispatch. The workflow uses the `GS_API_URL` repository secret (Apps Script `getTeams` endpoint) to fetch ladder URLs for *all teams* returned by `getTeams`, generates `public/ladder-*.json`, and commits any changes to `master` so Cloudflare Pages will deploy the updated ladders. To enable it, set `GS_API_URL` in your repository Secrets (Settings → Secrets) and trigger it manually in the Actions tab or rely on the daily schedule.
-- **Deployment notes:** After generating and committing `public/ladder-*.json`, deploy to Cloudflare Pages (see Deployment commands). Ensure the Apps Script deployment referenced in `src/js/config.js` is the correct, published deployment that includes `getTeams`/`updateTeamSettings` with `ladderUrl` support.
-- **Debug helpers:** `apps-script/Code.js` includes `getTeamRowByID()` used for verification and **`logClientMetric()`** for diagnostics logging. The front-end now measures **app-load** time and persists recent metrics in `localStorage` (`hgnc.appMetrics`); use `showAppMetrics()` in the browser console to view them quickly. To enable server-side collection into the `Diagnostics` sheet, deploy the latest Apps Script (push & create a new deployment) so the `logClientMetric` API action is available, then the client will send metrics to the API on each load.
 
 ## API
 
@@ -188,89 +137,141 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 | `getTeamData` | Get team details | `teamID`, `sheetName` |
 | `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
 | `createTeam` | Create new team | `year`, `season`, `name` |
-| `updateTeam` | Update team settings | `teamID`, `settings` (JSON with teamName/year/season/archived) |
+| `updateTeam` | Update team settings | `teamID`, `settings` (JSON) |
 | `getPlayerLibrary` | Get career tracking data | - |
 | `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
-**Production:** Direct calls to Apps Script (Google handles CORS)
 
 ---
 
 ## Data Sync
 
-The app syncs data to Google Sheets at these points:
-- **Player operations** - Adding, editing, or deleting players syncs immediately
-- **Player library (career tracking)** - Adding, linking, or removing players syncs to `PlayerLibrary` sheet
-- **Game operations** - Adding games syncs immediately; deleting syncs via closeGameDetail
-- **Finalizing a game** - After calculating scores
-- **Closing game detail view** - When navigating back to main app (batches lineup/scoring changes)
-- **Importing team data** - After confirming import
-- **Archiving/unarchiving teams** - Immediately via `updateTeam` API
-- **Updating team settings** - Immediately via `updateTeam` API
-- **Creating new teams** - Immediately via `createTeam` API
+Data syncs to Google Sheets at these points:
+- **Player/game operations** - Adding, editing, or deleting syncs immediately
+- **Lineup changes** - Saved to localStorage immediately, synced when closing game detail view (batch sync)
+- **Team settings** - Immediately via `updateTeam` API
 
 Data is always saved to localStorage first for offline support, then synced to the backend when online.
-
-**Note:** Lineup changes, availability toggles, and scoring inputs are saved to localStorage immediately but only sync to the API when closing the game detail view (batch sync for performance).
 
 **Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
 
 ---
 
+## Ladder Integration
+
+- **Purpose:** Fetch NFNL ladder data when `ladderUrl` is set in Team Settings
+- **Scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes `public/ladder-<teamID>.json`
+- **Automation:** `.github/workflows/daily-ladder.yml` runs scraper daily, commits to master
+
+```bash
+# Local run
+node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
+
+# Production (using Apps Script API)
+GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
+  node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
+```
+
+---
 
 ## Troubleshooting
 
-### Monitor Workflow (GitHub Actions)
-- If the monitor workflow fails with `Cannot read properties of undefined (reading 'listForRepo')`, update all API calls to use `github.rest.issues.*`.
-- If you see `Resource not accessible by integration`, add `permissions: issues: write` to the job in the workflow YAML.
-- See `docs/CI.md` for more CI troubleshooting.
+**Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost.
 
-**Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost. Safari has issues with Vite 7.x localhost handling.
-
-**Vite parse errors:** Check brace balance with:
+**Vite parse errors:** Check brace balance:
 ```bash
 node --check src/js/app.js
 ```
 
-**Toggle data source:** Dev panel (bottom-right, localhost only) switches between Mock and API. Also: set `useMockData: true` in `src/js/config.js`.
+**Toggle data source:** Dev panel (bottom-right, localhost only) or set `useMockData: true` in config.js.
 
-**Google Sheet returns strings:** The API returns numbers as strings (e.g., `"2"` not `2`). Always use `parseInt()` when doing arithmetic with goal values.
+**Google Sheet returns strings:** Always use `parseInt()` when doing arithmetic with goal values.
 
-**Service worker updates:** Uses stale-while-revalidate strategy. Version is auto-generated from build timestamp (YYYYMMDDHHMM) via Vite plugin - no manual bumping needed. Users will see an "Update now" banner when a new version is available. The app checks for updates every 60 seconds.
+**Service worker updates:** Auto-generated version from build timestamp. Users see "Update now" banner when available.
 
-**Apps Script deployment:** See deployment commands in the Commands section above.
-
----
-
-## Session Handoff
-
-**Last session:** 2026-01-30 (Session 5)
-
-### Major Features & Changes
-- **Unified team slug logic**: All team slugs (for deployment, navigation, and portal links) now use the same canonical format: `slugify(teamName) + '-' + year + '-' + slugify(season)`.
-- **Automated per-team parent portal deployment**: Each team’s read-only SPA is deployed to a unique Cloudflare Pages subdomain (e.g., `hgnc-gameday-<slug>.pages.dev`).
-- **SPA read-only navigation**: When accessed via a gameday subdomain, the SPA auto-navigates directly to the correct team’s page using the canonical slug logic.
-- **System settings and team settings UI**: (Planned) The system settings page will show a single list of all parent portal links (one per team, using the canonical slug). Each team’s settings modal will also display and allow copying the parent portal link for that team.
-- **Deployment scripts**: Updated to always use API data and canonical slug logic for all deployments.
-- **Bugfixes**: Fixed navigation and slug-matching issues that previously prevented seamless parent portal access.
-
-### Outstanding/Future Work
-- **Manual UI update required**: The parent portal link UI (system settings and team settings modal) must be updated to use the canonical slug and new link format. See the session notes and code snippets for the exact implementation.
-- **Documentation review**: Ensure all user-facing and developer docs reflect the new parent portal deployment and navigation model.
-- **Test all portal links**: After UI update, verify that all parent portal links work as expected for every team and season.
-
-### Key files changed
-- `src/js/app.js`: Unified slug logic, SPA navigation, deployment script integration, and (pending) parent portal link UI.
-- `scripts/deploy-parent-portals-deploy.cjs`: Always uses API data and canonical slug logic.
-- `README.md`, `CLAUDE.md`: (Pending) Update documentation to reflect new deployment and navigation model.
-
-### Console logs for debugging
-- `[ReadOnly Debug] Team: ... | Canonical Slug: ... | Requested: ...` — SPA slug matching
-- `[App] Auto-selecting team for read-only view: ...` — SPA navigation
-
-All 172 tests passing, deployed to production.
+**Monitor workflow issues:** If `Resource not accessible by integration`, add `permissions: issues: write` to workflow YAML.
 
 ---
-- **Performance:** Load times reduced from 500-2000ms (API) to 5-20ms (cache hit)
 
+## Using Gemini CLI for Large Codebase Analysis
+
+When analyzing large codebases or multiple files that might exceed context limits, use the Gemini CLI with its massive context window. Use `gemini -p` to leverage Google Gemini's large context capacity.
+
+### File and Directory Inclusion Syntax
+
+Use the `@` syntax to include files and directories in your Gemini prompts. The paths should be relative to WHERE you run the gemini command:
+
+**Single file analysis:**
+```bash
+gemini -p "@src/main.py Explain this file's purpose and structure"
+```
+
+**Multiple files:**
+```bash
+gemini -p "@package.json @src/index.js Analyze the dependencies used in the code"
+```
+
+**Entire directory:**
+```bash
+gemini -p "@src/ Summarize the architecture of this codebase"
+```
+
+**Multiple directories:**
+```bash
+gemini -p "@src/ @tests/ Analyze test coverage for the source code"
+```
+
+**Current directory and subdirectories:**
+```bash
+gemini -p "@./ Give me an overview of this entire project"
+# Or use --all_files flag:
+gemini --all_files -p "Analyze the project structure and dependencies"
+```
+
+### Implementation Verification Examples
+
+```bash
+# Check if a feature is implemented
+gemini -p "@src/ @lib/ Has dark mode been implemented in this codebase? Show me the relevant files and functions"
+
+# Verify authentication implementation
+gemini -p "@src/ @middleware/ Is JWT authentication implemented? List all auth-related endpoints and middleware"
+
+# Check for specific patterns
+gemini -p "@src/ Are there any React hooks that handle WebSocket connections? List them with file paths"
+
+# Verify error handling
+gemini -p "@src/ @api/ Is proper error handling implemented for all API endpoints? Show examples of try-catch blocks"
+
+# Check for rate limiting
+gemini -p "@backend/ @middleware/ Is rate limiting implemented for the API? Show the implementation details"
+
+# Verify caching strategy
+gemini -p "@src/ @lib/ @services/ Is Redis caching implemented? List all cache-related functions and their usage"
+
+# Check for specific security measures
+gemini -p "@src/ @api/ Are SQL injection protections implemented? Show how user inputs are sanitized"
+
+# Verify test coverage for features
+gemini -p "@src/payment/ @tests/ Is the payment processing module fully tested? List all test cases"
+```
+
+### When to Use Gemini CLI
+
+Use `gemini -p` when:
+- Analyzing entire codebases or large directories
+- Comparing multiple large files
+- Need to understand project-wide patterns or architecture
+- Current context window is insufficient for the task
+- Working with files totaling more than 100KB
+- Verifying if specific features, patterns, or security measures are implemented
+- Checking for the presence of certain coding patterns across the entire codebase
+
+### Important Notes
+
+- Paths in `@` syntax are relative to your current working directory when invoking gemini
+- The CLI will include file contents directly in the context
+- No need for `--yolo` flag for read-only analysis
+- Gemini's context window can handle entire codebases that would overflow Claude's context
+- When checking implementations, be specific about what you're looking for to get accurate results
