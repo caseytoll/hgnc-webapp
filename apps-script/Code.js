@@ -1025,7 +1025,7 @@ function getAIInsights(teamID, sheetName) {
   }
 
   // Get team data
-  var teamData = getTeamData(sheetName, teamID);
+  var teamData = loadTeamData(sheetName);
   if (!teamData || teamData.error) {
     throw new Error('Could not load team data: ' + (teamData ? teamData.error : 'unknown'));
   }
@@ -1066,9 +1066,9 @@ function getAIInsights(teamID, sheetName) {
     '**Player Notes**\n[Any standout observations about specific players based on positions/goals]\n\n' +
     '**Next Game Tips**\n[1-2 tactical suggestions]';
 
-  // Call Gemini API
+  // Call Gemini API (using gemini-2.0-flash-lite for faster/cheaper responses)
   var response = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
     {
       method: 'POST',
       contentType: 'application/json',
@@ -1088,7 +1088,14 @@ function getAIInsights(teamID, sheetName) {
 
   if (responseCode !== 200) {
     Logger.log('Gemini API error: ' + responseCode + ' - ' + responseText);
-    throw new Error('Gemini API error: ' + responseCode);
+    // Parse error for more details
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
   }
 
   var json = JSON.parse(responseText);
