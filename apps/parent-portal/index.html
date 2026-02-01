@@ -231,78 +231,27 @@
         <!-- Populated dynamically for image capture -->
       </div>
     </div>
+
+    <!-- ========================================
+         MODAL
+         ======================================== -->
+    <div id="modal-backdrop" class="modal-backdrop hidden" onclick="closeModal()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="modal-title"></h3>
+          <button class="icon-btn" onclick="closeModal()" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div id="modal-footer" class="modal-footer"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Scripts -->
   <script type="module" src="/src/js/app.js"></script>
-
-  <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => {
-            console.log('[PWA] Service worker registered');
-            reg.update();
-            setInterval(() => reg.update(), 60000);
-
-            reg.addEventListener('updatefound', () => {
-              const newWorker = reg.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  showUpdateBanner();
-                }
-              });
-            });
-          })
-          .catch(err => console.log('[PWA] SW registration failed:', err));
-
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          // Avoid reload loops when the app explicitly unregisters service workers
-          if (window.__skipSWReload) {
-            console.log('[PWA] controllerchange ignored due to __skipSWReload flag');
-            // clear flag after ignoring one change
-            delete window.__skipSWReload;
-            return;
-          }
-          window.location.reload();
-        });
-      });
-    }
-
-    function showUpdateBanner() {
-      const existing = document.getElementById('update-banner');
-      if (existing) existing.remove();
-
-      const banner = document.createElement('div');
-      banner.id = 'update-banner';
-      banner.innerHTML = `
-        <span>New version available</span>
-        <button onclick="applyUpdate()">Update now</button>
-        <button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:inherit;font-size:18px;cursor:pointer;">&times;</button>
-      `;
-      banner.style.cssText = `
-        position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
-        background: #059669; color: white;
-        padding: 12px 16px; border-radius: 8px; z-index: 10000;
-        display: flex; align-items: center; gap: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 14px;
-      `;
-      banner.querySelector('button').style.cssText = `
-        background: white; color: #059669;
-        border: none; padding: 6px 12px; border-radius: 4px;
-        font-weight: 600; cursor: pointer;
-      `;
-      document.body.appendChild(banner);
-    }
-
-    function applyUpdate() {
-      navigator.serviceWorker.ready.then(reg => {
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-      });
-    }
-  </script>
 </body>
 </html>

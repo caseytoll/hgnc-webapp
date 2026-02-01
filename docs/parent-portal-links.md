@@ -33,8 +33,41 @@ Where `[team-slug]` is based on the team’s name, year, and season using the ca
 - Use the **Copy** button to copy a link to your clipboard for easy sharing with parents.
 - Use the **Open** button to preview the parent portal in a new tab.
 
+## Parent Portal Features
+
+The Parent Portal provides a read-only view with the following features:
+
+### Schedule Tab
+- Game list sorted by date (newest first)
+- Win/loss/draw color coding on round badges
+- Abandoned games show "Abandoned" label
+- Tap any game to view details
+
+### Roster Tab
+- Player cards showing name, position, and fill-in status
+- Tap any player to view their stats modal:
+  - Games played, quarters, goals, avg/game
+  - Position breakdown with bar chart
+  - All games played this season
+
+### Stats Tab
+- **Overview:** Hero banner with W-L-D, season metrics, quarter performance, goal scorers
+- **Leaders:** Top offensive and defensive players
+- **Positions:** Position development tracker grid showing all 7 positions per player
+- **Combos:** Attacking and defensive unit combinations
+
+### Game Detail View
+- Score card with win/loss badge
+- **Lineup tab:** Quarter-by-quarter lineup display
+- **Scoring tab:** Accordion view with GS/GA position badges, per-quarter breakdown
+- Share buttons for result and lineup images
+
+### Theme
+- Dark/light mode toggle in header
+- Theme preference saved to localStorage
+
 ## Troubleshooting
-- If a link does not work, ensure the team’s name, year, and season are set correctly in the team settings.
+- If a link does not work, ensure the team's name, year, and season are set correctly in the team settings.
 - Only active (non-archived) teams are shown in the system list.
 
 ---

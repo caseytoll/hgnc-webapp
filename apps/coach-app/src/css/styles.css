@@ -2606,9 +2606,53 @@ h4 { font-size: 1rem; }
 }
 
 .scorers-table-row .col-avg,
-.scorers-table-row .col-qtrs {
+.scorers-table-row .col-qtrs,
+.scorers-table-row .col-quarters {
   color: var(--text-secondary);
   text-align: center;
+}
+
+.scorers-table-row .col-goalsAgainst {
+  font-weight: 700;
+  color: var(--primary-400);
+  text-align: center;
+}
+
+/* Sortable table headers */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.sortable-header:hover {
+  color: var(--primary-400);
+}
+
+.sortable-header.sort-active {
+  color: var(--primary-500);
+  font-weight: 800;
+}
+
+/* Leaders table expand button */
+.leaders-expand-btn {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-xs);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.leaders-expand-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--primary-400);
+  border-color: var(--primary-400);
 }
 
 /* ========================================
@@ -3624,6 +3668,45 @@ body.read-only .availability-checkbox {
   margin-top: var(--space-xs);
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+/* Position checkboxes for favourite positions */
+.position-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.position-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.position-checkbox-label:has(.position-checkbox:checked) {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+  color: white;
+}
+
+.position-checkbox-label:hover {
+  border-color: var(--primary-400);
+}
+
+.position-checkbox {
+  display: none;
+}
+
+.position-checkbox-text {
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 /* Custom select arrow */

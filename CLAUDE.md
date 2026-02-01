@@ -49,7 +49,8 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --b
 
 **Parent Portal:**
 ```bash
-npm run build:readonly && npm run deploy:readonly-viewer
+cd apps/parent-portal
+npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
 ```
 
 **Backend (Apps Script):**
@@ -100,6 +101,39 @@ webapp-local-dev/
 - Shared modules imported from `../../common/` in both apps
 - No linter configured; code style is vanilla JS with ES modules
 
+### Keeping Apps Consistent
+
+**IMPORTANT:** When making style or layout changes, apply them to BOTH apps to maintain visual consistency. The Parent Portal should mirror the Coach's App styling for all shared UI components.
+
+When modifying UI in one app, check if the other needs the same change:
+
+- **CSS classes must match:** Use `.game-item` for game lists (not `.game-card`), `.player-card` for roster, etc.
+- **HTML structure:** Game list items use `game-round`, `game-info`, `game-opponent`, `game-meta`, `game-score` classes
+- **Stats field names:** Use `avgFor`/`avgAgainst` (not `avgGoalsFor`/`avgGoalsAgainst`) from stats-calculations.js
+- **Team name source:** `getTeamData` API doesn't return teamName - use `getTeams` data for team info display
+- **Theme toggle:** Uses `data-theme` attribute on `<html>`, not body class. Values: `light` or `dark`
+- **Game status handling:** Check for `game.status === 'abandoned'` before displaying scores
+
+**Shared UI Components (must match between apps):**
+
+| Component | CSS Classes | Notes |
+|-----------|-------------|-------|
+| Game list | `.game-item`, `.game-round`, `.game-info`, `.game-opponent`, `.game-meta`, `.game-score` | Sort by date descending |
+| Player cards | `.player-card`, `.player-avatar`, `.player-info` | Clickable to show stats modal |
+| Stats hero | `.stats-hero`, `.stats-record`, `.stats-metrics` | Purple banner with W-L-D |
+| Stats tabs | Overview, Leaders, Positions, Combos | Same tab structure |
+| Scoring display | `.scoring-accordion`, `.scoring-quarter`, `.position-badge` | Accordion with GS/GA badges |
+| Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
+| Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
+
+### Parent Portal Specifics
+
+- **No service worker:** Parent portal has no SW - always fetches fresh data from API
+- **Read-only:** No edit functionality, but can view all stats and lineups
+- **Team URLs:** `/teams/{slug}` format, e.g., `/teams/hazel-glen-6`
+- **Player stats modal:** Shows games, quarters, goals, positions played, and all season games
+- **Dark/light theme:** Toggle in header, persisted to localStorage
+
 ---
 
 ## Data Structures
@@ -108,9 +142,9 @@ webapp-local-dev/
 // Team (from getTeams API)
 { teamID, teamName, year, season, sheetName, archived, ladderUrl }
 
-// Team Data (from getTeamData API)
+// Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
 {
-  teamID, teamName, year, season,
+  teamID, sheetName,
   players: [{ id, name, fillIn, favPosition }],
   games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }]
 }
@@ -196,84 +230,47 @@ node --check src/js/app.js
 
 ---
 
-## Using Gemini CLI for Large Codebase Analysis
+## Using Gemini CLI for Codebase Analysis
 
-When analyzing large codebases or multiple files that might exceed context limits, use the Gemini CLI with its massive context window. Use `gemini -p` to leverage Google Gemini's large context capacity.
+Use `gemini -p` with the `@` syntax to analyze multiple files or directories when you need broad codebase understanding. Gemini's large context window can handle the entire codebase at once.
 
-### File and Directory Inclusion Syntax
-
-Use the `@` syntax to include files and directories in your Gemini prompts. The paths should be relative to WHERE you run the gemini command:
-
-**Single file analysis:**
-```bash
-gemini -p "@src/main.py Explain this file's purpose and structure"
-```
-
-**Multiple files:**
-```bash
-gemini -p "@package.json @src/index.js Analyze the dependencies used in the code"
-```
-
-**Entire directory:**
-```bash
-gemini -p "@src/ Summarize the architecture of this codebase"
-```
-
-**Multiple directories:**
-```bash
-gemini -p "@src/ @tests/ Analyze test coverage for the source code"
-```
-
-**Current directory and subdirectories:**
-```bash
-gemini -p "@./ Give me an overview of this entire project"
-# Or use --all_files flag:
-gemini --all_files -p "Analyze the project structure and dependencies"
-```
-
-### Implementation Verification Examples
+### Project-Specific Examples
 
 ```bash
-# Check if a feature is implemented
-gemini -p "@src/ @lib/ Has dark mode been implemented in this codebase? Show me the relevant files and functions"
+# Understand how both apps share code
+gemini -p "@apps/coach-app/src/js/ @apps/parent-portal/src/js/ @common/ How do the two apps share common modules? What's duplicated vs shared?"
 
-# Verify authentication implementation
-gemini -p "@src/ @middleware/ Is JWT authentication implemented? List all auth-related endpoints and middleware"
+# Analyze the data flow from API to UI
+gemini -p "@apps/coach-app/src/js/api.js @apps/coach-app/src/js/app.js @apps-script/Code.js Trace how team data flows from Google Sheets through the API to the UI"
 
-# Check for specific patterns
-gemini -p "@src/ Are there any React hooks that handle WebSocket connections? List them with file paths"
+# Check stats calculation consistency
+gemini -p "@common/stats-calculations.js @common/mock-data.js @apps/coach-app/src/js/app.js Are stats calculated consistently between mock data and live data?"
 
-# Verify error handling
-gemini -p "@src/ @api/ Is proper error handling implemented for all API endpoints? Show examples of try-catch blocks"
+# Review all test coverage
+gemini -p "@apps/coach-app/src/js/*.test.js @apps/parent-portal/src/js/*.test.js @common/ What functionality is tested vs untested?"
 
-# Check for rate limiting
-gemini -p "@backend/ @middleware/ Is rate limiting implemented for the API? Show the implementation details"
+# Understand lineup data structure usage
+gemini -p "@apps/ @common/ How is the lineup data structure (Q1-Q4 with positions) used throughout the codebase?"
 
-# Verify caching strategy
-gemini -p "@src/ @lib/ @services/ Is Redis caching implemented? List all cache-related functions and their usage"
+# Check for XSS protection
+gemini -p "@apps/ @common/utils.js Where is escapeHtml() used? Are there any places rendering user input without escaping?"
 
-# Check for specific security measures
-gemini -p "@src/ @api/ Are SQL injection protections implemented? Show how user inputs are sanitized"
-
-# Verify test coverage for features
-gemini -p "@src/payment/ @tests/ Is the payment processing module fully tested? List all test cases"
+# Analyze offline/sync behavior
+gemini -p "@apps/coach-app/src/js/app.js @apps/coach-app/src/js/api.js How does localStorage caching work with the API sync?"
 ```
 
-### When to Use Gemini CLI
+### When to Use Gemini
 
 Use `gemini -p` when:
-- Analyzing entire codebases or large directories
-- Comparing multiple large files
-- Need to understand project-wide patterns or architecture
-- Current context window is insufficient for the task
-- Working with files totaling more than 100KB
-- Verifying if specific features, patterns, or security measures are implemented
-- Checking for the presence of certain coding patterns across the entire codebase
+- Analyzing patterns across both apps and common modules
+- Tracing data flow from Apps Script backend through to UI
+- Checking consistency between coach-app and parent-portal implementations
+- Reviewing test coverage across the monorepo
+- Understanding how shared modules are used differently by each app
 
-### Important Notes
+### Syntax Notes
 
-- Paths in `@` syntax are relative to your current working directory when invoking gemini
-- The CLI will include file contents directly in the context
-- No need for `--yolo` flag for read-only analysis
-- Gemini's context window can handle entire codebases that would overflow Claude's context
-- When checking implementations, be specific about what you're looking for to get accurate results
+- `@path/` includes a directory recursively
+- `@file.js` includes a single file
+- Paths are relative to current working directory
+- Run from project root for the examples above

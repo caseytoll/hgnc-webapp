@@ -8,6 +8,9 @@ let dataSource = 'api';
 // Cache for team sheetNames (needed to map teamID to sheetName for API calls)
 const teamSheetMap = new Map();
 
+// Track last known modification timestamp per team (for stale data detection)
+const teamLastModified = new Map();
+
 export function setDataSource(source) {
   dataSource = source;
   console.log(`[API] Data source set to: ${source}`);
@@ -106,6 +109,102 @@ async function callAppsScript(action, params = {}) {
 }
 
 // ============================================
+// POST-based save with stale data protection
+// ============================================
+
+/**
+ * Save team data via POST with stale data detection.
+ * Uses POST to avoid URL length limits and includes clientLastModified for conflict detection.
+ *
+ * @param {string} teamID - Team identifier
+ * @param {string} sheetName - Google Sheet name for this team
+ * @param {object} saveData - Data to save (players, games)
+ * @param {number|null} freshlyFetchedLastModified - If data was just fetched, use that timestamp instead of cached
+ */
+async function saveTeamDataWithProtection(teamID, sheetName, saveData, freshlyFetchedLastModified = null) {
+  updateStatus('Saving...');
+
+  // Protect write operations when running in a read-only view
+  try {
+    if (typeof window !== 'undefined' && window.isReadOnlyView) {
+      throw new Error('Read-only view: write operations are disabled');
+    }
+  } catch (e) {
+    if (e.message && e.message.startsWith('Read-only view')) throw e;
+  }
+
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+
+  // Use freshly fetched timestamp if provided, otherwise fall back to cached
+  const clientLastModified = freshlyFetchedLastModified || teamLastModified.get(teamID) || null;
+
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api: true,
+        action: 'saveTeamData',
+        sheetName,
+        teamData: saveData,
+        clientLastModified
+      })
+    });
+
+    const result = await response.json();
+
+    if (API_CONFIG.debug) {
+      console.log('[API] POST saveTeamData response:', result);
+    }
+
+    // Check for stale data error
+    if (result.error === 'STALE_DATA') {
+      console.warn('[API] Stale data detected! Server has newer data.');
+      updateStatus('Data conflict - refreshing...');
+
+      // Show user-friendly message
+      if (typeof window.showToast === 'function') {
+        window.showToast('Another device updated this data. Refreshing...', 'warning');
+      }
+
+      // Trigger a data refresh
+      throw new StaleDataError('Server has newer data. Please try again after refresh.', result.serverLastModified);
+    }
+
+    if (result.success === false) {
+      throw new Error(result.error || 'Save failed');
+    }
+
+    // Update our local timestamp since we just saved successfully
+    // The server sets _lastModified to Date.now() on save
+    teamLastModified.set(teamID, Date.now());
+
+    updateStatus('Ready');
+    return result;
+
+  } catch (error) {
+    console.error('[API] Error saving team data:', error);
+    updateStatus(`Error: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Custom error class for stale data conflicts
+ */
+class StaleDataError extends Error {
+  constructor(message, serverLastModified) {
+    super(message);
+    this.name = 'StaleDataError';
+    this.serverLastModified = serverLastModified;
+  }
+}
+
+// Export for use in app.js
+export { StaleDataError };
+
+// ============================================
 // API Methods
 // ============================================
 
@@ -157,7 +256,15 @@ export async function loadTeamData(teamID) {
   const rawData = result.teamData;
 
   // Transform from Google Sheet format to PWA format
-  return transformTeamDataFromSheet(rawData, teamID);
+  const transformed = transformTeamDataFromSheet(rawData, teamID);
+
+  // Store the server's last modified timestamp for stale data detection
+  if (transformed._lastModified) {
+    teamLastModified.set(teamID, transformed._lastModified);
+    console.log(`[API] Stored _lastModified for ${teamID}:`, transformed._lastModified);
+  }
+
+  return transformed;
 }
 
 /**
@@ -169,8 +276,17 @@ export function transformTeamDataFromSheet(data, teamID) {
     id: p.id,
     name: p.name,
     fillIn: p.isFillIn || p.fillIn || false,
-    favPosition: p.favoritePosition || p.favPosition || ''
+    // Handle both string (legacy) and array formats
+    favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition)
   }));
+
+  // Helper to normalize favPosition to array format
+  function normalizeFavPositions(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(p => p);
+    if (typeof val === 'string' && val.trim()) return [val.trim()];
+    return [];
+  }
 
   // Debug: Log the incoming data object and its keys to inspect property names
   console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
@@ -250,13 +366,20 @@ export function transformTeamDataFromSheet(data, teamID) {
  */
 export function transformTeamDataToSheet(pwaData) {
   // Transform players back to Sheet format
-  const players = (pwaData.players || []).map(p => ({
-    id: p.id,
-    name: p.name,
-    isFillIn: p.fillIn || false,
-    favoritePosition: p.favPosition || null,
-    isFavorite: false
-  }));
+  const players = (pwaData.players || []).map(p => {
+    // Convert favPosition array to storage format
+    let favPos = p.favPosition;
+    if (Array.isArray(favPos)) {
+      favPos = favPos.length > 0 ? favPos : null;
+    }
+    return {
+      id: p.id,
+      name: p.name,
+      isFillIn: p.fillIn || false,
+      favoritePosition: favPos,
+      isFavorite: false
+    };
+  });
 
   // Transform games back to Sheet format
   const games = (pwaData.games || []).map(g => {
@@ -306,7 +429,12 @@ export function transformTeamDataToSheet(pwaData) {
     };
   });
 
-  return { players, games };
+  return {
+    players,
+    games,
+    // Pass through timestamp for version tracking
+    _lastModified: pwaData._lastModified || null
+  };
 }
 
 export async function calculateStats(teamID) {
@@ -379,9 +507,10 @@ export async function saveLineup(teamID, gameID, lineup) {
     game._cachedScores = { ourScore, opponentScore };
   }
 
-  // Save the updated raw data
+  // Save the updated raw data with stale data protection
+  // Use the freshly fetched _lastModified to detect conflicts
   const saveData = { players: rawData.players, games: rawData.games };
-  return await callAppsScript('saveTeamData', { sheetName, teamData: JSON.stringify(saveData) });
+  return await saveTeamDataWithProtection(teamID, sheetName, saveData, rawData._lastModified);
 }
 
 export async function addPlayer(teamID, playerData) {
@@ -414,14 +543,18 @@ export async function addPlayer(teamID, playerData) {
     id: `p${Date.now()}`,
     name: playerData.name,
     isFillIn: playerData.fillIn || false,
-    favoritePosition: playerData.favPosition || null,
+    // Handle array format for favourite positions
+    favoritePosition: Array.isArray(playerData.favPosition)
+      ? (playerData.favPosition.length > 0 ? playerData.favPosition : null)
+      : (playerData.favPosition || null),
     isFavorite: false
   };
   rawData.players = rawData.players || [];
   rawData.players.push(newPlayer);
 
+  // Save with stale data protection, using freshly fetched _lastModified
   const saveData = { players: rawData.players, games: rawData.games || [] };
-  await callAppsScript('saveTeamData', { sheetName, teamData: JSON.stringify(saveData) });
+  await saveTeamDataWithProtection(teamID, sheetName, saveData, rawData._lastModified);
 
   // Return in PWA format
   return {
@@ -462,13 +595,19 @@ export async function updatePlayer(teamID, playerID, playerData) {
     // Update in Sheet format
     if (playerData.name !== undefined) player.name = playerData.name;
     if (playerData.fillIn !== undefined) player.isFillIn = playerData.fillIn;
-    if (playerData.favPosition !== undefined) player.favoritePosition = playerData.favPosition || null;
+    if (playerData.favPosition !== undefined) {
+      // Handle array format for favourite positions
+      player.favoritePosition = Array.isArray(playerData.favPosition)
+        ? (playerData.favPosition.length > 0 ? playerData.favPosition : null)
+        : (playerData.favPosition || null);
+    }
   } else {
     throw new Error('Player not found');
   }
 
+  // Save with stale data protection, using freshly fetched _lastModified
   const saveData = { players: rawData.players, games: rawData.games || [] };
-  await callAppsScript('saveTeamData', { sheetName, teamData: JSON.stringify(saveData) });
+  await saveTeamDataWithProtection(teamID, sheetName, saveData, rawData._lastModified);
   return { success: true };
 }
 
@@ -493,7 +632,8 @@ export async function deletePlayer(teamID, playerID) {
 
   rawData.players = (rawData.players || []).filter(p => p.id !== playerID);
 
+  // Save with stale data protection, using freshly fetched _lastModified
   const saveData = { players: rawData.players, games: rawData.games || [] };
-  await callAppsScript('saveTeamData', { sheetName, teamData: JSON.stringify(saveData) });
+  await saveTeamDataWithProtection(teamID, sheetName, saveData, rawData._lastModified);
   return { success: true };
 }

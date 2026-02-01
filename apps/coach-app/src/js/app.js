@@ -96,6 +96,16 @@ const state = {
   stats: null,
   analytics: null,
   activeStatsTab: 'overview',
+  // Leaders table state for sorting and expansion
+  leadersTableState: {
+    expanded: {}, // { scorers: false, defenders: false, goalingPairs: false, defendingPairs: false }
+    sort: {
+      scorers: { column: 'goals', ascending: false },
+      defenders: { column: 'avg', ascending: true },
+      goalingPairs: { column: 'avg', ascending: false },
+      defendingPairs: { column: 'avg', ascending: true }
+    }
+  },
   // Player Library - tracks players across teams/seasons
   playerLibrary: { players: [] },
   showArchivedTeams: false
@@ -112,7 +122,7 @@ const apiTeamCache = {};
 
 // Cache metadata for TTL tracking
 const teamCacheMetadata = {};
-const TEAM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TEAM_CACHE_TTL_MS = 0; // Always fetch fresh when online (localStorage is offline fallback only)
 
 // Teams list cache (for landing page)
 let teamsListCache = null;
@@ -160,7 +170,11 @@ function invalidateTeamCache(teamID) {
  */
 function updateTeamCache(teamID, teamData) {
   apiTeamCache[teamID] = teamData;
-  teamCacheMetadata[teamID] = { cachedAt: new Date().toISOString() };
+  // Store the lastModified from the data for version checking
+  teamCacheMetadata[teamID] = {
+    cachedAt: new Date().toISOString(),
+    lastModified: teamData._lastModified || 0
+  };
 }
 
 function saveToLocalStorage() {
@@ -287,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
-  loadTeams();
+  loadTeams(true); // Always fetch fresh teams list on app open
 });
 
   // ========================================
@@ -874,30 +888,47 @@ async function loadTeamData(teamID) {
   renderStatsSkeleton();
 
   try {
-    // Check if we have valid cached data (within TTL)
-    if (isTeamCacheValid(teamID)) {
-      console.log('[Cache] Using cached data for team', teamID);
-      state.currentTeamData = apiTeamCache[teamID];
-    } else {
-      showLoading();
-      // Use proxy for local dev to bypass CORS
-      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-      const sheetName = state.teamSheetMap?.[teamID] || '';
-      const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
-      const data = await response.json();
-      if (data.success === false) {
-        throw new Error(data.error || 'API request failed');
+    if (navigator.onLine) {
+      // Get server's lastModified from the teams list (already fetched)
+      const serverTeam = state.teams.find(t => t.teamID === teamID);
+      const serverLastModified = serverTeam?.lastModified || 0;
+      const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
+
+      // Version check: only fetch if server has newer data or no cache exists
+      if (cachedLastModified && serverLastModified && serverLastModified === cachedLastModified && apiTeamCache[teamID]) {
+        console.log('[Cache] Version match - using cached data (lastModified:', cachedLastModified, ')');
+        state.currentTeamData = apiTeamCache[teamID];
+      } else {
+        showLoading();
+        // Use proxy for local dev to bypass CORS
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const sheetName = state.teamSheetMap?.[teamID] || '';
+        console.log('[App] Fetching fresh team data (server:', serverLastModified, 'cached:', cachedLastModified, ')');
+        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
+        const data = await response.json();
+        if (data.success === false) {
+          throw new Error(data.error || 'API request failed');
+        }
+        // Transform data from Sheet format to PWA format
+        state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
+
+        // Update localStorage cache for offline fallback
+        updateTeamCache(teamID, state.currentTeamData);
+        saveToLocalStorage();
+        console.log('[App] Fetched fresh team data, updated localStorage cache');
+
+        hideLoading();
       }
-      // Transform data from Sheet format to PWA format
-      state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
-
-      // Cache the fresh data with timestamp and persist to localStorage
-      updateTeamCache(teamID, state.currentTeamData);
-      saveToLocalStorage();
-      console.log('[Cache] Fetched and cached data for team', teamID);
-
-      hideLoading();
+    } else {
+      // Offline: use cached data from localStorage
+      if (apiTeamCache[teamID]) {
+        console.log('[Cache] Offline - using cached data for team', teamID);
+        state.currentTeamData = apiTeamCache[teamID];
+        showToast('Offline mode - showing cached data', 'info');
+      } else {
+        throw new Error('No cached data available for offline use');
+      }
     }
 
     state.currentTeam = state.teams.find(t => t.teamID === teamID);
@@ -1391,13 +1422,26 @@ function renderRoster() {
 
 function renderPlayerCard(player, isFillIn = false) {
   const initials = player.name.split(' ').map(n => n[0]).join('').toUpperCase();
+  // Handle both string and array formats for favPosition
+  const positions = normalizeFavPositions(player.favPosition);
+  const positionDisplay = positions.length > 0 ? positions.join(', ') : 'Flexible';
   return `
     <div class="player-card ${isFillIn ? 'fill-in' : ''}" onclick="openPlayerDetail('${escapeAttr(player.id)}')">
       <div class="player-avatar">${escapeHtml(initials)}</div>
       <div class="player-name">${escapeHtml(player.name)}</div>
-      <div class="player-position">${escapeHtml(player.favPosition || 'Flexible')}</div>
+      <div class="player-position">${escapeHtml(positionDisplay)}</div>
     </div>
   `;
+}
+
+/**
+ * Normalize favPosition to always be an array (handles legacy string values)
+ */
+function normalizeFavPositions(favPosition) {
+  if (!favPosition) return [];
+  if (Array.isArray(favPosition)) return favPosition.filter(p => p);
+  if (typeof favPosition === 'string' && favPosition.trim()) return [favPosition.trim()];
+  return [];
 }
 
 // ========================================
@@ -1612,15 +1656,52 @@ function renderStatsOverview(container) {
 function renderStatsLeaders(container) {
   const { leaderboards } = state.analytics;
   const { offensive, defensive, minQuarters } = leaderboards;
+  const tableState = state.leadersTableState;
+
+  // Helper to render sort arrow and determine if column is active
+  const sortHeader = (tableName, column, label) => {
+    const sort = tableState.sort[tableName];
+    const isActive = sort.column === column;
+    const arrow = isActive ? (sort.ascending ? '▲' : '▼') : '';
+    const activeClass = isActive ? 'sort-active' : '';
+    return `<span class="col-${column} sortable-header ${activeClass}" onclick="sortLeadersTable('${tableName}', '${column}')">${label}${arrow ? ` ${arrow}` : ''}</span>`;
+  };
+
+  // Helper to sort data based on table state
+  const sortData = (data, tableName) => {
+    const sort = tableState.sort[tableName];
+    return [...data].sort((a, b) => {
+      let aVal, bVal;
+      if (sort.column === 'goals') { aVal = a.goals; bVal = b.goals; }
+      else if (sort.column === 'goalsAgainst') { aVal = a.goalsAgainst; bVal = b.goalsAgainst; }
+      else if (sort.column === 'avg') { aVal = a.avg; bVal = b.avg; }
+      else if (sort.column === 'quarters') { aVal = a.quarters; bVal = b.quarters; }
+      else { aVal = a[sort.column]; bVal = b[sort.column]; }
+      return sort.ascending ? aVal - bVal : bVal - aVal;
+    });
+  };
+
+  // Helper to render expand/collapse button
+  const expandButton = (tableName, totalCount) => {
+    const isExpanded = tableState.expanded[tableName];
+    if (totalCount <= 5) return '';
+    return `<button class="leaders-expand-btn" onclick="toggleLeadersTable('${tableName}')">${isExpanded ? 'Show less' : `Show all (${totalCount})`}</button>`;
+  };
+
+  const getDisplayCount = (tableName, totalCount) => tableState.expanded[tableName] ? totalCount : Math.min(5, totalCount);
+
+  // Sort and prepare data for each table
+  const scorersData = sortData(offensive.topScorersByTotal, 'scorers');
+  const defendersData = sortData(defensive.topDefendersByTotal, 'defenders');
+  const goalingPairsData = sortData(offensive.topScoringPairsByTotal, 'goalingPairs');
+  const defendingPairsData = sortData(defensive.topDefensivePairsByTotal, 'defendingPairs');
 
   container.innerHTML = `
     <!-- Offensive Leaders -->
     <div class="stats-section">
       <div class="stats-section-title">Offensive Leaders</div>
-
       <div class="leaderboard-grid">
-        <!-- Top Scorer -->
-       
+        <div class="leaderboard-card">
           <div class="leaderboard-header">Top Scorer</div>
           ${offensive.topScorersByTotal.length > 0 ? `
             <div class="leaderboard-player">
@@ -1630,8 +1711,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : '<div class="leaderboard-empty">No data yet</div>'}
         </div>
-
-        <!-- Most Efficient -->
         <div class="leaderboard-card">
           <div class="leaderboard-header">Most Efficient</div>
           ${offensive.topScorersByEfficiency.length > 0 ? `
@@ -1642,8 +1721,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
         </div>
-
-        <!-- Top Scoring Pair -->
         <div class="leaderboard-card">
           <div class="leaderboard-header">Top Scoring Pair</div>
           ${offensive.topScoringPairsByTotal.length > 0 ? `
@@ -1654,8 +1731,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : '<div class="leaderboard-empty">No data yet</div>'}
         </div>
-
-        <!-- Most Efficient Pair -->
         <div class="leaderboard-card">
           <div class="leaderboard-header">Efficient Pair</div>
           ${offensive.topScoringPairsByEfficiency.length > 0 ? `
@@ -1672,9 +1747,7 @@ function renderStatsLeaders(container) {
     <!-- Defensive Leaders -->
     <div class="stats-section">
       <div class="stats-section-title">Defensive Leaders</div>
-
       <div class="leaderboard-grid">
-        <!-- Top Defender -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defender</div>
           ${defensive.topDefendersByTotal.length > 0 ? `
@@ -1685,8 +1758,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : '<div class="leaderboard-empty">No data yet</div>'}
         </div>
-
-        <!-- Most Efficient Defender -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Most Efficient</div>
           ${defensive.topDefendersByEfficiency.length > 0 ? `
@@ -1697,8 +1768,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
         </div>
-
-        <!-- Top Defensive Pair -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defensive Pair</div>
           ${defensive.topDefensivePairsByTotal.length > 0 ? `
@@ -1709,8 +1778,6 @@ function renderStatsLeaders(container) {
             </div>
           ` : '<div class="leaderboard-empty">No data yet</div>'}
         </div>
-
-        <!-- Efficient Defensive Pair -->
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Efficient Pair</div>
           ${defensive.topDefensivePairsByEfficiency.length > 0 ? `
@@ -1727,79 +1794,133 @@ function renderStatsLeaders(container) {
     <!-- All Scorers List -->
     <div class="stats-section">
       <div class="stats-section-title">All Scorers</div>
-      ${offensive.topScorersByTotal.length > 0 ? `
+      ${scorersData.length > 0 ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
             <span class="col-name">Player</span>
-            <span class="col-goals">Goals</span>
-            <span class="col-avg">Avg</span>
-            <span class="col-qtrs">Qtrs</span>
+            ${sortHeader('scorers', 'goals', 'Goals')}
+            ${sortHeader('scorers', 'avg', 'Avg')}
+            ${sortHeader('scorers', 'quarters', 'Qtrs')}
           </div>
-          ${offensive.topScorersByTotal.slice(0, 10).map((p, i) => `
+          ${scorersData.slice(0, getDisplayCount('scorers', scorersData.length)).map((p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.name)}</span>
               <span class="col-goals">${p.goals}</span>
               <span class="col-avg">${p.avg}</span>
-              <span class="col-qtrs">${p.quarters}</span>
+              <span class="col-quarters">${p.quarters}</span>
             </div>
           `).join('')}
         </div>
+        ${expandButton('scorers', scorersData.length)}
       ` : '<div class="empty-state"><p>No scorers yet</p></div>'}
     </div>
 
     <!-- All Defenders List -->
     <div class="stats-section">
       <div class="stats-section-title">All Defenders</div>
-      ${defensive.topDefendersByTotal.length > 0 ? `
+      ${defendersData.length > 0 ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
             <span class="col-name">Player</span>
-            <span class="col-goals">GA</span>
-            <span class="col-avg">Avg</span>
-            <span class="col-qtrs">Qtrs</span>
+            ${sortHeader('defenders', 'goalsAgainst', 'GA')}
+            ${sortHeader('defenders', 'avg', 'Avg')}
+            ${sortHeader('defenders', 'quarters', 'Qtrs')}
           </div>
-          ${defensive.topDefendersByTotal.slice(0, 10).map((p, i) => `
+          ${defendersData.slice(0, getDisplayCount('defenders', defendersData.length)).map((p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.name)}</span>
-              <span class="col-goals">${p.goalsAgainst}</span>
+              <span class="col-goalsAgainst">${p.goalsAgainst}</span>
               <span class="col-avg">${p.avg}</span>
-              <span class="col-qtrs">${p.quarters}</span>
+              <span class="col-quarters">${p.quarters}</span>
             </div>
           `).join('')}
         </div>
+        ${expandButton('defenders', defendersData.length)}
       ` : '<div class="empty-state"><p>No defenders yet</p></div>'}
     </div>
 
-    <!-- All Goaling Pairs -->
+    <!-- Goaling Pair Averages -->
     <div class="stats-section">
       <div class="stats-section-title">Goaling Pair Averages</div>
-      ${offensive.topScoringPairsByTotal.length > 0 ? `
+      ${goalingPairsData.length > 0 ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
             <span class="col-name">Pair</span>
-            <span class="col-avg">Avg/Qtr</span>
-            <span class="col-goals">Goals</span>
-            <span class="col-qtrs">Qtrs</span>
+            ${sortHeader('goalingPairs', 'avg', 'Avg/Qtr')}
+            ${sortHeader('goalingPairs', 'goals', 'Goals')}
+            ${sortHeader('goalingPairs', 'quarters', 'Qtrs')}
           </div>
-          ${[...offensive.topScoringPairsByTotal].sort((a, b) => b.avg - a.avg).map((p, i) => `
+          ${goalingPairsData.slice(0, getDisplayCount('goalingPairs', goalingPairsData.length)).map((p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
               <span class="col-avg">${p.avg}</span>
               <span class="col-goals">${p.goals}</span>
-              <span class="col-qtrs">${p.quarters}</span>
+              <span class="col-quarters">${p.quarters}</span>
             </div>
           `).join('')}
         </div>
+        ${expandButton('goalingPairs', goalingPairsData.length)}
       ` : '<div class="empty-state"><p>No goaling pairs yet</p></div>'}
+    </div>
+
+    <!-- Defending Pair Averages -->
+    <div class="stats-section">
+      <div class="stats-section-title">Defending Pair Averages</div>
+      ${defendingPairsData.length > 0 ? `
+        <div class="scorers-table">
+          <div class="scorers-table-header">
+            <span class="col-rank">#</span>
+            <span class="col-name">Pair</span>
+            ${sortHeader('defendingPairs', 'avg', 'Avg/Qtr')}
+            ${sortHeader('defendingPairs', 'goalsAgainst', 'GA')}
+            ${sortHeader('defendingPairs', 'quarters', 'Qtrs')}
+          </div>
+          ${defendingPairsData.slice(0, getDisplayCount('defendingPairs', defendingPairsData.length)).map((p, i) => `
+            <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
+              <span class="col-rank">${i + 1}</span>
+              <span class="col-name">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
+              <span class="col-avg">${p.avg}</span>
+              <span class="col-goalsAgainst">${p.goalsAgainst}</span>
+              <span class="col-quarters">${p.quarters}</span>
+            </div>
+          `).join('')}
+        </div>
+        ${expandButton('defendingPairs', defendingPairsData.length)}
+      ` : '<div class="empty-state"><p>No defending pairs yet</p></div>'}
     </div>
   `;
 }
+
+// Sort leaders table by column
+window.sortLeadersTable = function(tableName, column) {
+  const sort = state.leadersTableState.sort[tableName];
+  if (sort.column === column) {
+    sort.ascending = !sort.ascending;
+  } else {
+    sort.column = column;
+    // For defensive stats, ascending is better (lower = better), except quarters
+    if (tableName === 'defenders' || tableName === 'defendingPairs') {
+      sort.ascending = (column === 'quarters') ? false : true;
+    } else {
+      sort.ascending = false;
+    }
+  }
+  const container = document.getElementById('stats-tab-content');
+  if (container) renderStatsLeaders(container);
+};
+
+// Toggle expand/collapse for leaders table
+window.toggleLeadersTable = function(tableName) {
+  state.leadersTableState.expanded[tableName] = !state.leadersTableState.expanded[tableName];
+  const container = document.getElementById('stats-tab-content');
+  if (container) renderStatsLeaders(container);
+};
 
 function renderStatsCombinations(container) {
   const { combinations } = state.analytics;
@@ -2090,7 +2211,8 @@ function renderStatsPositions(container) {
               <div class="pos-grid-name ${hasGaps ? 'needs-exposure' : ''}">${escapeHtml(player.name.split(' ')[0])}</div>
               ${positions.map(pos => {
                 const count = player.positionCounts[pos];
-                const isFav = player.favPosition === pos;
+                const favPositions = normalizeFavPositions(player.favPosition);
+                const isFav = favPositions.includes(pos);
                 return `
                   <div class="pos-grid-cell ${count > 0 ? 'played' : 'unplayed'} ${isFav ? 'favorite' : ''}">
                     ${count > 0 ? count : '—'}
@@ -2644,6 +2766,7 @@ window.toggleCaptain = function(playerName) {
 
   renderLineupBuilder();
   saveToLocalStorage();
+  debouncedSync();
 };
 
 window.assignPosition = function(position) {
@@ -2679,6 +2802,7 @@ window.assignPosition = function(position) {
 
   renderLineupBuilder();
   saveToLocalStorage();
+  debouncedSync();
 };
 
 // ========================================
@@ -2738,6 +2862,7 @@ window.toggleAvailability = function(playerID, available) {
   renderAvailabilityList();
   renderLineupBuilder();
   saveToLocalStorage();
+  debouncedSync();
 };
 
 // ========================================
@@ -2906,8 +3031,9 @@ window.updateScore = function(quarter, field, value) {
   // Update the score card at the top
   renderGameScoreCard();
 
-  // Persist to localStorage
+  // Persist to localStorage immediately, sync to API after debounce
   saveToLocalStorage();
+  debouncedSync();
 
   // Flash auto-save indicator
   flashAutosaveIndicator();
@@ -2937,8 +3063,9 @@ window.adjustScore = function(quarter, field, delta) {
   // Update the score card at the top
   renderGameScoreCard();
 
-  // Persist to localStorage
+  // Persist to localStorage immediately, sync to API after debounce
   saveToLocalStorage();
+  debouncedSync();
 
   // Flash auto-save indicator
   flashAutosaveIndicator();
@@ -3040,7 +3167,11 @@ async function syncToGoogleSheets() {
     throw new Error('No sheetName found for team');
   }
 
-  // Transform data to Sheet format
+  // Set timestamp BEFORE sending so client and server use the same value
+  const syncTimestamp = Date.now();
+  state.currentTeamData._lastModified = syncTimestamp;
+
+  // Transform data to Sheet format (now includes the new timestamp)
   const saveData = transformTeamDataToSheet(state.currentTeamData);
   console.log('[syncToGoogleSheets] saveData players:', saveData.players?.length, 'games:', saveData.games?.length);
 
@@ -3083,11 +3214,42 @@ async function syncToGoogleSheets() {
     throw new Error(data.error || 'Sync failed');
   }
 
-  // Update local _lastModified to match what server now has
-  state.currentTeamData._lastModified = Date.now();
+  // Update cache with the synced data (timestamp was already set before sending)
   saveToLocalStorage();
 
   return data;
+}
+
+// ========================================
+// DEBOUNCED SYNC FOR RAPID CHANGES
+// ========================================
+
+let syncDebounceTimer = null;
+let syncInProgress = false;
+
+/**
+ * Debounced sync for rapid changes (scores, lineup, availability, captain)
+ * Waits 1.5s after last change before syncing to avoid hammering the API
+ */
+function debouncedSync() {
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(async () => {
+    if (!navigator.onLine || !state.currentTeamData || syncInProgress) return;
+
+    syncInProgress = true;
+    try {
+      console.log('[DebouncedSync] Syncing changes to server...');
+      await syncToGoogleSheets();
+      saveToLocalStorage();
+      console.log('[DebouncedSync] Sync complete');
+    } catch (e) {
+      console.error('[DebouncedSync] Sync failed:', e);
+      // Don't show toast for debounced sync failures to avoid spam
+      // Data is already saved to localStorage as fallback
+    } finally {
+      syncInProgress = false;
+    }
+  }, 1500); // Sync 1.5s after last change
 }
 
 /**
@@ -3207,13 +3369,20 @@ window.openPlayerDetail = function(playerID) {
         <input type="text" class="form-input" id="edit-player-name" value="${escapeAttr(player.name)}">
       </div>
       <div class="form-group">
-        <label class="form-label">Favorite Position</label>
-        <select class="form-select" id="edit-player-position">
-          <option value="">Flexible</option>
-          ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos =>
-            `<option value="${escapeAttr(pos)}" ${player.favPosition === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`
-          ).join('')}
-        </select>
+        <label class="form-label">Favourite Positions</label>
+        <div class="position-checkboxes" id="edit-player-positions">
+          ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos => {
+            const favPositions = normalizeFavPositions(player.favPosition);
+            const isChecked = favPositions.includes(pos);
+            return `
+              <label class="position-checkbox-label">
+                <input type="checkbox" class="position-checkbox" value="${escapeAttr(pos)}" ${isChecked ? 'checked' : ''}>
+                <span class="position-checkbox-text">${escapeHtml(pos)}</span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+        <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">Select one or more preferred positions, or leave blank for flexible</p>
       </div>
       <div class="form-group">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -3359,15 +3528,17 @@ window.savePlayer = async function(playerID) {
     return;
   }
 
-  const position = document.getElementById('edit-player-position').value;
-  const validPositions = ['', 'GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-  if (!validPositions.includes(position)) {
+  // Collect selected favourite positions
+  const positionCheckboxes = document.querySelectorAll('#edit-player-positions .position-checkbox:checked');
+  const selectedPositions = Array.from(positionCheckboxes).map(cb => cb.value);
+  const validPositions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+  if (selectedPositions.some(pos => !validPositions.includes(pos))) {
     showToast('Invalid position selected', 'error');
     return;
   }
 
   player.name = name;
-  player.favPosition = position;
+  player.favPosition = selectedPositions; // Now stores array
   player.fillIn = document.getElementById('edit-player-fillin').checked;
 
   // Handle career tracking checkbox
@@ -3442,13 +3613,16 @@ window.openAddPlayerModal = function() {
       <input type="text" class="form-input" id="new-player-name" placeholder="Player name" maxlength="100">
     </div>
     <div class="form-group">
-      <label class="form-label">Favorite Position</label>
-      <select class="form-select" id="new-player-position">
-        <option value="">Flexible</option>
-        ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos =>
-          `<option value="${escapeAttr(pos)}">${escapeHtml(pos)}</option>`
-        ).join('')}
-      </select>
+      <label class="form-label">Favourite Positions</label>
+      <div class="position-checkboxes" id="new-player-positions">
+        ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos => `
+          <label class="position-checkbox-label">
+            <input type="checkbox" class="position-checkbox" value="${escapeAttr(pos)}">
+            <span class="position-checkbox-text">${escapeHtml(pos)}</span>
+          </label>
+        `).join('')}
+      </div>
+      <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">Select one or more preferred positions, or leave blank for flexible</p>
     </div>
     <div class="form-group">
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -3530,9 +3704,11 @@ window.addPlayer = async function() {
     return;
   }
 
-  const position = document.getElementById('new-player-position').value;
-  const validPositions = ['', 'GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-  if (!validPositions.includes(position)) {
+  // Collect selected favourite positions
+  const positionCheckboxes = document.querySelectorAll('#new-player-positions .position-checkbox:checked');
+  const selectedPositions = Array.from(positionCheckboxes).map(cb => cb.value);
+  const validPositions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+  if (selectedPositions.some(pos => !validPositions.includes(pos))) {
     showToast('Invalid position selected', 'error');
     return;
   }
@@ -3540,7 +3716,7 @@ window.addPlayer = async function() {
   const newPlayer = {
     id: `p${Date.now()}`,
     name: name,
-    favPosition: position,
+    favPosition: selectedPositions, // Now stores array
     fillIn: document.getElementById('new-player-fillin').checked
   };
 
