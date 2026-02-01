@@ -1665,7 +1665,6 @@ function renderStatsOverview(container) {
 
 // Fetch AI insights from Gemini
 window.fetchAIInsights = async function() {
-  const btn = document.getElementById('ai-insights-btn');
   const container = document.getElementById('ai-insights-container');
 
   if (!state.currentTeam || !state.currentTeamData) {
@@ -1674,16 +1673,11 @@ window.fetchAIInsights = async function() {
   }
 
   // Show loading state
-  container.innerHTML = `
-    <div class="ai-loading">
-      <div class="spinner"></div>
-      <p>Analyzing team data...</p>
-    </div>
-  `;
+  container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing team data...</p></div>';
 
   try {
     const baseUrl = API_CONFIG.baseUrl;
-    const url = \`\${baseUrl}?api=true&action=getAIInsights&teamID=\${encodeURIComponent(state.currentTeam.teamID)}&sheetName=\${encodeURIComponent(state.currentTeam.sheetName)}\`;
+    const url = baseUrl + '?api=true&action=getAIInsights&teamID=' + encodeURIComponent(state.currentTeam.teamID) + '&sheetName=' + encodeURIComponent(state.currentTeam.sheetName);
 
     const response = await fetch(url);
     const data = await response.json();
@@ -1695,25 +1689,15 @@ window.fetchAIInsights = async function() {
         .replace(/\n- /g, '\n• ')
         .replace(/\n/g, '<br>');
 
-      container.innerHTML = \`
-        <div class="ai-insights-content">
-          \${html}
-        </div>
-        <button class="btn btn-secondary" onclick="fetchAIInsights()" style="margin-top: 12px;">
-          Refresh Insights
-        </button>
-      \`;
+      container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
+        '<button class="btn btn-secondary" onclick="fetchAIInsights()" style="margin-top: 12px;">Refresh Insights</button>';
     } else {
       throw new Error(data.error || 'Failed to get insights');
     }
   } catch (err) {
     console.error('[AI Insights] Error:', err);
-    container.innerHTML = \`
-      <div class="ai-error">
-        <p>Failed to get insights: \${escapeHtml(err.message)}</p>
-        <button class="btn btn-primary" onclick="fetchAIInsights()">Try Again</button>
-      </div>
-    \`;
+    container.innerHTML = '<div class="ai-error"><p>Failed to get insights: ' + escapeHtml(err.message) + '</p>' +
+      '<button class="btn btn-primary" onclick="fetchAIInsights()">Try Again</button></div>';
   }
 };
 
