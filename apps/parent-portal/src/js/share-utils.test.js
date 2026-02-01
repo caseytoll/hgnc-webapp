@@ -516,7 +516,7 @@ describe('generateLineupCardHTML', () => {
     expect(result).toContain('GK');
   });
 
-  it('should truncate long first names', () => {
+  it('should show full first names without truncation', () => {
     const gameWithLongName = {
       ...mockGame,
       lineup: {
@@ -527,8 +527,7 @@ describe('generateLineupCardHTML', () => {
       }
     };
     const result = generateLineupCardHTML(gameWithLongName, 'Team');
-    expect(result).toContain('Alexand.');
-    expect(result).not.toContain('Alexandria');
+    expect(result).toContain('Alexandria');
   });
 
   it('should show Off for quarters where player is not assigned', () => {
