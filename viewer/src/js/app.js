@@ -33,7 +33,7 @@ import {
   triggerJsonImport,
   validateImportedTeamData
 } from '../../../common/share-utils.js';
-import { mockTeams, calculateMockStats } from '../../../common/mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../../common/mock-data.js';
 // ========================================
 // HGNC GAMEDAY - Read-only Viewer for Parents & Spectators
 // ========================================
