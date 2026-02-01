@@ -81,10 +81,10 @@ webapp-local-dev/
 │       ├── src/js/router.js # URL routing for team pages
 │       └── src/js/*.test.js # Test files
 ├── common/                  # Shared modules (imported by both apps)
-│   ├── utils.js             # escapeHtml, formatters, localStorage wrappers
+│   ├── utils.js             # escapeHtml, formatters, isGameInPast, localStorage wrappers
 │   ├── mock-data.js         # Mock data AND calculateTeamStats()
-│   ├── stats-calculations.js # Leaderboards, combos, analytics
-│   └── share-utils.js       # Lineup card generation, sharing
+│   ├── stats-calculations.js # Leaderboards, combos, analytics (uses isGameInPast)
+│   └── share-utils.js       # Team Sheet generation, lineup sharing
 ├── apps-script/             # Google Apps Script backend
 │   └── Code.js              # API handlers and business logic
 └── scripts/                 # Build and utility scripts
@@ -113,6 +113,8 @@ When modifying UI in one app, check if the other needs the same change:
 - **Team name source:** `getTeamData` API doesn't return teamName - use `getTeams` data for team info display
 - **Theme toggle:** Uses `data-theme` attribute on `<html>`, not body class. Values: `light` or `dark`
 - **Game status handling:** Check for `game.status === 'abandoned'` before displaying scores
+- **Upcoming games:** Use `isGameInPast()` from utils.js to exclude future games from stats calculations
+- **Team Sheet sharing:** Format is "Round X - TeamName vs Opponent" with full first names (no truncation)
 
 **Shared UI Components (must match between apps):**
 
@@ -125,6 +127,7 @@ When modifying UI in one app, check if the other needs the same change:
 | Scoring display | `.scoring-accordion`, `.scoring-quarter`, `.position-badge` | Accordion with GS/GA badges |
 | Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
 | Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
+| Team Sheet | `.lineup-card`, `.lineup-card-header`, `.lineup-card-table` | Shareable image with player positions per quarter |
 
 ### Parent Portal Specifics
 
