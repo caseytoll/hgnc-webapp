@@ -2309,6 +2309,7 @@ window.openGameDetail = function(gameID) {
   renderLineupBuilder();
   renderAvailabilityList();
   renderScoringInputs();
+  renderGameNotes();
 
   showView('game-detail-view');
 
@@ -2967,6 +2968,18 @@ function renderScoringInputs() {
             ${createOpponentScoreRow(q, 'oppGsGoals', qData.oppGsGoals || 0, 'GS Goals')}
             ${createOpponentScoreRow(q, 'oppGaGoals', qData.oppGaGoals || 0, 'GA Goals')}
           </div>
+          <div class="scoring-notes">
+            <div class="notes-header">
+              <label>Notes</label>
+              ${!window.isReadOnlyView ? `<button type="button" class="timestamp-btn" onclick="insertTimestamp('notes-${escapeAttr(q)}')" title="Insert timestamp">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 6v6l4 2"/>
+                </svg>
+              </button>` : ''}
+            </div>
+            <textarea placeholder="Quarter notes..." id="notes-${escapeAttr(q)}" ${window.isReadOnlyView ? 'disabled' : ''} onchange="updateQuarterNotes('${escapeAttr(q)}', this.value)">${escapeHtml(qData.notes || '')}</textarea>
+          </div>
         </div>
       `;
     }).join('')}
@@ -3094,6 +3107,107 @@ function flashAutosaveIndicator() {
 
   indicator.classList.add('flash');
   setTimeout(() => indicator.classList.remove('flash'), 1500);
+}
+
+// ========================================
+// QUARTER NOTES
+// ========================================
+
+window.insertTimestamp = function(textareaId) {
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return;
+
+  // Format time as h:mmam/pm in Melbourne timezone
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-AU', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Australia/Melbourne'
+  }).toLowerCase().replace(' ', '');
+
+  const timestamp = `[${timeStr}] `;
+
+  // Get cursor position
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+
+  // Insert timestamp at cursor, adding newline if not at start of line
+  let insertText = timestamp;
+  if (start > 0 && value[start - 1] !== '\n') {
+    insertText = '\n' + timestamp;
+  }
+
+  // Insert the timestamp
+  textarea.value = value.substring(0, start) + insertText + value.substring(end);
+
+  // Move cursor to end of inserted timestamp
+  const newPos = start + insertText.length;
+  textarea.selectionStart = newPos;
+  textarea.selectionEnd = newPos;
+  textarea.focus();
+
+  // Trigger the onchange to save
+  textarea.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+window.updateQuarterNotes = function(quarter, value) {
+  if (!ensureNotReadOnly('updateQuarterNotes')) return;
+  const game = state.currentGame;
+  if (!game) return;
+
+  if (!game.lineup) game.lineup = {};
+  if (!game.lineup[quarter]) game.lineup[quarter] = {};
+
+  game.lineup[quarter].notes = value;
+
+  // Persist to localStorage immediately, sync to API after debounce
+  saveToLocalStorage();
+  debouncedSync();
+
+  // Flash auto-save indicator
+  flashAutosaveIndicator();
+
+  // Update notes panel if it's currently visible
+  renderGameNotes();
+};
+
+function renderGameNotes() {
+  const game = state.currentGame;
+  const container = document.getElementById('notes-content');
+  if (!container || !game) return;
+
+  const lineup = game.lineup || {};
+
+  const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const hasAnyNotes = quarters.some(q => lineup[q]?.notes);
+
+  if (!hasAnyNotes) {
+    container.innerHTML = `
+      <div class="notes-empty-state">
+        <p>No notes yet. Add notes in the Scoring tab.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="notes-panel">
+      ${quarters.map(q => {
+        const qData = lineup[q] || {};
+        const notes = qData.notes || '';
+        return `
+          <div class="quarter-notes-card">
+            <div class="quarter-notes-header">${escapeHtml(q)}</div>
+            <div class="quarter-notes-content ${notes ? '' : 'quarter-notes-empty'}">
+              ${notes ? escapeHtml(notes) : 'No notes'}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 window.finalizeGame = async function() {

@@ -18,9 +18,11 @@ A mobile-first web application for managing Hazel Glen Netball Club team rosters
 - **Game Scheduling**: Track games with dates, times, locations, and opponents
 - **Lineup Builder**: Visual drag-and-drop lineup builder for each quarter
 - **Live Scoring**: Enter scores during games with +/- buttons for easy input
+- **Timestamped Notes**: Add timestamped observations during each quarter for training review
 - **Statistics**: View team records, goal scorers, and player stats
 - **Career Tracking**: Track player stats across multiple teams and seasons
 - **Data Editing**: Full CRUD operations for teams, players, games, and lineups
+- **iPad Optimized**: Full-width layout on iPad mini for better sideline use
 
 ### Parent Portal (Read-Only)
 - **Team Information**: View team rosters and basic information

@@ -1861,6 +1861,125 @@ h4 { font-size: 1rem; }
   z-index: 1;
 }
 
+/* Notes in scoring accordion */
+.scoring-notes {
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-light);
+  margin-top: var(--space-sm);
+}
+
+.scoring-notes .notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.scoring-notes label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0;
+}
+
+.scoring-notes .timestamp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scoring-notes .timestamp-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--primary-500);
+  border-color: var(--primary-500);
+}
+
+.scoring-notes .timestamp-btn:active {
+  transform: scale(0.95);
+}
+
+.scoring-notes .timestamp-btn svg {
+  flex-shrink: 0;
+}
+
+.scoring-notes textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.scoring-notes textarea:focus {
+  outline: none;
+  border-color: var(--primary-500);
+}
+
+.scoring-notes textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.scoring-notes textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Notes tab panel */
+.notes-panel {
+  padding: var(--space-md);
+}
+
+.notes-empty-state {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-muted);
+}
+
+.quarter-notes-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+}
+
+.quarter-notes-header {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--primary-400);
+}
+
+.quarter-notes-content {
+  padding: var(--space-md);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.quarter-notes-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ========================================
    STATS CONTAINER
    ======================================== */
@@ -3988,6 +4107,28 @@ body.read-only .availability-checkbox {
   :root {
     --space-md: 14px;
     --space-lg: 18px;
+  }
+}
+
+/* iPad mini and small tablets (600px - 767px) */
+@media (min-width: 600px) and (max-width: 767px) {
+  #app {
+    max-width: 100%;
+    border-left: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
+  }
+
+  .bottom-nav {
+    max-width: 100%;
+  }
+
+  .modal {
+    max-width: 500px; /* Slightly wider modals on tablet */
+  }
+
+  /* Wider team selector content */
+  .team-selector-content {
+    max-width: 500px;
   }
 }
 

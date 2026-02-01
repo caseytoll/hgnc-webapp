@@ -32,6 +32,7 @@ export function transformTeamDataFromSheet(data, teamID) {
             ourGaGoals: q.ourGaGoals || 0,
             oppGsGoals: q.opponentGsGoals || 0,
             oppGaGoals: q.opponentGaGoals || 0
+            // notes intentionally excluded from parent portal
           };
         }
       });
