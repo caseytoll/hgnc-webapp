@@ -1650,8 +1650,72 @@ function renderStatsOverview(container) {
         </div>
       ` : ''}
     </div>
+
+    <!-- AI Insights -->
+    <div class="stats-section">
+      <div class="stats-section-title">AI Insights</div>
+      <div id="ai-insights-container">
+        <button class="btn btn-primary" onclick="fetchAIInsights()" id="ai-insights-btn">
+          Get AI Insights
+        </button>
+      </div>
+    </div>
   `;
 }
+
+// Fetch AI insights from Gemini
+window.fetchAIInsights = async function() {
+  const btn = document.getElementById('ai-insights-btn');
+  const container = document.getElementById('ai-insights-container');
+
+  if (!state.currentTeam || !state.currentTeamData) {
+    showToast('No team data loaded', 'error');
+    return;
+  }
+
+  // Show loading state
+  container.innerHTML = `
+    <div class="ai-loading">
+      <div class="spinner"></div>
+      <p>Analyzing team data...</p>
+    </div>
+  `;
+
+  try {
+    const baseUrl = API_CONFIG.baseUrl;
+    const url = \`\${baseUrl}?api=true&action=getAIInsights&teamID=\${encodeURIComponent(state.currentTeam.teamID)}&sheetName=\${encodeURIComponent(state.currentTeam.sheetName)}\`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.success && data.insights) {
+      // Convert markdown-style formatting to HTML
+      let html = data.insights
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n- /g, '\n• ')
+        .replace(/\n/g, '<br>');
+
+      container.innerHTML = \`
+        <div class="ai-insights-content">
+          \${html}
+        </div>
+        <button class="btn btn-secondary" onclick="fetchAIInsights()" style="margin-top: 12px;">
+          Refresh Insights
+        </button>
+      \`;
+    } else {
+      throw new Error(data.error || 'Failed to get insights');
+    }
+  } catch (err) {
+    console.error('[AI Insights] Error:', err);
+    container.innerHTML = \`
+      <div class="ai-error">
+        <p>Failed to get insights: \${escapeHtml(err.message)}</p>
+        <button class="btn btn-primary" onclick="fetchAIInsights()">Try Again</button>
+      </div>
+    \`;
+  }
+};
 
 function renderStatsLeaders(container) {
   const { leaderboards } = state.analytics;

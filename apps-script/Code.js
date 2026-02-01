@@ -368,6 +368,22 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'getAIInsights':
+          var insightsTeamID = e.parameter.teamID || '';
+          var insightsSheetName = e.parameter.sheetName || '';
+          if (!insightsTeamID || !insightsSheetName) {
+            result = { success: false, error: 'teamID and sheetName are required' };
+          } else {
+            try {
+              var insights = getAIInsights(insightsTeamID, insightsSheetName);
+              result = { success: true, insights: insights };
+            } catch (errInsights) {
+              Logger.log('AI Insights error: ' + errInsights.message);
+              result = { success: false, error: errInsights.message };
+            }
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown action: ' + action };
       }
@@ -998,6 +1014,88 @@ function getCachedMatchResults() {
     Logger.log("Error reading cached match results: " + e.message);
     // Fallback to the old sheet-based method
     return loadArchivedMatchResults();
+  }
+}
+
+// --- AI Insights using Gemini ---
+function getAIInsights(teamID, sheetName) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
+  // Get team data
+  var teamData = getTeamData(sheetName, teamID);
+  if (!teamData || teamData.error) {
+    throw new Error('Could not load team data: ' + (teamData ? teamData.error : 'unknown'));
+  }
+
+  // Get team name from Teams sheet
+  var teamsSheet = getSpreadsheet().getSheetByName('Teams');
+  var teamsData = teamsSheet.getDataRange().getValues();
+  var teamName = 'Team';
+  for (var i = 1; i < teamsData.length; i++) {
+    if (teamsData[i][0] === teamID) {
+      teamName = teamsData[i][3] || 'Team'; // teamName column
+      break;
+    }
+  }
+
+  // Build a summary of the data for the prompt
+  var games = teamData.games || [];
+  var players = teamData.players || [];
+  var completedGames = games.filter(function(g) { return g.status === 'normal' || (g.quarters && g.quarters.some(function(q) { return q.ourGsGoals > 0 || q.ourGaGoals > 0; })); });
+
+  var prompt = 'You are a netball coach assistant. Analyze this team data for ' + teamName + ' and provide brief, actionable insights.\n\n' +
+    'PLAYERS (' + players.length + '): ' + players.map(function(p) { return p.name; }).join(', ') + '\n\n' +
+    'COMPLETED GAMES (' + completedGames.length + '):\n' +
+    completedGames.map(function(g) {
+      var ourScore = 0, theirScore = 0;
+      if (g.quarters) {
+        g.quarters.forEach(function(q) {
+          ourScore += (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+          theirScore += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+        });
+      }
+      return 'Round ' + g.round + ' vs ' + g.opponent + ': ' + ourScore + '-' + theirScore;
+    }).join('\n') + '\n\n' +
+    'Provide insights in this exact format (keep each section to 2-3 bullet points max):\n\n' +
+    '**Season Summary**\n[Brief overview of performance]\n\n' +
+    '**Key Strengths**\n[What the team does well]\n\n' +
+    '**Areas to Improve**\n[Constructive suggestions]\n\n' +
+    '**Player Notes**\n[Any standout observations about specific players based on positions/goals]\n\n' +
+    '**Next Game Tips**\n[1-2 tactical suggestions]';
+
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error: ' + responseCode + ' - ' + responseText);
+    throw new Error('Gemini API error: ' + responseCode);
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
   }
 }
 
