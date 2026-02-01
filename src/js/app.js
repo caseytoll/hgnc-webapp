@@ -44,7 +44,7 @@ window.exportMockData = function() {
 
 import '../css/styles.css';
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from '../../common/mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../common/mock-data.js';
 import {
   escapeHtml,
   escapeAttr,
@@ -1016,7 +1016,7 @@ async function loadTeamData(teamID) {
       throw new Error('Team data not found');
     }
 
-    state.stats = calculateMockStats(state.currentTeamData);
+    state.stats = calculateTeamStats(state.currentTeamData);
     state.analytics = calculateAllAnalytics(state.currentTeamData);
 
     renderMainApp();
@@ -2487,7 +2487,7 @@ window.confirmImport = async function() {
   state.currentTeam = data;
 
   // Recalculate stats for imported data
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Save to localStorage
@@ -3082,7 +3082,7 @@ window.finalizeGame = async function() {
   renderGameScoreCard();
 
   // Recalculate stats and analytics
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Persist to localStorage

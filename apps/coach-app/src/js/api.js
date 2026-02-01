@@ -1,6 +1,6 @@
 // API Layer - Switches between mock data and real Apps Script backend
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from '../../../../common/mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
 
 // Current data source: always use live API
 let dataSource = 'api';
@@ -445,7 +445,7 @@ export async function calculateStats(teamID) {
     await new Promise(r => setTimeout(r, 100));
     const team = mockTeams.find(t => t.teamID === teamID);
     if (!team) throw new Error('Team not found');
-    return calculateMockStats(team);
+    return calculateTeamStats(team);
   }
 
   // For real API, stats are calculated client-side from team data

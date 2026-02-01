@@ -19,7 +19,7 @@ if ('serviceWorker' in navigator) {
 import '../css/styles.css';
 import { API_CONFIG, callApi } from './config.js';
 import { resolveTeamParamFromLocation } from './router.js';
-import { mockTeams, calculateMockStats } from '../../../../common/mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
 import {
   escapeHtml,
   escapeAttr,
@@ -53,6 +53,49 @@ import {
 } from '../../../../common/share-utils.js';
 import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import html2canvas from 'html2canvas';
+
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Check if a game date/time is in the past (i.e., the game has been played).
+ * @param {Object} game - Game object with date and optional time fields
+ * @returns {boolean} True if the game is in the past or date is missing
+ */
+function isGameInPast(game) {
+  if (!game.date) return true; // No date means assume it's a past game
+
+  try {
+    // Parse date (expected format: YYYY-MM-DD or similar)
+    let gameDateTime = new Date(game.date);
+
+    // If time is provided, add it to the date
+    if (game.time) {
+      const timeParts = game.time.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+      if (timeParts) {
+        let hours = parseInt(timeParts[1], 10);
+        const minutes = parseInt(timeParts[2], 10);
+        const meridiem = timeParts[3];
+
+        if (meridiem) {
+          if (meridiem.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+          if (meridiem.toLowerCase() === 'am' && hours === 12) hours = 0;
+        }
+
+        gameDateTime.setHours(hours, minutes, 0, 0);
+      }
+    } else {
+      // No time provided, set to end of day so we don't count it until the day is over
+      gameDateTime.setHours(23, 59, 59, 999);
+    }
+
+    return gameDateTime < new Date();
+  } catch (e) {
+    // If date parsing fails, assume it's a past game
+    return true;
+  }
+}
 
 // ========================================
 // READ-ONLY STATE MANAGEMENT
@@ -278,7 +321,7 @@ window.selectTeam = async function(teamID) {
   }
 
   // Calculate analytics
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   showView('main-app-view');
@@ -307,8 +350,8 @@ function renderMainApp() {
 
 function updateQuickStats() {
   const games = state.currentTeamData?.games || [];
-  const completedGames = games.filter(g => g.status === 'normal' && g.scores);
-  const upcomingGames = games.filter(g => g.status === 'upcoming' || !g.scores);
+  const completedGames = games.filter(g => g.status === 'normal' && g.scores && isGameInPast(g));
+  const upcomingGames = games.filter(g => g.status === 'upcoming' || !g.scores || !isGameInPast(g));
 
   let wins = 0, losses = 0, draws = 0;
   let goalsFor = 0, goalsAgainst = 0;

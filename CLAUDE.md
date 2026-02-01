@@ -82,7 +82,7 @@ webapp-local-dev/
 │       └── src/js/*.test.js # Test files
 ├── common/                  # Shared modules (imported by both apps)
 │   ├── utils.js             # escapeHtml, formatters, localStorage wrappers
-│   ├── mock-data.js         # Mock data AND calculateMockStats()
+│   ├── mock-data.js         # Mock data AND calculateTeamStats()
 │   ├── stats-calculations.js # Leaderboards, combos, analytics
 │   └── share-utils.js       # Lineup card generation, sharing
 ├── apps-script/             # Google Apps Script backend

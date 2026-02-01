@@ -61,7 +61,7 @@ import {
   getInitials
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
-import { calculateMockStats } from '../../../../common/mock-data.js';
+import { calculateTeamStats } from '../../../../common/mock-data.js';
 import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import {
   formatGameShareText,
@@ -937,7 +937,7 @@ async function loadTeamData(teamID) {
       throw new Error('Team data not found');
     }
 
-    state.stats = calculateMockStats(state.currentTeamData);
+    state.stats = calculateTeamStats(state.currentTeamData);
     state.analytics = calculateAllAnalytics(state.currentTeamData);
 
     renderMainApp();
@@ -2320,16 +2320,20 @@ window.openGameDetail = function(gameID) {
 };
 
 window.closeGameDetail = async function() {
+  // Cancel any pending debounced sync
+  clearTimeout(syncDebounceTimer);
+
   // Sync changes before leaving game detail view
-  if (navigator.onLine && state.currentTeamData) {
+  if (state.currentTeamData && hasPendingChanges) {
     try {
+      updateSyncIndicator('syncing');
       await syncToGoogleSheets();
-      // Update cache with synced data
       saveToLocalStorage();
+      hasPendingChanges = false;
       console.log('[App] Synced team data on game close');
     } catch (err) {
       console.error('[App] Failed to sync on game close:', err);
-      // Continue anyway - data is saved locally
+      showToast('Changes saved locally, will sync when online', 'warning');
     }
   }
 
@@ -2523,7 +2527,7 @@ window.confirmImport = async function() {
   state.currentTeam = data;
 
   // Recalculate stats for imported data
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Save to localStorage
@@ -3102,11 +3106,8 @@ function updateScoringDisplays() {
 }
 
 function flashAutosaveIndicator() {
-  const indicator = document.getElementById('autosave-indicator');
-  if (!indicator) return;
-
-  indicator.classList.add('flash');
-  setTimeout(() => indicator.classList.remove('flash'), 1500);
+  // Now handled by updateSyncIndicator via debouncedSync
+  // This function kept for backwards compatibility
 }
 
 // ========================================
@@ -3236,7 +3237,7 @@ window.finalizeGame = async function() {
   renderGameScoreCard();
 
   // Recalculate stats and analytics
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Persist to localStorage
@@ -3340,6 +3341,111 @@ async function syncToGoogleSheets() {
 
 let syncDebounceTimer = null;
 let syncInProgress = false;
+let hasPendingChanges = false;
+
+/**
+ * Update the sync status indicator with current state
+ * @param {'saved'|'syncing'|'synced'|'failed'} status
+ */
+function updateSyncIndicator(status) {
+  const indicator = document.getElementById('autosave-indicator');
+  if (!indicator) return;
+
+  // Remove all state classes
+  indicator.classList.remove('flash', 'syncing', 'synced', 'failed');
+
+  const iconSpan = indicator.querySelector('svg');
+  const textSpan = indicator.querySelector('span');
+  if (!textSpan) return;
+
+  switch (status) {
+    case 'saved':
+      // Saved locally, pending sync
+      textSpan.textContent = 'Saved locally';
+      indicator.classList.add('flash');
+      if (iconSpan) {
+        iconSpan.outerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>`;
+      }
+      break;
+    case 'syncing':
+      textSpan.textContent = 'Syncing...';
+      indicator.classList.add('syncing');
+      if (iconSpan) {
+        iconSpan.outerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>`;
+      }
+      break;
+    case 'synced':
+      textSpan.textContent = 'Synced';
+      indicator.classList.add('synced');
+      hasPendingChanges = false;
+      if (iconSpan) {
+        iconSpan.outerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>`;
+      }
+      break;
+    case 'failed':
+      textSpan.textContent = 'Sync failed · tap to retry';
+      indicator.classList.add('failed');
+      indicator.onclick = () => retrySyncNow();
+      if (iconSpan) {
+        iconSpan.outerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>`;
+      }
+      break;
+  }
+}
+
+/**
+ * Manual retry sync triggered by tapping failed indicator
+ */
+async function retrySyncNow() {
+  if (syncInProgress || !state.currentTeamData) return;
+  await performSync(3); // 3 retries
+}
+
+/**
+ * Perform sync with retry logic
+ * @param {number} maxRetries - Maximum retry attempts
+ * @param {number} attempt - Current attempt number (internal)
+ */
+async function performSync(maxRetries = 3, attempt = 1) {
+  if (syncInProgress || !state.currentTeamData) return;
+
+  syncInProgress = true;
+  updateSyncIndicator('syncing');
+
+  try {
+    console.log(`[Sync] Attempt ${attempt}/${maxRetries}...`);
+    await syncToGoogleSheets();
+    saveToLocalStorage();
+    updateSyncIndicator('synced');
+    console.log('[Sync] Complete');
+  } catch (e) {
+    console.error(`[Sync] Attempt ${attempt} failed:`, e);
+
+    if (attempt < maxRetries) {
+      // Exponential backoff: 3s, 9s, 27s
+      const delay = Math.pow(3, attempt) * 1000;
+      console.log(`[Sync] Retrying in ${delay / 1000}s...`);
+      syncInProgress = false;
+      setTimeout(() => performSync(maxRetries, attempt + 1), delay);
+    } else {
+      console.error('[Sync] All retries failed');
+      updateSyncIndicator('failed');
+      syncInProgress = false;
+    }
+    return;
+  }
+
+  syncInProgress = false;
+}
 
 /**
  * Debounced sync for rapid changes (scores, lineup, availability, captain)
@@ -3347,22 +3453,12 @@ let syncInProgress = false;
  */
 function debouncedSync() {
   clearTimeout(syncDebounceTimer);
-  syncDebounceTimer = setTimeout(async () => {
-    if (!navigator.onLine || !state.currentTeamData || syncInProgress) return;
+  hasPendingChanges = true;
+  updateSyncIndicator('saved');
 
-    syncInProgress = true;
-    try {
-      console.log('[DebouncedSync] Syncing changes to server...');
-      await syncToGoogleSheets();
-      saveToLocalStorage();
-      console.log('[DebouncedSync] Sync complete');
-    } catch (e) {
-      console.error('[DebouncedSync] Sync failed:', e);
-      // Don't show toast for debounced sync failures to avoid spam
-      // Data is already saved to localStorage as fallback
-    } finally {
-      syncInProgress = false;
-    }
+  syncDebounceTimer = setTimeout(async () => {
+    if (!state.currentTeamData || syncInProgress) return;
+    await performSync(3);
   }, 1500); // Sync 1.5s after last change
 }
 
