@@ -450,10 +450,9 @@ export function generateLineupCardHTML(game, teamName) {
     return nameA.localeCompare(nameB);
   });
 
-  // Get player's first name (max 8 chars)
+  // Get player's first name
   const getFirstName = (fullName) => {
-    const firstName = fullName.split(' ')[0];
-    return firstName.length > 8 ? firstName.substring(0, 7) + '.' : firstName;
+    return fullName.split(' ')[0];
   };
 
   // Get player's position in a quarter (or "Off" if not playing)
