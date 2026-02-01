@@ -1054,9 +1054,54 @@ function getAIInsights(teamID, sheetName) {
   var players = teamData.players || [];
   var completedGames = games.filter(function(g) { return g.status === 'normal' || (g.quarters && g.quarters.some(function(q) { return q.ourGsGoals > 0 || q.ourGaGoals > 0; })); });
 
+  // Build player stats from quarters
+  var playerStats = {};
+  completedGames.forEach(function(g) {
+    if (g.quarters) {
+      g.quarters.forEach(function(q, qIdx) {
+        var positions = q.positions || {};
+        // Track GS goals
+        if (positions.GS) {
+          if (!playerStats[positions.GS]) playerStats[positions.GS] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
+          playerStats[positions.GS].gsGoals += (q.ourGsGoals || 0);
+          playerStats[positions.GS].quarters++;
+          playerStats[positions.GS].positions['GS'] = (playerStats[positions.GS].positions['GS'] || 0) + 1;
+        }
+        // Track GA goals
+        if (positions.GA) {
+          if (!playerStats[positions.GA]) playerStats[positions.GA] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
+          playerStats[positions.GA].gaGoals += (q.ourGaGoals || 0);
+          playerStats[positions.GA].quarters++;
+          playerStats[positions.GA].positions['GA'] = (playerStats[positions.GA].positions['GA'] || 0) + 1;
+        }
+        // Track other positions
+        ['WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
+          if (positions[pos]) {
+            if (!playerStats[positions[pos]]) playerStats[positions[pos]] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
+            playerStats[positions[pos]].quarters++;
+            playerStats[positions[pos]].positions[pos] = (playerStats[positions[pos]].positions[pos] || 0) + 1;
+          }
+        });
+      });
+    }
+  });
+
+  // Format player stats for prompt
+  var playerStatsText = Object.keys(playerStats).map(function(name) {
+    var s = playerStats[name];
+    var totalGoals = s.gsGoals + s.gaGoals;
+    var posPlayed = Object.keys(s.positions).join('/');
+    return name + ': ' + totalGoals + ' goals, ' + s.quarters + ' quarters (' + posPlayed + ')';
+  }).sort(function(a, b) {
+    var goalsA = parseInt(a.split(': ')[1]) || 0;
+    var goalsB = parseInt(b.split(': ')[1]) || 0;
+    return goalsB - goalsA;
+  }).join('\n');
+
   var prompt = 'You are a netball coach assistant. Analyze this team data for ' + teamName + ' and provide brief, actionable insights.\n\n' +
     'PLAYERS (' + players.length + '): ' + players.map(function(p) { return p.name; }).join(', ') + '\n\n' +
-    'COMPLETED GAMES (' + completedGames.length + '):\n' +
+    'PLAYER STATS:\n' + (playerStatsText || 'No stats recorded yet') + '\n\n' +
+    'GAME RESULTS (' + completedGames.length + ' games):\n' +
     completedGames.map(function(g) {
       var ourScore = 0, theirScore = 0;
       if (g.quarters) {
@@ -1065,13 +1110,13 @@ function getAIInsights(teamID, sheetName) {
           theirScore += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
         });
       }
-      return 'Round ' + g.round + ' vs ' + g.opponent + ': ' + ourScore + '-' + theirScore;
+      return 'R' + g.round + ' vs ' + g.opponent + ': ' + ourScore + '-' + theirScore + (ourScore > theirScore ? ' W' : ourScore < theirScore ? ' L' : ' D');
     }).join('\n') + '\n\n' +
     'Provide insights in this exact format (keep each section to 2-3 bullet points max):\n\n' +
-    '**Season Summary**\n[Brief overview of performance]\n\n' +
+    '**Season Summary**\n[Brief win/loss overview]\n\n' +
     '**Key Strengths**\n[What the team does well]\n\n' +
     '**Areas to Improve**\n[Constructive suggestions]\n\n' +
-    '**Player Notes**\n[Any standout observations about specific players based on positions/goals]\n\n' +
+    '**Player Notes**\n[Highlight top scorers and versatile players by name]\n\n' +
     '**Next Game Tips**\n[1-2 tactical suggestions]';
 
   // Call Gemini API (using gemini-2.0-flash-lite for faster/cheaper responses)
