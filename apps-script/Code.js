@@ -1025,9 +1025,17 @@ function getAIInsights(teamID, sheetName) {
   }
 
   // Get team data
-  var teamData = loadTeamData(sheetName);
-  if (!teamData || teamData.error) {
-    throw new Error('Could not load team data: ' + (teamData ? teamData.error : 'unknown'));
+  var rawData = loadTeamData(sheetName);
+  if (!rawData || rawData.error) {
+    throw new Error('Could not load team data: ' + (rawData ? rawData.error : 'unknown'));
+  }
+
+  // Parse the JSON string
+  var teamData;
+  try {
+    teamData = JSON.parse(rawData.teamData || '{"players":[],"games":[]}');
+  } catch (parseErr) {
+    throw new Error('Failed to parse team data: ' + parseErr.message);
   }
 
   // Get team name from Teams sheet
