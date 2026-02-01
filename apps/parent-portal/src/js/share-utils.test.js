@@ -489,7 +489,7 @@ describe('generateLineupCardHTML', () => {
 
   it('should include match info', () => {
     const result = generateLineupCardHTML(mockGame, 'U11 Thunder');
-    expect(result).toContain('Round 1 vs Lightning');
+    expect(result).toContain('Round 1 - U11 Thunder vs Lightning');
   });
 
   it('should include date when present in d MMM yyyy format', () => {

@@ -493,7 +493,7 @@ export function generateLineupCardHTML(game, teamName) {
   return `
     <div class="lineup-card-header">
       <div class="lineup-card-team">Team Sheet</div>
-      <div class="lineup-card-match">${teamName} - Round ${round} vs ${opponent}</div>
+      <div class="lineup-card-match">Round ${round} - ${teamName} vs ${opponent}</div>
       ${gameDetails ? `<div class="lineup-card-date">${gameDetails}</div>` : ''}
       ${captainName ? `<div class="lineup-card-captain">Captain: ${captainName}</div>` : ''}
     </div>
