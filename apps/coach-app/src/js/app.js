@@ -2353,7 +2353,7 @@ window.shareCurrentGame = async function() {
     return;
   }
 
-  const teamName = state.currentTeamData?.teamName || 'Team';
+  const teamName = state.currentTeam?.teamName || state.currentTeamData?.teamName || 'Team';
   const location = state.currentGame.location || '';
   const shareText = formatGameShareText(state.currentGame, teamName, location);
 
@@ -2387,7 +2387,7 @@ window.copyLineup = async function() {
   haptic(50);
 
   // Generate lineup card HTML
-  const teamName = state.currentTeamData?.teamName || 'Team';
+  const teamName = state.currentTeam?.teamName || state.currentTeamData?.teamName || 'Team';
   const cardHTML = generateLineupCardHTML(state.currentGame, teamName);
 
   if (!cardHTML) {
