@@ -4,12 +4,15 @@ import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
 // Calculate app version for build
+// Increment revision letter (a, b, c...) for multiple deploys on the same day
+const REVISION = 'd'
+
 const now = new Date()
 const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }))
 const year = melbourneTime.getFullYear()
 const month = String(melbourneTime.getMonth() + 1).padStart(2, '0')
 const day = String(melbourneTime.getDate()).padStart(2, '0')
-const appVersion = `${year}-${month}-${day}`
+const appVersion = `${year}-${month}-${day}${REVISION}`
 
 // Plugin to inject build timestamp into service worker and app version
 function buildVersionPlugin() {

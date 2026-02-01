@@ -4,7 +4,7 @@ export const API_CONFIG = {
   // Use the same Apps Script URL as the coach app
   // Prefer a proxy worker URL when available (set VITE_GS_API_PROXY_URL to your worker URL),
   // otherwise fall back to the Apps Script URL
-  baseUrl: import.meta.env.VITE_GS_API_PROXY_URL || 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec',
+  baseUrl: import.meta.env.VITE_GS_API_PROXY_URL || 'https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec',
   useMockData: false, // Use real API data
   debug: true
 };
@@ -36,6 +36,7 @@ export async function callApi(action, params = {}) {
   }
 
   const url = new URL(API_CONFIG.baseUrl);
+  url.searchParams.set('api', 'true');
   url.searchParams.set('action', action);
 
   // Add any additional params

@@ -188,7 +188,8 @@ function getSpreadsheet() {
                 sheetName: t.sheetName,
                 archived: t.archived || false,
                 playerCount: t.playerCount || 0,
-                ladderUrl: t.ladderApi || ''
+                ladderUrl: t.ladderApi || '',
+                lastModified: t.lastModified || 0 // For version checking - clients can skip full fetch if unchanged
               };
             });
 
@@ -1087,8 +1088,8 @@ function ensureTeamsSheetStructure() {
       return;
     }
 
-    var headers = teamsSheet.getRange(1, 1, 1, 10).getValues()[0];
-    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count'];
+    var headers = teamsSheet.getRange(1, 1, 1, 11).getValues()[0];
+    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count', 'Last Modified'];
     var needsUpdate = false;
 
     for (var i = 0; i < expectedHeaders.length; i++) {
@@ -1099,7 +1100,7 @@ function ensureTeamsSheetStructure() {
     }
 
     if (needsUpdate) {
-      teamsSheet.getRange(1, 1, 1, 10).setValues([headers]);
+      teamsSheet.getRange(1, 1, 1, 11).setValues([headers]);
       Logger.log("Updated Teams sheet headers: " + JSON.stringify(headers));
     }
   } catch (e) {
@@ -1130,9 +1131,10 @@ function loadMasterTeamList() {
         ladderApi: row[6] || '',  // Column G
         resultsApi: row[7] || '', // Column H
         archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE', // Column I
-        playerCount: parseInt(row[9], 10) || 0 // Column J
+        playerCount: parseInt(row[9], 10) || 0, // Column J
+        lastModified: row[10] || 0 // Column K - timestamp of last data change
       };
-      Logger.log("Loaded team: " + team.name + ", archived=" + team.archived + ", players=" + team.playerCount);
+      Logger.log("Loaded team: " + team.name + ", archived=" + team.archived + ", players=" + team.playerCount + ", lastModified=" + team.lastModified);
       return team;
     });
     Logger.log("Total teams loaded: " + teams.length);
@@ -1430,9 +1432,11 @@ function saveTeamData(sheetName, teamDataJSON, statsDataJSON, clientLastModified
       }
     }
 
-    // Add timestamp to the data being saved
+    // Ensure timestamp exists (client should set it, but add fallback)
     var teamData = JSON.parse(teamDataJSON || '{}');
-    teamData._lastModified = Date.now();
+    if (!teamData._lastModified) {
+      teamData._lastModified = Date.now();
+    }
     teamDataJSON = JSON.stringify(teamData);
 
     teamSheet.getRange('A1').setValue(teamDataJSON);
@@ -1440,24 +1444,26 @@ function saveTeamData(sheetName, teamDataJSON, statsDataJSON, clientLastModified
       teamSheet.getRange('B1').setValue(statsDataJSON);
     }
 
-    // Update player count in Teams sheet for this team (column J / index 10)
+    // Update player count and lastModified in Teams sheet for this team
     try {
       var teamData = JSON.parse(teamDataJSON || '{}');
       var pc = (teamData.players && Array.isArray(teamData.players)) ? teamData.players.length : 0;
+      var lastMod = teamData._lastModified || Date.now();
       var ss = getSpreadsheet();
       var teamsSheet = ss.getSheetByName('Teams');
       var data = teamsSheet.getDataRange().getValues();
       for (var i = 1; i < data.length; i++) {
         if (data[i][4] == sheetName) { // Sheet Name column = index 4
           teamsSheet.getRange(i + 1, 10).setValue(pc); // Column J = Player Count
-          Logger.log('Updated playerCount for ' + sheetName + ' to ' + pc);
+          teamsSheet.getRange(i + 1, 11).setValue(lastMod); // Column K = Last Modified
+          Logger.log('Updated playerCount=' + pc + ', lastModified=' + lastMod + ' for ' + sheetName);
           break;
         }
       }
-      // Invalidate cached teams list so next getTeams returns updated counts
+      // Invalidate cached teams list so next getTeams returns updated counts/timestamps
       try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('saveTeamData: invalidated getTeams cache'); } catch (e) { Logger.log('saveTeamData: failed to invalidate cache: ' + e.message); }
     } catch (e) {
-      Logger.log('Failed to update playerCount for ' + sheetName + ': ' + e.message);
+      Logger.log('Failed to update playerCount/lastModified for ' + sheetName + ': ' + e.message);
     }
 
     return "OK";
