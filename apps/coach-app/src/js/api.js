@@ -315,7 +315,8 @@ export function transformTeamDataFromSheet(data, teamID) {
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
             oppGsGoals: q.opponentGsGoals || 0,
-            oppGaGoals: q.opponentGaGoals || 0
+            oppGaGoals: q.opponentGaGoals || 0,
+            notes: q.notes || ''
           };
         }
       });
@@ -409,7 +410,8 @@ export function transformTeamDataToSheet(pwaData) {
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
             opponentGsGoals: q.oppGsGoals || 0,
-            opponentGaGoals: q.oppGaGoals || 0
+            opponentGaGoals: q.oppGaGoals || 0,
+            notes: q.notes || ''
           };
         }
       });
@@ -493,7 +495,8 @@ export async function saveLineup(teamID, gameID, lineup) {
         ourGsGoals: q.ourGsGoals || 0,
         ourGaGoals: q.ourGaGoals || 0,
         opponentGsGoals: q.oppGsGoals || 0,
-        opponentGaGoals: q.oppGaGoals || 0
+        opponentGaGoals: q.oppGaGoals || 0,
+        notes: q.notes || ''
       });
     });
     game.quarters = quarters;

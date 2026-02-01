@@ -260,11 +260,12 @@
           </button>
         </div>
 
-        <!-- Game Tabs (workflow order: Availability → Lineup → Scoring) -->
+        <!-- Game Tabs (workflow order: Availability → Lineup → Scoring → Notes) -->
         <div class="game-tabs">
           <button class="game-tab" data-game-tab="availability" onclick="switchGameTab('availability')">Availability</button>
           <button class="game-tab active" data-game-tab="lineup" onclick="switchGameTab('lineup')">Lineup</button>
           <button class="game-tab" data-game-tab="scoring" onclick="switchGameTab('scoring')">Scoring</button>
+          <button class="game-tab" data-game-tab="notes" onclick="switchGameTab('notes')">Notes</button>
         </div>
 
         <!-- Availability Panel -->
@@ -285,6 +286,13 @@
         <div id="game-panel-scoring" class="game-panel">
           <div id="scoring-inputs">
             <!-- Quarter-by-quarter scoring -->
+          </div>
+        </div>
+
+        <!-- Notes Panel -->
+        <div id="game-panel-notes" class="game-panel">
+          <div id="notes-content">
+            <!-- Quarter notes summary -->
           </div>
         </div>
       </div>
