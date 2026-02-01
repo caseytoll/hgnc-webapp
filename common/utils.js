@@ -250,3 +250,43 @@ export function getInitials(name) {
   if (!name || typeof name !== 'string') return '';
   return name.split(' ').map(n => n[0] || '').join('').toUpperCase();
 }
+
+/**
+ * Check if a game date/time is in the past (i.e., the game has been played).
+ * Used to exclude upcoming games from stats calculations.
+ * @param {Object} game - Game object with date and optional time fields
+ * @returns {boolean} True if the game is in the past or date is missing
+ */
+export function isGameInPast(game) {
+  if (!game.date) return true; // No date means assume it's a past game
+
+  try {
+    // Parse date (expected format: YYYY-MM-DD or similar)
+    let gameDateTime = new Date(game.date);
+
+    // If time is provided, add it to the date
+    if (game.time) {
+      const timeParts = game.time.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+      if (timeParts) {
+        let hours = parseInt(timeParts[1], 10);
+        const minutes = parseInt(timeParts[2], 10);
+        const meridiem = timeParts[3];
+
+        if (meridiem) {
+          if (meridiem.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+          if (meridiem.toLowerCase() === 'am' && hours === 12) hours = 0;
+        }
+
+        gameDateTime.setHours(hours, minutes, 0, 0);
+      }
+    } else {
+      // No time provided, set to end of day so we don't count it until the day is over
+      gameDateTime.setHours(23, 59, 59, 999);
+    }
+
+    return gameDateTime < new Date();
+  } catch (e) {
+    // If date parsing fails, assume it's a past game
+    return true;
+  }
+}
