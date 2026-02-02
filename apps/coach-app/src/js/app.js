@@ -453,6 +453,8 @@ window.switchTab = function(tabId) {
   // Load tab content
   if (tabId === 'stats') {
     renderStats();
+  } else if (tabId === 'training') {
+    renderTraining();
   }
 
   console.log(`[Tab] Switched to: ${tabId}`);
@@ -608,7 +610,7 @@ async function loadTeams(forceRefresh = false) {
 
           const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
           const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-          const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
+          const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
             try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
@@ -659,7 +661,7 @@ async function loadTeams(forceRefresh = false) {
       console.log('[App] Fetching teams from:', baseUrl);
       // Measure teams fetch time
       const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
-      const response = await fetch(`${baseUrl}?api=true&action=getTeams`);
+      const response = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
       const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
       console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
       const data = await response.json();
@@ -905,13 +907,15 @@ async function loadTeamData(teamID) {
         const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
         const sheetName = state.teamSheetMap?.[teamID] || '';
         console.log('[App] Fetching fresh team data (server:', serverLastModified, 'cached:', cachedLastModified, ')');
-        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
+        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
         const data = await response.json();
         if (data.success === false) {
           throw new Error(data.error || 'API request failed');
         }
+        // Parse teamData if it's a string (API returns JSON string)
+        const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
         // Transform data from Sheet format to PWA format
-        state.currentTeamData = transformTeamDataFromSheet(data.teamData, teamID);
+        state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
 
         // Update localStorage cache for offline fallback
         updateTeamCache(teamID, state.currentTeamData);
@@ -1664,11 +1668,33 @@ function renderStatsOverview(container) {
 }
 
 // Fetch AI insights from Gemini
-window.fetchAIInsights = async function() {
+window.fetchAIInsights = async function(forceRefresh = false) {
   const container = document.getElementById('ai-insights-container');
 
   if (!state.currentTeam || !state.currentTeamData) {
     showToast('No team data loaded', 'error');
+    return;
+  }
+
+  // Check for cached insights (unless forcing refresh)
+  if (!forceRefresh && state.currentTeamData.aiInsights && state.currentTeamData.aiInsights.text) {
+    const cachedDate = new Date(state.currentTeamData.aiInsights.generatedAt).toLocaleDateString('en-AU');
+    const gameCountAtGen = state.currentTeamData.aiInsights.gameCount || 0;
+    const currentGameCount = state.analytics?.advanced?.gameCount || 0;
+
+    // Show cached insights with option to refresh if games have been added
+    let html = state.currentTeamData.aiInsights.text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n- /g, '\n• ')
+      .replace(/\n/g, '<br>');
+
+    const staleWarning = currentGameCount > gameCountAtGen
+      ? `<div class="ai-stale-warning" style="background: var(--warning-bg); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New games played since last analysis. Consider refreshing.</div>`
+      : '';
+
+    container.innerHTML = staleWarning + '<div class="ai-insights-content">' + html + '</div>' +
+      '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + escapeHtml(cachedDate) + ' (after ' + gameCountAtGen + ' games)</div>' +
+      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)" style="margin-top: 12px;">Refresh Insights</button>';
     return;
   }
 
@@ -1677,12 +1703,125 @@ window.fetchAIInsights = async function() {
 
   try {
     const baseUrl = API_CONFIG.baseUrl;
-    const url = baseUrl + '?api=true&action=getAIInsights&teamID=' + encodeURIComponent(state.currentTeam.teamID) + '&sheetName=' + encodeURIComponent(state.currentTeam.sheetName);
 
-    const response = await fetch(url);
+    // Build rich analytics payload for Gemini
+    const { advanced, leaderboards, combinations } = state.analytics;
+    const analyticsPayload = {
+      teamName: state.currentTeam.teamName,
+      players: state.currentTeamData.players.map(p => ({
+        name: p.name,
+        fillIn: p.fillIn || false,
+        favPosition: p.favPosition || null
+      })),
+      // Team performance summary
+      record: {
+        wins: advanced.wins,
+        losses: advanced.losses,
+        draws: advanced.draws,
+        gameCount: advanced.gameCount,
+        winRate: advanced.winRate
+      },
+      // Scoring summary
+      scoring: {
+        goalsFor: advanced.goalsFor,
+        goalsAgainst: advanced.goalsAgainst,
+        goalDiff: advanced.goalDiff,
+        avgFor: advanced.avgFor,
+        avgAgainst: advanced.avgAgainst
+      },
+      // Form and momentum
+      form: advanced.form, // Last 5 games: ['W', 'L', 'W', ...]
+      // Quarter analysis
+      quarterAnalysis: {
+        bestQuarter: advanced.bestQuarter,
+        bestQuarterDiff: advanced.bestQuarterDiff,
+        stats: advanced.quarterStats
+      },
+      // Game-by-game results
+      gameResults: advanced.gameResults.map(g => ({
+        round: g.round,
+        opponent: g.opponent,
+        score: `${g.us}-${g.them}`,
+        result: g.result,
+        diff: g.diff
+      })),
+      // Top performers (limit to top 5 each)
+      leaderboards: {
+        topScorers: leaderboards.offensive.topScorersByTotal.slice(0, 5).map(s => ({
+          name: s.name,
+          goals: s.goals,
+          quarters: s.quarters,
+          avg: s.avg
+        })),
+        topScorersByEfficiency: leaderboards.offensive.topScorersByEfficiency.slice(0, 3).map(s => ({
+          name: s.name,
+          avg: s.avg,
+          quarters: s.quarters
+        })),
+        topScoringPairs: leaderboards.offensive.topScoringPairsByTotal.slice(0, 3).map(p => ({
+          players: p.players.join(' & '),
+          goals: p.goals,
+          quarters: p.quarters,
+          avg: p.avg
+        })),
+        topDefenders: leaderboards.defensive.topDefendersByEfficiency.slice(0, 3).map(d => ({
+          name: d.name,
+          goalsAgainst: d.goalsAgainst,
+          quarters: d.quarters,
+          avg: d.avg
+        })),
+        topDefensivePairs: leaderboards.defensive.topDefensivePairsByEfficiency.slice(0, 3).map(p => ({
+          players: p.players.join(' & '),
+          goalsAgainst: p.goalsAgainst,
+          quarters: p.quarters,
+          avg: p.avg
+        }))
+      },
+      // Best lineup combinations
+      combinations: {
+        bestAttackingUnit: combinations.attackingUnits[0] ? {
+          players: combinations.attackingUnits[0].players,
+          quarters: combinations.attackingUnits[0].quarters,
+          avgFor: combinations.attackingUnits[0].avgFor,
+          plusMinus: combinations.attackingUnits[0].plusMinus
+        } : null,
+        bestDefensiveUnit: combinations.defensiveUnits[0] ? {
+          players: combinations.defensiveUnits[0].players,
+          quarters: combinations.defensiveUnits[0].quarters,
+          avgAgainst: combinations.defensiveUnits[0].avgAgainst,
+          plusMinus: combinations.defensiveUnits[0].plusMinus
+        } : null
+      }
+    };
+
+    // POST analytics to backend (text/plain avoids CORS preflight with Apps Script)
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        api: true,
+        action: 'getAIInsights',
+        teamID: state.currentTeam.teamID,
+        sheetName: state.currentTeam.sheetName,
+        analytics: analyticsPayload
+      }),
+      redirect: 'follow'
+    });
     const data = await response.json();
 
     if (data.success && data.insights) {
+      // Save to team data
+      const currentGameCount = state.analytics?.advanced?.gameCount || 0;
+      state.currentTeamData.aiInsights = {
+        text: data.insights,
+        generatedAt: new Date().toISOString(),
+        gameCount: currentGameCount
+      };
+
+      // Save and sync to API
+      saveToLocalStorage();
+      await syncToGoogleSheets();
+
       // Convert markdown-style formatting to HTML
       let html = data.insights
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -1690,16 +1829,223 @@ window.fetchAIInsights = async function() {
         .replace(/\n/g, '<br>');
 
       container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
-        '<button class="btn btn-secondary" onclick="fetchAIInsights()" style="margin-top: 12px;">Refresh Insights</button>';
+        '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
+        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)" style="margin-top: 12px;">Refresh Insights</button>';
+
+      showToast('AI insights saved', 'success');
     } else {
       throw new Error(data.error || 'Failed to get insights');
     }
   } catch (err) {
     console.error('[AI Insights] Error:', err);
     container.innerHTML = '<div class="ai-error"><p>Failed to get insights: ' + escapeHtml(err.message) + '</p>' +
-      '<button class="btn btn-primary" onclick="fetchAIInsights()">Try Again</button></div>';
+      '<button class="btn btn-primary" onclick="fetchAIInsights(true)">Try Again</button></div>';
   }
 };
+
+// Show game AI summary in modal
+window.showGameAISummary = async function(forceRefresh = false) {
+  const game = state.currentGame;
+  if (!game) {
+    showToast('No game selected', 'error');
+    return;
+  }
+
+  // Check if game has scores
+  let hasScores = false;
+  if (game.lineup) {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+      const qData = game.lineup[q] || {};
+      if (qData.ourGsGoals || qData.ourGaGoals || qData.oppGsGoals || qData.oppGaGoals) {
+        hasScores = true;
+      }
+    });
+  }
+  if (!hasScores && game.scores) {
+    hasScores = true;
+  }
+
+  if (!hasScores) {
+    showToast('No game data to analyze yet', 'info');
+    return;
+  }
+
+  // Show modal with loading state
+  const modalTitle = document.getElementById('modal-title');
+  const modalBody = document.getElementById('modal-body');
+  const modalFooter = document.getElementById('modal-footer');
+
+  modalTitle.textContent = `Round ${game.round} AI Summary`;
+  modalBody.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing game performance...</p></div>';
+  modalFooter.innerHTML = '';
+  document.getElementById('modal-backdrop').classList.remove('hidden');
+
+  // Check for cached summary (unless forcing refresh)
+  if (!forceRefresh && game.aiSummary && game.aiSummary.text) {
+    const cachedDate = new Date(game.aiSummary.generatedAt).toLocaleDateString('en-AU');
+    displayGameAISummary(game.aiSummary.text, cachedDate);
+    return;
+  }
+
+  try {
+    const baseUrl = API_CONFIG.baseUrl;
+
+    // Build game analysis payload
+    const gamePayload = buildGameAnalysisPayload(game);
+
+    // POST to backend (text/plain avoids CORS preflight with Apps Script)
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        api: true,
+        action: 'getGameAIInsights',
+        teamID: state.currentTeam.teamID,
+        sheetName: state.currentTeam.sheetName,
+        gameData: gamePayload
+      }),
+      redirect: 'follow'
+    });
+    const data = await response.json();
+
+    if (data.success && data.insights) {
+      // Save to game record
+      game.aiSummary = {
+        text: data.insights,
+        generatedAt: new Date().toISOString()
+      };
+
+      // Save and sync immediately (not debounced) to persist across devices
+      saveToLocalStorage();
+      await syncToGoogleSheets();
+
+      displayGameAISummary(data.insights, 'just now');
+      showToast('AI summary saved', 'success');
+    } else {
+      throw new Error(data.error || 'Failed to get game insights');
+    }
+  } catch (err) {
+    console.error('[Game AI Summary] Error:', err);
+    modalBody.innerHTML = '<div class="ai-error"><p>Failed to get insights: ' + escapeHtml(err.message) + '</p></div>';
+    modalFooter.innerHTML = '<button class="btn btn-primary" onclick="showGameAISummary(true)">Try Again</button>' +
+      '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+  }
+};
+
+function displayGameAISummary(text, generatedDate) {
+  const modalBody = document.getElementById('modal-body');
+  const modalFooter = document.getElementById('modal-footer');
+
+  // Convert markdown to HTML
+  let html = text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n- /g, '\n• ')
+    .replace(/\n/g, '<br>');
+
+  modalBody.innerHTML = `
+    <div class="ai-insights-content">${html}</div>
+    <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
+      Generated: ${escapeHtml(generatedDate)}
+    </div>
+  `;
+  modalFooter.innerHTML = `
+    <button class="btn btn-secondary" onclick="showGameAISummary(true)">Regenerate</button>
+    <button class="btn btn-primary" onclick="closeModal()">Close</button>
+  `;
+}
+
+function buildGameAnalysisPayload(game) {
+  const teamName = state.currentTeam?.teamName || 'Team';
+  const players = state.currentTeamData?.players || [];
+
+  // Calculate total scores
+  let ourTotal = 0, theirTotal = 0;
+  const quarterBreakdown = [];
+  const playerContributions = {};
+
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    const qData = game.lineup?.[q] || {};
+    const qUs = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
+    const qThem = (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
+    ourTotal += qUs;
+    theirTotal += qThem;
+
+    quarterBreakdown.push({
+      quarter: q,
+      us: qUs,
+      them: qThem,
+      diff: qUs - qThem,
+      lineup: {},
+      notes: qData.notes || ''
+    });
+
+    // Track player contributions per position
+    ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+      const playerName = qData[pos];
+      if (playerName) {
+        if (!playerContributions[playerName]) {
+          playerContributions[playerName] = {
+            name: playerName,
+            quarters: 0,
+            positions: [],
+            goalsScored: 0,
+            quartersAtGS: 0,
+            quartersAtGA: 0,
+            quartersDefending: 0
+          };
+        }
+        playerContributions[playerName].quarters++;
+        if (!playerContributions[playerName].positions.includes(pos)) {
+          playerContributions[playerName].positions.push(pos);
+        }
+
+        // Track scoring positions
+        if (pos === 'GS') {
+          playerContributions[playerName].goalsScored += (qData.ourGsGoals || 0);
+          playerContributions[playerName].quartersAtGS++;
+        }
+        if (pos === 'GA') {
+          playerContributions[playerName].goalsScored += (qData.ourGaGoals || 0);
+          playerContributions[playerName].quartersAtGA++;
+        }
+        if (pos === 'GD' || pos === 'GK') {
+          playerContributions[playerName].quartersDefending++;
+        }
+
+        quarterBreakdown[quarterBreakdown.length - 1].lineup[pos] = playerName;
+      }
+    });
+  });
+
+  // Use saved scores as fallback
+  if (ourTotal === 0 && theirTotal === 0 && game.scores) {
+    ourTotal = game.scores.us || 0;
+    theirTotal = game.scores.opponent || 0;
+  }
+
+  const result = ourTotal > theirTotal ? 'Win' : ourTotal < theirTotal ? 'Loss' : 'Draw';
+
+  // Collect coach notes from all quarters
+  const coachNotes = quarterBreakdown
+    .filter(q => q.notes && q.notes.trim())
+    .map(q => ({ quarter: q.quarter, notes: q.notes.trim() }));
+
+  return {
+    teamName,
+    round: game.round,
+    opponent: game.opponent,
+    date: game.date,
+    location: game.location || '',
+    finalScore: { us: ourTotal, them: theirTotal },
+    result,
+    scoreDiff: ourTotal - theirTotal,
+    captain: game.captain || null,
+    quarterBreakdown,
+    playerContributions: Object.values(playerContributions).sort((a, b) => b.goalsScored - a.goalsScored || b.quarters - a.quarters),
+    rosterSize: players.length,
+    coachNotes: coachNotes
+  };
+}
 
 function renderStatsLeaders(container) {
   const { leaderboards } = state.analytics;
@@ -2183,6 +2529,916 @@ function renderStatsAttendance(container) {
     ` : ''}
   `;
 }
+
+function renderTraining() {
+  const container = document.getElementById('training-container');
+  if (!container) return;
+
+  const team = state.currentTeamData;
+  if (!team || !team.games) {
+    container.innerHTML = '<div class="empty-state"><p>No data available</p></div>';
+    return;
+  }
+
+  // Migrate old format to new history array format
+  if (team.trainingFocus && !team.trainingFocusHistory) {
+    team.trainingFocusHistory = [team.trainingFocus];
+    delete team.trainingFocus;
+    saveToLocalStorage();
+  }
+
+  // Build both sections: Training Sessions + AI Training Focus
+  container.innerHTML = `
+    ${renderTrainingSessions()}
+    ${renderTrainingFocus()}
+  `;
+}
+
+// Render Training Sessions section
+function renderTrainingSessions() {
+  const team = state.currentTeamData;
+  const sessions = team.trainingSessions || [];
+  const players = team.players || [];
+  const playerCount = players.filter(p => !p.fillIn).length;
+
+  // Sort sessions by date descending (most recent first)
+  const sortedSessions = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  let sessionListHtml = '';
+  if (sortedSessions.length === 0) {
+    sessionListHtml = `
+      <div class="empty-state" style="padding: var(--space-lg);">
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">No training sessions recorded yet.</p>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">
+          Record what you practiced and who attended to get AI insights on training effectiveness.
+        </p>
+      </div>
+    `;
+  } else {
+    sessionListHtml = sortedSessions.map(session => {
+      const dateObj = new Date(session.date + 'T12:00:00');
+      const dateStr = dateObj.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      const attendedCount = (session.attendedPlayerIDs || []).length;
+      return `
+        <div class="training-session-item" onclick="openTrainingDetail('${escapeAttr(session.sessionID)}')">
+          <div class="training-session-date">${escapeHtml(dateStr)}</div>
+          <div class="training-session-focus">${escapeHtml(session.focus || 'Training session')}</div>
+          <div class="training-session-meta">${attendedCount}/${playerCount} players attended</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  return `
+    <div class="stats-section">
+      <div class="stats-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Training Sessions</span>
+        <button class="btn btn-sm" onclick="openAddTrainingModal()">+ Add</button>
+      </div>
+      <div class="training-session-list">
+        ${sessionListHtml}
+      </div>
+    </div>
+  `;
+}
+
+// Render AI Training Focus section
+function renderTrainingFocus() {
+  const team = state.currentTeamData;
+
+  // Count games with notes
+  const gamesWithNotes = team.games.filter(g => {
+    if (!g.lineup) return false;
+    return ['Q1', 'Q2', 'Q3', 'Q4'].some(q => g.lineup[q]?.notes?.trim());
+  });
+
+  const history = team.trainingFocusHistory || [];
+  const selectedIndex = state.selectedTrainingHistoryIndex || 0;
+  const currentNoteCount = countTotalNotes();
+
+  // Empty state - no notes recorded
+  if (gamesWithNotes.length === 0) {
+    return `
+      <div class="stats-section">
+        <div class="stats-section-title">AI Training Focus</div>
+        <div class="empty-state">
+          <p style="color: var(--text-secondary); font-size: 0.9rem;"><strong>No game notes recorded yet.</strong></p>
+          <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">
+            To get personalized training suggestions:<br>
+            1. Open a game from the Schedule<br>
+            2. Go to the Scoring tab<br>
+            3. Use the quick-insert buttons to record observations<br><br>
+            The more notes you add, the better the suggestions will be!
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  // Has notes but no history yet - show generate button
+  if (history.length === 0) {
+    return `
+      <div class="stats-section">
+        <div class="stats-section-title">AI Training Focus</div>
+        <p class="training-intro">Based on your game notes and performance data, generate AI-powered training suggestions.</p>
+        <div class="training-summary" style="background: var(--bg-card); border-radius: var(--radius-md); padding: var(--space-md); margin-bottom: var(--space-md);">
+          <div style="display: flex; gap: var(--space-lg); flex-wrap: wrap;">
+            <div>
+              <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary-400);">${gamesWithNotes.length}</div>
+              <div style="font-size: 0.8rem; color: var(--text-secondary);">Games with Notes</div>
+            </div>
+            <div>
+              <div style="font-size: 1.5rem; font-weight: 600; color: var(--primary-400);">${currentNoteCount}</div>
+              <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Notes</div>
+            </div>
+          </div>
+        </div>
+        <div id="training-focus-container">
+          <button class="btn btn-primary" onclick="fetchTrainingFocus()">
+            Generate Training Suggestions
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Has history - show tabs and selected entry
+  const selected = history[selectedIndex] || history[0];
+  const selectedDate = new Date(selected.generatedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  const isLatest = selectedIndex === 0;
+  const staleWarning = isLatest && currentNoteCount > (selected.noteCount || 0)
+    ? `<div class="ai-stale-warning" style="background: var(--warning-bg, rgba(245, 158, 11, 0.1)); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New notes added since last analysis. Generate new suggestions to include them.</div>`
+    : '';
+
+  let html = selected.text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n- /g, '\n• ')
+    .replace(/\n/g, '<br>');
+
+  // Build history tabs
+  const historyTabs = history.map((entry, idx) => {
+    const date = new Date(entry.generatedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    const isSelected = idx === selectedIndex;
+    return `<button class="training-history-tab ${isSelected ? 'active' : ''}" onclick="selectTrainingHistory(${idx})">${idx === 0 ? 'Latest' : date}</button>`;
+  }).join('');
+
+  return `
+    <div class="stats-section">
+      <div class="stats-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>AI Training Focus</span>
+        <button class="btn btn-sm" onclick="fetchTrainingFocus()">+ New</button>
+      </div>
+
+      ${history.length > 1 ? `
+      <div class="training-history-tabs" style="display: flex; gap: 8px; margin-bottom: var(--space-md); overflow-x: auto; padding-bottom: 4px;">
+        ${historyTabs}
+      </div>
+      ` : ''}
+
+      ${staleWarning}
+      <div class="ai-insights-content">${html}</div>
+      <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
+        Generated: ${escapeHtml(selectedDate)} (from ${selected.noteCount || 0} notes across ${selected.gameCount || 0} games)
+        ${selected.recentGames ? ` • Focused on last ${selected.recentGames} games` : ''}
+      </div>
+      <div id="training-focus-container"></div>
+    </div>
+  `;
+}
+
+// Select a training history entry to view
+window.selectTrainingHistory = function(index) {
+  state.selectedTrainingHistoryIndex = index;
+  renderTraining();
+};
+
+// ========================================
+// TRAINING SESSION CRUD FUNCTIONS
+// ========================================
+
+// Open Add Training Session modal
+window.openAddTrainingModal = function() {
+  const team = state.currentTeamData;
+  const players = (team?.players || []).filter(p => !p.fillIn);
+  const today = new Date().toISOString().split('T')[0];
+
+  // Build player attendance checklist (all checked by default)
+  const playerCheckboxes = players.map(p => `
+    <label class="attendance-checkbox">
+      <input type="checkbox" value="${escapeAttr(p.id)}" checked>
+      <span>${escapeHtml(p.name)}</span>
+    </label>
+  `).join('');
+
+  openModal('Add Training Session', `
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input type="date" class="form-input" id="training-date" value="${today}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Focus <span class="form-label-desc">(what was the main focus?)</span></label>
+      <input type="text" class="form-input" id="training-focus" placeholder="e.g. Footwork and landing technique" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes <span class="form-label-desc">(optional observations)</span></label>
+      <textarea class="form-textarea" id="training-notes" rows="3" placeholder="What did you observe? Any players who stood out?" maxlength="500"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Attendance <span class="form-label-desc">(uncheck absent players)</span></label>
+      <div class="attendance-grid" id="attendance-grid">
+        ${playerCheckboxes}
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="addTrainingSession()">Add Session</button>
+  `);
+};
+
+// Add a new training session
+window.addTrainingSession = async function() {
+  const dateInput = document.getElementById('training-date');
+  const focusInput = document.getElementById('training-focus');
+  const notesInput = document.getElementById('training-notes');
+  const attendanceGrid = document.getElementById('attendance-grid');
+
+  const date = dateInput.value.trim();
+  const focus = focusInput.value.trim();
+  const notes = notesInput.value.trim();
+
+  // Validation
+  if (!date) {
+    showToast('Please select a date', 'error');
+    dateInput.focus();
+    return;
+  }
+
+  if (!focus) {
+    showToast('Please enter the training focus', 'error');
+    focusInput.focus();
+    return;
+  }
+
+  // Collect attended player IDs
+  const attendedPlayerIDs = [];
+  attendanceGrid.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+    attendedPlayerIDs.push(cb.value);
+  });
+
+  const newSession = {
+    sessionID: `ts-${Date.now()}`,
+    date: date,
+    attendedPlayerIDs: attendedPlayerIDs,
+    focus: focus,
+    notes: notes
+  };
+
+  // Initialize trainingSessions array if needed
+  if (!state.currentTeamData.trainingSessions) {
+    state.currentTeamData.trainingSessions = [];
+  }
+
+  state.currentTeamData.trainingSessions.push(newSession);
+
+  saveToLocalStorage();
+  closeModal();
+  renderTraining();
+
+  // Sync to Google Sheets
+  if (navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast('Training session added (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync training session:', err);
+      showToast('Session added locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Training session added', 'success');
+  }
+};
+
+// Open training session detail view
+window.openTrainingDetail = function(sessionID) {
+  const team = state.currentTeamData;
+  const session = (team.trainingSessions || []).find(s => s.sessionID === sessionID);
+  if (!session) {
+    showToast('Session not found', 'error');
+    return;
+  }
+
+  const players = (team.players || []).filter(p => !p.fillIn);
+  const dateObj = new Date(session.date + 'T12:00:00');
+  const dateStr = dateObj.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Build attendance list
+  const attendedSet = new Set(session.attendedPlayerIDs || []);
+  const attendanceList = players.map(p => {
+    const attended = attendedSet.has(p.id);
+    return `
+      <div class="attendance-item ${attended ? 'attended' : 'missed'}">
+        <span class="attendance-icon">${attended ? '✓' : '✗'}</span>
+        <span class="attendance-name">${escapeHtml(p.name)}</span>
+      </div>
+    `;
+  }).join('');
+
+  const attendedCount = session.attendedPlayerIDs?.length || 0;
+  const missedCount = players.length - attendedCount;
+
+  openModal(escapeHtml(session.focus || 'Training Session'), `
+    <div class="training-detail">
+      <div class="training-detail-date">${escapeHtml(dateStr)}</div>
+
+      ${session.notes ? `
+        <div class="training-detail-section">
+          <div class="training-detail-label">Coach Notes</div>
+          <div class="training-detail-notes">${escapeHtml(session.notes)}</div>
+        </div>
+      ` : ''}
+
+      <div class="training-detail-section">
+        <div class="training-detail-label">Attendance (${attendedCount} present, ${missedCount} absent)</div>
+        <div class="attendance-list">
+          ${attendanceList}
+        </div>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost btn-danger" onclick="deleteTrainingSession('${escapeAttr(sessionID)}')">Delete</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    <button class="btn btn-primary" onclick="openEditTrainingModal('${escapeAttr(sessionID)}')">Edit</button>
+  `);
+};
+
+// Open edit training session modal
+window.openEditTrainingModal = function(sessionID) {
+  const team = state.currentTeamData;
+  const session = (team.trainingSessions || []).find(s => s.sessionID === sessionID);
+  if (!session) {
+    showToast('Session not found', 'error');
+    return;
+  }
+
+  const players = (team.players || []).filter(p => !p.fillIn);
+  const attendedSet = new Set(session.attendedPlayerIDs || []);
+
+  // Build player attendance checklist with current state
+  const playerCheckboxes = players.map(p => `
+    <label class="attendance-checkbox">
+      <input type="checkbox" value="${escapeAttr(p.id)}" ${attendedSet.has(p.id) ? 'checked' : ''}>
+      <span>${escapeHtml(p.name)}</span>
+    </label>
+  `).join('');
+
+  openModal('Edit Training Session', `
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input type="date" class="form-input" id="edit-training-date" value="${escapeAttr(session.date)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Focus</label>
+      <input type="text" class="form-input" id="edit-training-focus" value="${escapeAttr(session.focus || '')}" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="edit-training-notes" rows="3" maxlength="500">${escapeHtml(session.notes || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Attendance</label>
+      <div class="attendance-grid" id="edit-attendance-grid">
+        ${playerCheckboxes}
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="openTrainingDetail('${escapeAttr(sessionID)}')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveTrainingSession('${escapeAttr(sessionID)}')">Save Changes</button>
+  `);
+};
+
+// Save training session edits
+window.saveTrainingSession = async function(sessionID) {
+  const dateInput = document.getElementById('edit-training-date');
+  const focusInput = document.getElementById('edit-training-focus');
+  const notesInput = document.getElementById('edit-training-notes');
+  const attendanceGrid = document.getElementById('edit-attendance-grid');
+
+  const date = dateInput.value.trim();
+  const focus = focusInput.value.trim();
+  const notes = notesInput.value.trim();
+
+  // Validation
+  if (!date) {
+    showToast('Please select a date', 'error');
+    return;
+  }
+
+  if (!focus) {
+    showToast('Please enter the training focus', 'error');
+    return;
+  }
+
+  // Collect attended player IDs
+  const attendedPlayerIDs = [];
+  attendanceGrid.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+    attendedPlayerIDs.push(cb.value);
+  });
+
+  // Find and update the session
+  const sessions = state.currentTeamData.trainingSessions || [];
+  const sessionIndex = sessions.findIndex(s => s.sessionID === sessionID);
+  if (sessionIndex === -1) {
+    showToast('Session not found', 'error');
+    return;
+  }
+
+  sessions[sessionIndex] = {
+    ...sessions[sessionIndex],
+    date: date,
+    focus: focus,
+    notes: notes,
+    attendedPlayerIDs: attendedPlayerIDs
+  };
+
+  saveToLocalStorage();
+  closeModal();
+  renderTraining();
+
+  // Sync to Google Sheets
+  if (navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast('Training session updated (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync training session update:', err);
+      showToast('Session updated locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Training session updated', 'success');
+  }
+};
+
+// Delete a training session
+window.deleteTrainingSession = async function(sessionID) {
+  if (!confirm('Delete this training session?')) return;
+
+  const sessions = state.currentTeamData.trainingSessions || [];
+  state.currentTeamData.trainingSessions = sessions.filter(s => s.sessionID !== sessionID);
+
+  saveToLocalStorage();
+  closeModal();
+  renderTraining();
+
+  // Sync to Google Sheets
+  if (navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast('Training session deleted (synced)', 'success');
+    } catch (err) {
+      console.error('[Sync] Failed to sync training session delete:', err);
+      showToast('Session deleted locally. Sync failed.', 'warning');
+    }
+  } else {
+    showToast('Training session deleted', 'success');
+  }
+};
+
+// Count total notes across all games
+function countTotalNotes() {
+  const games = state.currentTeamData?.games || [];
+  let count = 0;
+  games.forEach(g => {
+    if (!g.lineup) return;
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+      if (g.lineup[q]?.notes?.trim()) count++;
+    });
+  });
+  return count;
+}
+
+// Calculate game result (W/L/D) from game data
+function calculateGameResult(game) {
+  if (!game.lineup || game.status === 'abandoned') return '-';
+
+  let us = 0, them = 0;
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    const qData = game.lineup[q] || {};
+    us += (parseInt(qData.ourGsGoals) || 0) + (parseInt(qData.ourGaGoals) || 0);
+    them += (parseInt(qData.oppGsGoals) || 0) + (parseInt(qData.oppGaGoals) || 0);
+  });
+
+  if (us > them) return 'W';
+  if (them > us) return 'L';
+  return 'D';
+}
+
+// Count keyword frequency in notes
+function countNoteKeywords(allGameNotes) {
+  const frequency = {};
+  const keywords = ['Defence', 'Defense', 'Goalers', 'Midcourt', 'Team', 'Opp', 'transition', 'passing', 'shooting', 'pressure', 'turnover'];
+
+  // Add player names as keywords
+  const players = state.currentTeamData?.players || [];
+  players.forEach(p => {
+    const firstName = p.name.split(' ')[0];
+    keywords.push(firstName);
+  });
+
+  allGameNotes.forEach(game => {
+    game.notes.forEach(n => {
+      const text = n.text.toLowerCase();
+      keywords.forEach(kw => {
+        if (text.toLowerCase().includes(kw.toLowerCase())) {
+          frequency[kw] = (frequency[kw] || 0) + 1;
+        }
+      });
+    });
+  });
+
+  // Filter to only keywords that appear
+  return Object.fromEntries(
+    Object.entries(frequency).filter(([_, count]) => count > 0)
+  );
+}
+
+// Identify weak quarters based on stats
+function identifyWeakQuarters(quarterStats) {
+  if (!quarterStats) return null;
+
+  const weakQuarters = {};
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    const qs = quarterStats[q];
+    if (qs && qs.games > 0) {
+      const avgDiff = (qs.diff / qs.games).toFixed(1);
+      if (parseFloat(avgDiff) < -1) {
+        weakQuarters[q] = { avgDiff: parseFloat(avgDiff) };
+      }
+    }
+  });
+
+  return Object.keys(weakQuarters).length > 0 ? weakQuarters : null;
+}
+
+// Build payload for training focus API with rolling window
+function buildTrainingPayload() {
+  const games = state.currentTeamData?.games || [];
+  const players = state.currentTeamData?.players || [];
+  const trainingSessions = state.currentTeamData?.trainingSessions || [];
+  const { advanced, leaderboards } = state.analytics || {};
+
+  // Sort games by round (descending) to get most recent first
+  const sortedGames = [...games]
+    .filter(g => g.lineup)
+    .sort((a, b) => (parseInt(b.round) || 0) - (parseInt(a.round) || 0));
+
+  // Collect notes from all games
+  const allGameNotes = sortedGames
+    .map(g => {
+      const gameNotes = ['Q1', 'Q2', 'Q3', 'Q4']
+        .map(q => ({ quarter: q, text: g.lineup?.[q]?.notes || '' }))
+        .filter(n => n.text.trim());
+
+      return {
+        round: g.round,
+        opponent: g.opponent,
+        date: g.date,
+        result: calculateGameResult(g),
+        notes: gameNotes
+      };
+    })
+    .filter(g => g.notes.length > 0);
+
+  // Split into recent (last 3 games with notes) and earlier
+  const recentGameNotes = allGameNotes.slice(0, 3);
+  const earlierGameNotes = allGameNotes.slice(3);
+
+  // Count keyword frequency (weight recent games higher)
+  const recentNoteFrequency = countNoteKeywords(recentGameNotes);
+  const earlierNoteFrequency = countNoteKeywords(earlierGameNotes);
+
+  // Build training sessions data for AI context
+  const trainingSessionsForAI = buildTrainingSessionsForAI(trainingSessions, players);
+
+  // Calculate player training attendance rates
+  const playerTrainingAttendance = calculatePlayerTrainingAttendance(trainingSessions, players);
+
+  // Build issue timeline correlating game notes with training sessions
+  const issueTimeline = buildIssueTimeline(allGameNotes, trainingSessions, players);
+
+  return {
+    teamName: state.currentTeam?.teamName || 'Team',
+    seasonRecord: {
+      wins: advanced?.wins || 0,
+      losses: advanced?.losses || 0,
+      draws: advanced?.draws || 0,
+      gameCount: advanced?.gameCount || 0,
+      winRate: advanced?.winRate || 0
+    },
+    recentGameNotes,      // Last 3 games with notes (focus area)
+    earlierGameNotes,     // Older games (context for persistent issues)
+    recentNoteFrequency,  // Keywords from recent games
+    earlierNoteFrequency, // Keywords from earlier season
+    weakQuarters: identifyWeakQuarters(advanced?.quarterStats),
+    playerStats: leaderboards?.offensive?.topScorersByTotal?.slice(0, 5).map(s => ({
+      name: s.name,
+      goals: s.goals,
+      quarters: s.quarters
+    })) || [],
+    form: advanced?.form || [],
+    // NEW: Training session context
+    trainingSessions: trainingSessionsForAI,
+    playerTrainingAttendance,
+    issueTimeline
+  };
+}
+
+// Build training sessions data for AI analysis
+function buildTrainingSessionsForAI(trainingSessions, players) {
+  if (!trainingSessions || trainingSessions.length === 0) return [];
+
+  // Sort sessions by date descending (most recent first)
+  const sortedSessions = [...trainingSessions]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10); // Limit to last 10 sessions
+
+  // Create player ID to name map
+  const playerMap = new Map();
+  players.forEach(p => {
+    playerMap.set(p.id, p.name.split(' ')[0]); // Use first name
+  });
+
+  // Get all non-fill-in player IDs
+  const regularPlayerIds = new Set(players.filter(p => !p.fillIn).map(p => p.id));
+
+  return sortedSessions.map(session => {
+    const attendedNames = (session.attendedPlayerIDs || [])
+      .filter(id => playerMap.has(id))
+      .map(id => playerMap.get(id));
+
+    const missedNames = [];
+    regularPlayerIds.forEach(id => {
+      if (!(session.attendedPlayerIDs || []).includes(id) && playerMap.has(id)) {
+        missedNames.push(playerMap.get(id));
+      }
+    });
+
+    return {
+      date: session.date,
+      focus: session.focus,
+      notes: session.notes || '',
+      attended: attendedNames,
+      missed: missedNames
+    };
+  });
+}
+
+// Calculate player training attendance rates
+function calculatePlayerTrainingAttendance(trainingSessions, players) {
+  if (!trainingSessions || trainingSessions.length === 0) return {};
+
+  const regularPlayers = players.filter(p => !p.fillIn);
+  const attendance = {};
+
+  regularPlayers.forEach(player => {
+    const firstName = player.name.split(' ')[0];
+    let attended = 0;
+    let missed = 0;
+
+    trainingSessions.forEach(session => {
+      if ((session.attendedPlayerIDs || []).includes(player.id)) {
+        attended++;
+      } else {
+        missed++;
+      }
+    });
+
+    const total = attended + missed;
+    if (total > 0) {
+      attendance[firstName] = {
+        attended,
+        missed,
+        rate: Math.round((attended / total) * 100)
+      };
+    }
+  });
+
+  return attendance;
+}
+
+// Build issue timeline correlating game notes with training sessions
+function buildIssueTimeline(allGameNotes, trainingSessions, players) {
+  if (!allGameNotes || allGameNotes.length === 0) return [];
+
+  // Common issue keywords to track
+  const issueKeywords = [
+    { keyword: 'stepping', aliases: ['step', 'stepped', 'footwork'] },
+    { keyword: 'turnover', aliases: ['turnovers', 'giving away'] },
+    { keyword: 'passing', aliases: ['passes', 'pass', 'intercept'] },
+    { keyword: 'shooting', aliases: ['shot', 'shots', 'missing', 'accuracy'] },
+    { keyword: 'pressure', aliases: ['pressured', 'under pressure'] },
+    { keyword: 'timing', aliases: ['late', 'early', 'slow'] },
+    { keyword: 'defence', aliases: ['defense', 'defending', 'marking'] }
+  ];
+
+  // Create player name map for detection
+  const playerFirstNames = new Map();
+  players.forEach(p => {
+    const firstName = p.name.split(' ')[0].toLowerCase();
+    playerFirstNames.set(firstName, p);
+  });
+
+  const issues = [];
+
+  issueKeywords.forEach(({ keyword, aliases }) => {
+    const allTerms = [keyword, ...aliases].map(t => t.toLowerCase());
+    const gamesMentioningIssue = [];
+    const playersWithIssue = new Set();
+
+    // Find all games mentioning this issue
+    allGameNotes.forEach(game => {
+      let issueFound = false;
+      game.notes.forEach(note => {
+        const noteLower = note.text.toLowerCase();
+        if (allTerms.some(term => noteLower.includes(term))) {
+          issueFound = true;
+
+          // Check if any player names appear near the issue
+          playerFirstNames.forEach((player, firstName) => {
+            if (noteLower.includes(firstName)) {
+              playersWithIssue.add(player.name.split(' ')[0]);
+            }
+          });
+        }
+      });
+
+      if (issueFound) {
+        gamesMentioningIssue.push({
+          round: game.round,
+          date: game.date
+        });
+      }
+    });
+
+    if (gamesMentioningIssue.length === 0) return;
+
+    // Find the first mention
+    const sortedGamesByDate = [...gamesMentioningIssue].sort((a, b) =>
+      new Date(a.date || 0) - new Date(b.date || 0)
+    );
+    const firstMention = sortedGamesByDate[0];
+    const firstMentionDate = firstMention?.date ? new Date(firstMention.date) : null;
+
+    // Find training sessions that happened after the first mention and address this issue
+    const relevantTrainingSessions = [];
+    if (firstMentionDate && trainingSessions.length > 0) {
+      trainingSessions.forEach(session => {
+        const sessionDate = new Date(session.date);
+        if (sessionDate > firstMentionDate) {
+          // Check if session focus relates to the issue
+          const focusLower = (session.focus || '').toLowerCase();
+          const notesLower = (session.notes || '').toLowerCase();
+          if (allTerms.some(term => focusLower.includes(term) || notesLower.includes(term))) {
+            const attendedNames = (session.attendedPlayerIDs || [])
+              .map(id => {
+                const player = players.find(p => p.id === id);
+                return player ? player.name.split(' ')[0] : null;
+              })
+              .filter(n => n);
+
+            const missedNames = players
+              .filter(p => !p.fillIn && !(session.attendedPlayerIDs || []).includes(p.id))
+              .map(p => p.name.split(' ')[0]);
+
+            relevantTrainingSessions.push({
+              date: session.date,
+              focus: session.focus,
+              attended: attendedNames,
+              missed: missedNames
+            });
+          }
+        }
+      });
+    }
+
+    // Check if issue still appears in recent games (last 2)
+    const recentGames = gamesMentioningIssue.slice(0, 2);
+    const stillAppearingFor = [];
+
+    if (recentGames.length > 0 && playersWithIssue.size > 0) {
+      // Check which players who had the issue are still being mentioned
+      playersWithIssue.forEach(playerName => {
+        let stillAppears = false;
+        recentGames.forEach(game => {
+          const gameData = allGameNotes.find(g => g.round === game.round);
+          if (gameData) {
+            gameData.notes.forEach(note => {
+              const noteLower = note.text.toLowerCase();
+              if (noteLower.includes(playerName.toLowerCase()) &&
+                  allTerms.some(term => noteLower.includes(term))) {
+                stillAppears = true;
+              }
+            });
+          }
+        });
+        if (stillAppears) {
+          stillAppearingFor.push(playerName);
+        }
+      });
+    }
+
+    issues.push({
+      issue: keyword,
+      firstMentioned: `R${firstMention?.round || '?'}`,
+      playersWithIssue: Array.from(playersWithIssue),
+      trainingSinceFirst: relevantTrainingSessions,
+      stillAppearingFor
+    });
+  });
+
+  // Only return issues that have enough data to be useful
+  return issues.filter(i =>
+    i.playersWithIssue.length > 0 ||
+    i.trainingSinceFirst.length > 0
+  );
+}
+
+// Fetch training focus suggestions from AI
+window.fetchTrainingFocus = async function(forceRefresh = false) {
+  const container = document.getElementById('training-focus-container');
+
+  if (!state.currentTeam || !state.currentTeamData) {
+    showToast('No team data loaded', 'error');
+    return;
+  }
+
+  // Show loading state
+  if (container) {
+    container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing game notes...</p></div>';
+  }
+
+  try {
+    const baseUrl = API_CONFIG.baseUrl;
+    const trainingData = buildTrainingPayload();
+
+    // POST training data to backend
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        api: true,
+        action: 'getTrainingFocus',
+        trainingData: trainingData
+      }),
+      redirect: 'follow'
+    });
+    const data = await response.json();
+
+    if (data.success && data.suggestions) {
+      // Create new history entry
+      const currentNoteCount = countTotalNotes();
+      const currentGameCount = state.analytics?.advanced?.gameCount || 0;
+      const newEntry = {
+        text: data.suggestions,
+        generatedAt: new Date().toISOString(),
+        gameCount: currentGameCount,
+        noteCount: currentNoteCount,
+        recentGames: trainingData.recentGameNotes.length
+      };
+
+      // Add to history (newest first, max 5 entries)
+      if (!state.currentTeamData.trainingFocusHistory) {
+        state.currentTeamData.trainingFocusHistory = [];
+      }
+      state.currentTeamData.trainingFocusHistory.unshift(newEntry);
+      if (state.currentTeamData.trainingFocusHistory.length > 5) {
+        state.currentTeamData.trainingFocusHistory.pop();
+      }
+
+      // Reset selected index to show latest
+      state.selectedTrainingHistoryIndex = 0;
+
+      // Remove old format if present
+      delete state.currentTeamData.trainingFocus;
+
+      // Save and sync
+      saveToLocalStorage();
+      await syncToGoogleSheets();
+
+      // Re-render the training tab to show results
+      renderTraining();
+
+      showToast('Training suggestions generated', 'success');
+    } else {
+      throw new Error(data.error || 'Failed to get training suggestions');
+    }
+  } catch (err) {
+    console.error('[Training Focus] Error:', err);
+    if (container) {
+      container.innerHTML = '<div class="ai-error"><p>Failed to get suggestions: ' + escapeHtml(err.message) + '</p>' +
+        '<button class="btn btn-primary" onclick="fetchTrainingFocus(true)">Try Again</button></div>';
+    }
+  }
+};
 
 function renderStatsPositions(container) {
   const team = state.currentTeamData;
@@ -2973,6 +4229,44 @@ function renderScoringInputs() {
     </div>
   `;
 
+  // Generate player name chips for notes quick-insert
+  const getPlayerChipsHtml = (quarter, textareaId) => {
+    const qData = lineup[quarter] || {};
+    const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+
+    // Get players assigned to positions in this quarter
+    let players = positions
+      .map(pos => resolvePlayerName(qData[pos]))
+      .filter(name => name && name.trim());
+
+    // If no lineup set, show all team players (non fill-ins)
+    if (players.length === 0) {
+      players = (state.currentTeamData?.players || [])
+        .filter(p => !p.fillIn)
+        .map(p => p.name);
+    }
+
+    // Get unique first names
+    const uniqueNames = [...new Set(players)];
+
+    // Generate player chips
+    const playerChips = uniqueNames.map(name => {
+      const firstName = name.split(' ')[0];
+      return `<button type="button" class="player-chip" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(firstName)}')" title="${escapeAttr(name)}">${escapeHtml(firstName)}</button>`;
+    }).join('');
+
+    // Add group buttons (Team, Opp, Goalers, Midcourt, Defence)
+    const groupChips = `
+      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Team')" title="Insert 'Team'">Team</button>
+      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Opp')" title="Insert 'Opp'">Opp</button>
+      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Goalers')" title="Insert 'Goalers'">Goalers</button>
+      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Midcourt')" title="Insert 'Midcourt'">Midcourt</button>
+      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Defence')" title="Insert 'Defence'">Defence</button>
+    `;
+
+    return playerChips + groupChips;
+  };
+
   const calcQuarterTotal = (qData) => {
     const us = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     const opp = (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
@@ -3023,12 +4317,15 @@ function renderScoringInputs() {
           <div class="scoring-notes">
             <div class="notes-header">
               <label>Notes</label>
-              ${!window.isReadOnlyView ? `<button type="button" class="timestamp-btn" onclick="insertTimestamp('notes-${escapeAttr(q)}')" title="Insert timestamp">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 6v6l4 2"/>
-                </svg>
-              </button>` : ''}
+              ${!window.isReadOnlyView ? `<div class="notes-quick-buttons">
+                <button type="button" class="timestamp-btn" onclick="insertTimestamp('notes-${escapeAttr(q)}')" title="Insert timestamp">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                  </svg>
+                </button>
+                <div class="player-chips">${getPlayerChipsHtml(q, 'notes-' + q)}</div>
+              </div>` : ''}
             </div>
             <textarea placeholder="Quarter notes..." id="notes-${escapeAttr(q)}" ${window.isReadOnlyView ? 'disabled' : ''} onchange="updateQuarterNotes('${escapeAttr(q)}', this.value)">${escapeHtml(qData.notes || '')}</textarea>
           </div>
@@ -3192,6 +4489,35 @@ window.insertTimestamp = function(textareaId) {
   textarea.value = value.substring(0, start) + insertText + value.substring(end);
 
   // Move cursor to end of inserted timestamp
+  const newPos = start + insertText.length;
+  textarea.selectionStart = newPos;
+  textarea.selectionEnd = newPos;
+  textarea.focus();
+
+  // Trigger the onchange to save
+  textarea.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+window.insertPlayerName = function(textareaId, name) {
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+
+  // Insert name with appropriate spacing
+  let insertText = name;
+  if (start > 0 && value[start - 1] !== ' ' && value[start - 1] !== '\n') {
+    insertText = ' ' + insertText;
+  }
+  if (end < value.length && value[end] !== ' ' && value[end] !== '\n') {
+    insertText = insertText + ' ';
+  }
+
+  textarea.value = value.substring(0, start) + insertText + value.substring(end);
+
+  // Move cursor to end of inserted text
   const newPos = start + insertText.length;
   textarea.selectionStart = newPos;
   textarea.selectionEnd = newPos;
@@ -3551,6 +4877,9 @@ window.openPlayerDetail = function(playerID) {
   const player = state.currentTeamData.players.find(p => p.id === playerID);
   if (!player) return;
 
+  // Store current player for AI summary
+  state.currentPlayerForAI = player;
+
   // Calculate player stats
   const playerStats = calculatePlayerStats(player);
 
@@ -3560,9 +4889,14 @@ window.openPlayerDetail = function(playerID) {
     lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
   );
 
+  // Check for cached AI summary
+  const hasCachedSummary = player.aiSummary && player.aiSummary.text;
+  const cachedDate = hasCachedSummary ? new Date(player.aiSummary.generatedAt).toLocaleDateString('en-AU') : '';
+
   openModal(`${escapeHtml(player.name)}`, `
     <div class="player-detail-tabs">
       <button class="player-detail-tab active" onclick="switchPlayerTab('stats')">Stats</button>
+      <button class="player-detail-tab" onclick="switchPlayerTab('ai')">AI Report</button>
       ${!window.isReadOnlyView ? `<button class="player-detail-tab" onclick="switchPlayerTab('edit')">Edit</button>` : ''}
     </div>
 
@@ -3620,6 +4954,29 @@ window.openPlayerDetail = function(playerID) {
       ` : '<div class="empty-state"><p>No game data yet</p></div>'}
     </div>
 
+    <div id="player-tab-ai" class="player-tab-content">
+      ${playerStats.gamesPlayed > 0 ? `
+        <div id="player-ai-container">
+          ${hasCachedSummary ? `
+            <div class="ai-insights-content">${formatAIContent(player.aiSummary.text)}</div>
+            <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
+              Generated: ${escapeHtml(cachedDate)}
+            </div>
+            <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)" style="margin-top: 12px;">Regenerate Report</button>
+          ` : `
+            <div class="empty-state" style="padding: 20px 0;">
+              <p style="margin-bottom: 16px;">Get AI-powered insights on ${escapeHtml(player.name)}'s performance, strengths, and development areas.</p>
+              <button class="btn btn-primary" onclick="fetchPlayerAISummary(false)">Generate AI Report</button>
+            </div>
+          `}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <p>No game data yet. AI reports require at least one game played.</p>
+        </div>
+      `}
+    </div>
+
     ${!window.isReadOnlyView ? `
     <div id="player-tab-edit" class="player-tab-content">
       <div class="form-group">
@@ -3664,13 +5021,164 @@ window.openPlayerDetail = function(playerID) {
   `);
 };
 
+// Helper to format AI content (markdown to HTML)
+function formatAIContent(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n- /g, '\n• ')
+    .replace(/\n/g, '<br>');
+}
+
 window.switchPlayerTab = function(tabId) {
   document.querySelectorAll('.player-detail-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.toLowerCase() === tabId);
+    const btnText = btn.textContent.toLowerCase().replace(' ', '');
+    const targetTab = tabId === 'ai' ? 'aireport' : tabId;
+    btn.classList.toggle('active', btnText === targetTab);
   });
   document.querySelectorAll('.player-tab-content').forEach(content => {
     content.classList.toggle('active', content.id === `player-tab-${tabId}`);
   });
+};
+
+// Fetch AI summary for current player
+window.fetchPlayerAISummary = async function(forceRefresh = false) {
+  const player = state.currentPlayerForAI;
+  if (!player) {
+    showToast('No player selected', 'error');
+    return;
+  }
+
+  const container = document.getElementById('player-ai-container');
+  if (!container) return;
+
+  // Show loading state
+  container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing player performance...</p></div>';
+
+  try {
+    const baseUrl = API_CONFIG.baseUrl;
+    const playerStats = calculatePlayerStats(player);
+
+    // Build detailed game history with results, scores, and quarter-by-quarter detail
+    const gameHistory = playerStats.recentGames.map(g => {
+      const game = state.currentTeamData.games.find(gm => gm.round === g.round);
+      let result = null;
+      let score = null;
+      let quartersInGame = 0;
+      let quarterDetails = [];
+
+      if (game) {
+        if (game.scores) {
+          score = `${game.scores.us}-${game.scores.opponent}`;
+          if (game.scores.us > game.scores.opponent) result = 'W';
+          else if (game.scores.us < game.scores.opponent) result = 'L';
+          else result = 'D';
+        }
+
+        // Get quarter-by-quarter detail for this player
+        if (game.lineup) {
+          ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+            const qData = game.lineup[q] || {};
+            ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+              if (qData[pos] === player.name) {
+                quartersInGame++;
+                let qGoals = 0;
+                if (pos === 'GS') qGoals = qData.ourGsGoals || 0;
+                if (pos === 'GA') qGoals = qData.ourGaGoals || 0;
+                quarterDetails.push({
+                  quarter: q,
+                  position: pos,
+                  goals: qGoals
+                });
+              }
+            });
+          });
+        }
+      }
+
+      return {
+        ...g,
+        result,
+        score,
+        quartersInGame,
+        quarterDetails
+      };
+    });
+
+    // Build team context
+    const { advanced } = state.analytics;
+    const teamContext = {
+      teamRecord: `${advanced.wins}W-${advanced.losses}L-${advanced.draws}D`,
+      topScorers: state.analytics.leaderboards.offensive.topScorersByTotal
+        .slice(0, 3)
+        .map(s => s.name)
+    };
+
+    // Build player payload
+    const playerPayload = {
+      name: player.name,
+      teamName: state.currentTeam?.teamName || 'Team',
+      fillIn: player.fillIn || false,
+      favPosition: player.favPosition || null,
+      stats: {
+        gamesPlayed: playerStats.gamesPlayed,
+        quartersPlayed: playerStats.quartersPlayed,
+        totalGoals: playerStats.totalGoals,
+        avgGoalsPerGame: playerStats.avgGoalsPerGame
+      },
+      positionBreakdown: playerStats.positionBreakdown,
+      gameHistory: gameHistory,
+      teamContext: teamContext
+    };
+
+    // POST to backend
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        api: true,
+        action: 'getPlayerAIInsights',
+        teamID: state.currentTeam.teamID,
+        sheetName: state.currentTeam.sheetName,
+        playerData: playerPayload
+      }),
+      redirect: 'follow'
+    });
+    const data = await response.json();
+
+    if (data.success && data.insights) {
+      // Save to player record
+      player.aiSummary = {
+        text: data.insights,
+        generatedAt: new Date().toISOString()
+      };
+
+      // Save and sync to API immediately
+      saveToLocalStorage();
+      await syncToGoogleSheets();
+
+      // Display the summary
+      const cachedDate = new Date().toLocaleDateString('en-AU');
+      container.innerHTML = `
+        <div class="ai-insights-content">${formatAIContent(data.insights)}</div>
+        <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
+          Generated: ${escapeHtml(cachedDate)}
+        </div>
+        <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)" style="margin-top: 12px;">Regenerate Report</button>
+      `;
+
+      showToast('AI report saved', 'success');
+    } else {
+      throw new Error(data.error || 'Failed to get player insights');
+    }
+  } catch (err) {
+    console.error('[Player AI Summary] Error:', err);
+    container.innerHTML = `
+      <div class="ai-error">
+        <p>Failed to get insights: ${escapeHtml(err.message)}</p>
+        <button class="btn btn-primary" onclick="fetchPlayerAISummary(true)" style="margin-top: 12px;">Try Again</button>
+      </div>
+    `;
+  }
 };
 
 function calculatePlayerStats(player) {

@@ -272,13 +272,20 @@ export async function loadTeamData(teamID) {
  */
 export function transformTeamDataFromSheet(data, teamID) {
   // Transform players
-  const players = (data.players || []).map(p => ({
-    id: p.id,
-    name: p.name,
-    fillIn: p.isFillIn || p.fillIn || false,
-    // Handle both string (legacy) and array formats
-    favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition)
-  }));
+  const players = (data.players || []).map(p => {
+    const player = {
+      id: p.id,
+      name: p.name,
+      fillIn: p.isFillIn || p.fillIn || false,
+      // Handle both string (legacy) and array formats
+      favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition)
+    };
+    // Preserve AI summary if present
+    if (p.aiSummary) {
+      player.aiSummary = p.aiSummary;
+    }
+    return player;
+  });
 
   // Helper to normalize favPosition to array format
   function normalizeFavPositions(val) {
@@ -335,7 +342,7 @@ export function transformTeamDataFromSheet(data, teamID) {
       scores = { us, opponent };
     }
 
-    return {
+    const game = {
       gameID: g.id || g.gameID,
       round: g.round,
       opponent: g.opponent,
@@ -348,9 +355,14 @@ export function transformTeamDataFromSheet(data, teamID) {
       availablePlayerIDs: g.availablePlayerIDs || [],
       lineup
     };
+    // Preserve AI summary if present
+    if (g.aiSummary) {
+      game.aiSummary = g.aiSummary;
+    }
+    return game;
   });
 
-  return {
+  const result = {
     teamID: teamID,
     teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || '',
     year: data.year || data.Year || data['Year'] || '',
@@ -360,6 +372,19 @@ export function transformTeamDataFromSheet(data, teamID) {
     // Preserve server timestamp for stale data detection
     _lastModified: data._lastModified || null
   };
+  // Preserve team AI insights if present
+  if (data.aiInsights) {
+    result.aiInsights = data.aiInsights;
+  }
+  // Preserve training focus history if present
+  if (data.trainingFocusHistory) {
+    result.trainingFocusHistory = data.trainingFocusHistory;
+  }
+  // Preserve training sessions if present
+  if (data.trainingSessions) {
+    result.trainingSessions = data.trainingSessions;
+  }
+  return result;
 }
 
 /**
@@ -373,13 +398,18 @@ export function transformTeamDataToSheet(pwaData) {
     if (Array.isArray(favPos)) {
       favPos = favPos.length > 0 ? favPos : null;
     }
-    return {
+    const player = {
       id: p.id,
       name: p.name,
       isFillIn: p.fillIn || false,
       favoritePosition: favPos,
       isFavorite: false
     };
+    // Preserve AI summary if present
+    if (p.aiSummary) {
+      player.aiSummary = p.aiSummary;
+    }
+    return player;
   });
 
   // Transform games back to Sheet format
@@ -417,7 +447,7 @@ export function transformTeamDataToSheet(pwaData) {
       });
     }
 
-    return {
+    const game = {
       id: g.gameID,
       round: g.round,
       opponent: g.opponent,
@@ -429,14 +459,32 @@ export function transformTeamDataToSheet(pwaData) {
       availablePlayerIDs: g.availablePlayerIDs || [],
       quarters
     };
+    // Preserve AI summary if present
+    if (g.aiSummary) {
+      game.aiSummary = g.aiSummary;
+    }
+    return game;
   });
 
-  return {
+  const result = {
     players,
     games,
     // Pass through timestamp for version tracking
     _lastModified: pwaData._lastModified || null
   };
+  // Preserve team AI insights if present
+  if (pwaData.aiInsights) {
+    result.aiInsights = pwaData.aiInsights;
+  }
+  // Preserve training focus history if present
+  if (pwaData.trainingFocusHistory) {
+    result.trainingFocusHistory = pwaData.trainingFocusHistory;
+  }
+  // Preserve training sessions if present
+  if (pwaData.trainingSessions) {
+    result.trainingSessions = pwaData.trainingSessions;
+  }
+  return result;
 }
 
 export async function calculateStats(teamID) {
