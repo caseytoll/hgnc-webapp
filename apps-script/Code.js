@@ -113,6 +113,62 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'getAIInsights':
+          var analyticsData = postData.analytics || null;
+          if (!analyticsData) {
+            result = { success: false, error: 'analytics data is required' };
+          } else {
+            try {
+              var insights = getAIInsightsWithAnalytics(analyticsData);
+              result = { success: true, insights: insights };
+            } catch (aiErr) {
+              result = { success: false, error: aiErr.message };
+            }
+          }
+          break;
+
+        case 'getGameAIInsights':
+          var gameData = postData.gameData || null;
+          if (!gameData) {
+            result = { success: false, error: 'gameData is required' };
+          } else {
+            try {
+              var gameInsights = getGameAIInsights(gameData);
+              result = { success: true, insights: gameInsights };
+            } catch (gameAiErr) {
+              result = { success: false, error: gameAiErr.message };
+            }
+          }
+          break;
+
+        case 'getPlayerAIInsights':
+          var playerData = postData.playerData || null;
+          if (!playerData) {
+            result = { success: false, error: 'playerData is required' };
+          } else {
+            try {
+              var playerInsights = getPlayerAIInsights(playerData);
+              result = { success: true, insights: playerInsights };
+            } catch (playerAiErr) {
+              result = { success: false, error: playerAiErr.message };
+            }
+          }
+          break;
+
+        case 'getTrainingFocus':
+          var trainingData = postData.trainingData || null;
+          if (!trainingData) {
+            result = { success: false, error: 'trainingData is required' };
+          } else {
+            try {
+              var trainingFocus = getTrainingFocus(trainingData);
+              result = { success: true, suggestions: trainingFocus };
+            } catch (trainingErr) {
+              result = { success: false, error: trainingErr.message };
+            }
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown POST action: ' + action };
       }
@@ -1018,108 +1074,286 @@ function getCachedMatchResults() {
 }
 
 // --- AI Insights using Gemini ---
+// Legacy function for GET requests (kept for backwards compatibility)
 function getAIInsights(teamID, sheetName) {
+  throw new Error('Please update the app to use the enhanced AI insights');
+}
+
+/**
+ * Returns netball coaching knowledge preamble for AI prompts
+ * Focused on insights derivable from scoring and position data
+ */
+function getNetballKnowledgePreamble() {
+  return `## NETBALL COACHING KNOWLEDGE
+(Focused on interpreting scoring and position statistics)
+
+### Position Roles & What Their Stats Mean
+
+**SCORING POSITIONS (GS & GA):**
+- **GS (Goal Shooter)**: Primary scorer, plays in shooting circle only. Typically scores 60-70% of team goals. Relies on good feeding from GA/WA. High goals = good positioning and finishing. Low goals despite playing time = may need better feeds or is being well-defended.
+- **GA (Goal Attack)**: Secondary scorer AND feeder. Can be a "shooting GA" (high personal goals) or "feeding GA" (enables GS). If GA outscores GS consistently, either GA is exceptional or GS needs more support. GA scoring 30-40% of goals is typical.
+
+**MIDCOURT POSITIONS (WA, C, WD):**
+- **WA (Wing Attack)**: Primary feeder to shooters. Cannot score. Impact shows indirectly through GS/GA goals when WA is on court. A good WA lifts the whole attacking unit's output.
+- **C (Centre)**: THE KEY CONNECTOR - appears in both attacking and defensive units. High workrate position. A good Centre improves BOTH the attacking unit's goals scored AND the defensive unit's goals against. Compare team +/- with different Centres to identify impact.
+- **WD (Wing Defence)**: Disrupts opposition attack. Impact shows in lower goals AGAINST when on court. Works with GD to pressure the ball before it reaches the circle.
+
+**DEFENSIVE POSITIONS (GD & GK):**
+- **GD (Goal Defence)**: Pressures opposition GA. Measured by goals conceded when on court. Lower = better. Works as a unit with GK - hard to separate individual impact.
+- **GK (Goal Keeper)**: Last line of defence against GS. Same measurement - goals against when on court. GK-GD pairs that play together regularly develop communication and should show improving stats over time.
+
+### Understanding Plus/Minus (+/-) for Units
+
+**ATTACKING UNIT (GS-GA-WA-C):**
+- Measures goals scored MINUS goals conceded when these 4 play together
+- Positive +/- means outscoring opponents with this unit
+- Best attacking units typically show +1.5 to +3.0 per quarter
+- If high goals FOR but also high goals AGAINST = exciting but leaky
+- Compare different GS-GA pairs to find best shooting chemistry
+
+**DEFENSIVE UNIT (GK-GD-WD-C):**
+- Measures the same but focus on goals AGAINST being low
+- A defensive unit allowing <3 goals/quarter is excellent
+- The C links both units - a drop in defensive +/- when C changes highlights Centre importance
+- Consistent GK-GD pairs outperform rotating pairs (communication builds over 8-12 quarters together)
+
+**THE CENTRE'S DUAL IMPACT:**
+- Centre is the ONLY position in both attacking and defensive units
+- Compare team performance with different Centres to see who lifts both ends
+- A Centre who improves attacking +/- but hurts defensive +/- may be too attack-focused
+- Best Centres maintain or improve BOTH unit stats
+
+### GS-GA Scoring Pair Chemistry
+
+**Signs of Good Chemistry (in the stats):**
+- Combined goals consistently high across games
+- Balanced split (not one player doing everything)
+- Goals stay high even against tough opponents
+- Low variance game-to-game
+
+**Signs of Poor Chemistry:**
+- One shooter dominates while other is starved
+- Combined output varies wildly between games
+- Goals drop significantly against any pressure
+
+**Building Chemistry:**
+- Pairs need 8-12 quarters together to develop timing
+- Short-term rotation hurts chemistry but aids development
+- For important games, use established pairs; for development games, experiment
+
+### GK-GD Defensive Pair Analysis
+
+**What to Look For:**
+- Goals against per quarter when paired together
+- Consistency across games (low variance = reliable)
+- Performance against strong vs weak opponents
+
+**Good Defensive Pair Indicators:**
+- <3.5 goals against per quarter average
+- Maintain performance in Q3/Q4 (don't fade)
+- Goals against doesn't spike against good teams
+
+**Pair Development:**
+- Defence requires MORE time together than attack (reading each other's positioning)
+- 10-15 quarters together before judging a new pair
+- Verbal communication is critical - shy players may struggle initially
+
+### Quarter-by-Quarter Patterns (Junior Context)
+
+**Q1 - The Fresh Start:**
+- Often highest scoring quarter (energy, focus)
+- Team that wins Q1 wins ~65% of games
+- Start your most reliable combinations
+
+**Q2 - Pre-Halftime Drift:**
+- Concentration often drops in juniors
+- Good time to test new combinations (lower stakes)
+- If consistently losing Q2, address focus/hydration
+
+**Q3 - The Danger Quarter:**
+- Post-halftime lethargy is real in junior netball
+- Teams often lose focus, give up leads
+- If your team loses Q3 consistently, improve halftime routine
+- Consider using best defenders to "hold" rather than attack
+
+**Q4 - The Fitness Test:**
+- Fitter teams close strong
+- If fading in Q4, consider more rotation earlier OR fitness work
+- Big games: use your best closers regardless of fairness
+- Development games: give everyone Q4 time
+
+### Junior Netball Benchmarks
+
+**Scoring by Age Group (approximate team totals):**
+- U11: 8-15 goals/game typical, 2-3 per quarter per shooter is good
+- U13: 15-28 goals/game typical, 3-5 per quarter per shooter is good
+- U15: 25-40 goals/game typical, 5-8 per quarter per shooter is good
+- High variance is NORMAL - don't overreact to single games
+
+**Realistic Expectations:**
+- Winning 50%+ of quarters = competitive team
+- +2 average quarter differential = strong team
+- Consistency matters more than peaks
+- Development > winning at junior level (but winning helps confidence)
+
+### Position Development Pathways
+
+**Natural Progressions:**
+- WA → GA (learns circle movement, then adds shooting)
+- WD → GD (learns defensive pressure, then circle defence)
+- C → any midcourt position (most transferable skills)
+- GS ↔ GK (height often determines, but skills transfer)
+
+**Versatility Indicators:**
+- 3+ positions played = high game IQ
+- Maintains performance across positions = true versatility
+- Stats drop in new position initially = NORMAL (allow 4-6 quarters to adjust)
+
+**Development vs Results Trade-off:**
+- Trying new positions hurts short-term stats
+- Players who only play one position plateau faster
+- Rotate in low-stakes games, specialize in important games
+
+---
+
+`;
+}
+
+/**
+ * Enhanced AI insights using pre-calculated analytics from the frontend
+ * @param {Object} analytics - Rich analytics data passed from the PWA
+ * @returns {string} AI-generated insights in markdown format
+ */
+function getAIInsightsWithAnalytics(analytics) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY not configured in Script Properties');
   }
 
-  // Get team data
-  var rawData = loadTeamData(sheetName);
-  if (!rawData || rawData.error) {
-    throw new Error('Could not load team data: ' + (rawData ? rawData.error : 'unknown'));
+  var teamName = analytics.teamName || 'Team';
+  var record = analytics.record || {};
+  var scoring = analytics.scoring || {};
+  var quarterAnalysis = analytics.quarterAnalysis || {};
+  var leaderboards = analytics.leaderboards || {};
+  var combinations = analytics.combinations || {};
+  var form = analytics.form || [];
+  var gameResults = analytics.gameResults || [];
+  var players = analytics.players || [];
+
+  // Build comprehensive prompt with netball knowledge and team data
+  var prompt = 'You are an expert netball coach assistant analyzing ' + teamName + '. ' +
+    'Use your netball knowledge to provide specific, actionable insights.\n\n' +
+    getNetballKnowledgePreamble();
+
+  // SECTION 1: Team Overview
+  prompt += '## TEAM OVERVIEW\n';
+  prompt += 'Record: ' + record.wins + 'W-' + record.losses + 'L-' + record.draws + 'D (' + record.winRate + '% win rate) from ' + record.gameCount + ' games\n';
+  prompt += 'Goals: ' + scoring.goalsFor + ' scored, ' + scoring.goalsAgainst + ' conceded (diff: ' + (scoring.goalDiff > 0 ? '+' : '') + scoring.goalDiff + ')\n';
+  prompt += 'Averages: ' + scoring.avgFor + ' goals/game scored, ' + scoring.avgAgainst + ' goals/game conceded\n';
+  if (form.length > 0) {
+    prompt += 'Recent form (last ' + form.length + ' games): ' + form.join('-') + '\n';
   }
+  prompt += '\n';
 
-  // Parse the JSON string
-  var teamData;
-  try {
-    teamData = JSON.parse(rawData.teamData || '{"players":[],"games":[]}');
-  } catch (parseErr) {
-    throw new Error('Failed to parse team data: ' + parseErr.message);
-  }
-
-  // Get team name from Teams sheet
-  var teamsSheet = getSpreadsheet().getSheetByName('Teams');
-  var teamsData = teamsSheet.getDataRange().getValues();
-  var teamName = 'Team';
-  for (var i = 1; i < teamsData.length; i++) {
-    if (teamsData[i][0] === teamID) {
-      teamName = teamsData[i][3] || 'Team'; // teamName column
-      break;
-    }
-  }
-
-  // Build a summary of the data for the prompt
-  var games = teamData.games || [];
-  var players = teamData.players || [];
-  var completedGames = games.filter(function(g) { return g.status === 'normal' || (g.quarters && g.quarters.some(function(q) { return q.ourGsGoals > 0 || q.ourGaGoals > 0; })); });
-
-  // Build player stats from quarters
-  var playerStats = {};
-  completedGames.forEach(function(g) {
-    if (g.quarters) {
-      g.quarters.forEach(function(q, qIdx) {
-        var positions = q.positions || {};
-        // Track GS goals
-        if (positions.GS) {
-          if (!playerStats[positions.GS]) playerStats[positions.GS] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
-          playerStats[positions.GS].gsGoals += (q.ourGsGoals || 0);
-          playerStats[positions.GS].quarters++;
-          playerStats[positions.GS].positions['GS'] = (playerStats[positions.GS].positions['GS'] || 0) + 1;
+  // SECTION 2: Quarter-by-Quarter Analysis
+  if (quarterAnalysis.bestQuarter) {
+    prompt += '## QUARTER ANALYSIS\n';
+    prompt += 'Best quarter: ' + quarterAnalysis.bestQuarter + ' (avg +' + quarterAnalysis.bestQuarterDiff + ' differential)\n';
+    if (quarterAnalysis.stats) {
+      var qs = quarterAnalysis.stats;
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(function(q) {
+        if (qs[q] && qs[q].games > 0) {
+          var avgFor = Math.round((qs[q].for / qs[q].games) * 10) / 10;
+          var avgAgainst = Math.round((qs[q].against / qs[q].games) * 10) / 10;
+          var diff = avgFor - avgAgainst;
+          prompt += q + ': avg ' + avgFor + ' scored, ' + avgAgainst + ' conceded (' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')\n';
         }
-        // Track GA goals
-        if (positions.GA) {
-          if (!playerStats[positions.GA]) playerStats[positions.GA] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
-          playerStats[positions.GA].gaGoals += (q.ourGaGoals || 0);
-          playerStats[positions.GA].quarters++;
-          playerStats[positions.GA].positions['GA'] = (playerStats[positions.GA].positions['GA'] || 0) + 1;
-        }
-        // Track other positions
-        ['WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
-          if (positions[pos]) {
-            if (!playerStats[positions[pos]]) playerStats[positions[pos]] = { gsGoals: 0, gaGoals: 0, quarters: 0, positions: {} };
-            playerStats[positions[pos]].quarters++;
-            playerStats[positions[pos]].positions[pos] = (playerStats[positions[pos]].positions[pos] || 0) + 1;
-          }
-        });
       });
     }
+    prompt += '\n';
+  }
+
+  // SECTION 3: Game Results
+  if (gameResults.length > 0) {
+    prompt += '## GAME-BY-GAME RESULTS\n';
+    gameResults.forEach(function(g) {
+      prompt += 'R' + g.round + ' vs ' + g.opponent + ': ' + g.score + ' (' + g.result + ', ' + (g.diff >= 0 ? '+' : '') + g.diff + ')\n';
+    });
+    prompt += '\n';
+  }
+
+  // SECTION 4: Offensive Leaders
+  prompt += '## OFFENSIVE ANALYSIS\n';
+  if (leaderboards.topScorers && leaderboards.topScorers.length > 0) {
+    prompt += 'Top scorers (by total goals):\n';
+    leaderboards.topScorers.forEach(function(s, i) {
+      prompt += (i + 1) + '. ' + s.name + ': ' + s.goals + ' goals in ' + s.quarters + ' quarters (' + s.avg + '/quarter)\n';
+    });
+  }
+  if (leaderboards.topScorersByEfficiency && leaderboards.topScorersByEfficiency.length > 0) {
+    prompt += 'Most efficient scorers (min 3 quarters):\n';
+    leaderboards.topScorersByEfficiency.forEach(function(s, i) {
+      prompt += (i + 1) + '. ' + s.name + ': ' + s.avg + ' goals/quarter over ' + s.quarters + ' quarters\n';
+    });
+  }
+  if (leaderboards.topScoringPairs && leaderboards.topScoringPairs.length > 0) {
+    prompt += 'Best GS-GA pairs:\n';
+    leaderboards.topScoringPairs.forEach(function(p, i) {
+      prompt += (i + 1) + '. ' + p.players + ': ' + p.goals + ' goals in ' + p.quarters + ' quarters together (' + p.avg + '/quarter)\n';
+    });
+  }
+  prompt += '\n';
+
+  // SECTION 5: Defensive Leaders
+  prompt += '## DEFENSIVE ANALYSIS\n';
+  if (leaderboards.topDefenders && leaderboards.topDefenders.length > 0) {
+    prompt += 'Most efficient defenders (GD/GK, lowest goals conceded/quarter, min 3 quarters):\n';
+    leaderboards.topDefenders.forEach(function(d, i) {
+      prompt += (i + 1) + '. ' + d.name + ': ' + d.avg + ' goals against/quarter over ' + d.quarters + ' quarters\n';
+    });
+  }
+  if (leaderboards.topDefensivePairs && leaderboards.topDefensivePairs.length > 0) {
+    prompt += 'Best GD-GK defensive pairs:\n';
+    leaderboards.topDefensivePairs.forEach(function(p, i) {
+      prompt += (i + 1) + '. ' + p.players + ': ' + p.avg + ' goals against/quarter over ' + p.quarters + ' quarters together\n';
+    });
+  }
+  prompt += '\n';
+
+  // SECTION 6: Lineup Combinations
+  prompt += '## LINEUP COMBINATIONS\n';
+  if (combinations.bestAttackingUnit) {
+    var au = combinations.bestAttackingUnit;
+    prompt += 'Best attacking unit (GS-GA-WA-C): ' + au.players.GS + ', ' + au.players.GA + ', ' + au.players.WA + ', ' + au.players.C + '\n';
+    prompt += '  - ' + au.quarters + ' quarters together, ' + au.avgFor + ' goals/quarter, +/- ' + au.plusMinus + '\n';
+  }
+  if (combinations.bestDefensiveUnit) {
+    var du = combinations.bestDefensiveUnit;
+    prompt += 'Best defensive unit (GK-GD-WD-C): ' + du.players.GK + ', ' + du.players.GD + ', ' + du.players.WD + ', ' + du.players.C + '\n';
+    prompt += '  - ' + du.quarters + ' quarters together, ' + du.avgAgainst + ' goals against/quarter, +/- ' + du.plusMinus + '\n';
+  }
+  prompt += '\n';
+
+  // SECTION 7: Roster
+  prompt += '## ROSTER (' + players.length + ' players)\n';
+  players.forEach(function(p) {
+    var desc = p.name;
+    if (p.fillIn) desc += ' (fill-in)';
+    if (p.favPosition) desc += ' [prefers ' + p.favPosition + ']';
+    prompt += '- ' + desc + '\n';
   });
+  prompt += '\n';
 
-  // Format player stats for prompt
-  var playerStatsText = Object.keys(playerStats).map(function(name) {
-    var s = playerStats[name];
-    var totalGoals = s.gsGoals + s.gaGoals;
-    var posPlayed = Object.keys(s.positions).join('/');
-    return name + ': ' + totalGoals + ' goals, ' + s.quarters + ' quarters (' + posPlayed + ')';
-  }).sort(function(a, b) {
-    var goalsA = parseInt(a.split(': ')[1]) || 0;
-    var goalsB = parseInt(b.split(': ')[1]) || 0;
-    return goalsB - goalsA;
-  }).join('\n');
+  // Instructions for response format
+  prompt += '---\n';
+  prompt += 'Based on this data, provide insights in this exact format (be specific with player names and stats):\n\n';
+  prompt += '**Season Summary**\n[2-3 sentences on overall performance, form trend, and goal differential]\n\n';
+  prompt += '**Key Strengths**\n[2-3 bullet points highlighting what the data shows they do well - cite specific players/pairs/stats]\n\n';
+  prompt += '**Areas to Improve**\n[2-3 bullet points with specific, constructive suggestions based on weak quarters or stats]\n\n';
+  prompt += '**Lineup Recommendations**\n[Specific pairing or unit suggestions based on the combination data]\n\n';
+  prompt += '**Tactical Tips**\n[2-3 actionable tips for the next game based on patterns in the data]';
 
-  var prompt = 'You are a netball coach assistant. Analyze this team data for ' + teamName + ' and provide brief, actionable insights.\n\n' +
-    'PLAYERS (' + players.length + '): ' + players.map(function(p) { return p.name; }).join(', ') + '\n\n' +
-    'PLAYER STATS:\n' + (playerStatsText || 'No stats recorded yet') + '\n\n' +
-    'GAME RESULTS (' + completedGames.length + ' games):\n' +
-    completedGames.map(function(g) {
-      var ourScore = 0, theirScore = 0;
-      if (g.quarters) {
-        g.quarters.forEach(function(q) {
-          ourScore += (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
-          theirScore += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
-        });
-      }
-      return 'R' + g.round + ' vs ' + g.opponent + ': ' + ourScore + '-' + theirScore + (ourScore > theirScore ? ' W' : ourScore < theirScore ? ' L' : ' D');
-    }).join('\n') + '\n\n' +
-    'Provide insights in this exact format (keep each section to 2-3 bullet points max):\n\n' +
-    '**Season Summary**\n[Brief win/loss overview]\n\n' +
-    '**Key Strengths**\n[What the team does well]\n\n' +
-    '**Areas to Improve**\n[Constructive suggestions]\n\n' +
-    '**Player Notes**\n[Highlight top scorers and versatile players by name]\n\n' +
-    '**Next Game Tips**\n[1-2 tactical suggestions]';
-
-  // Call Gemini API (using gemini-2.0-flash-lite for faster/cheaper responses)
+  // Call Gemini API
   var response = UrlFetchApp.fetch(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
     {
@@ -1129,7 +1363,7 @@ function getAIInsights(teamID, sheetName) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1024
+          maxOutputTokens: 1500
         }
       }),
       muteHttpExceptions: true
@@ -1141,7 +1375,513 @@ function getAIInsights(teamID, sheetName) {
 
   if (responseCode !== 200) {
     Logger.log('Gemini API error: ' + responseCode + ' - ' + responseText);
-    // Parse error for more details
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
+}
+
+/**
+ * Generate AI insights for a single game with player contributions
+ * @param {Object} gameData - Game analysis data from the frontend
+ * @returns {string} AI-generated game summary in markdown format
+ */
+function getGameAIInsights(gameData) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
+  var teamName = gameData.teamName || 'Team';
+  var round = gameData.round || '?';
+  var opponent = gameData.opponent || 'Opponent';
+  var result = gameData.result || 'Unknown';
+  var finalScore = gameData.finalScore || { us: 0, them: 0 };
+  var quarterBreakdown = gameData.quarterBreakdown || [];
+  var playerContributions = gameData.playerContributions || [];
+  var captain = gameData.captain;
+  var location = gameData.location;
+
+  // Build the prompt with netball knowledge
+  var prompt = 'You are an expert netball coach assistant. Analyze this game for ' + teamName + ' and provide a detailed summary of the performance with specific player callouts.\n\n' +
+    getNetballKnowledgePreamble() +
+    '## GAME DATA\n\n';
+
+  // Game Overview
+  prompt += '### GAME OVERVIEW\n';
+  prompt += 'Round ' + round + ' vs ' + opponent + '\n';
+  prompt += 'Final Score: ' + finalScore.us + ' - ' + finalScore.them + ' (' + result + ', diff: ' + (gameData.scoreDiff >= 0 ? '+' : '') + gameData.scoreDiff + ')\n';
+  if (location) prompt += 'Location: ' + location + '\n';
+  if (captain) prompt += 'Captain: ' + captain + '\n';
+  prompt += '\n';
+
+  // Quarter-by-Quarter Breakdown
+  prompt += '## QUARTER-BY-QUARTER BREAKDOWN\n';
+  quarterBreakdown.forEach(function(q) {
+    prompt += q.quarter + ': ' + q.us + '-' + q.them + ' (' + (q.diff >= 0 ? '+' : '') + q.diff + ')\n';
+    if (q.lineup && Object.keys(q.lineup).length > 0) {
+      var lineupParts = [];
+      ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
+        if (q.lineup[pos]) {
+          lineupParts.push(pos + ': ' + q.lineup[pos]);
+        }
+      });
+      if (lineupParts.length > 0) {
+        prompt += '  Lineup: ' + lineupParts.join(', ') + '\n';
+      }
+    }
+  });
+  prompt += '\n';
+
+  // Player Contributions
+  prompt += '## PLAYER CONTRIBUTIONS\n';
+  if (playerContributions.length > 0) {
+    playerContributions.forEach(function(p) {
+      var desc = p.name + ': ' + p.quarters + ' quarters played';
+      if (p.positions && p.positions.length > 0) {
+        desc += ' (' + p.positions.join('/') + ')';
+      }
+      if (p.goalsScored > 0) {
+        desc += ', ' + p.goalsScored + ' goals';
+        if (p.quartersAtGS > 0 && p.quartersAtGA > 0) {
+          desc += ' (played both GS and GA)';
+        }
+      }
+      if (p.quartersDefending > 0) {
+        desc += ', ' + p.quartersDefending + ' quarters on defense';
+      }
+      prompt += '- ' + desc + '\n';
+    });
+  } else {
+    prompt += 'No player data available.\n';
+  }
+  prompt += '\n';
+
+  // Coach Notes (if any)
+  var coachNotes = gameData.coachNotes || [];
+  if (coachNotes.length > 0) {
+    prompt += '## COACH NOTES\n';
+    prompt += 'The coach recorded these observations during the game:\n';
+    coachNotes.forEach(function(n) {
+      prompt += '- ' + n.quarter + ': ' + n.notes + '\n';
+    });
+    prompt += '\n';
+  }
+
+  // Instructions
+  prompt += '---\n';
+  prompt += 'Provide a game summary in this exact format (be specific with player names):\n\n';
+  prompt += '**Match Summary**\n[2-3 sentences summarizing the game flow - who controlled early, any momentum shifts, how it finished]\n\n';
+  prompt += '**Key Performers**\n[2-3 bullet points highlighting standout players by name with specific stats - goals scored, defensive efforts, versatility]\n\n';
+  prompt += '**Quarter Analysis**\n[Brief analysis of which quarters were strongest/weakest and why based on lineups]\n\n';
+  prompt += '**Tactical Observations**\n[2-3 observations about what worked well or could improve - specific to this game\'s lineup decisions]\n\n';
+  prompt += '**Player Development Notes**\n[1-2 notes about players who showed growth, tried new positions, or could be developed further]';
+
+  if (coachNotes.length > 0) {
+    prompt += '\n\n**Important:** Incorporate the coach\'s notes into your analysis where relevant. Reference specific observations the coach made and connect them to the stats and lineup data.';
+  }
+
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1200
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (game): ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
+}
+
+/**
+ * Generate AI insights for an individual player's season performance
+ * @param {Object} playerData - Player analysis data from the frontend
+ * @returns {string} AI-generated player summary in markdown format
+ */
+function getPlayerAIInsights(playerData) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
+  var playerName = playerData.name || 'Player';
+  var teamName = playerData.teamName || 'Team';
+  var isFillIn = playerData.fillIn || false;
+  var favPosition = playerData.favPosition || null;
+  var stats = playerData.stats || {};
+  var positionBreakdown = playerData.positionBreakdown || [];
+  var gameHistory = playerData.gameHistory || [];
+  var teamContext = playerData.teamContext || {};
+
+  // Build prompt with netball knowledge
+  var prompt = 'You are an expert netball coach providing a personalized player development report for ' + playerName + ' from ' + teamName + '.\n\n' +
+    getNetballKnowledgePreamble() +
+    '## PLAYER DATA\n\n';
+
+  // Player Overview
+  prompt += '### PLAYER PROFILE\n';
+  prompt += 'Name: ' + playerName + '\n';
+  if (isFillIn) prompt += 'Status: Fill-in player\n';
+  if (favPosition) prompt += 'Preferred Position: ' + favPosition + '\n';
+  prompt += '\n';
+
+  // Season Stats
+  prompt += '### SEASON STATISTICS\n';
+  prompt += 'Games Played: ' + (stats.gamesPlayed || 0) + '\n';
+  prompt += 'Quarters Played: ' + (stats.quartersPlayed || 0) + '\n';
+  prompt += 'Total Goals: ' + (stats.totalGoals || 0) + '\n';
+  if (stats.gamesPlayed > 0) {
+    prompt += 'Goals Per Game: ' + (stats.avgGoalsPerGame || '0.0') + '\n';
+  }
+  if (stats.quartersPlayed > 0 && stats.totalGoals > 0) {
+    var goalsPerQuarter = (stats.totalGoals / stats.quartersPlayed).toFixed(2);
+    prompt += 'Goals Per Quarter (when scoring): ' + goalsPerQuarter + '\n';
+  }
+  prompt += '\n';
+
+  // Position Breakdown
+  if (positionBreakdown.length > 0) {
+    prompt += '### POSITIONS PLAYED\n';
+    positionBreakdown.forEach(function(p) {
+      prompt += '- ' + p.position + ': ' + p.count + ' quarters (' + p.percentage + '%)\n';
+    });
+    prompt += '\n';
+
+    // Calculate versatility
+    var numPositions = positionBreakdown.length;
+    if (numPositions >= 4) {
+      prompt += 'Versatility: HIGH - played ' + numPositions + ' different positions\n';
+    } else if (numPositions >= 2) {
+      prompt += 'Versatility: MODERATE - played ' + numPositions + ' positions\n';
+    } else {
+      prompt += 'Versatility: SPECIALIST - focused on ' + positionBreakdown[0].position + '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Game-by-Game History (detailed)
+  if (gameHistory.length > 0) {
+    prompt += '### GAME-BY-GAME PERFORMANCE\n';
+    gameHistory.forEach(function(g) {
+      var posStr = g.positions && g.positions.length > 0 ? g.positions.join('/') : 'unknown';
+      var goalStr = g.goals > 0 ? ', scored ' + g.goals + ' goals' : '';
+      var resultStr = g.result ? g.result : '';
+      var scoreStr = g.score ? ' ' + g.score : '';
+      var quartersStr = g.quartersInGame ? ', played ' + g.quartersInGame + '/4 quarters' : '';
+
+      prompt += '\n**Round ' + g.round + ' vs ' + g.opponent + '** (' + resultStr + scoreStr + ')\n';
+      prompt += '- Positions: ' + posStr + quartersStr + goalStr + '\n';
+
+      // Add quarter-by-quarter detail if available
+      if (g.quarterDetails && g.quarterDetails.length > 0) {
+        g.quarterDetails.forEach(function(qd) {
+          var qGoalStr = qd.goals > 0 ? ' - ' + qd.goals + ' goals' : '';
+          prompt += '- ' + qd.quarter + ': ' + qd.position + qGoalStr + '\n';
+        });
+      }
+    });
+    prompt += '\n';
+  }
+
+  // Team Context
+  if (teamContext.teamRecord) {
+    prompt += '### TEAM CONTEXT\n';
+    prompt += 'Team Record: ' + teamContext.teamRecord + '\n';
+    if (teamContext.topScorers && teamContext.topScorers.length > 0) {
+      prompt += 'Team Top Scorers: ' + teamContext.topScorers.join(', ') + '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Instructions
+  prompt += '---\n';
+  prompt += 'Provide a personalized player report in this exact format (be encouraging but specific):\n\n';
+  prompt += '**Season Summary**\n[2-3 sentences summarizing their overall contribution to the team this season - total impact, consistency, and role]\n\n';
+  prompt += '**Round-by-Round Performance**\n[For EACH round they played, provide a 1-sentence insight about their performance that game. Format as:\n- R1 vs [Opponent]: [Brief insight about their contribution, position played, goals if any]\n- R2 vs [Opponent]: [Brief insight]\n...and so on for each game]\n\n';
+  prompt += '**Strengths**\n[2-3 bullet points on what they do well, based on positions played and stats across the season]\n\n';
+  prompt += '**Development Areas**\n[2-3 constructive suggestions for improvement based on their position history and game performances]\n\n';
+  prompt += '**Position Recommendation**\n[Based on their stats and versatility, suggest their best position(s) and any positions worth trying]\n\n';
+  prompt += '**Goals for Next Games**\n[2-3 specific, achievable goals for upcoming games based on their trajectory]';
+
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (player): ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
+}
+
+/**
+ * Generate training focus suggestions from aggregated game notes
+ * @param {Object} data - Training data with notes and stats from the frontend
+ * @returns {string} AI-generated training suggestions in markdown format
+ */
+function getTrainingFocus(data) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
+  var prompt = getNetballKnowledgePreamble();
+
+  prompt += '\n\n# TRAINING FOCUS ANALYSIS\n\n';
+  prompt += 'You are analyzing a junior netball team\'s season to recommend training focus areas based on coach observations and performance data.\n\n';
+
+  prompt += '## TEAM CONTEXT\n';
+  prompt += 'Team: ' + (data.teamName || 'Team') + '\n';
+  prompt += 'Record: ' + data.seasonRecord.wins + 'W-' + data.seasonRecord.losses + 'L-' + data.seasonRecord.draws + 'D';
+  if (data.seasonRecord.gameCount > 0) {
+    prompt += ' (' + data.seasonRecord.winRate + '% win rate from ' + data.seasonRecord.gameCount + ' games)';
+  }
+  prompt += '\n\n';
+
+  // Coach notes from RECENT games (primary focus)
+  prompt += '## RECENT GAMES (Primary Focus)\n';
+  prompt += 'These are the most recent games - prioritize addressing these observations:\n\n';
+  if (data.recentGameNotes && data.recentGameNotes.length > 0) {
+    data.recentGameNotes.forEach(function(game) {
+      prompt += '### Round ' + game.round + ' vs ' + game.opponent + ' (' + game.result + ')\n';
+      game.notes.forEach(function(n) {
+        prompt += '- ' + n.quarter + ': ' + n.text + '\n';
+      });
+      prompt += '\n';
+    });
+  } else {
+    prompt += 'No recent notes recorded.\n\n';
+  }
+
+  // Coach notes from EARLIER games (context for persistent issues)
+  if (data.earlierGameNotes && data.earlierGameNotes.length > 0) {
+    prompt += '## EARLIER SEASON (Context)\n';
+    prompt += 'Notes from earlier in the season - look for persistent patterns that are STILL appearing in recent games:\n\n';
+    data.earlierGameNotes.forEach(function(game) {
+      prompt += '### Round ' + game.round + ' vs ' + game.opponent + ' (' + game.result + ')\n';
+      game.notes.forEach(function(n) {
+        prompt += '- ' + n.quarter + ': ' + n.text + '\n';
+      });
+      prompt += '\n';
+    });
+  }
+
+  // Note patterns from recent games (higher priority)
+  if (data.recentNoteFrequency && Object.keys(data.recentNoteFrequency).length > 0) {
+    prompt += '## RECENT PATTERNS (High Priority)\n';
+    prompt += 'Keywords/names mentioned in recent games:\n';
+    var recentKeywords = Object.keys(data.recentNoteFrequency).sort(function(a, b) {
+      return data.recentNoteFrequency[b] - data.recentNoteFrequency[a];
+    });
+    recentKeywords.forEach(function(keyword) {
+      prompt += '- "' + keyword + '": ' + data.recentNoteFrequency[keyword] + ' times\n';
+    });
+    prompt += '\n';
+  }
+
+  // Note patterns from earlier games (persistent issues)
+  if (data.earlierNoteFrequency && Object.keys(data.earlierNoteFrequency).length > 0) {
+    prompt += '## SEASON-LONG PATTERNS\n';
+    prompt += 'Keywords mentioned earlier in season (flag if still appearing recently):\n';
+    var earlierKeywords = Object.keys(data.earlierNoteFrequency).sort(function(a, b) {
+      return data.earlierNoteFrequency[b] - data.earlierNoteFrequency[a];
+    });
+    earlierKeywords.forEach(function(keyword) {
+      var stillAppearing = data.recentNoteFrequency && data.recentNoteFrequency[keyword];
+      prompt += '- "' + keyword + '": ' + data.earlierNoteFrequency[keyword] + ' times' + (stillAppearing ? ' (STILL APPEARING in recent games)' : '') + '\n';
+    });
+    prompt += '\n';
+  }
+
+  // Statistical context
+  prompt += '## STATISTICAL CONTEXT\n';
+  if (data.weakQuarters && Object.keys(data.weakQuarters).length > 0) {
+    prompt += 'Weak quarters (avg differential below -1):\n';
+    Object.keys(data.weakQuarters).forEach(function(q) {
+      prompt += '- ' + q + ': avg ' + data.weakQuarters[q].avgDiff + ' differential\n';
+    });
+    prompt += '\n';
+  }
+  if (data.form && data.form.length > 0) {
+    prompt += 'Recent form: ' + data.form.join('-') + '\n';
+  }
+  if (data.playerStats && data.playerStats.length > 0) {
+    prompt += '\nTop scorers:\n';
+    data.playerStats.forEach(function(p, i) {
+      prompt += (i + 1) + '. ' + p.name + ': ' + p.goals + ' goals in ' + p.quarters + ' quarters\n';
+    });
+  }
+  prompt += '\n';
+
+  // Training sessions conducted (NEW)
+  if (data.trainingSessions && data.trainingSessions.length > 0) {
+    prompt += '## TRAINING SESSIONS CONDUCTED\n';
+    prompt += 'Recent training sessions and attendance:\n\n';
+    data.trainingSessions.forEach(function(session) {
+      prompt += '### ' + session.date + ' - ' + session.focus + '\n';
+      if (session.attended && session.attended.length > 0) {
+        prompt += '- Attended: ' + session.attended.join(', ') + '\n';
+      }
+      if (session.missed && session.missed.length > 0) {
+        prompt += '- Missed: ' + session.missed.join(', ') + '\n';
+      }
+      if (session.notes) {
+        prompt += '- Coach notes: ' + session.notes + '\n';
+      }
+      prompt += '\n';
+    });
+  }
+
+  // Training effectiveness analysis (issue timeline - NEW)
+  if (data.issueTimeline && data.issueTimeline.length > 0) {
+    prompt += '## TRAINING EFFECTIVENESS ANALYSIS\n';
+    prompt += 'Correlating game notes with training sessions:\n\n';
+    data.issueTimeline.forEach(function(issue) {
+      prompt += '### Issue: "' + issue.issue + '"\n';
+      prompt += '- First noted: ' + issue.firstMentioned;
+      if (issue.playersWithIssue && issue.playersWithIssue.length > 0) {
+        prompt += ' for ' + issue.playersWithIssue.join(', ');
+      }
+      prompt += '\n';
+
+      if (issue.trainingSinceFirst && issue.trainingSinceFirst.length > 0) {
+        prompt += '- Training conducted to address this:\n';
+        issue.trainingSinceFirst.forEach(function(session) {
+          prompt += '  - ' + session.date + ' (' + session.focus + ')';
+          if (session.attended && session.attended.length > 0) {
+            prompt += ' - Attended: ' + session.attended.join(', ');
+          }
+          if (session.missed && session.missed.length > 0) {
+            prompt += ' - MISSED: ' + session.missed.join(', ');
+          }
+          prompt += '\n';
+        });
+      }
+
+      if (issue.stillAppearingFor && issue.stillAppearingFor.length > 0) {
+        prompt += '- STILL APPEARING for: ' + issue.stillAppearingFor.join(', ') + '\n';
+      }
+      prompt += '\n';
+    });
+  }
+
+  // Player training attendance (NEW)
+  if (data.playerTrainingAttendance && Object.keys(data.playerTrainingAttendance).length > 0) {
+    prompt += '## PLAYER TRAINING ATTENDANCE\n';
+    var attendanceEntries = Object.keys(data.playerTrainingAttendance).map(function(name) {
+      var att = data.playerTrainingAttendance[name];
+      return { name: name, rate: att.rate, attended: att.attended, missed: att.missed };
+    });
+    // Sort by attendance rate ascending (lowest first - most concerning)
+    attendanceEntries.sort(function(a, b) { return a.rate - b.rate; });
+    attendanceEntries.forEach(function(entry) {
+      var concern = entry.rate < 75 ? ' (LOW - may be missing key skills work)' : '';
+      prompt += '- ' + entry.name + ': ' + entry.rate + '% attendance (' + entry.attended + '/' + (entry.attended + entry.missed) + ' sessions)' + concern + '\n';
+    });
+    prompt += '\n';
+  }
+
+  // Instructions for response
+  prompt += '---\n\n';
+  prompt += 'Based on the coach\'s notes, training sessions, and statistics, provide training recommendations in this format:\n\n';
+  prompt += '**Team Focus Areas**\n';
+  prompt += '[2-3 team-wide issues identified from RECENT games, with specific drill suggestions appropriate for junior players. Note if any issues are persistent from earlier in the season.]\n\n';
+  prompt += '**Individual Focus Areas**\n';
+  prompt += '[1-2 player-specific development areas if specific players are mentioned in RECENT notes - skip this section if no individual patterns found]\n\n';
+  prompt += '**Training Effectiveness**\n';
+  prompt += '[If training sessions have been conducted: note what\'s working (issues that improved after training), what needs reinforcement (persistent issues despite training), and any players who missed key sessions and may need catch-up work. If no training sessions recorded, skip this section.]\n\n';
+  prompt += '**Priority This Week**\n';
+  prompt += '[Top 2 most impactful things to address at training THIS WEEK, based on the most recent games. If an issue keeps appearing from earlier in the season, flag it as "persistent". If a player missed training on a skill they\'re struggling with, recommend 1:1 catch-up.]\n\n';
+  prompt += 'IMPORTANT: Prioritize issues from RECENT games over older notes. Only mention earlier season patterns if they are STILL appearing in recent games (persistent issues). If training session data is available, correlate attendance with improvement - players who attended relevant training should show improvement, while those who missed may still struggle. Be specific with drill suggestions. Reference the actual notes the coach made. Keep language encouraging and developmentally appropriate for junior players.';
+
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (training): ' + responseCode + ' - ' + responseText);
     try {
       var errJson = JSON.parse(responseText);
       var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;

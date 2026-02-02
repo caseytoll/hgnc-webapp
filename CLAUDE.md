@@ -58,6 +58,19 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch
 cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V -d "Description"
 ```
 
+### Versioning
+
+**IMPORTANT:** Bump the version before each deploy for cache busting.
+
+| Component | Format | Location |
+|-----------|--------|----------|
+| App version | `YYYY-MM-DD{letter}` | `apps/coach-app/vite.config.js` line 8: `REVISION = 'x'` |
+| SW version | `YYYYMMDDHHMM` | Auto-generated from build timestamp |
+
+- Increment `REVISION` letter (a → b → c) for each deploy on the same day
+- Reset to `'a'` on a new day
+- The build injects versions into HTML and service worker automatically
+
 ---
 
 ## Architecture
@@ -123,11 +136,60 @@ When modifying UI in one app, check if the other needs the same change:
 | Game list | `.game-item`, `.game-round`, `.game-info`, `.game-opponent`, `.game-meta`, `.game-score` | Sort by date descending |
 | Player cards | `.player-card`, `.player-avatar`, `.player-info` | Clickable to show stats modal |
 | Stats hero | `.stats-hero`, `.stats-record`, `.stats-metrics` | Purple banner with W-L-D |
-| Stats tabs | Overview, Leaders, Positions, Combos | Same tab structure |
+| Stats tabs | Overview, Leaders, Positions, Combos, Attendance | Same tab structure |
 | Scoring display | `.scoring-accordion`, `.scoring-quarter`, `.position-badge` | Accordion with GS/GA badges |
 | Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
 | Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
 | Team Sheet | `.lineup-card`, `.lineup-card-header`, `.lineup-card-table` | Shareable image with player positions per quarter |
+
+### Coach's App Specifics
+
+- **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner.
+- **Notes quick-insert:** Each quarter's notes section has quick-insert buttons:
+  - Player first names (from quarter lineup, or all team players if no lineup set)
+  - Group buttons: Team, Opp, Goalers, Midcourt, Defence
+  - Timestamp button inserts `[h:mmam/pm]` format
+- **Scoring panel:** Accordion-style quarters with score steppers and notes
+- **Offline support:** Data saved to localStorage first, synced when online
+- **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
+
+### AI Features (Gemini-powered)
+
+The app uses Google's Gemini API for AI-generated insights. API key stored in Apps Script properties.
+
+**AI Insights (Stats → Overview tab):**
+- Analyzes team performance, leaderboards, combinations
+- Generates season summary, strengths, areas to improve, lineup recommendations
+- Cached in `state.currentTeamData.aiInsights`
+
+**Training Sessions (Training tab → Training Sessions section):**
+- Record training sessions with date, focus area, notes, and player attendance
+- Track who attended each session via attendance checklist
+- View session history sorted by date (most recent first)
+- Edit or delete existing sessions
+- Stored in `state.currentTeamData.trainingSessions[]`
+
+**AI Training Focus (Training tab → AI Training Focus section):**
+- Aggregates coach notes from all games to suggest training priorities
+- **Rolling window:** Recent games (last 3 with notes) are primary focus; earlier notes provide context for persistent issues
+- **Training session correlation:** When sessions are recorded, AI analyzes:
+  - Training effectiveness (what's working, what needs reinforcement)
+  - Player attendance rates and patterns
+  - Issue timeline (correlates game note issues with training attendance)
+  - Catch-up recommendations for players who missed relevant sessions
+- **History archive:** Keeps last 5 generated suggestions for comparison over time
+- Stored in `state.currentTeamData.trainingFocusHistory[]` (array, newest first)
+- Each entry: `{ text, generatedAt, gameCount, noteCount, recentGames }`
+
+**Example AI Correlation:**
+> Lily and Chloe were stepping in Round 1. Training on Feb 5 covered footwork drills but Chloe missed it. Round 2: Lily improved, Chloe still stepping.
+> AI output: "Chloe missed the footwork training session and the stepping issue persists. Recommend 1:1 catch-up on landing technique."
+
+**Game AI Summary (Game detail → AI Summary button):**
+- Per-game analysis with player contributions and quarter breakdown
+
+**Player AI Insights (Player stats modal):**
+- Individual player analysis with position versatility and development suggestions
 
 ### Parent Portal Specifics
 
@@ -149,13 +211,24 @@ When modifying UI in one app, check if the other needs the same change:
 {
   teamID, sheetName,
   players: [{ id, name, fillIn, favPosition }],
-  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }]
+  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }],
+  trainingSessions: [{ sessionID, date, attendedPlayerIDs, focus, notes }],  // Optional
+  trainingFocusHistory: [{ text, generatedAt, gameCount, noteCount, recentGames }]  // Optional, max 5
 }
 
 // Lineup (per game, per quarter)
 {
-  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals },
+  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals, notes },
   Q2: { ... }, Q3: { ... }, Q4: { ... }
+}
+
+// Training Session (stored in teamData.trainingSessions)
+{
+  sessionID: "ts-1706900000000",  // Timestamp-based ID
+  date: "2026-02-05",
+  attendedPlayerIDs: ["p1", "p2", "p3"],  // Who came to training
+  focus: "Footwork and landing technique",  // Brief summary
+  notes: "Worked on 3-step landing drill. Most players improving."
 }
 ```
 
@@ -177,6 +250,10 @@ When modifying UI in one app, check if the other needs the same change:
 | `updateTeam` | Update team settings | `teamID`, `settings` (JSON) |
 | `getPlayerLibrary` | Get career tracking data | - |
 | `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
+| `getAIInsights` | AI season analysis | `analytics` (JSON with team stats) |
+| `getGameAIInsights` | AI game summary | `gameData` (JSON with game details) |
+| `getPlayerAIInsights` | AI player analysis | `playerData` (JSON with player stats) |
+| `getTrainingFocus` | AI training suggestions | `trainingData` (JSON with notes, rolling window) |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
 
