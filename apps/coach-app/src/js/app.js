@@ -4287,6 +4287,7 @@ function renderPlannerPositionHistory() {
   const positionStats = players.map(player => {
     const counts = { GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0 };
     let offQuarters = 0;
+    let captainCount = 0;
 
     games.forEach(game => {
       let quartersOnCourt = 0;
@@ -4305,10 +4306,11 @@ function renderPlannerPositionHistory() {
       });
 
       if (playedInGame) offQuarters += (4 - quartersOnCourt);
+      if (game.captain === player.name) captainCount++;
     });
 
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    return { name: player.name, counts, offQuarters, total };
+    return { name: player.name, counts, offQuarters, captainCount, total };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
   if (positionStats.length === 0) {
@@ -4321,6 +4323,7 @@ function renderPlannerPositionHistory() {
       <span class="planner-history-name"></span>
       ${positions.map(pos => `<span class="planner-history-pos">${escapeHtml(pos)}</span>`).join('')}
       <span class="planner-history-pos planner-history-off">Off</span>
+      <span class="planner-history-pos planner-history-capt">C</span>
     </div>
     ${positionStats.map(player => `
       <div class="planner-history-row">
@@ -4330,6 +4333,7 @@ function renderPlannerPositionHistory() {
           return `<span class="planner-history-cell ${c > 0 ? 'has-count' : ''}">${c > 0 ? c : '—'}</span>`;
         }).join('')}
         <span class="planner-history-cell planner-history-off-cell ${player.offQuarters > 0 ? 'has-count' : ''}">${player.offQuarters > 0 ? player.offQuarters : '—'}</span>
+        <span class="planner-history-cell planner-history-capt-cell ${player.captainCount > 0 ? 'has-count' : ''}">${player.captainCount > 0 ? player.captainCount : '—'}</span>
       </div>
     `).join('')}
   `;
