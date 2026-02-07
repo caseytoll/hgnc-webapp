@@ -1703,9 +1703,13 @@ window.fetchAIInsights = async function(forceRefresh = false) {
   container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing team data...</p></div>';
 
   try {
-    const baseUrl = API_CONFIG.baseUrl;
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
 
     // Build rich analytics payload for Gemini
+    if (!state.analytics || !state.analytics.advanced) {
+      throw new Error('No analytics data available. Play some games first!');
+    }
     const { advanced, leaderboards, combinations } = state.analytics;
     // Exclude fill-in players from season-level AI analysis
     const fillInNames = new Set(
@@ -1784,11 +1788,11 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       // Best lineup combinations (excluding units with fill-in players)
       combinations: {
         bestAttackingUnit: (() => {
-          const unit = combinations.attackingUnits.find(u => !u.players.some(name => fillInNames.has(name)));
+          const unit = combinations.attackingUnits.find(u => !Object.values(u.players).some(name => fillInNames.has(name)));
           return unit ? { players: unit.players, quarters: unit.quarters, avgFor: unit.avgFor, plusMinus: unit.plusMinus } : null;
         })(),
         bestDefensiveUnit: (() => {
-          const unit = combinations.defensiveUnits.find(u => !u.players.some(name => fillInNames.has(name)));
+          const unit = combinations.defensiveUnits.find(u => !Object.values(u.players).some(name => fillInNames.has(name)));
           return unit ? { players: unit.players, quarters: unit.quarters, avgAgainst: unit.avgAgainst, plusMinus: unit.plusMinus } : null;
         })()
       }
@@ -1823,10 +1827,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       await syncToGoogleSheets();
 
       // Convert markdown-style formatting to HTML
-      let html = data.insights
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n- /g, '\n• ')
-        .replace(/\n/g, '<br>');
+      let html = formatAIContent(data.insights);
 
       container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
         '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
@@ -1888,7 +1889,8 @@ window.showGameAISummary = async function(forceRefresh = false) {
   }
 
   try {
-    const baseUrl = API_CONFIG.baseUrl;
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
 
     // Build game analysis payload
     const gamePayload = buildGameAnalysisPayload(game);
@@ -3371,7 +3373,8 @@ window.fetchTrainingFocus = async function(forceRefresh = false) {
   }
 
   try {
-    const baseUrl = API_CONFIG.baseUrl;
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
     const trainingData = buildTrainingPayload();
 
     // POST training data to backend
@@ -5046,7 +5049,8 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
   container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing player performance...</p></div>';
 
   try {
-    const baseUrl = API_CONFIG.baseUrl;
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
     const playerStats = calculatePlayerStats(player);
 
     // Build detailed game history with results, scores, and quarter-by-quarter detail
