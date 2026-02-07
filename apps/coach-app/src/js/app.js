@@ -122,7 +122,7 @@ const apiTeamCache = {};
 
 // Cache metadata for TTL tracking
 const teamCacheMetadata = {};
-const TEAM_CACHE_TTL_MS = 0; // Always fetch fresh when online (localStorage is offline fallback only)
+const TEAM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — show cached data instantly, background revalidation handles freshness
 
 // Teams list cache (for landing page)
 let teamsListCache = null;
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
-  loadTeams(true); // Always fetch fresh teams list on app open
+  loadTeams(); // Use cache if valid, fetch fresh otherwise
 });
 
   // ========================================
@@ -709,8 +709,8 @@ async function loadTeams(forceRefresh = false) {
     }
     console.log('[App] Loaded', state.teams.length, 'teams');
 
-    // Also load player library from API
-    await loadPlayerLibraryFromAPI();
+    // Load player library in background (not needed for team list rendering)
+    loadPlayerLibraryFromAPI().catch(err => console.warn('[App] Background player library load failed:', err.message));
 
     renderTeamList();
 
@@ -897,7 +897,11 @@ async function loadTeamData(teamID) {
       const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
 
       // Version check: only fetch if server has newer data or no cache exists
-      if (cachedLastModified && serverLastModified && serverLastModified === cachedLastModified && apiTeamCache[teamID]) {
+      // Also use cache if within TTL and no version info available
+      if (apiTeamCache[teamID] && (
+        (cachedLastModified && serverLastModified && serverLastModified === cachedLastModified) ||
+        (!serverLastModified && isTeamCacheValid(teamID))
+      )) {
         console.log('[Cache] Version match - using cached data (lastModified:', cachedLastModified, ')');
         state.currentTeamData = apiTeamCache[teamID];
       } else {
