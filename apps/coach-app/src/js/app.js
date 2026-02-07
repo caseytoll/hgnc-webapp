@@ -4274,7 +4274,8 @@ function renderPlannerPositionHistory() {
   }
 
   const players = team.players.filter(p => !p.fillIn);
-  const games = team.games.filter(g => g.lineup && g.status === 'normal');
+  const currentGameID = state.currentGame?.gameID;
+  const games = team.games.filter(g => g.lineup && (g.status === 'normal' || g.gameID === currentGameID));
 
   if (games.length === 0) {
     container.innerHTML = '<span class="text-muted">No past games</span>';
