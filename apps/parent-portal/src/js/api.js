@@ -18,7 +18,7 @@ export function transformTeamDataFromSheet(data, teamID) {
       lineup = {};
       const quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
       g.quarters.forEach((q, i) => {
-        if (i < 4) {
+        if (i < 4 && q) {
           const positions = q.positions || {};
           lineup[quarterNames[i]] = {
             GS: positions.GS || '',

@@ -102,6 +102,10 @@ export function validatePlayerName(name) {
     return { valid: false, error: 'Name is too long (max 100 characters)' };
   }
 
+  if (!/[a-zA-Z]/.test(trimmed)) {
+    return { valid: false, error: 'Name must contain at least one letter' };
+  }
+
   return { valid: true };
 }
 

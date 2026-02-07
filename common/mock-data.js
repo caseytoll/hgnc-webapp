@@ -16,8 +16,8 @@ export function calculateTeamStats(team) {
     };
   }
 
-  // Filter to completed games only (status 'normal' or has scores) and exclude future games
-  const games = team.games.filter(g => (g.status === 'normal' || g.scores) && g.status !== 'bye' && g.status !== 'abandoned' && isGameInPast(g));
+  // Filter to completed games only (status 'normal' with scores) and exclude future games
+  const games = team.games.filter(g => g.status === 'normal' && g.scores && isGameInPast(g));
 
   if (games.length === 0) {
     return {
