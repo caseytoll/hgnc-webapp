@@ -43,7 +43,7 @@ npm run test:run         # Run tests once
 
 **Coach's App:**
 ```bash
-git add -A && git commit -m "feat: Description" && git push origin master
+git add -A && git commit -m "feat: Description" && git push origin main
 npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
 ```
 
@@ -110,8 +110,10 @@ webapp-local-dev/
 - Global `state` object in app.js holds current team, game, players
 - All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
 - Always use `escapeHtml()` for user input to prevent XSS
+- Always use `formatAIContent()` for rendering AI-generated text (escapes HTML first, then applies markdown formatting)
 - CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility
 - Shared modules imported from `../../common/` in both apps
+- Name validation (`validatePlayerName`, `validateTeamName`, `validateOpponentName`) requires 2-100 chars with at least one letter
 - No linter configured; code style is vanilla JS with ES modules
 
 ### Keeping Apps Consistent
@@ -127,6 +129,7 @@ When modifying UI in one app, check if the other needs the same change:
 - **Theme toggle:** Uses `data-theme` attribute on `<html>`, not body class. Values: `light` or `dark`
 - **Game status handling:** Check for `game.status === 'abandoned'` before displaying scores
 - **Upcoming games:** Use `isGameInPast()` from utils.js to exclude future games from stats calculations
+- **Stats filter consistency:** Both `calculateTeamStats` (mock-data.js) and `calculateAdvancedStats` (stats-calculations.js) use the same filter: `g.status === 'normal' && g.scores && isGameInPast(g)`
 - **Team Sheet sharing:** Format is "Round X - TeamName vs Opponent" with full first names (no truncation)
 
 **Shared UI Components (must match between apps):**
@@ -151,6 +154,7 @@ When modifying UI in one app, check if the other needs the same change:
   - Timestamp button inserts `[h:mmam/pm]` format
 - **Scoring panel:** Accordion-style quarters with score steppers and notes
 - **Offline support:** Data saved to localStorage first, synced when online
+- **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate (serve cache, refresh in background). Team data uses `lastModified` version check with TTL fallback. Player library loads in background (non-blocking).
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
 
 ### AI Features (Gemini-powered)
@@ -266,7 +270,7 @@ Data syncs to Google Sheets at these points:
 - **Lineup changes** - Saved to localStorage immediately, synced when closing game detail view (batch sync)
 - **Team settings** - Immediately via `updateTeam` API
 
-Data is always saved to localStorage first for offline support, then synced to the backend when online.
+Data is always saved to localStorage first for offline support, then synced to the backend when online. The `closeGameDetail` function guards against parallel syncs via `syncInProgress` flag.
 
 **Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data. This prevents old browser tabs from overwriting newer changes.
 
@@ -277,8 +281,8 @@ Data is always saved to localStorage first for offline support, then synced to t
 ## Ladder Integration
 
 - **Purpose:** Fetch NFNL ladder data when `ladderUrl` is set in Team Settings
-- **Scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes `public/ladder-<teamID>.json`
-- **Automation:** `.github/workflows/daily-ladder.yml` runs scraper daily, commits to master
+- **Scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes `public/ladder-<teamID>.json`. Supports `--api` and `--out` CLI args. Has 15s fetch timeout and exits non-zero if any team fails.
+- **Automation:** `.github/workflows/daily-ladder.yml` runs scraper daily, commits to main
 
 ```bash
 # Local run
