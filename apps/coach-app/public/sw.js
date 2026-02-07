@@ -47,8 +47,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Network-only for API calls
-  if (url.search.includes('api=true') || url.hostname.includes('script.google.com')) {
+  // Network-only for API calls (GET with api=true, all POSTs, or script.google.com)
+  if (event.request.method === 'POST' || url.search.includes('api=true') || url.hostname.includes('script.google.com')) {
     event.respondWith(fetch(event.request));
     return;
   }
