@@ -1695,7 +1695,8 @@ window.fetchAIInsights = async function(forceRefresh = false) {
 
     container.innerHTML = staleWarning + '<div class="ai-insights-content">' + html + '</div>' +
       '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + escapeHtml(cachedDate) + ' (after ' + gameCountAtGen + ' games)</div>' +
-      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)" style="margin-top: 12px;">Refresh Insights</button>';
+      '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
+      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
     return;
   }
 
@@ -1831,7 +1832,8 @@ window.fetchAIInsights = async function(forceRefresh = false) {
 
       container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
         '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
-        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)" style="margin-top: 12px;">Refresh Insights</button>';
+        '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
+        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
 
       showToast('AI insights saved', 'success');
     } else {
@@ -1949,6 +1951,7 @@ function displayGameAISummary(text, generatedDate) {
   `;
   modalFooter.innerHTML = `
     <button class="btn btn-secondary" onclick="showGameAISummary(true)">Regenerate</button>
+    <button class="btn btn-secondary" onclick="shareAIReport('game')">Share</button>
     <button class="btn btn-primary" onclick="closeModal()">Close</button>
   `;
 }
@@ -2682,7 +2685,10 @@ function renderTrainingFocus() {
     <div class="stats-section">
       <div class="stats-section-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>AI Training Focus</span>
-        <button class="btn btn-sm" onclick="fetchTrainingFocus()">+ New</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" onclick="shareAIReport('training')">Share</button>
+          <button class="btn btn-sm" onclick="fetchTrainingFocus()">+ New</button>
+        </div>
       </div>
 
       ${history.length > 1 ? `
@@ -4956,7 +4962,10 @@ window.openPlayerDetail = function(playerID) {
             <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
               Generated: ${escapeHtml(cachedDate)}
             </div>
-            <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)" style="margin-top: 12px;">Regenerate Report</button>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+              <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
+              <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
+            </div>
           ` : `
             <div class="empty-state" style="padding: 20px 0;">
               <p style="margin-bottom: 16px;">Get AI-powered insights on ${escapeHtml(player.name)}'s performance, strengths, and development areas.</p>
@@ -5022,6 +5031,50 @@ function formatAIContent(text) {
     .replace(/\n- /g, '\n• ')
     .replace(/\n/g, '<br>');
 }
+
+// Share AI report text via native share sheet or clipboard
+window.shareAIReport = async function(type) {
+  const teamName = state.currentTeam?.teamName || state.currentTeamData?.teamName || 'Team';
+  let title = '';
+  let text = '';
+
+  switch (type) {
+    case 'season':
+      text = state.currentTeamData?.aiInsights?.text;
+      title = `${teamName} — Season AI Insights`;
+      break;
+    case 'game': {
+      const game = state.currentGame;
+      text = game?.aiSummary?.text;
+      title = `${teamName} — Round ${game?.round || '?'} vs ${game?.opponent || 'Opponent'} AI Summary`;
+      break;
+    }
+    case 'training': {
+      const history = state.currentTeamData?.trainingFocusHistory || [];
+      const idx = state.selectedTrainingHistoryIndex || 0;
+      text = history[idx]?.text;
+      title = `${teamName} — Training Focus`;
+      break;
+    }
+    case 'player':
+      text = state.currentPlayerForAI?.aiSummary?.text;
+      title = `${teamName} — ${state.currentPlayerForAI?.name || 'Player'} AI Report`;
+      break;
+  }
+
+  if (!text) {
+    showToast('No report to share', 'info');
+    return;
+  }
+
+  haptic(50);
+
+  const shareText = `🏐 ${title}\n\n${text}`;
+  const success = await shareData({ title, text: shareText }, showToast);
+  if (success && navigator.share) {
+    showToast('Shared successfully', 'success');
+  }
+};
 
 window.switchPlayerTab = function(tabId) {
   document.querySelectorAll('.player-detail-tab').forEach(btn => {
@@ -5158,7 +5211,10 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
         <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
           Generated: ${escapeHtml(cachedDate)}
         </div>
-        <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)" style="margin-top: 12px;">Regenerate Report</button>
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
+          <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
+        </div>
       `;
 
       showToast('AI report saved', 'success');
