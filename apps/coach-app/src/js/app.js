@@ -4016,6 +4016,15 @@ function renderLineupBuilder() {
       `).join('')}
     </div>
 
+    <!-- Planner View Button -->
+    <button class="planner-open-btn" onclick="openPlannerView()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>
+      Planner View
+    </button>
+
     <!-- Court Layout -->
     <div class="lineup-court">
       <!-- Shooters -->
@@ -4150,6 +4159,228 @@ window.assignPosition = function(position) {
   saveToLocalStorage();
   debouncedSync();
 };
+
+// ========================================
+// LINEUP PLANNER (Desktop 4-Quarter View)
+// ========================================
+
+window.openPlannerView = function() {
+  const game = state.currentGame;
+  if (!game) return;
+
+  const teamName = state.currentTeam?.teamName || '';
+  const subtitle = `Round ${escapeHtml(game.round || '?')} vs ${escapeHtml(game.opponent || '?')}`;
+  document.getElementById('planner-subtitle').innerHTML = subtitle;
+
+  state.selectedPlayer = null;
+  state._plannerActiveQuarter = 'Q1';
+
+  renderPlannerView();
+  showView('planner-view');
+};
+
+window.closePlannerView = function() {
+  state.selectedPlayer = null;
+  renderLineupBuilder();
+  showView('game-detail-view');
+};
+
+function renderPlannerView() {
+  renderPlannerQuarters();
+  renderPlannerBench();
+  renderPlannerPositionHistory();
+}
+
+function renderPlannerQuarters() {
+  const game = state.currentGame;
+  if (!game) return;
+
+  const lineup = game.lineup || {};
+  const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+  const activeQ = state._plannerActiveQuarter;
+
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    const qData = lineup[q] || {};
+    const container = document.getElementById(`planner-court-${q}`);
+    const card = container.closest('.planner-quarter-card');
+
+    // Highlight active quarter
+    card.classList.toggle('planner-quarter-active', q === activeQ);
+
+    // Count filled positions
+    let filledCount = 0;
+    positions.forEach(pos => { if (qData[pos]) filledCount++; });
+    document.getElementById(`planner-fill-${q}`).textContent = `${filledCount}/7`;
+
+    container.innerHTML = positions.map(pos => {
+      const playerName = qData[pos] || '';
+      const filled = playerName.length > 0;
+      const isCaptain = filled && game.captain === playerName;
+      const firstName = filled ? escapeHtml(playerName.split(' ')[0]) : '';
+      const captainBadge = isCaptain ? '<span class="captain-badge">C</span>' : '';
+
+      return `
+        <div class="planner-slot ${filled ? 'filled' : ''}"
+             onclick="plannerPositionClick('${escapeAttr(q)}', '${escapeAttr(pos)}', '${filled ? escapeAttr(playerName) : ''}')">
+          <span class="planner-slot-label">${escapeHtml(pos)}</span>
+          ${filled
+            ? `<span class="planner-slot-player">${firstName}${captainBadge}</span>`
+            : `<span class="planner-slot-empty">—</span>`
+          }
+        </div>
+      `;
+    }).join('');
+  });
+}
+
+function renderPlannerBench() {
+  const game = state.currentGame;
+  if (!game) return;
+
+  const activeQ = state._plannerActiveQuarter;
+  const lineup = game.lineup || {};
+  const qData = lineup[activeQ] || {};
+
+  // Render quarter tabs
+  const tabsContainer = document.getElementById('planner-bench-tabs');
+  tabsContainer.innerHTML = ['Q1', 'Q2', 'Q3', 'Q4'].map(q =>
+    `<button class="planner-bench-tab ${q === activeQ ? 'active' : ''}"
+            onclick="setPlannerActiveQuarter('${escapeAttr(q)}')">${escapeHtml(q)}</button>`
+  ).join('');
+
+  // Get available players for active quarter
+  const availableSet = game.availablePlayerIDs ? new Set(game.availablePlayerIDs) : null;
+  const availablePlayers = state.currentTeamData.players.filter(p =>
+    !availableSet || availableSet.has(p.id)
+  );
+  const assignedNames = new Set(Object.values(qData).filter(v => typeof v === 'string'));
+  const benchPlayers = availablePlayers.filter(p => !assignedNames.has(p.name));
+
+  const listContainer = document.getElementById('planner-bench-list');
+  listContainer.innerHTML = benchPlayers.length > 0
+    ? benchPlayers.map(p => `
+        <div class="planner-bench-player ${state.selectedPlayer === p.name ? 'selected' : ''}"
+             onclick="plannerSelectBenchPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.name)}</div>
+      `).join('')
+    : '<span class="text-muted" style="padding: 8px;">All players assigned</span>';
+}
+
+function renderPlannerPositionHistory() {
+  const team = state.currentTeamData;
+  const container = document.getElementById('planner-history-grid');
+  if (!team || !team.players || !team.games) {
+    container.innerHTML = '<span class="text-muted">No history</span>';
+    return;
+  }
+
+  const players = team.players.filter(p => !p.fillIn);
+  const games = team.games.filter(g => g.lineup && g.status === 'normal');
+
+  if (games.length === 0) {
+    container.innerHTML = '<span class="text-muted">No past games</span>';
+    return;
+  }
+
+  const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+
+  const positionStats = players.map(player => {
+    const counts = { GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0 };
+    let offQuarters = 0;
+
+    games.forEach(game => {
+      let quartersOnCourt = 0;
+      let playedInGame = false;
+
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
+        const qData = game.lineup[quarter];
+        if (!qData) return;
+        positions.forEach(pos => {
+          if (qData[pos] === player.name) {
+            counts[pos]++;
+            quartersOnCourt++;
+            playedInGame = true;
+          }
+        });
+      });
+
+      if (playedInGame) offQuarters += (4 - quartersOnCourt);
+    });
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    return { name: player.name, counts, offQuarters, total };
+  }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
+
+  if (positionStats.length === 0) {
+    container.innerHTML = '<span class="text-muted">No past games</span>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="planner-history-row planner-history-header-row">
+      <span class="planner-history-name"></span>
+      ${positions.map(pos => `<span class="planner-history-pos">${escapeHtml(pos)}</span>`).join('')}
+      <span class="planner-history-pos planner-history-off">Off</span>
+    </div>
+    ${positionStats.map(player => `
+      <div class="planner-history-row">
+        <span class="planner-history-name">${escapeHtml(player.name.split(' ')[0])}</span>
+        ${positions.map(pos => {
+          const c = player.counts[pos];
+          return `<span class="planner-history-cell ${c > 0 ? 'has-count' : ''}">${c > 0 ? c : '—'}</span>`;
+        }).join('')}
+        <span class="planner-history-cell planner-history-off-cell ${player.offQuarters > 0 ? 'has-count' : ''}">${player.offQuarters > 0 ? player.offQuarters : '—'}</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+window.setPlannerActiveQuarter = function(quarter) {
+  state._plannerActiveQuarter = quarter;
+  state.selectedPlayer = null;
+  renderPlannerView();
+};
+
+window.plannerSelectBenchPlayer = function(playerName) {
+  state.selectedPlayer = state.selectedPlayer === playerName ? null : playerName;
+  renderPlannerView();
+};
+
+window.plannerPositionClick = function(quarter, position, playerName) {
+  if (state.selectedPlayer) {
+    // Switch active quarter to match where they're assigning
+    state._plannerActiveQuarter = quarter;
+    plannerAssignPosition(quarter, position);
+  } else if (playerName) {
+    // Toggle captain
+    toggleCaptain(playerName);
+    // Re-render planner (toggleCaptain renders lineup builder which is hidden, harmless)
+    renderPlannerView();
+  }
+};
+
+function plannerAssignPosition(quarter, position) {
+  if (!ensureNotReadOnly('assignPosition')) return;
+  const game = state.currentGame;
+  if (!game) return;
+
+  if (!game.lineup) game.lineup = {};
+  if (!game.lineup[quarter]) game.lineup[quarter] = {};
+
+  // Remove player from any other position in this quarter
+  Object.keys(game.lineup[quarter]).forEach(pos => {
+    if (game.lineup[quarter][pos] === state.selectedPlayer) {
+      game.lineup[quarter][pos] = null;
+    }
+  });
+
+  // Assign to new position
+  game.lineup[quarter][position] = state.selectedPlayer;
+  state.selectedPlayer = null;
+
+  saveToLocalStorage();
+  debouncedSync();
+  renderPlannerView();
+}
 
 // ========================================
 // AVAILABILITY
