@@ -559,6 +559,15 @@ window.openModal = function(title, bodyHtml, footerHtml = '') {
 };
 
 window.closeModal = function() {
+  // If notes modal is open, save before closing
+  if (activeNotesModalQuarter && !window.isReadOnlyView) {
+    const quarter = activeNotesModalQuarter;
+    activeNotesModalQuarter = null;
+    const textarea = document.getElementById(`notes-modal-textarea-${quarter}`);
+    if (textarea) {
+      updateQuarterNotes(quarter, textarea.value);
+    }
+  }
   document.getElementById('modal-backdrop').classList.add('hidden');
 };
 
@@ -3466,21 +3475,40 @@ function renderStatsPositions(container) {
       GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0
     };
     let totalQuarters = 0;
+    let offQuarters = 0;
+    let captainCount = 0;
 
     games.forEach(game => {
       if (!game.lineup) return;
+
+      let playedInGame = false;
+      let quartersOnCourt = 0;
 
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
         const qData = game.lineup[quarter];
         if (!qData) return;
 
+        let playedThisQuarter = false;
         positions.forEach(pos => {
           if (qData[pos] === player.name) {
             positionCounts[pos]++;
             totalQuarters++;
+            playedThisQuarter = true;
+            playedInGame = true;
+            quartersOnCourt++;
           }
         });
       });
+
+      // Count quarters off for games where the player was selected
+      if (playedInGame) {
+        offQuarters += (4 - quartersOnCourt);
+      }
+
+      // Count captain assignments
+      if (game.captain === player.name) {
+        captainCount++;
+      }
     });
 
     return {
@@ -3489,6 +3517,8 @@ function renderStatsPositions(container) {
       favPosition: player.favPosition,
       positionCounts,
       totalQuarters,
+      offQuarters,
+      captainCount,
       positionsPlayed: positions.filter(p => positionCounts[p] > 0).length
     };
   }).sort((a, b) => b.totalQuarters - a.totalQuarters);
@@ -3509,6 +3539,8 @@ function renderStatsPositions(container) {
           ${positions.map(pos => `
             <div class="pos-grid-header pos-grid-pos">${escapeHtml(pos)}</div>
           `).join('')}
+          <div class="pos-grid-header pos-grid-pos pos-grid-off">Off</div>
+          <div class="pos-grid-header pos-grid-pos pos-grid-capt">C</div>
           <div class="pos-grid-header pos-grid-total">Total</div>
 
           <!-- Player Rows -->
@@ -3526,6 +3558,8 @@ function renderStatsPositions(container) {
                   </div>
                 `;
               }).join('')}
+              <div class="pos-grid-cell pos-grid-off-cell ${player.offQuarters > 0 ? 'has-off' : 'unplayed'}">${player.offQuarters > 0 ? player.offQuarters : '—'}</div>
+              <div class="pos-grid-cell pos-grid-capt-cell ${player.captainCount > 0 ? 'has-captain' : 'unplayed'}">${player.captainCount > 0 ? player.captainCount : '—'}</div>
               <div class="pos-grid-total">${player.totalQuarters}</div>
             `;
           }).join('')}
@@ -4181,6 +4215,76 @@ window.toggleAvailability = function(playerID, available) {
 // SCORING
 // ========================================
 
+// Helper to resolve player name from ID or name
+function resolvePlayerName(val) {
+  if (!val) return '';
+  // Try to find by ID in current team
+  const players = state.currentTeamData?.players || [];
+  const found = players.find(p => p.id === val);
+  if (found) return found.name;
+  // If not found by ID, assume it's already a name
+  return val;
+}
+
+// Generate player name chips for notes quick-insert
+function getPlayerChipsHtml(quarter, textareaId) {
+  const lineup = state.currentGame?.lineup || {};
+  const qData = lineup[quarter] || {};
+  const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
+
+  // Get players assigned to positions in this quarter
+  let players = positions
+    .map(pos => resolvePlayerName(qData[pos]))
+    .filter(name => name && name.trim());
+
+  // If no lineup set, show all team players (non fill-ins)
+  if (players.length === 0) {
+    players = (state.currentTeamData?.players || [])
+      .filter(p => !p.fillIn)
+      .map(p => p.name);
+  }
+
+  // Get unique first names
+  const uniqueNames = [...new Set(players)];
+
+  // Generate player chips
+  const playerChips = uniqueNames.map(name => {
+    const firstName = name.split(' ')[0];
+    return `<button type="button" class="player-chip" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(firstName)}')" title="${escapeAttr(name)}">${escapeHtml(firstName)}</button>`;
+  }).join('');
+
+  // Add group buttons (Team, Opp, Goalers, Midcourt, Defence)
+  const groupChips = `
+    <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Team')" title="Insert 'Team'">Team</button>
+    <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Opp')" title="Insert 'Opp'">Opp</button>
+    <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Goalers')" title="Insert 'Goalers'">Goalers</button>
+    <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Midcourt')" title="Insert 'Midcourt'">Midcourt</button>
+    <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Defence')" title="Insert 'Defence'">Defence</button>
+  `;
+
+  // Position chips
+  const positionChips = positions.map(pos =>
+    `<button type="button" class="player-chip player-chip-position" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(pos)}')" title="Insert '${escapeAttr(pos)}'">${escapeHtml(pos)}</button>`
+  ).join('');
+
+  // Common infraction chips
+  const infractionChips = ['Stepping', 'Contact', 'Offside'].map(word =>
+    `<button type="button" class="player-chip player-chip-infraction" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+  ).join('');
+
+  // Positive play chips
+  const positiveChips = ['Great shot', 'Good defence', 'Intercept'].map(word =>
+    `<button type="button" class="player-chip player-chip-positive" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+  ).join('');
+
+  // Game flow chips
+  const flowChips = ['Turnover', 'Loose ball', 'Sub'].map(word =>
+    `<button type="button" class="player-chip player-chip-flow" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+  ).join('');
+
+  return playerChips + groupChips + positionChips + infractionChips + positiveChips + flowChips;
+}
+
 function renderScoringInputs() {
   const game = state.currentGame;
   const container = document.getElementById('scoring-inputs');
@@ -4188,17 +4292,6 @@ function renderScoringInputs() {
   if (!game) return;
 
   const lineup = game.lineup || {};
-
-  // Helper to resolve player name from ID or name
-  function resolvePlayerName(val) {
-    if (!val) return '';
-    // Try to find by ID in current team
-    const players = state.currentTeamData?.players || [];
-    const found = players.find(p => p.id === val);
-    if (found) return found.name;
-    // If not found by ID, assume it's already a name
-    return val;
-  }
 
   const createPlayerScoreRow = (quarter, field, value, position, playerVal) => {
     const playerName = resolvePlayerName(playerVal);
@@ -4231,44 +4324,6 @@ function renderScoringInputs() {
       </div>
     </div>
   `;
-
-  // Generate player name chips for notes quick-insert
-  const getPlayerChipsHtml = (quarter, textareaId) => {
-    const qData = lineup[quarter] || {};
-    const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-
-    // Get players assigned to positions in this quarter
-    let players = positions
-      .map(pos => resolvePlayerName(qData[pos]))
-      .filter(name => name && name.trim());
-
-    // If no lineup set, show all team players (non fill-ins)
-    if (players.length === 0) {
-      players = (state.currentTeamData?.players || [])
-        .filter(p => !p.fillIn)
-        .map(p => p.name);
-    }
-
-    // Get unique first names
-    const uniqueNames = [...new Set(players)];
-
-    // Generate player chips
-    const playerChips = uniqueNames.map(name => {
-      const firstName = name.split(' ')[0];
-      return `<button type="button" class="player-chip" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(firstName)}')" title="${escapeAttr(name)}">${escapeHtml(firstName)}</button>`;
-    }).join('');
-
-    // Add group buttons (Team, Opp, Goalers, Midcourt, Defence)
-    const groupChips = `
-      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Team')" title="Insert 'Team'">Team</button>
-      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Opp')" title="Insert 'Opp'">Opp</button>
-      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Goalers')" title="Insert 'Goalers'">Goalers</button>
-      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Midcourt')" title="Insert 'Midcourt'">Midcourt</button>
-      <button type="button" class="player-chip player-chip-group" onclick="insertPlayerName('${escapeAttr(textareaId)}', 'Defence')" title="Insert 'Defence'">Defence</button>
-    `;
-
-    return playerChips + groupChips;
-  };
 
   const calcQuarterTotal = (qData) => {
     const us = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
@@ -4317,20 +4372,15 @@ function renderScoringInputs() {
             ${createOpponentScoreRow(q, 'oppGsGoals', qData.oppGsGoals || 0, 'GS Goals')}
             ${createOpponentScoreRow(q, 'oppGaGoals', qData.oppGaGoals || 0, 'GA Goals')}
           </div>
-          <div class="scoring-notes">
-            <div class="notes-header">
-              <label>Notes</label>
-              ${!window.isReadOnlyView ? `<div class="notes-quick-buttons">
-                <button type="button" class="timestamp-btn" onclick="insertTimestamp('notes-${escapeAttr(q)}')" title="Insert timestamp">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
-                  </svg>
-                </button>
-                <div class="player-chips">${getPlayerChipsHtml(q, 'notes-' + q)}</div>
-              </div>` : ''}
-            </div>
-            <textarea placeholder="Quarter notes..." id="notes-${escapeAttr(q)}" ${window.isReadOnlyView ? 'disabled' : ''} onchange="updateQuarterNotes('${escapeAttr(q)}', this.value)">${escapeHtml(qData.notes || '')}</textarea>
+          <div class="notes-preview${(qData.notes || '').trim() ? ' has-notes' : ''}" id="notes-preview-${escapeAttr(q)}" onclick="openNotesModal('${escapeAttr(q)}')">
+            <svg class="notes-preview-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span class="notes-preview-text" id="notes-preview-text-${escapeAttr(q)}">${(qData.notes || '').trim() ? escapeHtml((qData.notes || '').trim().substring(0, 80) + ((qData.notes || '').trim().length > 80 ? '...' : '')) : (window.isReadOnlyView ? 'No notes' : 'Tap to add notes...')}</span>
+            <svg class="notes-preview-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
           </div>
         </div>
       `;
@@ -4549,7 +4599,100 @@ window.updateQuarterNotes = function(quarter, value) {
 
   // Update notes panel if it's currently visible
   renderGameNotes();
+
+  // Update scoring preview row
+  updateNotesPreview(quarter);
 };
+
+// Track which quarter's notes modal is currently open
+let activeNotesModalQuarter = null;
+
+window.openNotesModal = function(quarter) {
+  activeNotesModalQuarter = quarter;
+  const game = state.currentGame;
+  if (!game) return;
+
+  const qData = (game.lineup || {})[quarter] || {};
+  const textareaId = `notes-modal-textarea-${quarter}`;
+  const isReadOnly = window.isReadOnlyView;
+
+  const chipsHtml = !isReadOnly ? `
+    <div class="notes-modal-chips">
+      <div class="notes-quick-buttons">
+        <button type="button" class="timestamp-btn" onclick="insertTimestamp('${escapeAttr(textareaId)}')" title="Insert timestamp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </button>
+        <div class="player-chips">${getPlayerChipsHtml(quarter, textareaId)}</div>
+      </div>
+    </div>
+  ` : '';
+
+  const bodyHtml = `
+    ${chipsHtml}
+    <textarea class="notes-modal-textarea" id="${escapeAttr(textareaId)}" placeholder="Quarter notes..." ${isReadOnly ? 'disabled' : ''} onchange="updateQuarterNotes('${escapeAttr(quarter)}', this.value)">${escapeHtml(qData.notes || '')}</textarea>
+  `;
+
+  const footerHtml = `
+    <button class="btn btn-primary btn-block" onclick="saveAndCloseNotesModal('${escapeAttr(quarter)}')">${isReadOnly ? 'Close' : 'Done'}</button>
+  `;
+
+  openModal(`${quarter} Notes`, bodyHtml, footerHtml);
+
+  // Auto-focus textarea after modal animation
+  if (!isReadOnly) {
+    setTimeout(() => {
+      const textarea = document.getElementById(textareaId);
+      if (textarea) {
+        textarea.focus();
+        textarea.selectionStart = textarea.value.length;
+        textarea.selectionEnd = textarea.value.length;
+      }
+    }, 100);
+  }
+};
+
+window.saveAndCloseNotesModal = function(quarter) {
+  const savedQuarter = activeNotesModalQuarter;
+  activeNotesModalQuarter = null; // Clear first to prevent double-save in closeModal
+
+  if (savedQuarter && !window.isReadOnlyView) {
+    const textarea = document.getElementById(`notes-modal-textarea-${savedQuarter}`);
+    if (textarea) {
+      updateQuarterNotes(savedQuarter, textarea.value);
+    }
+  }
+
+  closeModal();
+};
+
+function updateNotesPreview(quarter) {
+  const game = state.currentGame;
+  if (!game) return;
+
+  const qData = (game.lineup || {})[quarter] || {};
+  const notes = (qData.notes || '').trim();
+  const previewEl = document.getElementById(`notes-preview-${quarter}`);
+  const textEl = document.getElementById(`notes-preview-text-${quarter}`);
+
+  if (previewEl) {
+    if (notes) {
+      previewEl.classList.add('has-notes');
+    } else {
+      previewEl.classList.remove('has-notes');
+    }
+  }
+
+  if (textEl) {
+    if (notes) {
+      textEl.textContent = notes.substring(0, 80) + (notes.length > 80 ? '...' : '');
+    } else {
+      textEl.textContent = window.isReadOnlyView ? 'No notes' : 'Tap to add notes...';
+    }
+  }
+}
 
 function renderGameNotes() {
   const game = state.currentGame;
@@ -4911,12 +5054,20 @@ window.openPlayerDetail = function(playerID) {
           <span class="player-stat-label">Quarters</span>
         </div>
         <div class="player-stat-card">
+          <span class="player-stat-value">${playerStats.offQuarters}</span>
+          <span class="player-stat-label">Off</span>
+        </div>
+        <div class="player-stat-card">
           <span class="player-stat-value">${playerStats.totalGoals}</span>
           <span class="player-stat-label">Goals</span>
         </div>
         <div class="player-stat-card">
           <span class="player-stat-value">${playerStats.avgGoalsPerGame}</span>
           <span class="player-stat-label">Avg/Game</span>
+        </div>
+        <div class="player-stat-card">
+          <span class="player-stat-value">${playerStats.captainCount}</span>
+          <span class="player-stat-label">Captain</span>
         </div>
       </div>
 
@@ -5238,6 +5389,8 @@ function calculatePlayerStats(player) {
   let totalGoals = 0;
   let quartersPlayed = 0;
   let gamesPlayed = 0;
+  let offQuarters = 0;
+  let captainCount = 0;
   const recentGames = [];
 
   games.forEach(game => {
@@ -5245,6 +5398,7 @@ function calculatePlayerStats(player) {
 
     let playedInGame = false;
     let gameGoals = 0;
+    let quartersOnCourt = 0;
     const gamePositions = [];
 
     ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
@@ -5255,6 +5409,7 @@ function calculatePlayerStats(player) {
         if (qData[pos] === player.name) {
           playedInGame = true;
           quartersPlayed++;
+          quartersOnCourt++;
           positions[pos] = (positions[pos] || 0) + 1;
 
           if (!gamePositions.includes(pos)) {
@@ -5276,12 +5431,17 @@ function calculatePlayerStats(player) {
 
     if (playedInGame) {
       gamesPlayed++;
+      offQuarters += (4 - quartersOnCourt);
       recentGames.push({
         round: game.round,
         opponent: game.opponent,
         positions: gamePositions,
         goals: gameGoals
       });
+    }
+
+    if (game.captain === player.name) {
+      captainCount++;
     }
   });
 
@@ -5297,6 +5457,8 @@ function calculatePlayerStats(player) {
   return {
     gamesPlayed,
     quartersPlayed,
+    offQuarters,
+    captainCount,
     totalGoals,
     avgGoalsPerGame: gamesPlayed > 0 ? (totalGoals / gamesPlayed).toFixed(1) : '0.0',
     positionBreakdown,

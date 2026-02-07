@@ -472,6 +472,8 @@ function calculatePlayerStats(player) {
   let totalGoals = 0;
   let quartersPlayed = 0;
   let gamesPlayed = 0;
+  let offQuarters = 0;
+  let captainCount = 0;
   const recentGames = [];
 
   games.forEach(game => {
@@ -479,6 +481,7 @@ function calculatePlayerStats(player) {
 
     let playedInGame = false;
     let gameGoals = 0;
+    let quartersOnCourt = 0;
     const gamePositions = [];
 
     ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
@@ -489,6 +492,7 @@ function calculatePlayerStats(player) {
         if (qData[pos] === player.name) {
           playedInGame = true;
           quartersPlayed++;
+          quartersOnCourt++;
           positions[pos] = (positions[pos] || 0) + 1;
 
           if (!gamePositions.includes(pos)) {
@@ -510,12 +514,17 @@ function calculatePlayerStats(player) {
 
     if (playedInGame) {
       gamesPlayed++;
+      offQuarters += (4 - quartersOnCourt);
       recentGames.push({
         round: game.round,
         opponent: game.opponent,
         positions: gamePositions,
         goals: gameGoals
       });
+    }
+
+    if (game.captain === player.name) {
+      captainCount++;
     }
   });
 
@@ -531,6 +540,8 @@ function calculatePlayerStats(player) {
   return {
     gamesPlayed,
     quartersPlayed,
+    offQuarters,
+    captainCount,
     totalGoals,
     avgGoalsPerGame: gamesPlayed > 0 ? (totalGoals / gamesPlayed).toFixed(1) : '0.0',
     positionBreakdown,
@@ -555,12 +566,20 @@ window.openPlayerDetail = function(playerID) {
         <span class="player-stat-label">Quarters</span>
       </div>
       <div class="player-stat-card">
+        <span class="player-stat-value">${playerStats.offQuarters}</span>
+        <span class="player-stat-label">Off</span>
+      </div>
+      <div class="player-stat-card">
         <span class="player-stat-value">${playerStats.totalGoals}</span>
         <span class="player-stat-label">Goals</span>
       </div>
       <div class="player-stat-card">
         <span class="player-stat-value">${playerStats.avgGoalsPerGame}</span>
         <span class="player-stat-label">Avg/Game</span>
+      </div>
+      <div class="player-stat-card">
+        <span class="player-stat-value">${playerStats.captainCount}</span>
+        <span class="player-stat-label">Captain</span>
       </div>
     </div>
 
@@ -1440,9 +1459,14 @@ function renderStatsPositions(container) {
       GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0
     };
     let totalQuarters = 0;
+    let offQuarters = 0;
+    let captainCount = 0;
 
     games.forEach(game => {
       if (!game.lineup) return;
+
+      let playedInGame = false;
+      let quartersOnCourt = 0;
 
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
         const qData = game.lineup[quarter];
@@ -1452,9 +1476,19 @@ function renderStatsPositions(container) {
           if (qData[pos] === player.name) {
             positionCounts[pos]++;
             totalQuarters++;
+            playedInGame = true;
+            quartersOnCourt++;
           }
         });
       });
+
+      if (playedInGame) {
+        offQuarters += (4 - quartersOnCourt);
+      }
+
+      if (game.captain === player.name) {
+        captainCount++;
+      }
     });
 
     return {
@@ -1463,6 +1497,8 @@ function renderStatsPositions(container) {
       favPosition: player.favPosition,
       positionCounts,
       totalQuarters,
+      offQuarters,
+      captainCount,
       positionsPlayed: positions.filter(p => positionCounts[p] > 0).length
     };
   }).sort((a, b) => b.totalQuarters - a.totalQuarters);
@@ -1483,6 +1519,8 @@ function renderStatsPositions(container) {
           ${positions.map(pos => `
             <div class="pos-grid-header pos-grid-pos">${escapeHtml(pos)}</div>
           `).join('')}
+          <div class="pos-grid-header pos-grid-pos pos-grid-off">Off</div>
+          <div class="pos-grid-header pos-grid-pos pos-grid-capt">C</div>
           <div class="pos-grid-header pos-grid-total">Total</div>
 
           <!-- Player Rows -->
@@ -1500,6 +1538,8 @@ function renderStatsPositions(container) {
                   </div>
                 `;
               }).join('')}
+              <div class="pos-grid-cell pos-grid-off-cell ${player.offQuarters > 0 ? 'has-off' : 'unplayed'}">${player.offQuarters > 0 ? player.offQuarters : '—'}</div>
+              <div class="pos-grid-cell pos-grid-capt-cell ${player.captainCount > 0 ? 'has-captain' : 'unplayed'}">${player.captainCount > 0 ? player.captainCount : '—'}</div>
               <div class="pos-grid-total">${player.totalQuarters}</div>
             `;
           }).join('')}
