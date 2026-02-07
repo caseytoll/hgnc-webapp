@@ -1683,10 +1683,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     const currentGameCount = state.analytics?.advanced?.gameCount || 0;
 
     // Show cached insights with option to refresh if games have been added
-    let html = state.currentTeamData.aiInsights.text
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n- /g, '\n• ')
-      .replace(/\n/g, '<br>');
+    let html = formatAIContent(state.currentTeamData.aiInsights.text);
 
     const staleWarning = currentGameCount > gameCountAtGen
       ? `<div class="ai-stale-warning" style="background: var(--warning-bg); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New games played since last analysis. Consider refreshing.</div>`
@@ -1706,11 +1703,14 @@ window.fetchAIInsights = async function(forceRefresh = false) {
 
     // Build rich analytics payload for Gemini
     const { advanced, leaderboards, combinations } = state.analytics;
+    // Exclude fill-in players from season-level AI analysis
+    const fillInNames = new Set(
+      state.currentTeamData.players.filter(p => p.fillIn).map(p => p.name)
+    );
     const analyticsPayload = {
       teamName: state.currentTeam.teamName,
-      players: state.currentTeamData.players.map(p => ({
+      players: state.currentTeamData.players.filter(p => !p.fillIn).map(p => ({
         name: p.name,
-        fillIn: p.fillIn || false,
         favPosition: p.favPosition || null
       })),
       // Team performance summary
@@ -1745,52 +1745,48 @@ window.fetchAIInsights = async function(forceRefresh = false) {
         result: g.result,
         diff: g.diff
       })),
-      // Top performers (limit to top 5 each)
+      // Top performers (limit to top 5 each, excluding fill-in players)
       leaderboards: {
-        topScorers: leaderboards.offensive.topScorersByTotal.slice(0, 5).map(s => ({
+        topScorers: leaderboards.offensive.topScorersByTotal.filter(s => !fillInNames.has(s.name)).slice(0, 5).map(s => ({
           name: s.name,
           goals: s.goals,
           quarters: s.quarters,
           avg: s.avg
         })),
-        topScorersByEfficiency: leaderboards.offensive.topScorersByEfficiency.slice(0, 3).map(s => ({
+        topScorersByEfficiency: leaderboards.offensive.topScorersByEfficiency.filter(s => !fillInNames.has(s.name)).slice(0, 3).map(s => ({
           name: s.name,
           avg: s.avg,
           quarters: s.quarters
         })),
-        topScoringPairs: leaderboards.offensive.topScoringPairsByTotal.slice(0, 3).map(p => ({
+        topScoringPairs: leaderboards.offensive.topScoringPairsByTotal.filter(p => !p.players.some(name => fillInNames.has(name))).slice(0, 3).map(p => ({
           players: p.players.join(' & '),
           goals: p.goals,
           quarters: p.quarters,
           avg: p.avg
         })),
-        topDefenders: leaderboards.defensive.topDefendersByEfficiency.slice(0, 3).map(d => ({
+        topDefenders: leaderboards.defensive.topDefendersByEfficiency.filter(d => !fillInNames.has(d.name)).slice(0, 3).map(d => ({
           name: d.name,
           goalsAgainst: d.goalsAgainst,
           quarters: d.quarters,
           avg: d.avg
         })),
-        topDefensivePairs: leaderboards.defensive.topDefensivePairsByEfficiency.slice(0, 3).map(p => ({
+        topDefensivePairs: leaderboards.defensive.topDefensivePairsByEfficiency.filter(p => !p.players.some(name => fillInNames.has(name))).slice(0, 3).map(p => ({
           players: p.players.join(' & '),
           goalsAgainst: p.goalsAgainst,
           quarters: p.quarters,
           avg: p.avg
         }))
       },
-      // Best lineup combinations
+      // Best lineup combinations (excluding units with fill-in players)
       combinations: {
-        bestAttackingUnit: combinations.attackingUnits[0] ? {
-          players: combinations.attackingUnits[0].players,
-          quarters: combinations.attackingUnits[0].quarters,
-          avgFor: combinations.attackingUnits[0].avgFor,
-          plusMinus: combinations.attackingUnits[0].plusMinus
-        } : null,
-        bestDefensiveUnit: combinations.defensiveUnits[0] ? {
-          players: combinations.defensiveUnits[0].players,
-          quarters: combinations.defensiveUnits[0].quarters,
-          avgAgainst: combinations.defensiveUnits[0].avgAgainst,
-          plusMinus: combinations.defensiveUnits[0].plusMinus
-        } : null
+        bestAttackingUnit: (() => {
+          const unit = combinations.attackingUnits.find(u => !u.players.some(name => fillInNames.has(name)));
+          return unit ? { players: unit.players, quarters: unit.quarters, avgFor: unit.avgFor, plusMinus: unit.plusMinus } : null;
+        })(),
+        bestDefensiveUnit: (() => {
+          const unit = combinations.defensiveUnits.find(u => !u.players.some(name => fillInNames.has(name)));
+          return unit ? { players: unit.players, quarters: unit.quarters, avgAgainst: unit.avgAgainst, plusMinus: unit.plusMinus } : null;
+        })()
       }
     };
 
@@ -1937,10 +1933,7 @@ function displayGameAISummary(text, generatedDate) {
   const modalFooter = document.getElementById('modal-footer');
 
   // Convert markdown to HTML
-  let html = text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n- /g, '\n• ')
-    .replace(/\n/g, '<br>');
+  let html = formatAIContent(text);
 
   modalBody.innerHTML = `
     <div class="ai-insights-content">${html}</div>
@@ -2670,10 +2663,7 @@ function renderTrainingFocus() {
     ? `<div class="ai-stale-warning" style="background: var(--warning-bg, rgba(245, 158, 11, 0.1)); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New notes added since last analysis. Generate new suggestions to include them.</div>`
     : '';
 
-  let html = selected.text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n- /g, '\n• ')
-    .replace(/\n/g, '<br>');
+  let html = formatAIContent(selected.text);
 
   // Build history tabs
   const historyTabs = history.map((entry, idx) => {
@@ -3627,8 +3617,8 @@ window.closeGameDetail = async function() {
   // Cancel any pending debounced sync
   clearTimeout(syncDebounceTimer);
 
-  // Sync changes before leaving game detail view
-  if (state.currentTeamData && hasPendingChanges) {
+  // Sync changes before leaving game detail view (skip if sync already in progress)
+  if (state.currentTeamData && hasPendingChanges && !syncInProgress) {
     try {
       updateSyncIndicator('syncing');
       await syncToGoogleSheets();
@@ -4601,12 +4591,8 @@ window.finalizeGame = async function() {
 
   game.scores = { us: ourTotal, opponent: theirTotal };
 
-  // Auto-set status to 'normal' if game is in the past and has scores
-  const today = new Date();
-  const gameDate = game.date ? new Date(game.date) : null;
-  if (gameDate && gameDate < today && (!game.status || game.status !== 'normal')) {
-    game.status = 'normal';
-  }
+  // Always set status to 'normal' when finalizing - the user is explicitly marking the game as complete
+  game.status = 'normal';
 
   renderGameScoreCard();
 
@@ -4874,6 +4860,7 @@ async function updateTeamSettings(teamID, settings) {
 // ========================================
 
 window.openPlayerDetail = function(playerID) {
+  if (!state.currentTeamData) return;
   const player = state.currentTeamData.players.find(p => p.id === playerID);
   if (!player) return;
 
@@ -5023,7 +5010,7 @@ window.openPlayerDetail = function(playerID) {
 
 // Helper to format AI content (markdown to HTML)
 function formatAIContent(text) {
-  return text
+  return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n- /g, '\n• ')
     .replace(/\n/g, '<br>');

@@ -150,6 +150,17 @@ describe('validatePlayerName', () => {
     expect(validatePlayerName('AB')).toEqual({ valid: true });
     expect(validatePlayerName('A'.repeat(100))).toEqual({ valid: true });
   });
+
+  it('should reject names with no letters', () => {
+    expect(validatePlayerName('!@#$%')).toEqual({
+      valid: false,
+      error: 'Name must contain at least one letter'
+    });
+    expect(validatePlayerName('123')).toEqual({
+      valid: false,
+      error: 'Name must contain at least one letter'
+    });
+  });
 });
 
 describe('validateTeamName', () => {
