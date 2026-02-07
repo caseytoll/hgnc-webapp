@@ -4323,7 +4323,7 @@ function renderPlannerPositionHistory() {
       <span class="planner-history-name"></span>
       ${positions.map(pos => `<span class="planner-history-pos">${escapeHtml(pos)}</span>`).join('')}
       <span class="planner-history-pos planner-history-off">Off</span>
-      <span class="planner-history-pos planner-history-capt">C</span>
+      <span class="planner-history-pos planner-history-capt">Cpt</span>
     </div>
     ${positionStats.map(player => `
       <div class="planner-history-row">

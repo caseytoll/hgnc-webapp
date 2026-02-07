@@ -5222,7 +5222,7 @@ body.read-only .availability-checkbox {
 
 #planner-view .planner-history-row {
   display: grid;
-  grid-template-columns: 70px repeat(7, 30px) 30px 24px;
+  grid-template-columns: 70px repeat(7, 30px) 30px 28px;
   align-items: center;
   gap: 2px;
   padding: 3px 0;
@@ -5361,7 +5361,7 @@ body.read-only .availability-checkbox {
   }
 
   #planner-view .planner-history-row {
-    grid-template-columns: 60px repeat(7, 26px) 26px 22px;
+    grid-template-columns: 60px repeat(7, 26px) 26px 26px;
   }
 }
 
