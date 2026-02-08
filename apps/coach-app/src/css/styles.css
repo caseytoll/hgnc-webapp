@@ -15,6 +15,7 @@
   --primary-700: #7c3aed;
   --primary-800: #6b21a8;
   --primary-900: #581c87;
+  --primary: #7c3aed; /* Alias for --primary-700, used by coach sections & AI spinners */
 
   /* Neutrals */
   --gray-50: #fafafa;
@@ -346,16 +347,6 @@ h4 { font-size: 1rem; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.team-card-meta {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.team-card-arrow {
-  color: var(--text-muted);
-  font-size: 1.25rem;
 }
 
 /* Archived teams section */
