@@ -1567,6 +1567,9 @@ function renderSchedule() {
     if (game.status === 'abandoned') {
       scoreDisplay = `<div class="game-score-label">Abandoned</div>`;
       resultClass = 'abandoned';
+    } else if (game.status === 'bye') {
+      scoreDisplay = `<div class="game-score-label">Bye</div>`;
+      resultClass = 'bye';
     } else if (game.scores) {
       const { us, opponent } = game.scores;
       if (us > opponent) resultClass = 'win';
@@ -3235,7 +3238,7 @@ function countTotalNotes() {
 
 // Calculate game result (W/L/D) from game data
 function calculateGameResult(game) {
-  if (!game.lineup || game.status === 'abandoned') return '-';
+  if (!game.lineup || game.status === 'abandoned' || game.status === 'bye') return '-';
 
   let us = 0, them = 0;
   ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
@@ -6758,6 +6761,7 @@ window.openGameSettings = function() {
         <option value="normal" ${game.status === 'normal' ? 'selected' : ''}>Normal</option>
         <option value="abandoned" ${game.status === 'abandoned' ? 'selected' : ''}>Abandoned</option>
         <option value="forfeit" ${game.status === 'forfeit' ? 'selected' : ''}>Forfeit</option>
+        <option value="bye" ${game.status === 'bye' ? 'selected' : ''}>Bye</option>
       </select>
     </div>
   `, `

@@ -1107,6 +1107,12 @@ h4 { font-size: 1rem; }
   color: white;
 }
 
+.game-item.bye .game-round,
+.game-item.abandoned .game-round {
+  background: var(--gray-400);
+  color: white;
+}
+
 .game-info {
   flex: 1;
   min-width: 0;
