@@ -145,6 +145,26 @@ When modifying UI in one app, check if the other needs the same change:
 | Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
 | Team Sheet | `.lineup-card`, `.lineup-card-header`, `.lineup-card-table` | Shareable image with player positions per quarter |
 
+### Team Access Control (PIN System)
+
+- **Per-team PINs:** Each team can optionally have a 4-digit PIN set in Team Settings
+- **Device handshake:** When a device enters the correct PIN, the backend returns a `pinToken` (16-char hex). The device stores this in `state.teamPinTokens` (persisted to localStorage) and includes it in subsequent write requests
+- **Auth gates writes only:** `saveTeamData` and `updateTeam` check pinToken. Reads (`getTeams`, `getTeamData`) are open so the Parent Portal works without auth
+- **Master PIN:** Stored in Apps Script Properties (`MASTER_PIN`). Accepts any team's PIN prompt, useful for admin access
+- **Log Out All Devices:** Regenerates the pinToken on the server, invalidating all stored tokens except the caller's
+- **PIN storage:** Teams sheet columns L (PIN) and M (PinToken) — not in team data JSON
+- **Team list:** Shows lock icon on PIN-protected teams; unlocked icon if device has a valid token
+
+### Coach Grouping
+
+- **Coach field:** Each team has an optional `coach` text field (Teams sheet column N)
+- **Coach dropdown:** In Team Settings and Create Team, populated from existing coach names across all teams plus an "Other..." free-text option
+- **Grouped team list:** Teams are grouped into sections:
+  1. **My Teams** (always expanded) — teams the device has a pinToken for
+  2. **Per-coach sections** (collapsed by default) — remaining teams grouped by coach name
+  3. **Other Teams** (collapsed) — teams with no coach assigned
+- **Collapse state:** Tracked in `state.collapsedCoachSections`, resets each session (not persisted)
+
 ### Coach's App Specifics
 
 - **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner.
@@ -209,7 +229,7 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 
 ```javascript
 // Team (from getTeams API)
-{ teamID, teamName, year, season, sheetName, archived, ladderUrl }
+{ teamID, teamName, year, season, sheetName, archived, ladderUrl, hasPin, coach }
 
 // Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
 {
@@ -250,8 +270,11 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 | `getTeams` | List all teams | - |
 | `getTeamData` | Get team details | `teamID`, `sheetName` |
 | `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
-| `createTeam` | Create new team | `year`, `season`, `name` |
+| `createTeam` | Create new team | `year`, `season`, `name`, `coach` (optional) |
 | `updateTeam` | Update team settings | `teamID`, `settings` (JSON) |
+| `validateTeamPIN` | Check team PIN | `teamID`, `pin` |
+| `setTeamPIN` | Set/change/remove PIN | `teamID`, `pin`, `pinToken` |
+| `revokeTeamAccess` | Invalidate all device tokens | `teamID`, `pinToken` |
 | `getPlayerLibrary` | Get career tracking data | - |
 | `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
 | `getAIInsights` | AI season analysis | `analytics` (JSON with team stats) |
@@ -274,7 +297,11 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 **Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data. This prevents old browser tabs from overwriting newer changes.
 
+**PIN Auth on Writes:** `saveTeamData` (POST) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
+
 **Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
+
+**Teams sheet columns:** A=TeamID, B=TeamName, C=Year, D=Season, E=SheetName, F=Archived, G=PlayerCount, H=GameCount, I=LastModified, J=CreatedAt, K=LadderUrl, L=PIN, M=PinToken, N=Coach
 
 ---
 
