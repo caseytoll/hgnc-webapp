@@ -1568,7 +1568,7 @@ function renderSchedule() {
       scoreDisplay = `<div class="game-score-label">Abandoned</div>`;
       resultClass = 'abandoned';
     } else if (game.status === 'bye') {
-      scoreDisplay = `<div class="game-score-label">Bye</div>`;
+      scoreDisplay = '';
       resultClass = 'bye';
     } else if (game.scores) {
       const { us, opponent } = game.scores;
@@ -1584,7 +1584,7 @@ function renderSchedule() {
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
         <div class="game-info">
-          <div class="game-opponent">vs ${escapeHtml(game.opponent)}</div>
+          <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}</div>
           <div class="game-meta">${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}</div>
         </div>
         <div class="game-score">
