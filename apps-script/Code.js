@@ -86,17 +86,7 @@ function getSpreadsheet() {
           var clientLastModified = postData.clientLastModified || null;
           if (!sheetNameSave || !teamDataJSON) {
             result = { success: false, error: 'sheetName and teamData are required' };
-          } else if (function() {
-            // Check PIN auth for write operations
-            var pinInfo = getTeamPinInfoBySheetName(sheetNameSave);
-            if (pinInfo && pinInfo.pin) {
-              var clientToken = postData.pinToken || '';
-              if (clientToken !== pinInfo.pinToken) {
-                return true; // auth failed
-              }
-            }
-            return false; // auth passed or no PIN
-          }()) {
+          } else if (checkPinAuthBySheetName(sheetNameSave, postData.pinToken || '')) {
             result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
           } else {
             // teamData is already a string from the POST body
@@ -324,16 +314,9 @@ function getSpreadsheet() {
           var settingsJSON = e.parameter.settings || '{}';
           if (!updateTeamID) {
             result = { success: false, error: 'teamID is required' };
+          } else if (checkPinAuthByTeamID(updateTeamID, e.parameter.pinToken || '')) {
+            result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
           } else {
-            // Check PIN auth for write operations
-            var updatePinInfo = getTeamPinInfo(updateTeamID);
-            if (updatePinInfo && updatePinInfo.pin) {
-              var updateClientToken = e.parameter.pinToken || '';
-              if (updateClientToken !== updatePinInfo.pinToken) {
-                result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
-                break;
-              }
-            }
             try {
               var settings = JSON.parse(settingsJSON);
               var updateResult = updateTeamSettings(updateTeamID, settings);
@@ -2181,6 +2164,40 @@ function getTeamPinInfoBySheetName(sheetName) {
   } catch (e) {
     Logger.log('Error in getTeamPinInfoBySheetName: ' + e.message);
     return null;
+  }
+}
+
+/**
+ * Checks if a write operation should be blocked due to PIN auth.
+ * Returns true if auth FAILS (should block), false if auth passes or no PIN set.
+ */
+function checkPinAuthBySheetName(sheetName, clientToken) {
+  try {
+    var pinInfo = getTeamPinInfoBySheetName(sheetName);
+    if (pinInfo && pinInfo.pin && String(pinInfo.pin).length >= 4) {
+      return clientToken !== pinInfo.pinToken;
+    }
+    return false; // No PIN set, allow through
+  } catch (e) {
+    Logger.log('checkPinAuthBySheetName error: ' + e.message);
+    return false; // On error, allow through (don't block saves)
+  }
+}
+
+/**
+ * Checks if a write operation should be blocked due to PIN auth (by teamID).
+ * Returns true if auth FAILS (should block), false if auth passes or no PIN set.
+ */
+function checkPinAuthByTeamID(teamID, clientToken) {
+  try {
+    var pinInfo = getTeamPinInfo(teamID);
+    if (pinInfo && pinInfo.pin && String(pinInfo.pin).length >= 4) {
+      return clientToken !== pinInfo.pinToken;
+    }
+    return false; // No PIN set, allow through
+  } catch (e) {
+    Logger.log('checkPinAuthByTeamID error: ' + e.message);
+    return false; // On error, allow through
   }
 }
 
