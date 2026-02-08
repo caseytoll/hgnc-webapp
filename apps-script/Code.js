@@ -248,7 +248,8 @@ function getSpreadsheet() {
                 playerCount: t.playerCount || 0,
                 ladderUrl: t.ladderApi || '',
                 lastModified: t.lastModified || 0, // For version checking - clients can skip full fetch if unchanged
-                hasPin: t.hasPin || false
+                hasPin: t.hasPin || false,
+                coach: t.coach || ''
               };
             });
 
@@ -485,10 +486,11 @@ function getSpreadsheet() {
           var createYear = e.parameter.year || new Date().getFullYear();
           var createSeason = e.parameter.season || 'Season 1';
           var createName = e.parameter.name || '';
+          var createCoach = e.parameter.coach || '';
           if (!createName) {
             result = { success: false, error: 'Team name is required' };
           } else {
-            var createResult = createNewTeam(createYear, createSeason, createName, '', '', '');
+            var createResult = createNewTeam(createYear, createSeason, createName, '', '', '', createCoach);
             if (createResult.error) {
               result = { success: false, error: createResult.error };
             } else {
@@ -2091,8 +2093,8 @@ function ensureTeamsSheetStructure() {
       return;
     }
 
-    var headers = teamsSheet.getRange(1, 1, 1, 13).getValues()[0];
-    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count', 'Last Modified', 'PIN', 'PinToken'];
+    var headers = teamsSheet.getRange(1, 1, 1, 14).getValues()[0];
+    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count', 'Last Modified', 'PIN', 'PinToken', 'Coach'];
     var needsUpdate = false;
 
     for (var i = 0; i < expectedHeaders.length; i++) {
@@ -2103,7 +2105,7 @@ function ensureTeamsSheetStructure() {
     }
 
     if (needsUpdate) {
-      teamsSheet.getRange(1, 1, 1, 13).setValues([headers]);
+      teamsSheet.getRange(1, 1, 1, 14).setValues([headers]);
       Logger.log("Updated Teams sheet headers: " + JSON.stringify(headers));
     }
   } catch (e) {
@@ -2226,7 +2228,8 @@ function loadMasterTeamList() {
         archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE', // Column I
         playerCount: parseInt(row[9], 10) || 0, // Column J
         lastModified: row[10] || 0, // Column K - timestamp of last data change
-        hasPin: !!(row[11]) // Column L - has PIN set (boolean, don't expose actual PIN)
+        hasPin: !!(row[11]), // Column L - has PIN set (boolean, don't expose actual PIN)
+        coach: row[13] || '' // Column N - coach name
       };
       Logger.log("Loaded team: " + team.name + ", archived=" + team.archived + ", players=" + team.playerCount + ", lastModified=" + team.lastModified);
       return team;
@@ -2279,7 +2282,7 @@ function rebuildPlayerCounts() {
   }
 }
 
-function createNewTeam(year, season, name, ladderName, ladderApi, resultsApi) {
+function createNewTeam(year, season, name, ladderName, ladderApi, resultsApi, coach) {
   try {
     var ss = getSpreadsheet();
     var teamsSheet = ss.getSheetByName('Teams');
@@ -2288,8 +2291,8 @@ function createNewTeam(year, season, name, ladderName, ladderApi, resultsApi) {
     var newTeamSheet = ss.insertSheet(sheetName);
     var initialData = { players: [], games: [] };
     newTeamSheet.getRange('A1').setValue(JSON.stringify(initialData));
-    // Columns: teamID, year, season, name, sheetName, ladderName, ladderApi, resultsApi, archived, playerCount
-    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || "", '', 0]);
+    // Columns: teamID, year, season, name, sheetName, ladderName, ladderApi, resultsApi, archived, playerCount, lastModified, pin, pinToken, coach
+    teamsSheet.appendRow([teamID, year, season, name, sheetName, ladderName || "", ladderApi || "", resultsApi || "", '', 0, '', '', '', coach || '']);
     // Invalidate cached teams list
     try { CacheService.getScriptCache().remove('getTeamsResponse'); Logger.log('createNewTeam: invalidated getTeams cache'); } catch (e) { Logger.log('createNewTeam: failed to invalidate cache: ' + e.message); }
     return loadMasterTeamList();
@@ -2354,6 +2357,9 @@ function updateTeamSettings(teamID, settings) {
         }
         if (settings.archived !== undefined) {
           teamsSheet.getRange(row, 9).setValue(settings.archived ? 'true' : ''); // Column I = Archived
+        }
+        if (settings.coach !== undefined) {
+          teamsSheet.getRange(row, 14).setValue(settings.coach || ''); // Column N = Coach
         }
 
         Logger.log("updateTeamSettings successful for row " + row);
