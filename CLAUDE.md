@@ -127,7 +127,7 @@ When modifying UI in one app, check if the other needs the same change:
 - **Stats field names:** Use `avgFor`/`avgAgainst` (not `avgGoalsFor`/`avgGoalsAgainst`) from stats-calculations.js
 - **Team name source:** `getTeamData` API doesn't return teamName - use `getTeams` data for team info display
 - **Theme toggle:** Uses `data-theme` attribute on `<html>`, not body class. Values: `light` or `dark`
-- **Game status handling:** Check for `game.status === 'abandoned'` before displaying scores
+- **Game status handling:** Check for `game.status === 'abandoned'` or `'bye'` before displaying scores. Bye games show "Bye" as opponent text (no "vs" prefix) and no score label. Both statuses use gray round indicator (`var(--gray-400)`).
 - **Upcoming games:** Use `isGameInPast()` from utils.js to exclude future games from stats calculations
 - **Stats filter consistency:** Both `calculateTeamStats` (mock-data.js) and `calculateAdvancedStats` (stats-calculations.js) use the same filter: `g.status === 'normal' && g.scores && isGameInPast(g)`
 - **Team Sheet sharing:** Format is "Round X - TeamName vs Opponent" with full first names (no truncation)
@@ -235,7 +235,7 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 {
   teamID, sheetName,
   players: [{ id, name, fillIn, favPosition }],
-  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }],
+  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }],  // status: upcoming|normal|abandoned|forfeit|bye
   trainingSessions: [{ sessionID, date, attendedPlayerIDs, focus, notes }],  // Optional
   trainingFocusHistory: [{ text, generatedAt, gameCount, noteCount, recentGames }]  // Optional, max 5
 }
