@@ -140,22 +140,37 @@ async function saveTeamDataWithProtection(teamID, sheetName, saveData, freshlyFe
   const clientLastModified = freshlyFetchedLastModified || teamLastModified.get(teamID) || null;
 
   try {
+    // Include PIN auth token if available
+    const pinToken = (typeof window !== 'undefined' && window.getTeamPinToken) ? window.getTeamPinToken(teamID) : null;
+
+    const postBody = {
+      api: true,
+      action: 'saveTeamData',
+      sheetName,
+      teamData: saveData,
+      clientLastModified
+    };
+    if (pinToken) postBody.pinToken = pinToken;
+
     const response = await fetch(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api: true,
-        action: 'saveTeamData',
-        sheetName,
-        teamData: saveData,
-        clientLastModified
-      })
+      body: JSON.stringify(postBody)
     });
 
     const result = await response.json();
 
     if (API_CONFIG.debug) {
       console.log('[API] POST saveTeamData response:', result);
+    }
+
+    // Check for auth error (PIN-protected team)
+    if (result.error === 'AUTH_REQUIRED') {
+      console.warn('[API] Auth required - PIN token invalid or expired');
+      if (typeof window.showToast === 'function') {
+        window.showToast('Access expired. Please re-enter the team PIN.', 'warning');
+      }
+      throw new Error('AUTH_REQUIRED');
     }
 
     // Check for stale data error
@@ -265,6 +280,27 @@ export async function loadTeamData(teamID) {
   }
 
   return transformed;
+}
+
+// ============================================
+// PIN Authentication API Methods
+// ============================================
+
+export async function validateTeamPIN(teamID, pin) {
+  const result = await callAppsScript('validateTeamPIN', { teamID, pin });
+  return result;
+}
+
+export async function setTeamPIN(teamID, pin, pinToken) {
+  const params = { teamID, pin };
+  if (pinToken) params.pinToken = pinToken;
+  const result = await callAppsScript('setTeamPIN', params);
+  return result;
+}
+
+export async function revokeTeamAccess(teamID, pinToken) {
+  const result = await callAppsScript('revokeTeamAccess', { teamID, pinToken });
+  return result;
 }
 
 /**

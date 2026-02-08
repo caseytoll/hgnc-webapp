@@ -62,7 +62,7 @@ import {
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
 import { calculateTeamStats } from '../../../../common/mock-data.js';
-import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
+import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess } from './api.js';
 import {
   formatGameShareText,
   formatLineupText,
@@ -108,7 +108,9 @@ const state = {
   },
   // Player Library - tracks players across teams/seasons
   playerLibrary: { players: [] },
-  showArchivedTeams: false
+  showArchivedTeams: false,
+  // PIN tokens for device authentication per team
+  teamPinTokens: {}
 };
 
 // ========================================
@@ -190,6 +192,7 @@ function saveToLocalStorage() {
       teamsListCache: teamsListCache,
       teamsListCacheTime: teamsListCacheTime,
       playerLibrary: state.playerLibrary,
+      teamPinTokens: state.teamPinTokens,
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
@@ -214,6 +217,10 @@ function loadFromLocalStorage() {
       // Load cache metadata for TTL tracking
       if (data.teamCacheMeta) {
         Object.assign(teamCacheMetadata, data.teamCacheMeta);
+      }
+      // Load PIN tokens
+      if (data.teamPinTokens) {
+        state.teamPinTokens = data.teamPinTokens;
       }
       // Load teams list cache
       if (data.teamsListCache) {
@@ -433,6 +440,11 @@ window.showView = function(viewId) {
     view.classList.add('active');
   }
   console.log(`[View] Showing: ${viewId}`);
+};
+
+// PIN token helper (used by api.js for write operations)
+window.getTeamPinToken = function(teamID) {
+  return state.teamPinTokens[teamID] || null;
 };
 
 // ========================================
@@ -1076,16 +1088,22 @@ function renderTeamList() {
     let html = years.map(year => `
       <div class="team-year-group">
         <div class="team-year-header">${escapeHtml(year)}</div>
-        ${byYear[year].map(team => `
+        ${byYear[year].map(team => {
+          const hasPin = team.hasPin;
+          const hasToken = !!state.teamPinTokens[team.teamID];
+          const lockIndicator = hasPin
+            ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
+            : '<div class="team-card-arrow">→</div>';
+          return `
           <div class="team-card active" onclick="selectTeam('${escapeAttr(team.teamID)}')">
             <div class="team-card-icon">🏐</div>
             <div class="team-card-info">
               <div class="team-card-name">${escapeHtml(team.teamName)}</div>
               <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
             </div>
-            <div class="team-card-arrow">→</div>
-          </div>
-        `).join('')}
+            ${lockIndicator}
+          </div>`;
+        }).join('')}
       </div>
     `).join('');
     container.innerHTML = html;
@@ -1106,16 +1124,22 @@ function renderTeamList() {
         </button>
         ${showArchived ? `
           <div class="archived-section-content">
-            ${archivedTeams.map(team => `
+            ${archivedTeams.map(team => {
+              const hasPin = team.hasPin;
+              const hasToken = !!state.teamPinTokens[team.teamID];
+              const lockIndicator = hasPin
+                ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
+                : '<div class="team-card-arrow">→</div>';
+              return `
               <div class="team-card archived" onclick="selectTeam('${escapeAttr(team.teamID)}')">
                 <div class="team-card-icon">🏐</div>
                 <div class="team-card-info">
                   <div class="team-card-name">${escapeHtml(team.teamName)}</div>
                   <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
                 </div>
-                <div class="team-card-arrow">→</div>
-              </div>
-            `).join('')}
+                ${lockIndicator}
+              </div>`;
+            }).join('')}
           </div>
         ` : ''}
       </div>
@@ -1134,7 +1158,83 @@ window.toggleArchivedTeams = function() {
 };
 
 window.selectTeam = function(teamID) {
+  // Check if team requires PIN and we don't have a token
+  const team = state.teams.find(t => t.teamID === teamID);
+  if (team && team.hasPin && !state.teamPinTokens[teamID]) {
+    showPinEntryModal(teamID);
+    return;
+  }
   loadTeamData(teamID);
+};
+
+// ========================================
+// PIN ENTRY
+// ========================================
+
+function showPinEntryModal(teamID) {
+  const team = state.teams.find(t => t.teamID === teamID);
+  const teamName = team ? escapeHtml(team.teamName) : 'Team';
+  openModal('Enter Team PIN', `
+    <div style="text-align: center;">
+      <p style="margin-bottom: 16px; color: var(--text-secondary);">${teamName}</p>
+      <input type="tel" class="pin-input" id="pin-entry-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="••••" autocomplete="off">
+      <div class="pin-error" id="pin-error"></div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="submitTeamPIN('${escapeAttr(teamID)}')">Unlock</button>
+  `);
+  // Auto-focus the input after modal opens
+  setTimeout(() => {
+    const input = document.getElementById('pin-entry-input');
+    if (input) {
+      input.focus();
+      // Submit on Enter key
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          window.submitTeamPIN(teamID);
+        }
+      });
+    }
+  }, 100);
+}
+
+window.submitTeamPIN = async function(teamID) {
+  const input = document.getElementById('pin-entry-input');
+  const errorEl = document.getElementById('pin-error');
+  if (!input) return;
+
+  const pin = input.value.trim();
+  if (!/^\d{4}$/.test(pin)) {
+    errorEl.textContent = 'Enter a 4-digit PIN';
+    input.classList.add('pin-shake');
+    setTimeout(() => input.classList.remove('pin-shake'), 500);
+    input.value = '';
+    input.focus();
+    return;
+  }
+
+  try {
+    const result = await validateTeamPIN(teamID, pin);
+    if (result.success && result.pinToken) {
+      state.teamPinTokens[teamID] = result.pinToken;
+      saveToLocalStorage();
+      closeModal();
+      renderTeamList();
+      loadTeamData(teamID);
+    } else {
+      errorEl.textContent = 'Invalid PIN';
+      input.classList.add('pin-shake');
+      setTimeout(() => input.classList.remove('pin-shake'), 500);
+      input.value = '';
+      input.focus();
+    }
+  } catch (error) {
+    errorEl.textContent = error.message || 'Failed to verify PIN';
+    input.value = '';
+    input.focus();
+  }
 };
 
 // ========================================
@@ -5182,6 +5282,20 @@ async function performSync(maxRetries = 3, attempt = 1) {
   } catch (e) {
     console.error(`[Sync] Attempt ${attempt} failed:`, e);
 
+    // Don't retry auth failures — clear token and redirect
+    if (e.message === 'AUTH_REQUIRED') {
+      const teamID = state.currentTeamData?.teamID;
+      if (teamID) {
+        delete state.teamPinTokens[teamID];
+        saveToLocalStorage();
+      }
+      showToast('Access expired. Please re-enter the team PIN.', 'warning');
+      showView('team-selector-view');
+      renderTeamList();
+      syncInProgress = false;
+      return;
+    }
+
     if (attempt < maxRetries) {
       // Exponential backoff: 3s, 9s, 27s
       const delay = Math.pow(3, attempt) * 1000;
@@ -5234,8 +5348,22 @@ async function updateTeamSettings(teamID, settings) {
   url.searchParams.set('teamID', teamID);
   url.searchParams.set('settings', JSON.stringify(settings));
 
+  // Include PIN auth token if available
+  const pinToken = state.teamPinTokens?.[teamID];
+  if (pinToken) url.searchParams.set('pinToken', pinToken);
+
   const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
   const data = await response.json();
+
+  if (data.error === 'AUTH_REQUIRED') {
+    // Clear invalid token and notify
+    delete state.teamPinTokens[teamID];
+    saveToLocalStorage();
+    showToast('Access expired. Please re-enter the team PIN.', 'warning');
+    showView('team-selector-view');
+    renderTeamList();
+    throw new Error('AUTH_REQUIRED');
+  }
 
   if (data.success === false) {
     throw new Error(data.error || 'Failed to update team settings');
@@ -6113,6 +6241,30 @@ window.openTeamSettings = function() {
     </div>
     <div class="settings-divider"></div>
     <div class="form-group">
+      <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span></label>
+      ${team.hasPin ? `
+        <p class="form-hint">PIN is set. Only devices with the PIN can access this team.</p>
+        <div class="pin-actions">
+          <button type="button" class="btn btn-sm btn-outline" onclick="showChangePinModal()">Change PIN</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="removeTeamPIN()">Remove PIN</button>
+        </div>
+        <button type="button" class="btn btn-outline" onclick="revokeAllDevices()" style="margin-top: 8px; width: 100%;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Log Out All Devices
+        </button>
+        <p class="form-hint" style="margin-top: 4px; font-size: 11px;">Other devices will need to re-enter the PIN.</p>
+      ` : `
+        <p class="form-hint">Set a 4-digit PIN to restrict access to this team.</p>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="tel" class="pin-input" id="settings-pin-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="••••" autocomplete="off">
+          <button type="button" class="btn btn-sm btn-primary" onclick="setTeamPINFromSettings()">Set PIN</button>
+        </div>
+      `}
+    </div>
+    <div class="settings-divider"></div>
+    <div class="form-group">
       <label class="form-label">Data Management</label>
       <div class="data-management-buttons">
         <button type="button" class="btn btn-outline" onclick="exportTeamData()">
@@ -6144,6 +6296,129 @@ window.openTeamSettings = function() {
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="saveTeamSettings()">Save</button>
   `);
+};
+
+window.setTeamPINFromSettings = async function() {
+  const input = document.getElementById('settings-pin-input');
+  if (!input) return;
+  const pin = input.value.trim();
+  if (!/^\d{4}$/.test(pin)) {
+    showToast('PIN must be exactly 4 digits', 'error');
+    input.focus();
+    return;
+  }
+  const team = state.currentTeam;
+  if (!team) return;
+  const currentToken = state.teamPinTokens[team.teamID] || '';
+  try {
+    const result = await apiSetTeamPIN(team.teamID, pin, currentToken);
+    if (result.success && result.pinToken) {
+      state.teamPinTokens[team.teamID] = result.pinToken;
+      team.hasPin = true;
+      const teamInList = state.teams.find(t => t.teamID === team.teamID);
+      if (teamInList) teamInList.hasPin = true;
+      saveToLocalStorage();
+      showToast('Team PIN set', 'success');
+      closeModal();
+      openTeamSettings();
+    } else {
+      showToast(result.error || 'Failed to set PIN', 'error');
+    }
+  } catch (error) {
+    showToast('Failed to set PIN: ' + error.message, 'error');
+  }
+};
+
+window.showChangePinModal = function() {
+  const team = state.currentTeam;
+  if (!team) return;
+  closeModal();
+  openModal('Change Team PIN', `
+    <div style="text-align: center;">
+      <p style="margin-bottom: 16px; color: var(--text-secondary);">Enter a new 4-digit PIN</p>
+      <input type="tel" class="pin-input" id="change-pin-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="••••" autocomplete="off">
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal(); openTeamSettings();">Cancel</button>
+    <button class="btn btn-primary" onclick="confirmChangePIN()">Change PIN</button>
+  `);
+  setTimeout(() => {
+    const input = document.getElementById('change-pin-input');
+    if (input) input.focus();
+  }, 100);
+};
+
+window.confirmChangePIN = async function() {
+  const input = document.getElementById('change-pin-input');
+  if (!input) return;
+  const pin = input.value.trim();
+  if (!/^\d{4}$/.test(pin)) {
+    showToast('PIN must be exactly 4 digits', 'error');
+    input.value = '';
+    input.focus();
+    return;
+  }
+  const team = state.currentTeam;
+  if (!team) return;
+  const currentToken = state.teamPinTokens[team.teamID] || '';
+  try {
+    const result = await apiSetTeamPIN(team.teamID, pin, currentToken);
+    if (result.success && result.pinToken) {
+      state.teamPinTokens[team.teamID] = result.pinToken;
+      saveToLocalStorage();
+      showToast('PIN changed', 'success');
+      closeModal();
+      openTeamSettings();
+    } else {
+      showToast(result.error || 'Failed to change PIN', 'error');
+    }
+  } catch (error) {
+    showToast('Failed to change PIN: ' + error.message, 'error');
+  }
+};
+
+window.removeTeamPIN = async function() {
+  if (!confirm('Remove the PIN? Anyone will be able to access this team.')) return;
+  const team = state.currentTeam;
+  if (!team) return;
+  const currentToken = state.teamPinTokens[team.teamID] || '';
+  try {
+    const result = await apiSetTeamPIN(team.teamID, '', currentToken);
+    if (result.success) {
+      delete state.teamPinTokens[team.teamID];
+      team.hasPin = false;
+      const teamInList = state.teams.find(t => t.teamID === team.teamID);
+      if (teamInList) teamInList.hasPin = false;
+      saveToLocalStorage();
+      showToast('PIN removed', 'success');
+      closeModal();
+      openTeamSettings();
+    } else {
+      showToast(result.error || 'Failed to remove PIN', 'error');
+    }
+  } catch (error) {
+    showToast('Failed to remove PIN: ' + error.message, 'error');
+  }
+};
+
+window.revokeAllDevices = async function() {
+  if (!confirm('This will log out all other devices. They will need to re-enter the PIN to access this team.')) return;
+  const team = state.currentTeam;
+  if (!team) return;
+  const currentToken = state.teamPinTokens[team.teamID] || '';
+  try {
+    const result = await apiRevokeTeamAccess(team.teamID, currentToken);
+    if (result.success && result.pinToken) {
+      // Store the new token so this device stays logged in
+      state.teamPinTokens[team.teamID] = result.pinToken;
+      saveToLocalStorage();
+      showToast('All other devices logged out', 'success');
+    } else {
+      showToast(result.error || 'Failed to revoke access', 'error');
+    }
+  } catch (error) {
+    showToast('Failed to revoke access: ' + error.message, 'error');
+  }
 };
 
 window.archiveTeam = async function() {
