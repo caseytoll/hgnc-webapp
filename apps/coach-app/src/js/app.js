@@ -127,6 +127,7 @@ const apiTeamCache = {};
 // Cache metadata for TTL tracking
 const teamCacheMetadata = {};
 const TEAM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — show cached data instantly, background revalidation handles freshness
+const COACH_OTHER_SENTINEL = '__other__'; // Sentinel value for "Other..." in coach dropdown
 
 // Teams list cache (for landing page)
 let teamsListCache = null;
@@ -345,12 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="form-group">
         <label class="form-label">Coach</label>
-        <select class="form-select" id="new-team-coach" onchange="if(this.value==='__other__'){document.getElementById('new-team-coach-custom').style.display='';this.style.display='none';document.getElementById('new-team-coach-custom').focus();}">
+        <select class="form-select" id="new-team-coach" onchange="if(this.value==='${COACH_OTHER_SENTINEL}'){document.getElementById('new-team-coach-custom').style.display='';this.style.display='none';document.getElementById('new-team-coach-custom').focus();}">
           <option value="">— None —</option>
           ${getUniqueCoachNames().map(c =>
             `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`
           ).join('')}
-          <option value="__other__">Other...</option>
+          <option value="${COACH_OTHER_SENTINEL}">Other...</option>
         </select>
         <input type="text" class="form-input" id="new-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
       </div>
@@ -376,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const season = seasonInput.value;
     const ladderUrl = ladderUrlInput.value.trim();
     const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
-    const coach = coachRaw === '__other__' ? '' : coachRaw;
+    const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
     // Validation
     if (!name) {
@@ -718,6 +719,9 @@ async function loadTeams(forceRefresh = false) {
       state.teamSheetMap = state.teamSheetMap || {};
       state.teams = (data.teams || []).map(t => {
         state.teamSheetMap[t.teamID] = t.sheetName;
+        // Ensure defaults for fields that may be missing from older API responses
+        if (t.hasPin === undefined) t.hasPin = false;
+        if (!t.coach) t.coach = '';
         return t;
       });
 
@@ -6331,12 +6335,12 @@ window.openTeamSettings = function() {
     </div>
     <div class="form-group">
       <label class="form-label">Coach</label>
-      <select class="form-select" id="edit-team-coach" onchange="if(this.value==='__other__'){document.getElementById('edit-team-coach-custom').style.display='';this.style.display='none';document.getElementById('edit-team-coach-custom').focus();}">
+      <select class="form-select" id="edit-team-coach" onchange="if(this.value==='${COACH_OTHER_SENTINEL}'){document.getElementById('edit-team-coach-custom').style.display='';this.style.display='none';document.getElementById('edit-team-coach-custom').focus();}">
         <option value="">— None —</option>
         ${getUniqueCoachNames().map(c =>
           `<option value="${escapeAttr(c)}" ${team.coach === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
         ).join('')}
-        <option value="__other__">Other...</option>
+        <option value="${COACH_OTHER_SENTINEL}">Other...</option>
       </select>
       <input type="text" class="form-input" id="edit-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
     </div>
@@ -6622,7 +6626,7 @@ window.saveTeamSettings = async function() {
   const coachSelect = document.getElementById('edit-team-coach');
   const coachCustom = document.getElementById('edit-team-coach-custom');
   const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
-    const coach = coachRaw === '__other__' ? '' : coachRaw;
+    const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
   // Validation
   if (!name) {

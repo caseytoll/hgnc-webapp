@@ -297,7 +297,7 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 **Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data. This prevents old browser tabs from overwriting newer changes.
 
-**PIN Auth on Writes:** `saveTeamData` (POST) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
+**PIN Auth on Writes:** `saveTeamData` (POST-only, no GET handler) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
 
 **Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
 
@@ -319,6 +319,43 @@ node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
 GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
   node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
 ```
+
+---
+
+## Change Checklists
+
+### Adding a field to the Team object
+
+The team object is mapped/copied in multiple places. When adding a new field:
+
+1. **Backend `Code.js`:**
+   - `ensureTeamsSheetStructure()` — add column header
+   - `loadMasterTeamList()` — read from row array (0-indexed)
+   - `getTeams` response — include in `pwaTeams` mapping
+   - `updateTeamSettings()` — handle in settings write
+   - `createNewTeam()` — include in `appendRow` call
+   - `createTeam` API action — read from `e.parameter`
+
+2. **Frontend `app.js`:**
+   - Initial teams load (~line 719) — add default if needed
+   - Background revalidation `freshTeams` mapping — include field with default
+   - Background revalidation change-detection signature — include if changes should trigger UI refresh
+   - `saveTeamSettings()` — read from form, update `state.currentTeam`, `state.currentTeamData` (if applicable), `teamInList`, send to API, AND add to rollback
+   - `openTeamSettings()` — add form field
+   - `openAddTeamModal()` / `addNewTeam()` — add form field and include in API call
+
+### Adding a security check
+
+- **Grep for ALL handlers** of the action being secured — `Code.js` has both GET (`doGet > handleApiRequest`) and POST (`doPost`) paths. `saveTeamData` is POST-only; other actions use GET.
+- Consider abuse scenarios: rate limiting, brute force, lockout
+- Auth checks should fail-open on errors (don't block saves due to transient issues) but log the failure
+
+### General
+
+- When copying a pattern from elsewhere in the codebase, verify it's correct — don't propagate existing gaps
+- Always use `escapeHtml()` / `escapeAttr()` for user data in HTML templates
+- Use constants for sentinel values (e.g., `COACH_OTHER_SENTINEL`) — never embed magic strings in templates
+- Rollback logic must cover ALL state mutations (currentTeam, currentTeamData, teams list entry)
 
 ---
 
