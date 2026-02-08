@@ -294,22 +294,7 @@ function getSpreadsheet() {
           }
           break;
 
-        case 'saveTeamData':
-          var sheetNameSave = e.parameter.sheetName || '';
-          var teamDataJSON = e.parameter.teamData || '';
-          if (!sheetNameSave || !teamDataJSON) {
-            result = { success: false, error: 'sheetName and teamData are required' };
-          } else if (checkPinAuthBySheetName(sheetNameSave, e.parameter.pinToken || '')) {
-            result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
-          } else {
-            var saveResult = saveTeamData(sheetNameSave, teamDataJSON, null);
-            if (saveResult === "OK") {
-              result = { success: true };
-            } else {
-              result = { success: false, error: saveResult.error || 'Save failed' };
-            }
-          }
-          break;
+        // saveTeamData is POST-only (handled in doPost) — no GET handler
 
         case 'updateTeam':
           var updateTeamID = e.parameter.teamID || '';
