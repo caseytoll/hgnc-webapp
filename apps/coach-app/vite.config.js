@@ -5,7 +5,7 @@ import { resolve } from 'path'
 
 // Calculate app version for build
 // Increment revision letter (a, b, c...) for multiple deploys on the same day
-const REVISION = 'g'
+const REVISION = 'h'
 
 const now = new Date()
 const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }))

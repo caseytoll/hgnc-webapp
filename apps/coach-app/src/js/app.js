@@ -110,7 +110,9 @@ const state = {
   playerLibrary: { players: [] },
   showArchivedTeams: false,
   // PIN tokens for device authentication per team
-  teamPinTokens: {}
+  teamPinTokens: {},
+  // Coach section collapsed state (not persisted, resets each session)
+  collapsedCoachSections: {}
 };
 
 // ========================================
@@ -342,6 +344,17 @@ document.addEventListener('DOMContentLoaded', () => {
         </select>
       </div>
       <div class="form-group">
+        <label class="form-label">Coach</label>
+        <select class="form-select" id="new-team-coach" onchange="if(this.value==='__other__'){document.getElementById('new-team-coach-custom').style.display='';this.style.display='none';document.getElementById('new-team-coach-custom').focus();}">
+          <option value="">— None —</option>
+          ${getUniqueCoachNames().map(c =>
+            `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`
+          ).join('')}
+          <option value="__other__">Other...</option>
+        </select>
+        <input type="text" class="form-input" id="new-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
+      </div>
+      <div class="form-group">
         <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
         <input type="url" class="form-input" id="new-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/...">
       </div>
@@ -356,10 +369,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearInput = document.getElementById('new-team-year');
     const seasonInput = document.getElementById('new-team-season');
     const ladderUrlInput = document.getElementById('new-team-ladder-url');
+    const coachSelect = document.getElementById('new-team-coach');
+    const coachCustom = document.getElementById('new-team-coach-custom');
     const name = nameInput.value.trim();
     const year = parseInt(yearInput.value);
     const season = seasonInput.value;
     const ladderUrl = ladderUrlInput.value.trim();
+    const coach = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
 
     // Validation
     if (!name) {
@@ -410,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
       url.searchParams.set('year', year);
       url.searchParams.set('season', season);
       url.searchParams.set('name', name);
+      if (coach) url.searchParams.set('coach', coach);
 
       const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
       const data = await response.json();
@@ -1061,55 +1078,126 @@ async function syncPlayerLibrary() {
 // TEAM SELECTOR RENDERING
 // ========================================
 
-function renderTeamList() {
+function getUniqueCoachNames() {
+  const names = new Set();
+  state.teams.forEach(t => { if (t.coach) names.add(t.coach); });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
 
+function renderTeamCard(team, cssClass) {
+  const hasPin = team.hasPin;
+  const hasToken = !!state.teamPinTokens[team.teamID];
+  const lockIndicator = hasPin
+    ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
+    : '<div class="team-card-arrow">→</div>';
+  return `
+    <div class="team-card ${cssClass}" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+      <div class="team-card-icon">🏐</div>
+      <div class="team-card-info">
+        <div class="team-card-name">${escapeHtml(team.teamName)}</div>
+        <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+      </div>
+      ${lockIndicator}
+    </div>`;
+}
+
+function sortTeams(teams) {
+  return teams.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.teamName || '').localeCompare(b.teamName || ''));
+}
+
+function renderTeamList() {
   const container = document.getElementById('team-list');
   if (!container) return;
 
-
-  // Define archivedTeams and showArchived for use in UI
   const archivedTeams = state.teams.filter(team => team.archived);
   const activeTeams = state.teams.filter(team => !team.archived);
-  let showArchived = state.showArchivedTeams ?? false;
+  const showArchived = state.showArchivedTeams ?? false;
 
   if (activeTeams.length === 0) {
     container.innerHTML = '<div class="empty-state"><p>No active teams available</p></div>';
   } else {
-    // Group active teams by year
-    const byYear = {};
-    activeTeams.forEach(team => {
-      const year = team.year || 'Unknown';
-      if (!byYear[year]) byYear[year] = [];
-      byYear[year].push(team);
+    // Separate into "my teams" (have pinToken) and others
+    const myTeams = activeTeams.filter(t => state.teamPinTokens[t.teamID]);
+    const otherTeams = activeTeams.filter(t => !state.teamPinTokens[t.teamID]);
+
+    // Group others by coach
+    const byCoach = {};
+    const unassigned = [];
+    otherTeams.forEach(team => {
+      if (team.coach) {
+        if (!byCoach[team.coach]) byCoach[team.coach] = [];
+        byCoach[team.coach].push(team);
+      } else {
+        unassigned.push(team);
+      }
+    });
+    const coachNames = Object.keys(byCoach).sort((a, b) => a.localeCompare(b));
+
+    let html = '';
+
+    // My Teams section (always expanded)
+    if (myTeams.length > 0) {
+      html += `
+        <div class="coach-section">
+          <div class="coach-section-header my-teams-header">
+            <span>My Teams</span>
+            <span class="coach-section-count">${myTeams.length}</span>
+          </div>
+          <div class="coach-section-content">
+            ${sortTeams(myTeams).map(t => renderTeamCard(t, 'active')).join('')}
+          </div>
+        </div>`;
+    }
+
+    // Per-coach sections (collapsible)
+    coachNames.forEach(coach => {
+      const teams = byCoach[coach];
+      const isCollapsed = state.collapsedCoachSections[coach] !== false; // default collapsed
+      html += `
+        <div class="coach-section">
+          <button class="coach-section-header" onclick="toggleCoachSection('${escapeAttr(coach)}')">
+            <div class="coach-section-title">
+              <svg class="coach-section-icon ${isCollapsed ? '' : 'expanded'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+              <span>${escapeHtml(coach)}</span>
+              <span class="coach-section-count">${teams.length}</span>
+            </div>
+          </button>
+          ${!isCollapsed ? `
+            <div class="coach-section-content">
+              ${sortTeams(teams).map(t => renderTeamCard(t, 'active')).join('')}
+            </div>
+          ` : ''}
+        </div>`;
     });
 
-    const years = Object.keys(byYear).sort((a, b) => b - a);
-
-    let html = years.map(year => `
-      <div class="team-year-group">
-        <div class="team-year-header">${escapeHtml(year)}</div>
-        ${byYear[year].map(team => {
-          const hasPin = team.hasPin;
-          const hasToken = !!state.teamPinTokens[team.teamID];
-          const lockIndicator = hasPin
-            ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
-            : '<div class="team-card-arrow">→</div>';
-          return `
-          <div class="team-card active" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-            <div class="team-card-icon">🏐</div>
-            <div class="team-card-info">
-              <div class="team-card-name">${escapeHtml(team.teamName)}</div>
-              <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+    // Unassigned teams section
+    if (unassigned.length > 0) {
+      const isCollapsed = state.collapsedCoachSections['_unassigned'] !== false;
+      html += `
+        <div class="coach-section">
+          <button class="coach-section-header" onclick="toggleCoachSection('_unassigned')">
+            <div class="coach-section-title">
+              <svg class="coach-section-icon ${isCollapsed ? '' : 'expanded'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+              <span>Other Teams</span>
+              <span class="coach-section-count">${unassigned.length}</span>
             </div>
-            ${lockIndicator}
-          </div>`;
-        }).join('')}
-      </div>
-    `).join('');
+          </button>
+          ${!isCollapsed ? `
+            <div class="coach-section-content">
+              ${sortTeams(unassigned).map(t => renderTeamCard(t, 'active')).join('')}
+            </div>
+          ` : ''}
+        </div>`;
+    }
+
     container.innerHTML = html;
   }
 
-  // Archived teams section (always visible if there are archived teams)
+  // Archived teams section
   if (archivedTeams.length > 0) {
     let archivedHtml = `
       <div class="archived-section">
@@ -1124,33 +1212,22 @@ function renderTeamList() {
         </button>
         ${showArchived ? `
           <div class="archived-section-content">
-            ${archivedTeams.map(team => {
-              const hasPin = team.hasPin;
-              const hasToken = !!state.teamPinTokens[team.teamID];
-              const lockIndicator = hasPin
-                ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
-                : '<div class="team-card-arrow">→</div>';
-              return `
-              <div class="team-card archived" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-                <div class="team-card-icon">🏐</div>
-                <div class="team-card-info">
-                  <div class="team-card-name">${escapeHtml(team.teamName)}</div>
-                  <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
-                </div>
-                ${lockIndicator}
-              </div>`;
-            }).join('')}
+            ${archivedTeams.map(t => renderTeamCard(t, 'archived')).join('')}
           </div>
         ` : ''}
       </div>
     `;
-    // Append archived section after active teams
     container.innerHTML += archivedHtml;
   }
 
-  // Update library count badge
   updateLibraryCount();
 }
+
+window.toggleCoachSection = function(coachName) {
+  const current = state.collapsedCoachSections[coachName];
+  state.collapsedCoachSections[coachName] = current === false ? true : false;
+  renderTeamList();
+};
 
 window.toggleArchivedTeams = function() {
   state.showArchivedTeams = !state.showArchivedTeams;
@@ -6228,6 +6305,17 @@ window.openTeamSettings = function() {
       </select>
     </div>
     <div class="form-group">
+      <label class="form-label">Coach</label>
+      <select class="form-select" id="edit-team-coach" onchange="if(this.value==='__other__'){document.getElementById('edit-team-coach-custom').style.display='';this.style.display='none';document.getElementById('edit-team-coach-custom').focus();}">
+        <option value="">— None —</option>
+        ${getUniqueCoachNames().map(c =>
+          `<option value="${escapeAttr(c)}" ${team.coach === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
+        ).join('')}
+        <option value="__other__">Other...</option>
+      </select>
+      <input type="text" class="form-input" id="edit-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
+    </div>
+    <div class="form-group">
       <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
       <input type="url" class="form-input" id="edit-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${escapeAttr(team.ladderUrl || '')}">
     </div>
@@ -6506,6 +6594,9 @@ window.saveTeamSettings = async function() {
   const season = document.getElementById('edit-team-season').value;
   const ladderUrlInput = document.getElementById('edit-team-ladder-url');
   const ladderUrl = ladderUrlInput.value.trim();
+  const coachSelect = document.getElementById('edit-team-coach');
+  const coachCustom = document.getElementById('edit-team-coach-custom');
+  const coach = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
 
   // Validation
   if (!name) {
@@ -6536,6 +6627,7 @@ window.saveTeamSettings = async function() {
   const oldName = state.currentTeam.teamName;
   const oldYear = state.currentTeam.year;
   const oldSeason = state.currentTeam.season;
+  const oldCoach = state.currentTeam.coach;
 
   closeModal();
   showLoading();
@@ -6546,6 +6638,7 @@ window.saveTeamSettings = async function() {
     state.currentTeam.year = year;
     state.currentTeam.season = season;
     state.currentTeam.ladderUrl = ladderUrl;
+    state.currentTeam.coach = coach;
 
     // Also update in currentTeamData
     if (state.currentTeamData) {
@@ -6562,10 +6655,11 @@ window.saveTeamSettings = async function() {
       teamInList.year = year;
       teamInList.season = season;
       teamInList.ladderUrl = ladderUrl;
+      teamInList.coach = coach;
     }
 
     // Save to backend
-    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl });
+    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, coach });
 
     saveToLocalStorage();
     renderMainApp();
@@ -6576,6 +6670,7 @@ window.saveTeamSettings = async function() {
     state.currentTeam.teamName = oldName;
     state.currentTeam.year = oldYear;
     state.currentTeam.season = oldSeason;
+    state.currentTeam.coach = oldCoach;
     if (state.currentTeamData) {
       state.currentTeamData.teamName = oldName;
       state.currentTeamData.year = oldYear;
