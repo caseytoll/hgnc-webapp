@@ -5259,6 +5259,8 @@ async function syncToGoogleSheets() {
     teamData: JSON.stringify(saveData),
     clientLastModified: state.currentTeamData._lastModified || null
   };
+  const pinToken = state.teamPinTokens?.[teamID];
+  if (pinToken) postBody.pinToken = pinToken;
 
   console.log('[syncToGoogleSheets] Using POST, body size:', JSON.stringify(postBody).length);
 
