@@ -86,6 +86,18 @@ function getSpreadsheet() {
           var clientLastModified = postData.clientLastModified || null;
           if (!sheetNameSave || !teamDataJSON) {
             result = { success: false, error: 'sheetName and teamData are required' };
+          } else if (function() {
+            // Check PIN auth for write operations
+            var pinInfo = getTeamPinInfoBySheetName(sheetNameSave);
+            if (pinInfo && pinInfo.pin) {
+              var clientToken = postData.pinToken || '';
+              if (clientToken !== pinInfo.pinToken) {
+                return true; // auth failed
+              }
+            }
+            return false; // auth passed or no PIN
+          }()) {
+            result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
           } else {
             // teamData is already a string from the POST body
             var saveResult = saveTeamData(sheetNameSave, typeof teamDataJSON === 'string' ? teamDataJSON : JSON.stringify(teamDataJSON), null, clientLastModified);
@@ -245,7 +257,8 @@ function getSpreadsheet() {
                 archived: t.archived || false,
                 playerCount: t.playerCount || 0,
                 ladderUrl: t.ladderApi || '',
-                lastModified: t.lastModified || 0 // For version checking - clients can skip full fetch if unchanged
+                lastModified: t.lastModified || 0, // For version checking - clients can skip full fetch if unchanged
+                hasPin: t.hasPin || false
               };
             });
 
@@ -312,6 +325,15 @@ function getSpreadsheet() {
           if (!updateTeamID) {
             result = { success: false, error: 'teamID is required' };
           } else {
+            // Check PIN auth for write operations
+            var updatePinInfo = getTeamPinInfo(updateTeamID);
+            if (updatePinInfo && updatePinInfo.pin) {
+              var updateClientToken = e.parameter.pinToken || '';
+              if (updateClientToken !== updatePinInfo.pinToken) {
+                result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
+                break;
+              }
+            }
             try {
               var settings = JSON.parse(settingsJSON);
               var updateResult = updateTeamSettings(updateTeamID, settings);
@@ -373,6 +395,106 @@ function getSpreadsheet() {
             result = { success: true, diagnostics: diag };
           } catch (errDiag) {
             result = { success: false, error: errDiag.message };
+          }
+          break;
+
+        case 'validateTeamPIN':
+          var pinTeamID = e.parameter.teamID || '';
+          var pinAttempt = e.parameter.pin || '';
+          if (!pinTeamID || !pinAttempt) {
+            result = { success: false, error: 'teamID and pin are required' };
+          } else {
+            try {
+              var pinInfo = getTeamPinInfo(pinTeamID);
+              if (!pinInfo) {
+                result = { success: false, error: 'Team not found' };
+              } else if (!pinInfo.pin) {
+                result = { success: false, error: 'Team has no PIN set' };
+              } else {
+                // Check against team PIN or master admin PIN
+                var masterPin = '';
+                try { masterPin = PropertiesService.getScriptProperties().getProperty('MASTER_PIN') || ''; } catch (e) {}
+                if (String(pinAttempt) === String(pinInfo.pin) || (masterPin && String(pinAttempt) === String(masterPin))) {
+                  result = { success: true, pinToken: pinInfo.pinToken };
+                } else {
+                  result = { success: false, error: 'Invalid PIN' };
+                }
+              }
+            } catch (pinErr) {
+              result = { success: false, error: pinErr.message };
+            }
+          }
+          break;
+
+        case 'setTeamPIN':
+          var setPinTeamID = e.parameter.teamID || '';
+          var newPin = e.parameter.pin !== undefined ? String(e.parameter.pin) : '';
+          var setPinToken = e.parameter.pinToken || '';
+          if (!setPinTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              var setPinInfo = getTeamPinInfo(setPinTeamID);
+              if (!setPinInfo) {
+                result = { success: false, error: 'Team not found' };
+              } else {
+                // If team already has a PIN, require valid auth to change it
+                if (setPinInfo.pin && setPinToken !== setPinInfo.pinToken) {
+                  result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
+                } else if (newPin && !/^\d{4}$/.test(newPin)) {
+                  result = { success: false, error: 'PIN must be exactly 4 digits' };
+                } else {
+                  var ss = getSpreadsheet();
+                  var teamsSheet = ss.getSheetByName('Teams');
+                  var newToken = '';
+                  if (newPin) {
+                    // Set or change PIN
+                    newToken = generatePinToken();
+                    teamsSheet.getRange(setPinInfo.rowIndex, 12).setValue(newPin);   // Column L
+                    teamsSheet.getRange(setPinInfo.rowIndex, 13).setValue(newToken); // Column M
+                  } else {
+                    // Remove PIN
+                    teamsSheet.getRange(setPinInfo.rowIndex, 12).setValue(''); // Column L
+                    teamsSheet.getRange(setPinInfo.rowIndex, 13).setValue(''); // Column M
+                  }
+                  // Invalidate cache
+                  try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (ce) {}
+                  result = { success: true, pinToken: newToken };
+                }
+              }
+            } catch (setPinErr) {
+              result = { success: false, error: setPinErr.message };
+            }
+          }
+          break;
+
+        case 'revokeTeamAccess':
+          var revokeTeamID = e.parameter.teamID || '';
+          var revokeToken = e.parameter.pinToken || '';
+          if (!revokeTeamID || !revokeToken) {
+            result = { success: false, error: 'teamID and pinToken are required' };
+          } else {
+            try {
+              var revokePinInfo = getTeamPinInfo(revokeTeamID);
+              if (!revokePinInfo) {
+                result = { success: false, error: 'Team not found' };
+              } else if (!revokePinInfo.pin) {
+                result = { success: false, error: 'Team has no PIN set' };
+              } else if (revokeToken !== revokePinInfo.pinToken) {
+                result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
+              } else {
+                // Generate new token, invalidating all other devices
+                var newRevokeToken = generatePinToken();
+                var ss = getSpreadsheet();
+                var teamsSheet = ss.getSheetByName('Teams');
+                teamsSheet.getRange(revokePinInfo.rowIndex, 13).setValue(newRevokeToken); // Column M
+                // Invalidate cache
+                try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (ce) {}
+                result = { success: true, pinToken: newRevokeToken };
+              }
+            } catch (revokeErr) {
+              result = { success: false, error: revokeErr.message };
+            }
           }
           break;
 
@@ -1986,8 +2108,8 @@ function ensureTeamsSheetStructure() {
       return;
     }
 
-    var headers = teamsSheet.getRange(1, 1, 1, 11).getValues()[0];
-    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count', 'Last Modified'];
+    var headers = teamsSheet.getRange(1, 1, 1, 13).getValues()[0];
+    var expectedHeaders = ['Team ID', 'Year', 'Season', 'Name', 'Sheet Name', 'Ladder Name', 'Ladder API', 'Results API', 'Archived', 'Player Count', 'Last Modified', 'PIN', 'PinToken'];
     var needsUpdate = false;
 
     for (var i = 0; i < expectedHeaders.length; i++) {
@@ -1998,11 +2120,67 @@ function ensureTeamsSheetStructure() {
     }
 
     if (needsUpdate) {
-      teamsSheet.getRange(1, 1, 1, 11).setValues([headers]);
+      teamsSheet.getRange(1, 1, 1, 13).setValues([headers]);
       Logger.log("Updated Teams sheet headers: " + JSON.stringify(headers));
     }
   } catch (e) {
     Logger.log("Error in ensureTeamsSheetStructure: " + e.message);
+  }
+}
+
+/**
+ * Generates a random 16-character hex token for PIN-based device auth.
+ */
+function generatePinToken() {
+  return Utilities.getUuid().replace(/-/g, '').substring(0, 16);
+}
+
+/**
+ * Looks up PIN info for a team by teamID.
+ * Returns { pin, pinToken, rowIndex } or null if not found.
+ */
+function getTeamPinInfo(teamID) {
+  try {
+    var ss = getSpreadsheet();
+    var teamsSheet = ss.getSheetByName('Teams');
+    var data = teamsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] == teamID) {
+        return {
+          pin: data[i][11] ? String(data[i][11]) : '',
+          pinToken: data[i][12] ? String(data[i][12]) : '',
+          rowIndex: i + 1
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    Logger.log('Error in getTeamPinInfo: ' + e.message);
+    return null;
+  }
+}
+
+/**
+ * Looks up PIN info for a team by sheetName (used for saveTeamData auth check).
+ * Returns { pin, pinToken } or null if not found.
+ */
+function getTeamPinInfoBySheetName(sheetName) {
+  try {
+    var ss = getSpreadsheet();
+    var teamsSheet = ss.getSheetByName('Teams');
+    var data = teamsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][4] == sheetName) {
+        return {
+          pin: data[i][11] ? String(data[i][11]) : '',
+          pinToken: data[i][12] ? String(data[i][12]) : ''
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    Logger.log('Error in getTeamPinInfoBySheetName: ' + e.message);
+    return null;
   }
 }
 
@@ -2030,7 +2208,8 @@ function loadMasterTeamList() {
         resultsApi: row[7] || '', // Column H
         archived: row[8] === true || row[8] === 'true' || row[8] === 'TRUE', // Column I
         playerCount: parseInt(row[9], 10) || 0, // Column J
-        lastModified: row[10] || 0 // Column K - timestamp of last data change
+        lastModified: row[10] || 0, // Column K - timestamp of last data change
+        hasPin: !!(row[11]) // Column L - has PIN set (boolean, don't expose actual PIN)
       };
       Logger.log("Loaded team: " + team.name + ", archived=" + team.archived + ", players=" + team.playerCount + ", lastModified=" + team.lastModified);
       return team;
