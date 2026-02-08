@@ -347,6 +347,7 @@ The team object is mapped/copied in multiple places. When adding a new field:
 ### Adding a security check
 
 - **Grep for ALL handlers** of the action being secured — `Code.js` has both GET (`doGet > handleApiRequest`) and POST (`doPost`) paths. `saveTeamData` is POST-only; other actions use GET.
+- **Grep for ALL callers** that hit the secured endpoint — there are TWO code paths that POST to `saveTeamData`: `saveTeamDataWithProtection()` in `api.js` and `syncToGoogleSheets()` in `app.js`. Both must include auth tokens.
 - Consider abuse scenarios: rate limiting, brute force, lockout
 - Auth checks should fail-open on errors (don't block saves due to transient issues) but log the failure
 
