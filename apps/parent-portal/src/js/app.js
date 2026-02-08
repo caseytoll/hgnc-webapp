@@ -309,7 +309,7 @@ function renderMainApp() {
 function updateQuickStats() {
   const games = state.currentTeamData?.games || [];
   const completedGames = games.filter(g => g.status === 'normal' && g.scores && isGameInPast(g));
-  const upcomingGames = games.filter(g => g.status === 'upcoming' || !g.scores || !isGameInPast(g));
+  const upcomingGames = games.filter(g => g.status !== 'bye' && g.status !== 'abandoned' && (g.status === 'upcoming' || !g.scores || !isGameInPast(g)));
 
   let wins = 0, losses = 0, draws = 0;
   let goalsFor = 0, goalsAgainst = 0;
@@ -382,6 +382,9 @@ function renderSchedule() {
     if (game.status === 'abandoned') {
       scoreDisplay = `<div class="game-score-label">Abandoned</div>`;
       resultClass = 'abandoned';
+    } else if (game.status === 'bye') {
+      scoreDisplay = `<div class="game-score-label">Bye</div>`;
+      resultClass = 'bye';
     } else if (game.scores) {
       const { us, opponent } = game.scores;
       if (us > opponent) resultClass = 'win';
