@@ -274,7 +274,6 @@ function getSpreadsheet() {
           Logger.log('getTeams: total ' + totalMs + 'ms');
           try { logClientMetric('getTeams_totalMs', totalMs, (result.teams || []).length, ''); } catch (e) { Logger.log('logClientMetric error: ' + e.message); }
           break;
-          break;
 
         case 'getTeamData':
           var sheetName = e.parameter.sheetName || '';
@@ -300,6 +299,8 @@ function getSpreadsheet() {
           var teamDataJSON = e.parameter.teamData || '';
           if (!sheetNameSave || !teamDataJSON) {
             result = { success: false, error: 'sheetName and teamData are required' };
+          } else if (checkPinAuthBySheetName(sheetNameSave, e.parameter.pinToken || '')) {
+            result = { success: false, error: 'AUTH_REQUIRED', message: 'Invalid or expired access token' };
           } else {
             var saveResult = saveTeamData(sheetNameSave, teamDataJSON, null);
             if (saveResult === "OK") {

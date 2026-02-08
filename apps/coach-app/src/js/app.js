@@ -375,7 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const year = parseInt(yearInput.value);
     const season = seasonInput.value;
     const ladderUrl = ladderUrlInput.value.trim();
-    const coach = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
+    const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
+    const coach = coachRaw === '__other__' ? '' : coachRaw;
 
     // Validation
     if (!name) {
@@ -660,11 +661,15 @@ async function loadTeams(forceRefresh = false) {
             try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
             return;
           }
-          const freshTeams = (data.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName }));
+          const freshTeams = (data.teams || []).map(t => ({
+            teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
+            year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
+            lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
+          }));
 
-          // Lightweight comparison by teamID + playerCount + name
-          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
-          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount })));
+          // Lightweight comparison by teamID + playerCount + name + coach + hasPin
+          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin })));
+          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin })));
 
           if (oldSig !== newSig) {
             console.log('[Cache] Teams list updated on server; refreshing UI');
@@ -1277,10 +1282,21 @@ function showPinEntryModal(teamID) {
   }, 100);
 }
 
+const pinAttempts = {}; // { teamID: { count, lockedUntil } }
+
 window.submitTeamPIN = async function(teamID) {
   const input = document.getElementById('pin-entry-input');
   const errorEl = document.getElementById('pin-error');
   if (!input) return;
+
+  // Rate limiting: lock out after 5 failed attempts for 30 seconds
+  const attempts = pinAttempts[teamID] || { count: 0, lockedUntil: 0 };
+  if (attempts.lockedUntil > Date.now()) {
+    const secs = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+    errorEl.textContent = `Too many attempts. Try again in ${secs}s`;
+    input.value = '';
+    return;
+  }
 
   const pin = input.value.trim();
   if (!/^\d{4}$/.test(pin)) {
@@ -1295,13 +1311,22 @@ window.submitTeamPIN = async function(teamID) {
   try {
     const result = await validateTeamPIN(teamID, pin);
     if (result.success && result.pinToken) {
+      delete pinAttempts[teamID];
       state.teamPinTokens[teamID] = result.pinToken;
       saveToLocalStorage();
       closeModal();
       renderTeamList();
       loadTeamData(teamID);
     } else {
-      errorEl.textContent = 'Invalid PIN';
+      attempts.count++;
+      if (attempts.count >= 5) {
+        attempts.lockedUntil = Date.now() + 30000;
+        attempts.count = 0;
+        errorEl.textContent = 'Too many attempts. Try again in 30s';
+      } else {
+        errorEl.textContent = 'Invalid PIN';
+      }
+      pinAttempts[teamID] = attempts;
       input.classList.add('pin-shake');
       setTimeout(() => input.classList.remove('pin-shake'), 500);
       input.value = '';
@@ -6322,9 +6347,9 @@ window.openTeamSettings = function() {
     <div class="form-group">
       <label class="form-label">Parent Portal Link <span class="form-label-desc">(read-only, for parents)</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" class="form-input" value="${portalUrl}" readonly style="flex:1;min-width:0;">
-        <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>showToast('Copied!','success'))">Copy</button>
-        <a class="btn btn-sm" href="${portalUrl}" target="_blank" rel="noopener">Open</a>
+        <input type="text" class="form-input" value="${escapeAttr(portalUrl)}" readonly style="flex:1;min-width:0;">
+        <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${escapeAttr(portalUrl)}').then(()=>showToast('Copied!','success'))">Copy</button>
+        <a class="btn btn-sm" href="${escapeAttr(portalUrl)}" target="_blank" rel="noopener">Open</a>
       </div>
     </div>
     <div class="settings-divider"></div>
@@ -6596,7 +6621,8 @@ window.saveTeamSettings = async function() {
   const ladderUrl = ladderUrlInput.value.trim();
   const coachSelect = document.getElementById('edit-team-coach');
   const coachCustom = document.getElementById('edit-team-coach-custom');
-  const coach = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
+  const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
+    const coach = coachRaw === '__other__' ? '' : coachRaw;
 
   // Validation
   if (!name) {
@@ -6628,6 +6654,7 @@ window.saveTeamSettings = async function() {
   const oldYear = state.currentTeam.year;
   const oldSeason = state.currentTeam.season;
   const oldCoach = state.currentTeam.coach;
+  const oldLadderUrl = state.currentTeam.ladderUrl;
 
   closeModal();
   showLoading();
@@ -6671,10 +6698,20 @@ window.saveTeamSettings = async function() {
     state.currentTeam.year = oldYear;
     state.currentTeam.season = oldSeason;
     state.currentTeam.coach = oldCoach;
+    state.currentTeam.ladderUrl = oldLadderUrl;
     if (state.currentTeamData) {
       state.currentTeamData.teamName = oldName;
       state.currentTeamData.year = oldYear;
       state.currentTeamData.season = oldSeason;
+      state.currentTeamData.ladderUrl = oldLadderUrl;
+    }
+    const rollbackTeam = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+    if (rollbackTeam) {
+      rollbackTeam.teamName = oldName;
+      rollbackTeam.year = oldYear;
+      rollbackTeam.season = oldSeason;
+      rollbackTeam.coach = oldCoach;
+      rollbackTeam.ladderUrl = oldLadderUrl;
     }
     showToast('Failed to save: ' + error.message, 'error');
   } finally {
