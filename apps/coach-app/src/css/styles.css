@@ -1861,3 +1861,62 @@
   color: var(--warning, #f59e0b);
 }
 
+/* ========================================
+   OPPONENT DIFFICULTY INDICATOR
+   ======================================== */
+
+.opp-rank {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1.3;
+}
+
+.opp-rank-top {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.opp-rank-mid {
+  background: var(--warning-light);
+  color: #92400e;
+}
+
+.opp-rank-bottom {
+  background: var(--success-light);
+  color: #065f46;
+}
+
+.sos-max {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sos-opponent-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="dark"] .opp-rank-top {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .opp-rank-mid {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .opp-rank-bottom {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+

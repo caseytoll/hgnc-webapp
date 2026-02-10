@@ -613,6 +613,27 @@ window.togglePlayerExpand = function(card) {
   card.classList.toggle('expanded');
 };
 
+window.showSoSDetail = function() {
+  const sos = calculateStrengthOfSchedule();
+  if (!sos) return;
+  openModal('Strength of Schedule', `
+    <div style="margin-bottom: 12px; font-size: 13px; color: var(--text-secondary);">
+      Rating: <strong>${sos.rating}/100</strong> (${sos.label}) — based on opponent ladder positions (${sos.gamesWithData} of ${sos.totalGames} games matched).
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      ${sos.opponents.map(o => `
+        <div class="sos-opponent-row">
+          <div>
+            <span class="form-badge ${o.result === 'W' ? 'win' : o.result === 'L' ? 'loss' : 'draw'}" style="width: 20px; height: 20px; font-size: 0.6rem; display: inline-flex;">${o.result}</span>
+            <span style="margin-left: 6px;">${escapeHtml(o.opponent)}</span>
+          </div>
+          <span class="opp-rank opp-rank-${o.tier}">${o.position}${ordinalSuffix(o.position)}</span>
+        </div>
+      `).join('')}
+    </div>
+  `, '<button class="btn btn-primary" onclick="closeModal()">Close</button>');
+};
+
 // ========================================
 // DATA LOADING
 // ========================================
@@ -1123,6 +1144,82 @@ function fuzzyOpponentMatch(existing, fixture) {
     if (lastA === lastB && lastA.length > 2) return true;
   }
   return false;
+}
+
+/**
+ * Get ordinal suffix for a number (1st, 2nd, 3rd, 4th, etc.)
+ */
+function ordinalSuffix(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+/**
+ * Look up opponent difficulty from cached ladder data.
+ * Returns { position, totalTeams, tier, label } or null if no ladder data.
+ */
+function getOpponentDifficulty(opponentName) {
+  if (!opponentName || !state.currentTeam) return null;
+  const cacheKey = `ladder.cache.${state.currentTeam.teamID}`;
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey));
+    if (!cached || !cached.data || !cached.data.ladder || !cached.data.ladder.rows) return null;
+    const rows = cached.data.ladder.rows;
+    const totalTeams = rows.length;
+    if (totalTeams === 0) return null;
+    const match = rows.find(row => {
+      const ladderTeam = String(row['TEAM'] || row['Team'] || '');
+      return fuzzyOpponentMatch(opponentName, ladderTeam);
+    });
+    if (!match) return null;
+    const position = parseInt(match['POS'] || match['Pos'] || '0', 10);
+    if (!position || position < 1) return null;
+    const percentile = position / totalTeams;
+    let tier;
+    if (percentile <= 0.25) tier = 'top';
+    else if (percentile <= 0.75) tier = 'mid';
+    else tier = 'bottom';
+    return { position, totalTeams, tier, label: `${position}${ordinalSuffix(position)}` };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Calculate Strength of Schedule from ladder positions of opponents played.
+ * Returns { rating, avgPosition, gamesWithData, totalGames, label, opponents } or null.
+ */
+function calculateStrengthOfSchedule() {
+  if (!state.analytics || !state.analytics.advanced) return null;
+  const gameResults = state.analytics.advanced.gameResults;
+  if (!gameResults || gameResults.length === 0) return null;
+  const opponents = [];
+  let positionSum = 0;
+  let totalTeams = 0;
+  gameResults.forEach(g => {
+    const diff = getOpponentDifficulty(g.opponent);
+    if (diff) {
+      opponents.push({ opponent: g.opponent, position: diff.position, tier: diff.tier, result: g.result });
+      positionSum += diff.position;
+      totalTeams = diff.totalTeams;
+    }
+  });
+  if (opponents.length === 0 || totalTeams === 0) return null;
+  const avgPosition = positionSum / opponents.length;
+  const rating = Math.round(((totalTeams - avgPosition) / (totalTeams - 1)) * 100);
+  let label;
+  if (rating >= 70) label = 'Tough';
+  else if (rating >= 40) label = 'Average';
+  else label = 'Easy';
+  return {
+    rating: Math.max(1, Math.min(100, rating)),
+    avgPosition: Math.round(avgPosition * 10) / 10,
+    gamesWithData: opponents.length,
+    totalGames: gameResults.length,
+    label,
+    opponents
+  };
 }
 
 async function loadTeamData(teamID) {
@@ -1847,11 +1944,20 @@ function renderSchedule() {
       }
     }
 
+    // Opponent difficulty badge (from ladder data)
+    let difficultyBadge = '';
+    if (game.status !== 'bye' && game.opponent) {
+      const diff = getOpponentDifficulty(game.opponent);
+      if (diff) {
+        difficultyBadge = `<span class="opp-rank opp-rank-${diff.tier}" title="${diff.label} of ${diff.totalTeams}">${diff.label}</span>`;
+      }
+    }
+
     return `
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
         <div class="game-info">
-          <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}</div>
+          <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}${difficultyBadge}</div>
           <div class="game-meta">${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}</div>
         </div>
         <div class="game-score">
@@ -2070,6 +2176,17 @@ function renderStatsOverview(container) {
           <div class="metric-value text-error">${advanced.avgAgainst}</div>
           <div class="metric-sublabel">per game</div>
         </div>
+        ${(() => {
+          const sos = calculateStrengthOfSchedule();
+          if (!sos) return '';
+          return `
+            <div class="metric-card" onclick="showSoSDetail()">
+              <div class="metric-label">Schedule</div>
+              <div class="metric-value">${sos.rating}<span class="sos-max">/100</span></div>
+              <div class="metric-sublabel">${sos.label}</div>
+            </div>
+          `;
+        })()}
       </div>
     </div>
 
@@ -2231,14 +2348,18 @@ window.fetchAIInsights = async function(forceRefresh = false) {
         bestQuarterDiff: advanced.bestQuarterDiff,
         stats: advanced.quarterStats
       },
-      // Game-by-game results
-      gameResults: advanced.gameResults.map(g => ({
-        round: g.round,
-        opponent: g.opponent,
-        score: `${g.us}-${g.them}`,
-        result: g.result,
-        diff: g.diff
-      })),
+      // Game-by-game results (with opponent ladder rank when available)
+      gameResults: advanced.gameResults.map(g => {
+        const opp = getOpponentDifficulty(g.opponent);
+        return {
+          round: g.round,
+          opponent: g.opponent,
+          score: `${g.us}-${g.them}`,
+          result: g.result,
+          diff: g.diff,
+          opponentRank: opp ? `${opp.position}/${opp.totalTeams}` : null
+        };
+      }),
       // Top performers (limit to top 5 each, excluding fill-in players)
       leaderboards: {
         topScorers: leaderboards.offensive.topScorersByTotal.filter(s => !fillInNames.has(s.name)).slice(0, 5).map(s => ({
@@ -2281,7 +2402,30 @@ window.fetchAIInsights = async function(forceRefresh = false) {
           const unit = combinations.defensiveUnits.find(u => !Object.values(u.players).some(name => fillInNames.has(name)));
           return unit ? { players: unit.players, quarters: unit.quarters, avgAgainst: unit.avgAgainst, plusMinus: unit.plusMinus } : null;
         })()
-      }
+      },
+      // Strength of schedule context (if ladder data available)
+      strengthOfSchedule: (() => {
+        const sos = calculateStrengthOfSchedule();
+        if (!sos) return null;
+        return { rating: sos.rating, label: sos.label, avgOpponentPosition: sos.avgPosition, gamesMatched: sos.gamesWithData };
+      })(),
+      // Division results context — opponent W-L records for AI to interpret
+      divisionContext: (() => {
+        if (!state.divisionResults || state.divisionResults.length === 0) return null;
+        const teamRecords = {};
+        state.divisionResults.forEach(round => {
+          (round.matches || []).forEach(m => {
+            if (m.status !== 'ended' && m.status !== 'normal') return;
+            [m.team1, m.team2].forEach(t => { if (t && !teamRecords[t]) teamRecords[t] = { w: 0, l: 0, d: 0 }; });
+            if (m.score1 != null && m.score2 != null) {
+              if (m.score1 > m.score2) { teamRecords[m.team1].w++; teamRecords[m.team2].l++; }
+              else if (m.score1 < m.score2) { teamRecords[m.team1].l++; teamRecords[m.team2].w++; }
+              else { teamRecords[m.team1].d++; teamRecords[m.team2].d++; }
+            }
+          });
+        });
+        return Object.entries(teamRecords).map(([team, r]) => ({ team, record: `${r.w}-${r.l}-${r.d}` }));
+      })()
     };
 
     // POST analytics to backend (text/plain avoids CORS preflight with Apps Script)
