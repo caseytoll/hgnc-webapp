@@ -2134,11 +2134,29 @@ function getAIInsightsWithAnalytics(analytics) {
     prompt += '\n';
   }
 
-  // SECTION 3: Game Results
+  // SECTION 3: Game Results (with opponent ladder rank when available)
   if (gameResults.length > 0) {
     prompt += '## GAME-BY-GAME RESULTS\n';
     gameResults.forEach(function(g) {
-      prompt += 'R' + g.round + ' vs ' + g.opponent + ': ' + g.score + ' (' + g.result + ', ' + (g.diff >= 0 ? '+' : '') + g.diff + ')\n';
+      var rankInfo = g.opponentRank ? ' [opp ranked ' + g.opponentRank + ']' : '';
+      prompt += 'R' + g.round + ' vs ' + g.opponent + rankInfo + ': ' + g.score + ' (' + g.result + ', ' + (g.diff >= 0 ? '+' : '') + g.diff + ')\n';
+    });
+    prompt += '\n';
+  }
+
+  // SECTION 3.5: Strength of Schedule & Division Context
+  var sos = analytics.strengthOfSchedule;
+  if (sos) {
+    prompt += '## STRENGTH OF SCHEDULE\n';
+    prompt += 'Rating: ' + sos.rating + '/100 (' + sos.label + ')\n';
+    prompt += 'Average opponent position: ' + sos.avgOpponentPosition + ' (from ' + sos.gamesMatched + ' matched games)\n';
+    prompt += 'Context: Factor opponent strength when evaluating wins/losses. A win against a top-3 team is more impressive than against a bottom team.\n\n';
+  }
+  var divCtx = analytics.divisionContext;
+  if (divCtx && divCtx.length > 0) {
+    prompt += '## DIVISION STANDINGS (W-L-D)\n';
+    divCtx.forEach(function(t) {
+      prompt += t.team + ': ' + t.record + '\n';
     });
     prompt += '\n';
   }
