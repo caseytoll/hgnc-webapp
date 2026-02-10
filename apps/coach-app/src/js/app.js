@@ -925,19 +925,30 @@ window.showAppMetrics = function() {
 };
 
 // ========================================
-// FIXTURE SYNC (Squadi / Netball Connect)
+// FIXTURE SYNC (Squadi / GameDay)
 // ========================================
 
-function parseSquadiConfig(resultsApi) {
+function parseFixtureConfig(resultsApi) {
   if (!resultsApi) return null;
   try {
     const config = JSON.parse(resultsApi);
-    if (config.source !== 'squadi') return null;
-    if (!config.competitionId || !config.divisionId || !config.squadiTeamName) return null;
-    return config;
+    if (config.source === 'squadi') {
+      if (!config.competitionId || !config.divisionId || !config.squadiTeamName) return null;
+      return config;
+    }
+    if (config.source === 'gameday') {
+      if (!config.compID || !config.client || !config.teamName) return null;
+      return config;
+    }
+    return null;
   } catch (e) {
     return null;
   }
+}
+
+// Backwards-compatible alias
+function parseSquadiConfig(resultsApi) {
+  return parseFixtureConfig(resultsApi);
 }
 
 /**
@@ -945,7 +956,7 @@ function parseSquadiConfig(resultsApi) {
  */
 async function syncFixtureData(team, teamData) {
   if (!team || !navigator.onLine) return;
-  const config = parseSquadiConfig(team.resultsApi);
+  const config = parseFixtureConfig(team.resultsApi);
   if (!config) return;
 
   try {
@@ -1616,8 +1627,9 @@ function renderLadderTab(team) {
   const existingPanel = tabPanelContainer.querySelector('#tab-ladder');
   if (existingPanel) existingPanel.remove();
 
-  // Determine ladder source: NFNL (ladderUrl) or Squadi (resultsApi)
-  const squadiConfig = parseSquadiConfig(team.resultsApi);
+  // Determine ladder source: NFNL (ladderUrl) or Squadi (resultsApi with competitionKey)
+  const fixtureConfig = parseFixtureConfig(team.resultsApi);
+  const squadiConfig = fixtureConfig && fixtureConfig.source === 'squadi' ? fixtureConfig : null;
   const hasLadder = team.ladderUrl || squadiConfig;
   if (!hasLadder) return;
 
@@ -1652,10 +1664,10 @@ function renderLadderTab(team) {
   ladderPanel.innerHTML = `<div id="ladder-content"><div class="ladder-loading">Loading ladder...</div></div>`;
   tabPanelContainer.appendChild(ladderPanel);
 
-  // Fetch ladder data from appropriate source
+  // Fetch ladder data from appropriate source (with daily localStorage cache)
   const ladderPromise = squadiConfig
-    ? fetchSquadiLadder(team.teamID)
-    : fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
+    ? getCachedLadder(team.teamID, () => fetchSquadiLadder(team.teamID))
+    : getCachedLadder(team.teamID, () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json()));
 
   // For Squadi, use the configured team name for highlighting; for NFNL, use teamName
   const highlightName = squadiConfig ? (squadiConfig.squadiTeamName || team.teamName || '') : (team.teamName || '');
@@ -1675,10 +1687,25 @@ function renderLadderTab(team) {
     });
 }
 
+function getCachedLadder(teamID, fetchFn) {
+  const cacheKey = `ladder.cache.${teamID}`;
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey));
+    if (cached && cached.date === today && cached.data) {
+      return Promise.resolve(cached.data);
+    }
+  } catch (e) { /* corrupt cache, refetch */ }
+  return fetchFn().then(data => {
+    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (e) { /* quota */ }
+    return data;
+  });
+}
+
 function fetchSquadiLadder(teamID) {
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-  return fetch(`${baseUrl}?action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}`)
+  return fetch(`${baseUrl}?api=true&action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}`)
     .then(res => res.json());
 }
 
@@ -1693,6 +1720,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
 
   let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}`;
   html += ` <button class="btn btn-ghost btn-xs show-columns-toggle" aria-pressed="${showExtra ? 'true' : 'false'}">${showExtra ? 'Hide extra columns' : 'Show extra columns'}</button>`;
+  html += ` <button class="btn btn-ghost btn-xs ladder-refresh-btn" aria-label="Refresh ladder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Refresh</button>`;
   html += `</div>`;
 
   html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>` + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
@@ -1727,6 +1755,33 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
       toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
       toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
       try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
+    });
+  }
+
+  // Refresh button handler
+  const refreshBtn = ladderDiv.querySelector('.ladder-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      // Clear cache and re-fetch
+      try { localStorage.removeItem(`ladder.cache.${team.teamID}`); } catch (e) { /* ignore */ }
+      ladderDiv.innerHTML = `<div class="ladder-loading">Refreshing ladder...</div>`;
+      const fixCfg = parseFixtureConfig(team.resultsApi);
+      const squadiCfg = fixCfg && fixCfg.source === 'squadi' ? fixCfg : null;
+      const fetchFn = squadiCfg
+        ? () => fetchSquadiLadder(team.teamID)
+        : () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
+      getCachedLadder(team.teamID, fetchFn)
+        .then(freshData => {
+          if (!freshData.ladder || !freshData.ladder.rows || !freshData.ladder.headers) {
+            ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available yet.</div>`;
+            return;
+          }
+          renderLadderTable(ladderDiv, freshData, team, highlightName);
+          showToast('Ladder updated');
+        })
+        .catch(() => {
+          ladderDiv.innerHTML = `<div class="ladder-error">Failed to refresh ladder.</div>`;
+        });
     });
   }
 }
@@ -6996,27 +7051,53 @@ window.openTeamSettings = function() {
     ${(() => {
       let sc = {};
       try { sc = team.resultsApi ? JSON.parse(team.resultsApi) : {}; } catch(e) {}
+      const currentSource = sc.source || '';
       return `
     <div class="form-group">
-      <label class="form-label">Fixture Sync <span class="form-label-desc">(optional, Netball Connect / Squadi)</span></label>
-      <p class="form-hint" style="margin-bottom:8px">Auto-populate schedule from Netball Connect fixtures. Find these values in your browser's Network tab on the fixtures page.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div>
-          <label class="form-label form-label-sm">Competition ID</label>
-          <input type="number" class="form-input" id="edit-squadi-competition-id" placeholder="e.g. 4650" value="${sc.competitionId || ''}">
+      <label class="form-label">Fixture Sync <span class="form-label-desc">(optional)</span></label>
+      <p class="form-hint" style="margin-bottom:8px">Auto-populate schedule from competition fixtures.</p>
+      <select class="form-select" id="edit-fixture-source" onchange="window._toggleFixtureSource(this.value)">
+        <option value="">— None —</option>
+        <option value="gameday" ${currentSource === 'gameday' ? 'selected' : ''}>GameDay (NFNL, etc.)</option>
+        <option value="squadi" ${currentSource === 'squadi' ? 'selected' : ''}>Netball Connect / Squadi</option>
+      </select>
+      <div id="fixture-gameday-fields" style="display:${currentSource === 'gameday' ? 'block' : 'none'};margin-top:8px">
+        <p class="form-hint" style="margin-bottom:8px">Find these values in the GameDay fixture URL for your competition.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label form-label-sm">Competition ID</label>
+            <input type="text" class="form-input" id="edit-gameday-comp-id" placeholder="e.g. 655969" value="${escapeAttr(sc.compID || '')}">
+          </div>
+          <div>
+            <label class="form-label form-label-sm">Client String</label>
+            <input type="text" class="form-input" id="edit-gameday-client" placeholder="e.g. 0-9074-0-655969-0" value="${escapeAttr(sc.client || '')}">
+          </div>
         </div>
-        <div>
-          <label class="form-label form-label-sm">Division ID</label>
-          <input type="number" class="form-input" id="edit-squadi-division-id" placeholder="e.g. 29570" value="${sc.divisionId || ''}">
+        <div style="margin-top:8px">
+          <label class="form-label form-label-sm">Team Name (as shown on GameDay)</label>
+          <input type="text" class="form-input" id="edit-gameday-team-name" maxlength="100" placeholder="e.g. Hazel Glen 6" value="${escapeAttr(sc.source === 'gameday' ? (sc.teamName || '') : '')}">
         </div>
       </div>
-      <div style="margin-top:8px">
-        <label class="form-label form-label-sm">Team Name (as shown in Squadi)</label>
-        <input type="text" class="form-input" id="edit-squadi-team-name" maxlength="100" placeholder="e.g. HG 11 Flames" value="${escapeAttr(sc.squadiTeamName || '')}">
-      </div>
-      <div style="margin-top:8px">
-        <label class="form-label form-label-sm">Competition Key <span class="form-label-desc">(optional, for ladder)</span></label>
-        <input type="text" class="form-input" id="edit-squadi-competition-key" maxlength="100" placeholder="UUID format" value="${escapeAttr(sc.competitionKey || '')}">
+      <div id="fixture-squadi-fields" style="display:${currentSource === 'squadi' ? 'block' : 'none'};margin-top:8px">
+        <p class="form-hint" style="margin-bottom:8px">Find these values in your browser's Network tab on the Netball Connect fixtures page.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label form-label-sm">Competition ID</label>
+            <input type="number" class="form-input" id="edit-squadi-competition-id" placeholder="e.g. 4650" value="${sc.competitionId || ''}">
+          </div>
+          <div>
+            <label class="form-label form-label-sm">Division ID</label>
+            <input type="number" class="form-input" id="edit-squadi-division-id" placeholder="e.g. 29570" value="${sc.divisionId || ''}">
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <label class="form-label form-label-sm">Team Name (as shown in Squadi)</label>
+          <input type="text" class="form-input" id="edit-squadi-team-name" maxlength="100" placeholder="e.g. HG 11 Flames" value="${escapeAttr(sc.squadiTeamName || '')}">
+        </div>
+        <div style="margin-top:8px">
+          <label class="form-label form-label-sm">Competition Key <span class="form-label-desc">(optional, for ladder)</span></label>
+          <input type="text" class="form-input" id="edit-squadi-competition-key" maxlength="100" placeholder="UUID format" value="${escapeAttr(sc.competitionKey || '')}">
+        </div>
       </div>
     </div>`;
     })()}
@@ -7085,6 +7166,13 @@ window.openTeamSettings = function() {
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="saveTeamSettings()">Save</button>
   `);
+};
+
+window._toggleFixtureSource = function(source) {
+  const gamedayFields = document.getElementById('fixture-gameday-fields');
+  const squadiFields = document.getElementById('fixture-squadi-fields');
+  if (gamedayFields) gamedayFields.style.display = source === 'gameday' ? 'block' : 'none';
+  if (squadiFields) squadiFields.style.display = source === 'squadi' ? 'block' : 'none';
 };
 
 window.setTeamPINFromSettings = async function() {
@@ -7300,16 +7388,26 @@ window.saveTeamSettings = async function() {
   const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
     const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
-  // Build Squadi fixture config from form fields
-  const squadiCompId = parseInt(document.getElementById('edit-squadi-competition-id')?.value) || 0;
-  const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
-  const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
-  const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
+  // Build fixture config from form fields
+  const fixtureSource = document.getElementById('edit-fixture-source')?.value || '';
   let resultsApi = '';
-  if (squadiCompId && squadiDivId && squadiTeamName) {
-    const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
-    if (squadiCompKey) config.competitionKey = squadiCompKey;
-    resultsApi = JSON.stringify(config);
+  if (fixtureSource === 'gameday') {
+    const gdCompID = document.getElementById('edit-gameday-comp-id')?.value.trim() || '';
+    const gdClient = document.getElementById('edit-gameday-client')?.value.trim() || '';
+    const gdTeamName = document.getElementById('edit-gameday-team-name')?.value.trim() || '';
+    if (gdCompID && gdClient && gdTeamName) {
+      resultsApi = JSON.stringify({ source: 'gameday', compID: gdCompID, client: gdClient, teamName: gdTeamName });
+    }
+  } else if (fixtureSource === 'squadi') {
+    const squadiCompId = parseInt(document.getElementById('edit-squadi-competition-id')?.value) || 0;
+    const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
+    const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
+    const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
+    if (squadiCompId && squadiDivId && squadiTeamName) {
+      const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
+      if (squadiCompKey) config.competitionKey = squadiCompKey;
+      resultsApi = JSON.stringify(config);
+    }
   }
 
   // Validation

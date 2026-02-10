@@ -548,6 +548,51 @@
   font-size: 0.8rem;
   color: var(--text-muted);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.show-columns-toggle {
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.show-columns-toggle:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-400);
+}
+
+.ladder-refresh-btn {
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ladder-refresh-btn:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-400);
+}
+
+.ladder-refresh-btn svg {
+  flex-shrink: 0;
 }
 
 .ladder-container {
@@ -595,36 +640,42 @@
   color: var(--text-muted);
 }
 
-/* Responsive: allow horizontal scrolling on small screens */
-@media (max-width: 480px), (orientation: portrait) {
-  .ladder-container { max-height: 60vh; }
-  .ladder-table { font-size: 0.78rem; }
-
-  /* Portrait: hide less-useful columns to keep view compact */
-  .ladder-table thead th[data-key="FF"],
-  .ladder-table thead th[data-key="FG"],
-  .ladder-table thead th[data-key="% Won"],
-  .ladder-table tbody td[data-key="FF"],
-  .ladder-table tbody td[data-key="FG"],
-  .ladder-table tbody td[data-key="% Won"] {
-    display: none;
-  }
-
-  /* If user expanded columns, show them */
-  .ladder-container.expanded-columns .ladder-table thead th[data-key="FF"],
-  .ladder-container.expanded-columns .ladder-table thead th[data-key="FG"],
-  .ladder-container.expanded-columns .ladder-table thead th[data-key="% Won"],
-  .ladder-container.expanded-columns .ladder-table tbody td[data-key="FF"],
-  .ladder-container.expanded-columns .ladder-table tbody td[data-key="FG"],
-  .ladder-container.expanded-columns .ladder-table tbody td[data-key="% Won"] {
-    display: table-cell;
-  }
+/* Hide extra ladder columns by default */
+.ladder-table thead th[data-key="FF"],
+.ladder-table thead th[data-key="FG"],
+.ladder-table thead th[data-key="For"],
+.ladder-table thead th[data-key="Agst"],
+.ladder-table thead th[data-key="% Won"],
+.ladder-table tbody td[data-key="FF"],
+.ladder-table tbody td[data-key="FG"],
+.ladder-table tbody td[data-key="For"],
+.ladder-table tbody td[data-key="Agst"],
+.ladder-table tbody td[data-key="% Won"] {
+  display: none;
 }
 
-/* Use container queries to show full columns when the ladder container is wide enough (future-proof) */
-.ladder-container { container-type: inline-size; }
-@container (min-width: 520px) {
-  .ladder-table thead th, .ladder-table tbody td { display: table-cell !important; }
+/* Show extra columns when toggled via button */
+.ladder-container.expanded-columns .ladder-table thead th[data-key="FF"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="FG"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="For"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="Agst"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="% Won"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="FF"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="FG"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="For"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="Agst"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="% Won"] {
+  display: table-cell;
+}
+
+/* Landscape: show all columns automatically */
+@media (orientation: landscape) {
+  .ladder-table thead th, .ladder-table tbody td { display: table-cell; }
+}
+
+/* Smaller font on narrow screens */
+@media (max-width: 480px) {
+  .ladder-table { font-size: 0.78rem; }
 }
 
 /* Transition / animation for ladder panel */
@@ -638,19 +689,12 @@
   transform: none;
 }
 
-/* Entry state class kept for cleanup hook */
 .ladder-enter { }
 
 @media (prefers-reduced-motion: reduce) {
   .ladder-container {
     transition: none !important;
   }
-}
-
-
-/* Landscape (and wider screens) show all columns */
-@media (orientation: landscape), (min-width: 481px) {
-  .ladder-table thead th, .ladder-table tbody td { display: table-cell; }
 }
 
 /* ========================================
