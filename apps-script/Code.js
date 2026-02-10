@@ -1568,12 +1568,14 @@ function fetchGameDayFixtureData(config) {
 
     // Step 3: Transform into our standard format
     var teamName = config.teamName.toLowerCase();
+    var roundOffset = parseInt(config.roundOffset, 10) || 0;
     var teamFixtures = [];
     var roundsMap = {};  // roundNum -> { roundName, matches[] }
 
     for (var j = 0; j < allMatches.length; j++) {
       var gm = allMatches[j];
-      var roundNum = parseInt(gm.Round, 10) || 0;
+      var rawRound = parseInt(gm.Round, 10) || 0;
+      var roundNum = rawRound + roundOffset;
       var roundName = 'Round ' + roundNum;
       var matchId = parseInt(gm.FixtureID, 10) || 0;
 
@@ -1695,7 +1697,8 @@ function extractGameDayMatches(html) {
 }
 
 /**
- * Get Squadi ladder data for a specific team, using its ResultsApi config.
+ * Get ladder data for a specific team, using its ResultsApi config.
+ * Supports both Squadi (API) and GameDay (computed from fixture results).
  * Caches results in CacheService for 1 hour.
  * @param {string} teamID
  * @param {boolean} forceRefresh - bypass cache
@@ -1710,16 +1713,13 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     if (teams[i].teamID == teamID) { team = teams[i]; break; }
   }
   if (!team) throw new Error('Team not found: ' + teamID);
-  if (!team.resultsApi) throw new Error('No Squadi config for this team');
+  if (!team.resultsApi) throw new Error('No fixture config for this team');
 
   var config;
   try {
     config = JSON.parse(team.resultsApi);
   } catch (e) {
     throw new Error('Invalid ResultsApi JSON: ' + e.message);
-  }
-  if (config.source !== 'squadi' || !config.divisionId || !config.competitionKey) {
-    throw new Error('Invalid Squadi config');
   }
 
   var cacheKey = 'LADDER_' + teamID;
@@ -1736,6 +1736,38 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     }
   }
 
+  var result;
+  if (config.source === 'gameday') {
+    result = computeGameDayLadder(config, teamID);
+  } else if (config.source === 'squadi') {
+    if (!config.divisionId || !config.competitionKey) {
+      throw new Error('Squadi config missing divisionId or competitionKey');
+    }
+    result = fetchSquadiLadderData(config);
+  } else {
+    throw new Error('Unknown ladder source: ' + config.source);
+  }
+
+  if (!result.success) return result;
+
+  // Cache for 1 hour
+  try {
+    var cacheObj = CacheService.getScriptCache();
+    var jsonStr = JSON.stringify(result);
+    if (jsonStr.length <= 100000) {
+      cacheObj.put(cacheKey, jsonStr, 3600);
+    }
+  } catch (e) {
+    Logger.log('Ladder cache write error: ' + e.message);
+  }
+
+  return result;
+}
+
+/**
+ * Fetch Squadi ladder from API.
+ */
+function fetchSquadiLadderData(config) {
   var AUTH_TOKEN = loadAuthToken();
   if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
     return { success: false, error: 'AUTH_TOKEN_MISSING' };
@@ -1776,7 +1808,6 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
       return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
     }
 
-    // Transform Squadi ladder into { headers, rows } format matching the scraper output
     var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS'];
     var rows = ladders.map(function(entry) {
       return {
@@ -1795,31 +1826,107 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
       };
     });
 
-    var divisionName = ladders[0].divisionName || '';
-    var result = {
+    return {
       success: true,
       ladder: { headers: headers, rows: rows },
-      divisionName: divisionName,
+      divisionName: ladders[0].divisionName || '',
       lastUpdated: new Date().toISOString(),
       squadiTeamName: config.squadiTeamName || ''
     };
-
-    // Cache for 1 hour
-    try {
-      var cacheObj = CacheService.getScriptCache();
-      var jsonStr = JSON.stringify(result);
-      if (jsonStr.length <= 100000) {
-        cacheObj.put(cacheKey, jsonStr, 3600);
-      }
-    } catch (e) {
-      Logger.log('Ladder cache write error: ' + e.message);
-    }
-
-    return result;
   } catch (e) {
     Logger.log('Squadi ladder fetch error: ' + e.message);
     return { success: false, error: 'Network error: ' + e.message };
   }
+}
+
+/**
+ * Compute ladder standings from GameDay fixture results.
+ * Fetches all match data and calculates W/L/D/For/Against for each team.
+ */
+function computeGameDayLadder(config, teamID) {
+  // Get fixture data (uses cache if available)
+  var fixtureResult = fetchGameDayFixtureData(config);
+  if (!fixtureResult.success) return fixtureResult;
+
+  // Build standings from divisionResults
+  var standings = {};  // teamName -> { P, W, L, D, For, Agst }
+
+  for (var r = 0; r < fixtureResult.divisionResults.length; r++) {
+    var round = fixtureResult.divisionResults[r];
+    for (var m = 0; m < round.matches.length; m++) {
+      var match = round.matches[m];
+      if (match.status !== 'ended') continue;
+
+      var t1 = match.team1;
+      var t2 = match.team2;
+      var s1 = parseInt(match.score1, 10) || 0;
+      var s2 = parseInt(match.score2, 10) || 0;
+
+      if (!t1 || !t2) continue;
+
+      if (!standings[t1]) standings[t1] = { P: 0, W: 0, L: 0, D: 0, For: 0, Agst: 0 };
+      if (!standings[t2]) standings[t2] = { P: 0, W: 0, L: 0, D: 0, For: 0, Agst: 0 };
+
+      standings[t1].P++;
+      standings[t2].P++;
+      standings[t1].For += s1;
+      standings[t1].Agst += s2;
+      standings[t2].For += s2;
+      standings[t2].Agst += s1;
+
+      if (s1 > s2) {
+        standings[t1].W++;
+        standings[t2].L++;
+      } else if (s2 > s1) {
+        standings[t2].W++;
+        standings[t1].L++;
+      } else {
+        standings[t1].D++;
+        standings[t2].D++;
+      }
+    }
+  }
+
+  // Sort by: Points (W*4 + D*2), then percentage
+  var teamNames = Object.keys(standings);
+  teamNames.sort(function(a, b) {
+    var ptsA = standings[a].W * 4 + standings[a].D * 2;
+    var ptsB = standings[b].W * 4 + standings[b].D * 2;
+    if (ptsB !== ptsA) return ptsB - ptsA;
+    // Tiebreak by percentage
+    var pctA = standings[a].Agst > 0 ? (standings[a].For / standings[a].Agst * 100) : 0;
+    var pctB = standings[b].Agst > 0 ? (standings[b].For / standings[b].Agst * 100) : 0;
+    return pctB - pctA;
+  });
+
+  var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'For', 'Agst', '%', '% Won', 'PTS'];
+  var rows = teamNames.map(function(name, idx) {
+    var s = standings[name];
+    var pts = s.W * 4 + s.D * 2;
+    var pct = s.Agst > 0 ? (s.For / s.Agst * 100).toFixed(1) : '0.0';
+    var winPct = s.P > 0 ? (s.W / s.P * 100).toFixed(0) + '%' : '0%';
+    return {
+      'POS': String(idx + 1),
+      'TEAM': name,
+      'P': String(s.P),
+      'W': String(s.W),
+      'L': String(s.L),
+      'D': String(s.D),
+      'For': String(s.For),
+      'Agst': String(s.Agst),
+      '%': pct,
+      '% Won': winPct,
+      'PTS': String(pts)
+    };
+  });
+
+  return {
+    success: true,
+    ladder: { headers: headers, rows: rows },
+    divisionName: fixtureResult.divisionName || '',
+    lastUpdated: new Date().toISOString(),
+    gamedayTeamName: config.teamName || ''
+  };
 }
 
 // --- AI Insights using Gemini ---

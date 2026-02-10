@@ -1627,10 +1627,11 @@ function renderLadderTab(team) {
   const existingPanel = tabPanelContainer.querySelector('#tab-ladder');
   if (existingPanel) existingPanel.remove();
 
-  // Determine ladder source: NFNL (ladderUrl) or Squadi (resultsApi with competitionKey)
+  // Determine ladder source: NFNL (ladderUrl), Squadi (resultsApi), or GameDay (resultsApi)
   const fixtureConfig = parseFixtureConfig(team.resultsApi);
   const squadiConfig = fixtureConfig && fixtureConfig.source === 'squadi' ? fixtureConfig : null;
-  const hasLadder = team.ladderUrl || squadiConfig;
+  const gamedayConfig = fixtureConfig && fixtureConfig.source === 'gameday' ? fixtureConfig : null;
+  const hasLadder = team.ladderUrl || squadiConfig || gamedayConfig;
   if (!hasLadder) return;
 
   // Add Ladder tab to nav (insert before the Stats button to keep order)
@@ -1665,12 +1666,15 @@ function renderLadderTab(team) {
   tabPanelContainer.appendChild(ladderPanel);
 
   // Fetch ladder data from appropriate source (with daily localStorage cache)
-  const ladderPromise = squadiConfig
+  // Squadi and GameDay both use the backend API; NFNL uses the static JSON from the scraper
+  const ladderPromise = (squadiConfig || gamedayConfig)
     ? getCachedLadder(team.teamID, () => fetchSquadiLadder(team.teamID))
     : getCachedLadder(team.teamID, () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json()));
 
-  // For Squadi, use the configured team name for highlighting; for NFNL, use teamName
-  const highlightName = squadiConfig ? (squadiConfig.squadiTeamName || team.teamName || '') : (team.teamName || '');
+  // Use the configured team name for highlighting
+  const highlightName = squadiConfig ? (squadiConfig.squadiTeamName || team.teamName || '')
+    : gamedayConfig ? (gamedayConfig.teamName || team.teamName || '')
+    : (team.teamName || '');
 
   ladderPromise
     .then(data => {
@@ -1767,7 +1771,8 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
       ladderDiv.innerHTML = `<div class="ladder-loading">Refreshing ladder...</div>`;
       const fixCfg = parseFixtureConfig(team.resultsApi);
       const squadiCfg = fixCfg && fixCfg.source === 'squadi' ? fixCfg : null;
-      const fetchFn = squadiCfg
+      const gamedayCfg = fixCfg && fixCfg.source === 'gameday' ? fixCfg : null;
+      const fetchFn = (squadiCfg || gamedayCfg)
         ? () => fetchSquadiLadder(team.teamID)
         : () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
       getCachedLadder(team.teamID, fetchFn)
@@ -7073,9 +7078,16 @@ window.openTeamSettings = function() {
             <input type="text" class="form-input" id="edit-gameday-client" placeholder="e.g. 0-9074-0-655969-0" value="${escapeAttr(sc.client || '')}">
           </div>
         </div>
-        <div style="margin-top:8px">
-          <label class="form-label form-label-sm">Team Name (as shown on GameDay)</label>
-          <input type="text" class="form-input" id="edit-gameday-team-name" maxlength="100" placeholder="e.g. Hazel Glen 6" value="${escapeAttr(sc.source === 'gameday' ? (sc.teamName || '') : '')}">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px">
+          <div>
+            <label class="form-label form-label-sm">Team Name (as shown on GameDay)</label>
+            <input type="text" class="form-input" id="edit-gameday-team-name" maxlength="100" placeholder="e.g. Hazel Glen 6" value="${escapeAttr(sc.source === 'gameday' ? (sc.teamName || '') : '')}">
+          </div>
+          <div>
+            <label class="form-label form-label-sm">Round Offset</label>
+            <input type="number" class="form-input" id="edit-gameday-round-offset" placeholder="0" value="${sc.source === 'gameday' ? (sc.roundOffset || '') : ''}">
+            <p class="form-hint" style="margin-top:2px">e.g. 3 if you had 3 grading rounds</p>
+          </div>
         </div>
       </div>
       <div id="fixture-squadi-fields" style="display:${currentSource === 'squadi' ? 'block' : 'none'};margin-top:8px">
@@ -7395,8 +7407,11 @@ window.saveTeamSettings = async function() {
     const gdCompID = document.getElementById('edit-gameday-comp-id')?.value.trim() || '';
     const gdClient = document.getElementById('edit-gameday-client')?.value.trim() || '';
     const gdTeamName = document.getElementById('edit-gameday-team-name')?.value.trim() || '';
+    const gdRoundOffset = parseInt(document.getElementById('edit-gameday-round-offset')?.value) || 0;
     if (gdCompID && gdClient && gdTeamName) {
-      resultsApi = JSON.stringify({ source: 'gameday', compID: gdCompID, client: gdClient, teamName: gdTeamName });
+      const gdConfig = { source: 'gameday', compID: gdCompID, client: gdClient, teamName: gdTeamName };
+      if (gdRoundOffset) gdConfig.roundOffset = gdRoundOffset;
+      resultsApi = JSON.stringify(gdConfig);
     }
   } else if (fixtureSource === 'squadi') {
     const squadiCompId = parseInt(document.getElementById('edit-squadi-competition-id')?.value) || 0;
