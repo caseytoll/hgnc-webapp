@@ -94,6 +94,8 @@ webapp-local-dev/
 │       ├── src/js/router.js # URL routing for team pages
 │       └── src/js/*.test.js # Test files
 ├── common/                  # Shared modules (imported by both apps)
+│   ├── styles/
+│   │   └── shared.css       # Shared CSS (design system, components, layout, theme)
 │   ├── utils.js             # escapeHtml, formatters, isGameInPast, localStorage wrappers
 │   ├── mock-data.js         # Mock data AND calculateTeamStats()
 │   ├── stats-calculations.js # Leaderboards, combos, analytics (uses isGameInPast)
@@ -114,7 +116,7 @@ webapp-local-dev/
 - All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
 - Always use `escapeHtml()` for user input to prevent XSS
 - Always use `formatAIContent()` for rendering AI-generated text (escapes HTML first, then applies markdown formatting)
-- CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility
+- CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility. Each app's `styles.css` uses `@import` to pull in `common/styles/shared.css`, then adds app-specific overrides. Shared CSS changes go in `common/styles/shared.css`; coach-only styles (scoring inputs, planner, PIN, AI, training, ladder) stay in coach's `styles.css`; portal-only styles (read-only scoring display) stay in portal's `styles.css`
 - Shared modules imported from `../../common/` in both apps
 - Name validation (`validatePlayerName`, `validateTeamName`, `validateOpponentName`) requires 2-100 chars with at least one letter
 - No linter configured; code style is vanilla JS with ES modules

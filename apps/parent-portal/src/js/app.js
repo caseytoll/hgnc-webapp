@@ -434,7 +434,7 @@ function renderRoster() {
       <div class="player-avatar">${getInitials(player.name)}</div>
       <div class="player-info">
         <div class="player-name">${escapeHtml(player.name)}</div>
-        <div class="player-position">${escapeHtml(player.favPosition || '')}</div>
+        <div class="player-position">${escapeHtml(Array.isArray(player.favPosition) ? player.favPosition.join(', ') : (player.favPosition || ''))}</div>
       </div>
       ${player.fillIn ? '<span class="fill-in-badge">Fill-in</span>' : ''}
     </div>
