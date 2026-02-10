@@ -136,6 +136,7 @@ When modifying UI in one app, check if the other needs the same change:
 - **Upcoming games:** Use `isGameInPast()` from utils.js to exclude future games from stats calculations
 - **Stats filter consistency:** Both `calculateTeamStats` (mock-data.js) and `calculateAdvancedStats` (stats-calculations.js) use the same filter: `g.status === 'normal' && g.scores && isGameInPast(g)`
 - **Team Sheet sharing:** Format is "Round X - TeamName vs Opponent" with full first names (no truncation)
+- **Fixture sync fields:** `fixtureMatchId` and `fixtureScore` must round-trip through both apps' `transformTeamDataFromSheet` and `transformTeamDataToSheet` (same pattern as `aiSummary`)
 
 **Shared UI Components (must match between apps):**
 
@@ -149,6 +150,7 @@ When modifying UI in one app, check if the other needs the same change:
 | Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
 | Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
 | Team Sheet | `.lineup-card`, `.lineup-card-header`, `.lineup-card-table` | Shareable image with player positions per quarter |
+| Score validation | `.score-validated`, `.score-mismatch`, `.fixture-score-note` | Green check or warning when fixture score differs from manual |
 
 ### Team Access Control (PIN System)
 
@@ -247,13 +249,13 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 
 ```javascript
 // Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
-{ teamID, teamName, year, season, sheetName, archived, ladderUrl, hasPin, coach }
+{ teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach }
 
 // Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
 {
   teamID, sheetName,
   players: [{ id, name, fillIn, favPosition }],
-  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup }],  // status: upcoming|normal|abandoned|forfeit|bye
+  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup, fixtureMatchId, fixtureScore }],  // status: upcoming|normal|abandoned|forfeit|bye
   trainingSessions: [{ sessionID, date, attendedPlayerIDs, focus, notes }],  // Optional
   trainingFocusHistory: [{ text, generatedAt, gameCount, noteCount, recentGames }]  // Optional, max 5
 }
@@ -272,6 +274,18 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
   focus: "Footwork and landing technique",  // Brief summary
   notes: "Worked on 3-step landing drill. Most players improving."
 }
+
+// Fixture fields (optional, per game — set by fixture sync)
+{
+  fixtureMatchId: 12345,              // Links game to external fixture entry (Squadi match ID or GameDay match ID)
+  fixtureScore: { us: 25, opponent: 18 }  // Official total from API (null if match not ended)
+}
+
+// ResultsApi config (Teams sheet column H — JSON string, per-team)
+// Squadi:
+{ "source": "squadi", "competitionId": 4650, "divisionId": 29570, "squadiTeamName": "HG 11 Flames", "competitionKey": "75e568d0-..." }
+// GameDay:
+{ "source": "gameday", "compID": "655969", "client": "0-9074-0-655969-0", "teamName": "Hazel Glen 6", "roundOffset": 3 }
 ```
 
 **Positions:** GS, GA, WA, C, WD, GD, GK
@@ -302,6 +316,8 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 | `getTeamRow` | Get raw team row (admin) | `teamID` |
 | `logClientMetric` | Log diagnostic metric | `name`, `value`, `teams`, `extra` |
 | `getDiagnostics` | Retrieve diagnostic logs | `limit` (optional, default 50) |
+| `getFixtureData` | Fetch fixture data for team | `teamID`, `forceRefresh` (optional) |
+| `getSquadiLadder` | Fetch ladder/standings for team | `teamID` |
 | `rebuildPlayerCounts` | Rebuild player count cache | - |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
@@ -327,20 +343,52 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 ---
 
-## Ladder Integration
+## Ladder & Fixture Integration
 
-- **Purpose:** Fetch NFNL ladder data when `ladderUrl` is set in Team Settings
-- **Scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes `public/ladder-<teamID>.json`. Supports `--api` and `--out` CLI args. Has 15s fetch timeout and exits non-zero if any team fails.
+### Ladder Sources
+
+Teams can get ladder/standings data from three sources, configured in Team Settings:
+
+| Source | Config | How It Works |
+|--------|--------|--------------|
+| **NFNL** (static) | `ladderUrl` field | GitHub Action scrapes HTML daily → `public/ladder-<teamID>.json` |
+| **Squadi** (live) | `resultsApi` with `source: "squadi"` | Backend fetches from Squadi API → `getSquadiLadder` action |
+| **GameDay** (computed) | `resultsApi` with `source: "gameday"` | Backend computes standings from fixture match results (W×4 + D×2 points) |
+
+- **NFNL scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes JSON. Supports `--api` and `--out` CLI args. Has 15s fetch timeout.
 - **Automation:** `.github/workflows/daily-ladder.yml` runs scraper daily, commits to main
+- **GameDay ladder:** GameDay renders tables via client-side JS (can't scrape server-side), so `computeGameDayLadder()` in Code.js calculates standings from fixture match results
 
 ```bash
-# Local run
+# NFNL local run
 node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
 
-# Production (using Apps Script API)
+# NFNL production (using Apps Script API)
 GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
   node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
 ```
+
+### Fixture Sync (Auto-Populate Games)
+
+Teams with `resultsApi` configured get automatic game population from external fixture data:
+
+- **Trigger:** Runs after team data loads, if team has fixture config and device is online (non-blocking)
+- **Sources:** Squadi API (`fetchSquadiFixtureData`) or GameDay HTML scraping (`fetchGameDayFixtureData`)
+- **Merge algorithm:**
+  1. Match fixture to existing game by `fixtureMatchId` first
+  2. Fall back to fuzzy match: same round + similar opponent name (via `fuzzyOpponentMatch()`)
+  3. Existing game: fill empty fields only (date, time, location, opponent) — **never overwrite** manual data (scores, lineup, notes, captain)
+  4. New game: create with fixture data, status from fixture, scores = null (user enters manually)
+  5. Status only upgrades from `upcoming` → fixture status (never downgrades manual status)
+  6. `fixtureScore` always updated when match has ended (for score validation display)
+- **Score validation:** When a game has both `fixtureScore` and manual scores, shows match/mismatch badge
+- **Caching:** Backend caches fixture data in CacheService (6-hour TTL), key includes config hash for cache invalidation on config changes
+
+### GameDay-Specific Config
+
+- **`roundOffset`:** Offsets round numbers for teams with pre-season grading games. E.g., if a team played 3 grading rounds before the main competition, set `roundOffset: 3` so GameDay Round 1 becomes app Round 4.
+- **`compID`** and **`client`:** Found in GameDay fixture page URLs (e.g., `mygameday.app/comp/655969/...`)
+- **`teamName`:** Must match exactly how the team appears on GameDay (case-insensitive matching used internally)
 
 ---
 
