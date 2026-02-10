@@ -1353,8 +1353,13 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
     throw new Error('Invalid fixture config JSON: ' + e.message);
   }
 
-  // Check cache
-  var cacheKey = 'FIXTURE_' + teamID;
+  // Check cache (include config hash so changes like roundOffset invalidate cache)
+  var configStr = JSON.stringify(config);
+  var configHash = 0;
+  for (var ch = 0; ch < configStr.length; ch++) {
+    configHash = ((configHash << 5) - configHash + configStr.charCodeAt(ch)) | 0;
+  }
+  var cacheKey = 'FIXTURE_' + teamID + '_' + Math.abs(configHash);
   if (!forceRefresh) {
     try {
       var cache = CacheService.getScriptCache();

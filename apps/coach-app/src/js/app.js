@@ -1110,6 +1110,10 @@ function fuzzyOpponentMatch(existing, fixture) {
   if (a === b) return true;
   // Check if one contains the other
   if (a.includes(b) || b.includes(a)) return true;
+  // Check with all spaces removed (handles "Kilmore 10" vs "Kilmore10")
+  const noSpaceA = a.replace(/\s/g, '');
+  const noSpaceB = b.replace(/\s/g, '');
+  if (noSpaceA === noSpaceB) return true;
   // Check if the last word(s) match (e.g. "Fire" matches "HG 11 Fire")
   const wordsA = a.split(' ');
   const wordsB = b.split(' ');
