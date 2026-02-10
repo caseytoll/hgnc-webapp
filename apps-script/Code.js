@@ -554,6 +554,20 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'discoverSquadiComps':
+          var discoverOrgKey = e.parameter.orgKey || '';
+          if (!discoverOrgKey) {
+            result = { success: false, error: 'orgKey is required' };
+          } else {
+            try {
+              result = discoverSquadiCompetitions(discoverOrgKey);
+            } catch (errDiscover) {
+              Logger.log('discoverSquadiComps error: ' + errDiscover.message);
+              result = { success: false, error: errDiscover.message };
+            }
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown action: ' + action };
       }
@@ -1243,6 +1257,77 @@ function fetchSquadiFixtures(competitionId, divisionId) {
 }
 
 /**
+ * Discover Squadi competitions for a given organisation key.
+ * Tries multiple API endpoint patterns to find competitions and divisions.
+ * Admin/diagnostic tool — not for regular use.
+ * @param {string} orgKey - Organisation unique key (UUID)
+ * @returns {Object} { success, results } with data from each endpoint tried
+ */
+function discoverSquadiCompetitions(orgKey) {
+  var AUTH_TOKEN = loadAuthToken();
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+    return { success: false, error: 'AUTH_TOKEN_MISSING' };
+  }
+
+  var headers = {
+    'Authorization': AUTH_TOKEN,
+    'Accept': 'application/json',
+    'Origin': 'https://registration.netballconnect.com',
+    'Referer': 'https://registration.netballconnect.com/',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15'
+  };
+
+  var options = { 'method': 'get', 'headers': headers, 'muteHttpExceptions': true };
+
+  // Try multiple API endpoint patterns across different WSA/Squadi domains
+  var endpoints = [
+    { name: 'livescores-comp-post', url: 'https://api-netball.squadi.com/livescores/competitions', method: 'post', body: { organisationKey: orgKey } },
+    { name: 'wsa-comp', url: 'https://netball-comp-api.worldsportaction.com/api/competitions?organisationUniqueKey=' + orgKey },
+    { name: 'wsa-comp-list', url: 'https://netball-comp-api.worldsportaction.com/api/competitionlist?organisationUniqueKey=' + orgKey + '&yearRefId=5' },
+    { name: 'wsa-livescores', url: 'https://netball-livescores-api.worldsportaction.com/api/competitions?organisationUniqueKey=' + orgKey },
+    { name: 'wsa-livescores-v2', url: 'https://netball-livescores-api.worldsportaction.com/livescores/competitions?organisationKey=' + orgKey },
+    { name: 'squadi-comp-org', url: 'https://api-netball.squadi.com/api/organisation/' + orgKey + '/competitions' },
+    { name: 'squadi-comp-post', url: 'https://api-netball.squadi.com/api/competitions', method: 'post', body: { organisationUniqueKey: orgKey, yearRefId: 5 } },
+    { name: 'comp-api-v1', url: 'https://competition-api-netball.squadi.com/api/competitions?organisationUniqueKey=' + orgKey }
+  ];
+
+  var results = [];
+
+  for (var i = 0; i < endpoints.length; i++) {
+    var ep = endpoints[i];
+    try {
+      var fetchOpts = { 'headers': headers, 'muteHttpExceptions': true };
+      if (ep.method === 'post') {
+        fetchOpts.method = 'post';
+        fetchOpts.contentType = 'application/json';
+        fetchOpts.payload = JSON.stringify(ep.body || {});
+      } else {
+        fetchOpts.method = 'get';
+      }
+      var response = UrlFetchApp.fetch(ep.url, fetchOpts);
+      var code = response.getResponseCode();
+      var respBody = response.getContentText();
+      var preview = respBody.substring(0, 2000);
+
+      if (code === 200) {
+        try {
+          var parsed = JSON.parse(respBody);
+          results.push({ name: ep.name, status: code, data: parsed });
+        } catch (parseErr) {
+          results.push({ name: ep.name, status: code, preview: preview });
+        }
+      } else {
+        results.push({ name: ep.name, status: code, preview: respBody.substring(0, 500) });
+      }
+    } catch (fetchErr) {
+      results.push({ name: ep.name, error: fetchErr.message });
+    }
+  }
+
+  return { success: true, orgKey: orgKey, results: results };
+}
+
+/**
  * Get fixture data for a specific team, using its ResultsApi config.
  * Caches results in CacheService for 6 hours.
  * @param {string} teamID
@@ -1268,10 +1353,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
     throw new Error('Invalid fixture config JSON: ' + e.message);
   }
 
-  if (config.source !== 'squadi' || !config.competitionId || !config.divisionId || !config.squadiTeamName) {
-    throw new Error('Incomplete fixture config: need source=squadi, competitionId, divisionId, squadiTeamName');
-  }
-
   // Check cache
   var cacheKey = 'FIXTURE_' + teamID;
   if (!forceRefresh) {
@@ -1287,13 +1368,46 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
     }
   }
 
-  // Fetch from Squadi API
+  var result;
+  if (config.source === 'gameday') {
+    result = fetchGameDayFixtureData(config);
+  } else if (config.source === 'squadi') {
+    if (!config.competitionId || !config.divisionId || !config.squadiTeamName) {
+      throw new Error('Incomplete Squadi config: need competitionId, divisionId, squadiTeamName');
+    }
+    result = fetchSquadiFixtureData(config);
+  } else {
+    throw new Error('Unknown fixture source: ' + config.source);
+  }
+
+  if (!result.success) return result;
+
+  // Cache the result (6 hours)
+  try {
+    var cache2 = CacheService.getScriptCache();
+    var jsonStr = JSON.stringify(result);
+    if (jsonStr.length <= 100000) {
+      cache2.put(cacheKey, jsonStr, 21600);
+      Logger.log('Cached fixture data for team ' + teamID + ' (' + jsonStr.length + ' bytes)');
+    } else {
+      Logger.log('Fixture data too large to cache (' + jsonStr.length + ' bytes)');
+    }
+  } catch (e) {
+    Logger.log('Cache write error: ' + e.message);
+  }
+
+  return result;
+}
+
+/**
+ * Fetch and transform Squadi fixture data into standardised format.
+ */
+function fetchSquadiFixtureData(config) {
   var apiResult = fetchSquadiFixtures(config.competitionId, config.divisionId);
   if (apiResult.error) {
     return { success: false, error: apiResult.error, message: apiResult.message || apiResult.error };
   }
 
-  // Transform into team-specific fixtures + division results
   var teamFixtures = [];
   var divisionResults = [];
   var squadiName = config.squadiTeamName.toLowerCase();
@@ -1309,7 +1423,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
       var t1Name = (match.team1 && match.team1.name) || '';
       var t2Name = (match.team2 && match.team2.name) || '';
 
-      // Check if this team is involved
       var isTeam1 = t1Name.toLowerCase() === squadiName;
       var isTeam2 = t2Name.toLowerCase() === squadiName;
 
@@ -1319,7 +1432,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
         var theirScore = null;
         var ourResultId = isTeam1 ? match.team1ResultId : match.team2ResultId;
 
-        // Map status
         var status = 'upcoming';
         if (ourResultId === 7) {
           status = 'bye';
@@ -1332,7 +1444,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
           theirScore = isTeam1 ? match.team2Score : match.team1Score;
         }
 
-        // Parse date/time from startTime
         var date = '';
         var time = '';
         if (match.startTime) {
@@ -1341,7 +1452,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
           time = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'h:mm a');
         }
 
-        // Venue
         var venue = '';
         if (match.venueCourt) {
           var courtName = match.venueCourt.name || '';
@@ -1363,7 +1473,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
         });
       }
 
-      // Division results: include all matches
       roundMatches.push({
         matchId: match.id,
         team1: t1Name,
@@ -1383,32 +1492,206 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
     });
   }
 
-  // Sort team fixtures by round number
   teamFixtures.sort(function(a, b) { return a.roundNum - b.roundNum; });
   divisionResults.sort(function(a, b) { return a.roundNum - b.roundNum; });
 
-  var result = {
+  return {
     success: true,
     teamFixtures: teamFixtures,
     divisionResults: divisionResults,
     divisionName: (apiResult.division && apiResult.division.name) || ''
   };
+}
 
-  // Cache the result (6 hours)
-  try {
-    var cache = CacheService.getScriptCache();
-    var jsonStr = JSON.stringify(result);
-    if (jsonStr.length <= 100000) {
-      cache.put(cacheKey, jsonStr, 21600);
-      Logger.log('Cached fixture data for team ' + teamID + ' (' + jsonStr.length + ' bytes)');
-    } else {
-      Logger.log('Fixture data too large to cache (' + jsonStr.length + ' bytes)');
-    }
-  } catch (e) {
-    Logger.log('Cache write error: ' + e.message);
+/**
+ * Fetch fixture data from GameDay (mygameday.app) by scraping the embedded
+ * `var matches` JavaScript array from the public HTML pages.
+ *
+ * Config fields: { source:'gameday', compID, client, teamName }
+ *   - compID:    GameDay competition ID (e.g. "655969")
+ *   - client:    GameDay client string (e.g. "0-9074-0-655969-0")
+ *   - teamName:  Team name as it appears on GameDay (e.g. "Hazel Glen 6")
+ *
+ * @param {Object} config - parsed ResultsApi JSON
+ * @returns {Object} { success, teamFixtures, divisionResults, divisionName }
+ */
+function fetchGameDayFixtureData(config) {
+  if (!config.compID || !config.client || !config.teamName) {
+    return { success: false, error: 'Incomplete GameDay config: need compID, client, teamName' };
   }
 
-  return result;
+  // Step 1: Fetch the fixture page to discover maxRounds
+  var baseUrl = 'https://websites.mygameday.app/comp_info.cgi';
+  var firstUrl = baseUrl + '?a=ROUND&round=1&client=' + config.client + '&pool=1';
+
+  var fetchOpts = {
+    'method': 'get',
+    'muteHttpExceptions': true,
+    'headers': {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+    }
+  };
+
+  try {
+    var firstResponse = UrlFetchApp.fetch(firstUrl, fetchOpts);
+    if (firstResponse.getResponseCode() !== 200) {
+      return { success: false, error: 'GameDay returned HTTP ' + firstResponse.getResponseCode() };
+    }
+
+    var firstHtml = firstResponse.getContentText();
+    var maxRoundsMatch = firstHtml.match(/maxRounds\s*=\s*(\d+)/);
+    var maxRounds = maxRoundsMatch ? parseInt(maxRoundsMatch[1], 10) : 1;
+    Logger.log('GameDay: maxRounds = ' + maxRounds + ' for compID ' + config.compID);
+
+    // Step 2: Fetch all rounds (we already have round 1)
+    var allMatches = extractGameDayMatches(firstHtml);
+
+    if (maxRounds > 1) {
+      var urls = [];
+      for (var r = 2; r <= maxRounds; r++) {
+        urls.push(baseUrl + '?a=ROUND&round=' + r + '&client=' + config.client + '&pool=1');
+      }
+      // UrlFetchApp.fetchAll for parallel requests
+      var requests = urls.map(function(u) {
+        return { 'url': u, 'method': 'get', 'muteHttpExceptions': true, 'headers': fetchOpts.headers };
+      });
+      var responses = UrlFetchApp.fetchAll(requests);
+      for (var i = 0; i < responses.length; i++) {
+        if (responses[i].getResponseCode() === 200) {
+          var roundMatches = extractGameDayMatches(responses[i].getContentText());
+          allMatches = allMatches.concat(roundMatches);
+        }
+      }
+    }
+
+    Logger.log('GameDay: total matches extracted = ' + allMatches.length);
+
+    // Step 3: Transform into our standard format
+    var teamName = config.teamName.toLowerCase();
+    var teamFixtures = [];
+    var roundsMap = {};  // roundNum -> { roundName, matches[] }
+
+    for (var j = 0; j < allMatches.length; j++) {
+      var gm = allMatches[j];
+      var roundNum = parseInt(gm.Round, 10) || 0;
+      var roundName = 'Round ' + roundNum;
+      var matchId = parseInt(gm.FixtureID, 10) || 0;
+
+      // Build division results for all matches
+      if (!roundsMap[roundNum]) {
+        roundsMap[roundNum] = { roundName: roundName, roundNum: roundNum, matches: [] };
+      }
+
+      var gmStatus = 'upcoming';
+      if (parseInt(gm.isBye, 10) === 1) {
+        gmStatus = 'bye';
+      } else if (parseInt(gm.PastGame, 10) === 1 && gm.FinalisationString === 'FINAL') {
+        gmStatus = 'normal';
+      } else if (parseInt(gm.PastGame, 10) === 1) {
+        gmStatus = 'normal';
+      }
+
+      roundsMap[roundNum].matches.push({
+        matchId: matchId,
+        team1: gm.HomeName || '',
+        team2: gm.AwayName || '',
+        score1: parseInt(gm.HomeScore, 10) || 0,
+        score2: parseInt(gm.AwayScore, 10) || 0,
+        status: gmStatus === 'upcoming' ? 'upcoming' : 'ended'
+      });
+
+      // Check if our team is involved
+      var homeName = (gm.HomeNameFMT || gm.HomeName || '').toLowerCase();
+      var awayName = (gm.AwayNameFMT || gm.AwayName || '').toLowerCase();
+      var isHome = homeName === teamName;
+      var isAway = awayName === teamName;
+
+      if (isHome || isAway) {
+        var opponent = isHome ? (gm.AwayName || '') : (gm.HomeName || '');
+        var ourScore = null;
+        var theirScore = null;
+        var fixtureStatus = 'upcoming';
+
+        if (parseInt(gm.isBye, 10) === 1) {
+          fixtureStatus = 'bye';
+          opponent = 'Bye';
+        } else if (parseInt(gm.PastGame, 10) === 1) {
+          fixtureStatus = 'normal';
+          ourScore = parseInt(isHome ? gm.HomeScore : gm.AwayScore, 10) || 0;
+          theirScore = parseInt(isHome ? gm.AwayScore : gm.HomeScore, 10) || 0;
+        }
+
+        // Parse date/time from TimeDateRaw (format: "2025-11-21 19:25:00")
+        var date = '';
+        var time = '';
+        if (gm.TimeDateRaw) {
+          var parts = gm.TimeDateRaw.split(' ');
+          date = parts[0] || '';
+          if (parts[1]) {
+            // Convert "19:25:00" to "7:25 PM"
+            var timeParts = parts[1].split(':');
+            var hours = parseInt(timeParts[0], 10);
+            var minutes = timeParts[1] || '00';
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0) hours = 12;
+            time = hours + ':' + minutes + ' ' + ampm;
+          }
+        }
+
+        teamFixtures.push({
+          matchId: matchId,
+          roundName: roundName,
+          roundNum: roundNum,
+          opponent: opponent,
+          date: date,
+          time: time,
+          venue: gm.VenueName || gm.Venue || '',
+          status: fixtureStatus,
+          ourScore: ourScore,
+          theirScore: theirScore
+        });
+      }
+    }
+
+    // Convert roundsMap to sorted array
+    var divisionResults = [];
+    var roundNums = Object.keys(roundsMap).sort(function(a, b) { return a - b; });
+    for (var k = 0; k < roundNums.length; k++) {
+      divisionResults.push(roundsMap[roundNums[k]]);
+    }
+
+    teamFixtures.sort(function(a, b) { return a.roundNum - b.roundNum; });
+
+    return {
+      success: true,
+      teamFixtures: teamFixtures,
+      divisionResults: divisionResults,
+      divisionName: allMatches.length > 0 ? (allMatches[0].CompName || '') : ''
+    };
+
+  } catch (e) {
+    Logger.log('GameDay fetch error: ' + e.message);
+    return { success: false, error: 'GameDay error: ' + e.message };
+  }
+}
+
+/**
+ * Extract the `var matches = [...]` JavaScript array from a GameDay HTML page.
+ * @param {string} html - Full HTML page content
+ * @returns {Array} Array of match objects
+ */
+function extractGameDayMatches(html) {
+  var matchesRegex = /var\s+matches\s*=\s*(\[[\s\S]*?\]);/;
+  var found = html.match(matchesRegex);
+  if (!found || !found[1]) return [];
+
+  try {
+    return JSON.parse(found[1]);
+  } catch (e) {
+    Logger.log('Failed to parse GameDay matches JSON: ' + e.message);
+    return [];
+  }
 }
 
 /**
