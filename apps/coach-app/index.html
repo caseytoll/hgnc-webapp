@@ -331,7 +331,10 @@
           <h1>Lineup Planner</h1>
           <span id="planner-subtitle" class="subtitle"></span>
         </div>
-        <div style="width: 44px;"></div>
+        <div class="planner-header-actions">
+          <button class="planner-autofill-btn" onclick="plannerAutoFill()">Auto-fill</button>
+          <button class="planner-undo-btn" id="planner-undo-btn" onclick="plannerUndo()" disabled>Undo</button>
+        </div>
       </header>
 
       <div class="planner-layout">
@@ -340,6 +343,8 @@
           <div class="planner-bench-section">
             <div class="planner-bench-tabs" id="planner-bench-tabs"></div>
             <div class="planner-bench-list" id="planner-bench-list"></div>
+            <div class="planner-bench-drop-zone" id="planner-bench-drop-zone"
+                 ondragover="plannerDragOver(event)" ondrop="plannerDropToBench(event)">Drop here to unassign</div>
           </div>
           <div class="planner-history-section">
             <div class="planner-history-title">Position History</div>
@@ -347,24 +352,27 @@
           </div>
         </div>
 
-        <!-- Main: 4 Quarter Cards -->
-        <div class="planner-quarters" id="planner-quarters">
-          <div class="planner-quarter-card" data-quarter="Q1">
-            <div class="planner-quarter-header"><span>Q1</span><span class="planner-fill-count" id="planner-fill-Q1">0/7</span></div>
-            <div class="planner-quarter-slots" id="planner-court-Q1"></div>
+        <!-- Main: 4 Quarter Cards + Load Summary -->
+        <div class="planner-main" style="overflow-y: auto;">
+          <div class="planner-quarters" id="planner-quarters">
+            <div class="planner-quarter-card" data-quarter="Q1">
+              <div class="planner-quarter-header"><span>Q1</span><span class="planner-quarter-header-right"><span class="planner-fill-count" id="planner-fill-Q1">0/7</span></span></div>
+              <div class="planner-quarter-slots" id="planner-court-Q1"></div>
+            </div>
+            <div class="planner-quarter-card" data-quarter="Q2">
+              <div class="planner-quarter-header"><span>Q2</span><span class="planner-quarter-header-right"><span class="planner-fill-count" id="planner-fill-Q2">0/7</span></span></div>
+              <div class="planner-quarter-slots" id="planner-court-Q2"></div>
+            </div>
+            <div class="planner-quarter-card" data-quarter="Q3">
+              <div class="planner-quarter-header"><span>Q3</span><span class="planner-quarter-header-right"><span class="planner-fill-count" id="planner-fill-Q3">0/7</span></span></div>
+              <div class="planner-quarter-slots" id="planner-court-Q3"></div>
+            </div>
+            <div class="planner-quarter-card" data-quarter="Q4">
+              <div class="planner-quarter-header"><span>Q4</span><span class="planner-quarter-header-right"><span class="planner-fill-count" id="planner-fill-Q4">0/7</span></span></div>
+              <div class="planner-quarter-slots" id="planner-court-Q4"></div>
+            </div>
           </div>
-          <div class="planner-quarter-card" data-quarter="Q2">
-            <div class="planner-quarter-header"><span>Q2</span><span class="planner-fill-count" id="planner-fill-Q2">0/7</span></div>
-            <div class="planner-quarter-slots" id="planner-court-Q2"></div>
-          </div>
-          <div class="planner-quarter-card" data-quarter="Q3">
-            <div class="planner-quarter-header"><span>Q3</span><span class="planner-fill-count" id="planner-fill-Q3">0/7</span></div>
-            <div class="planner-quarter-slots" id="planner-court-Q3"></div>
-          </div>
-          <div class="planner-quarter-card" data-quarter="Q4">
-            <div class="planner-quarter-header"><span>Q4</span><span class="planner-fill-count" id="planner-fill-Q4">0/7</span></div>
-            <div class="planner-quarter-slots" id="planner-court-Q4"></div>
-          </div>
+          <div class="planner-load-summary" id="planner-load-summary"></div>
         </div>
       </div>
     </div>

@@ -97,7 +97,10 @@ webapp-local-dev/
 │   ├── utils.js             # escapeHtml, formatters, isGameInPast, localStorage wrappers
 │   ├── mock-data.js         # Mock data AND calculateTeamStats()
 │   ├── stats-calculations.js # Leaderboards, combos, analytics (uses isGameInPast)
-│   └── share-utils.js       # Team Sheet generation, lineup sharing
+│   ├── share-utils.js       # Team Sheet generation, lineup sharing
+│   └── build/               # Shared build config factories
+│       ├── vite.config.shared.js   # createViteConfig() factory
+│       └── vitest.config.shared.js # createVitestConfig() factory
 ├── apps-script/             # Google Apps Script backend
 │   └── Code.js              # API handlers and business logic
 └── scripts/                 # Build and utility scripts
@@ -176,6 +179,19 @@ When modifying UI in one app, check if the other needs the same change:
 - **Offline support:** Data saved to localStorage first, synced when online
 - **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate (serve cache, refresh in background). Team data uses `lastModified` version check with TTL fallback. Player library loads in background (non-blocking).
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
+- **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). Features:
+  - **Layout:** Fixed-position overlay breaking out of #app's 430px max-width. 440px sidebar (bench + position history) + 2×2 quarter grid
+  - **Position color coding:** Shooters (GS/GA) = pink, Midcourt (WA/C/WD) = blue, Defence (GD/GK) = green
+  - **Fav position tags:** Small colored tags next to bench player names showing their preferred positions
+  - **Off indicator:** Each quarter card footer shows which players are sitting out
+  - **Player load summary:** Grid below quarters showing Q1-Q4 on/off dots per player with imbalance highlighting
+  - **Copy quarter:** Copy/Paste buttons in quarter headers to duplicate lineups between quarters
+  - **Undo:** Up to 20-deep undo stack covering all mutations (assign, copy, auto-fill, drag)
+  - **Hover highlights:** Hovering a bench player highlights their fav/historical positions across all quarter slots
+  - **Drag and drop:** HTML5 DnD for bench-to-slot, slot-to-slot (swap), and slot-to-bench (unassign)
+  - **Auto-fill:** Fills active quarter using scoring algorithm (+10 fav position, +N history count, -5 per existing quarter for load balance)
+  - **State:** `_plannerActiveQuarter`, `_plannerUndoStack`, `_plannerCopySource`, `_plannerDragPlayer`, `_plannerDragSource`
+  - **Helper functions:** `getPosGroup()`, `getPlannerAvailablePlayers()`, `getPlannerPositionStats()` (cached per render cycle)
 
 ### AI Features (Gemini-powered)
 
@@ -228,7 +244,7 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 ## Data Structures
 
 ```javascript
-// Team (from getTeams API)
+// Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
 { teamID, teamName, year, season, sheetName, archived, ladderUrl, hasPin, coach }
 
 // Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
@@ -277,10 +293,14 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 | `revokeTeamAccess` | Invalidate all device tokens | `teamID`, `pinToken` |
 | `getPlayerLibrary` | Get career tracking data | - |
 | `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
-| `getAIInsights` | AI season analysis | `analytics` (JSON with team stats) |
-| `getGameAIInsights` | AI game summary | `gameData` (JSON with game details) |
-| `getPlayerAIInsights` | AI player analysis | `playerData` (JSON with player stats) |
-| `getTrainingFocus` | AI training suggestions | `trainingData` (JSON with notes, rolling window) |
+| `getAIInsights` | AI season analysis (POST) | `analytics` (JSON with team stats) |
+| `getGameAIInsights` | AI game summary (POST) | `gameData` (JSON with game details) |
+| `getPlayerAIInsights` | AI player analysis (POST) | `playerData` (JSON with player stats) |
+| `getTrainingFocus` | AI training suggestions (POST) | `trainingData` (JSON with notes, rolling window) |
+| `getTeamRow` | Get raw team row (admin) | `teamID` |
+| `logClientMetric` | Log diagnostic metric | `name`, `value`, `teams`, `extra` |
+| `getDiagnostics` | Retrieve diagnostic logs | `limit` (optional, default 50) |
+| `rebuildPlayerCounts` | Rebuild player count cache | - |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
 
@@ -299,9 +319,9 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 **PIN Auth on Writes:** `saveTeamData` (POST-only, no GET handler) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
 
-**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, LadderData, PlayerLibrary
+**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, Diagnostics, PlayerLibrary
 
-**Teams sheet columns:** A=TeamID, B=TeamName, C=Year, D=Season, E=SheetName, F=Archived, G=PlayerCount, H=GameCount, I=LastModified, J=CreatedAt, K=LadderUrl, L=PIN, M=PinToken, N=Coach
+**Teams sheet columns:** A=TeamID, B=Year, C=Season, D=TeamName, E=SheetName, F=LadderName, G=LadderApi, H=ResultsApi, I=Archived, J=PlayerCount, K=LastModified, L=PIN, M=PinToken, N=Coach
 
 ---
 
