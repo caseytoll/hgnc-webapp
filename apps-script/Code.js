@@ -539,6 +539,21 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'getSquadiLadder':
+          var ladderTeamID = e.parameter.teamID || '';
+          var ladderRefresh = e.parameter.forceRefresh === 'true';
+          if (!ladderTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = getSquadiLadderForTeam(ladderTeamID, ladderRefresh);
+            } catch (errLadder) {
+              Logger.log('getSquadiLadder error: ' + errLadder.message);
+              result = { success: false, error: errLadder.message };
+            }
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown action: ' + action };
       }
@@ -1394,6 +1409,134 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
   }
 
   return result;
+}
+
+/**
+ * Get Squadi ladder data for a specific team, using its ResultsApi config.
+ * Caches results in CacheService for 1 hour.
+ * @param {string} teamID
+ * @param {boolean} forceRefresh - bypass cache
+ * @returns {Object} { success, ladder: { headers, rows }, divisionName, lastUpdated }
+ */
+function getSquadiLadderForTeam(teamID, forceRefresh) {
+  var teams = loadMasterTeamList();
+  if (teams.error) throw new Error(teams.error);
+
+  var team = null;
+  for (var i = 0; i < teams.length; i++) {
+    if (teams[i].teamID == teamID) { team = teams[i]; break; }
+  }
+  if (!team) throw new Error('Team not found: ' + teamID);
+  if (!team.resultsApi) throw new Error('No Squadi config for this team');
+
+  var config;
+  try {
+    config = JSON.parse(team.resultsApi);
+  } catch (e) {
+    throw new Error('Invalid ResultsApi JSON: ' + e.message);
+  }
+  if (config.source !== 'squadi' || !config.divisionId || !config.competitionKey) {
+    throw new Error('Invalid Squadi config');
+  }
+
+  var cacheKey = 'LADDER_' + teamID;
+  if (!forceRefresh) {
+    try {
+      var cache = CacheService.getScriptCache();
+      var cached = cache.get(cacheKey);
+      if (cached) {
+        Logger.log('Returning cached ladder for team ' + teamID);
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      Logger.log('Cache read error: ' + e.message);
+    }
+  }
+
+  var AUTH_TOKEN = loadAuthToken();
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+    return { success: false, error: 'AUTH_TOKEN_MISSING' };
+  }
+
+  var url = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
+    + '?divisionIds=' + config.divisionId
+    + '&competitionKey=' + config.competitionKey
+    + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
+
+  var options = {
+    'method': 'get',
+    'headers': {
+      'Authorization': AUTH_TOKEN,
+      'Accept': 'application/json',
+      'Origin': 'https://registration.netballconnect.com',
+      'Referer': 'https://registration.netballconnect.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15'
+    },
+    'muteHttpExceptions': true
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var responseCode = response.getResponseCode();
+
+    if (responseCode === 401) {
+      return { success: false, error: 'AUTH_TOKEN_EXPIRED' };
+    }
+    if (responseCode !== 200) {
+      return { success: false, error: 'Squadi API Error: ' + responseCode };
+    }
+
+    var data = JSON.parse(response.getContentText());
+    var ladders = data.ladders || [];
+
+    if (ladders.length === 0) {
+      return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
+    }
+
+    // Transform Squadi ladder into { headers, rows } format matching the scraper output
+    var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS'];
+    var rows = ladders.map(function(entry) {
+      return {
+        'POS': entry.rk || '',
+        'TEAM': entry.name || '',
+        'P': entry.P || '0',
+        'W': entry.W || '0',
+        'L': entry.L || '0',
+        'D': entry.D || '0',
+        'FF': entry.FL || '0',
+        'FG': entry.FW || '0',
+        'For': entry.F || '0',
+        'Agst': entry.A || '0',
+        '% Won': entry.win ? (parseFloat(entry.win) * 100).toFixed(0) + '%' : '0%',
+        'PTS': entry.PTS || '0'
+      };
+    });
+
+    var divisionName = ladders[0].divisionName || '';
+    var result = {
+      success: true,
+      ladder: { headers: headers, rows: rows },
+      divisionName: divisionName,
+      lastUpdated: new Date().toISOString(),
+      squadiTeamName: config.squadiTeamName || ''
+    };
+
+    // Cache for 1 hour
+    try {
+      var cacheObj = CacheService.getScriptCache();
+      var jsonStr = JSON.stringify(result);
+      if (jsonStr.length <= 100000) {
+        cacheObj.put(cacheKey, jsonStr, 3600);
+      }
+    } catch (e) {
+      Logger.log('Ladder cache write error: ' + e.message);
+    }
+
+    return result;
+  } catch (e) {
+    Logger.log('Squadi ladder fetch error: ' + e.message);
+    return { success: false, error: 'Network error: ' + e.message };
+  }
 }
 
 // --- AI Insights using Gemini ---

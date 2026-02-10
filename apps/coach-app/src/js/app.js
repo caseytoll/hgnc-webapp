@@ -1606,16 +1606,9 @@ function renderMainApp() {
 // ========================================
 
 function renderLadderTab(team) {
-  // Debug: log team ladderUrl presence
-  console.log('[Ladder] renderLadderTab called for', team?.teamID, 'ladderUrl:', team?.ladderUrl);
-
-  // Use the bottom nav and main tab content area that are present in the DOM
   const navContainer = document.querySelector('.bottom-nav');
   const tabPanelContainer = document.querySelector('.tab-content-area');
-  if (!navContainer || !tabPanelContainer) {
-    console.warn('[Ladder] Required DOM containers not found');
-    return;
-  }
+  if (!navContainer || !tabPanelContainer) return;
 
   // Remove existing ladder tab if present
   const existingNav = navContainer.querySelector('.nav-item[data-tab="ladder"]');
@@ -1623,7 +1616,10 @@ function renderLadderTab(team) {
   const existingPanel = tabPanelContainer.querySelector('#tab-ladder');
   if (existingPanel) existingPanel.remove();
 
-  if (!team.ladderUrl) return; // Hide tab if no ladderUrl
+  // Determine ladder source: NFNL (ladderUrl) or Squadi (resultsApi)
+  const squadiConfig = parseSquadiConfig(team.resultsApi);
+  const hasLadder = team.ladderUrl || squadiConfig;
+  if (!hasLadder) return;
 
   // Add Ladder tab to nav (insert before the Stats button to keep order)
   const ladderNav = document.createElement('button');
@@ -1642,7 +1638,6 @@ function renderLadderTab(team) {
   ladderNav.setAttribute('aria-label', 'Ladder');
   ladderNav.title = 'Ladder';
   ladderNav.onclick = () => window.switchTab('ladder');
-  // Insert before the Stats button if present
   const statsBtn = navContainer.querySelector('.nav-item[data-tab="stats"]');
   if (statsBtn) {
     navContainer.insertBefore(ladderNav, statsBtn);
@@ -1655,71 +1650,85 @@ function renderLadderTab(team) {
   ladderPanel.className = 'tab-panel';
   ladderPanel.id = 'tab-ladder';
   ladderPanel.innerHTML = `<div id="ladder-content"><div class="ladder-loading">Loading ladder...</div></div>`;
-  // Append to the tab content area
   tabPanelContainer.appendChild(ladderPanel);
 
-  // Fetch and render ladder JSON
-  fetch(`/ladder-${team.teamID}.json`)
-    .then(res => res.json())
+  // Fetch ladder data from appropriate source
+  const ladderPromise = squadiConfig
+    ? fetchSquadiLadder(team.teamID)
+    : fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
+
+  // For Squadi, use the configured team name for highlighting; for NFNL, use teamName
+  const highlightName = squadiConfig ? (squadiConfig.squadiTeamName || team.teamName || '') : (team.teamName || '');
+
+  ladderPromise
     .then(data => {
       const ladderDiv = ladderPanel.querySelector('#ladder-content');
       if (!data.ladder || !data.ladder.rows || !data.ladder.headers) {
-        ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available.</div>`;
+        ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available yet.</div>`;
         return;
       }
-      // Build header metadata (determine numeric columns)
-      const headers = data.ladder.headers;
-      const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|%|% Won|PTS)$/i.test(h));
-
-      let formatted = formatDateTime(data.lastUpdated || '');
-
-      // per-team persisted toggle key
-      const showKey = `ladder.showExtra.${team.teamID}`;
-      const showExtra = (localStorage.getItem(showKey) === 'true');
-
-      let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}`;
-      html += ` <button class="btn btn-ghost btn-xs show-columns-toggle" aria-pressed="${showExtra ? 'true' : 'false'}">${showExtra ? 'Hide extra columns' : 'Show extra columns'}</button>`;
-      html += `</div>`;
-
-      html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>` + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
-
-      html += data.ladder.rows.map(row => {
-        const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
-        const isCurrent = team && team.teamName && rowTeamName.includes(String(team.teamName || '').toLowerCase());
-        return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + `</tr>`;
-      }).join('');
-
-      html += `</tbody></table></div>`;
-      ladderDiv.innerHTML = html;
-
-      // Animate in (respect prefers-reduced-motion)
-      const container = ladderDiv.querySelector('.ladder-container');
-      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (container) {
-        if (!prefersReduced) {
-          container.classList.add('ladder-enter');
-          requestAnimationFrame(() => requestAnimationFrame(() => container.classList.add('visible')));
-          container.addEventListener('transitionend', () => container.classList.remove('ladder-enter'), { once: true });
-        } else {
-          container.classList.add('visible');
-        }
-      }
-
-      // Toggle handler
-      const toggle = ladderDiv.querySelector('.show-columns-toggle');
-      if (toggle && container) {
-        toggle.addEventListener('click', () => {
-          const expanded = container.classList.toggle('expanded-columns');
-          toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
-          toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-          try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
-        });
-      }
+      renderLadderTable(ladderDiv, data, team, highlightName);
     })
     .catch(() => {
       const ladderDiv = ladderPanel.querySelector('#ladder-content');
       ladderDiv.innerHTML = `<div class="ladder-error">Failed to load ladder. Please try again later.</div>`;
     });
+}
+
+function fetchSquadiLadder(teamID) {
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  return fetch(`${baseUrl}?action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}`)
+    .then(res => res.json());
+}
+
+function renderLadderTable(ladderDiv, data, team, highlightName) {
+  const headers = data.ladder.headers;
+  const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|%|% Won|PTS)$/i.test(h));
+
+  let formatted = formatDateTime(data.lastUpdated || '');
+
+  const showKey = `ladder.showExtra.${team.teamID}`;
+  const showExtra = (localStorage.getItem(showKey) === 'true');
+
+  let html = `<div class="ladder-updated">Last updated: ${escapeHtml(formatted || data.lastUpdated || '')}`;
+  html += ` <button class="btn btn-ghost btn-xs show-columns-toggle" aria-pressed="${showExtra ? 'true' : 'false'}">${showExtra ? 'Hide extra columns' : 'Show extra columns'}</button>`;
+  html += `</div>`;
+
+  html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>` + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
+
+  html += data.ladder.rows.map(row => {
+    const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
+    const isCurrent = highlightName && rowTeamName.includes(highlightName.toLowerCase());
+    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + `</tr>`;
+  }).join('');
+
+  html += `</tbody></table></div>`;
+  ladderDiv.innerHTML = html;
+
+  // Animate in (respect prefers-reduced-motion)
+  const container = ladderDiv.querySelector('.ladder-container');
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (container) {
+    if (!prefersReduced) {
+      container.classList.add('ladder-enter');
+      requestAnimationFrame(() => requestAnimationFrame(() => container.classList.add('visible')));
+      container.addEventListener('transitionend', () => container.classList.remove('ladder-enter'), { once: true });
+    } else {
+      container.classList.add('visible');
+    }
+  }
+
+  // Toggle handler
+  const toggle = ladderDiv.querySelector('.show-columns-toggle');
+  if (toggle && container) {
+    toggle.addEventListener('click', () => {
+      const expanded = container.classList.toggle('expanded-columns');
+      toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
+      toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+      try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
+    });
+  }
 }
 }
 
