@@ -62,7 +62,8 @@ function getSpreadsheet() {
 
     } catch (error) {
       Logger.log('ERROR in doGet: ' + error.toString());
-      return HtmlService.createHtmlOutput('<h1>Error</h1><p>' + error.toString() + '</p>')
+      var safeError = String(error).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return HtmlService.createHtmlOutput('<h1>Error</h1><p>' + safeError + '</p>')
           .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
   }
@@ -473,10 +474,11 @@ function getSpreadsheet() {
           var createSeason = e.parameter.season || 'Season 1';
           var createName = e.parameter.name || '';
           var createCoach = e.parameter.coach || '';
+          var createLadderUrl = e.parameter.ladderUrl || '';
           if (!createName) {
             result = { success: false, error: 'Team name is required' };
           } else {
-            var createResult = createNewTeam(createYear, createSeason, createName, '', '', '', createCoach);
+            var createResult = createNewTeam(createYear, createSeason, createName, '', createLadderUrl, '', createCoach);
             if (createResult.error) {
               result = { success: false, error: createResult.error };
             } else {
@@ -503,19 +505,7 @@ function getSpreadsheet() {
           }
           break;
 
-        case 'savePlayerLibrary':
-          var playerLibraryJSON = e.parameter.playerLibrary || '';
-          if (!playerLibraryJSON) {
-            result = { success: false, error: 'playerLibrary is required' };
-          } else {
-            var saveLibraryResult = savePlayerLibrary(playerLibraryJSON);
-            if (saveLibraryResult === "OK") {
-              result = { success: true };
-            } else {
-              result = { success: false, error: saveLibraryResult.error || 'Save failed' };
-            }
-          }
-          break;
+        // savePlayerLibrary is POST-only (handled in doPost) — no GET handler
 
         case 'getAIInsights':
           var insightsTeamID = e.parameter.teamID || '';
@@ -748,7 +738,7 @@ function loadAuthToken() {
  */
 function saveAuthToken(newToken) {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = getSpreadsheet();
     var settingsSheet = ss.getSheetByName('Settings');
     if (!settingsSheet) {
        settingsSheet = ss.insertSheet('Settings');
@@ -1123,9 +1113,13 @@ function getMatchResults() {
                var jsonString = JSON.stringify(data.rounds);
                Logger.log("Match results JSON size: " + jsonString.length + " bytes");
 
-               // CacheService has 100KB limit per item, which should be enough
-               cache.put('CACHED_MATCH_RESULTS', jsonString, 21600); // 6 hours
-               Logger.log("Cached full match results with venue data in CacheService");
+               // CacheService has 100KB limit per item
+               if (jsonString.length > 100000) {
+                 Logger.log("WARNING: Match results JSON (" + jsonString.length + " bytes) exceeds 100KB CacheService limit. Skipping cache.");
+               } else {
+                 cache.put('CACHED_MATCH_RESULTS', jsonString, 21600); // 6 hours
+                 Logger.log("Cached full match results with venue data in CacheService");
+               }
              } catch (e) {
                Logger.log("Failed to cache match results: " + e.message);
              }

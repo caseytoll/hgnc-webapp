@@ -12,32 +12,3 @@ export const API_CONFIG = {
   // Enable debug logging
   debug: true
 };
-
-// Helper to make API calls to Apps Script backend
-export async function callApi(action, params = {}) {
-  if (API_CONFIG.debug) {
-    console.log('[API]', action, params);
-  }
-
-  const url = new URL(API_CONFIG.baseUrl);
-  url.searchParams.set('action', action);
-
-  // Add any additional params
-  Object.keys(params).forEach(key => {
-    url.searchParams.set(key, JSON.stringify(params[key]));
-  });
-
-  try {
-    const response = await fetch(url.toString());
-    const data = await response.json();
-
-    if (API_CONFIG.debug) {
-      console.log('[API Response]', action, data);
-    }
-
-    return data;
-  } catch (error) {
-    console.error('[API Error]', action, error);
-    throw error;
-  }
-}

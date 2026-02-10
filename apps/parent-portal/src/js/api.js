@@ -2,12 +2,20 @@
 // Matches coach app's data transformation for consistent data structures
 
 export function transformTeamDataFromSheet(data, teamID) {
+  // Normalize favPosition to array (consistent with coach app)
+  function normalizeFavPositions(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(p => p);
+    if (typeof val === 'string' && val.trim()) return [val.trim()];
+    return [];
+  }
+
   // Transform players
   const players = (data.players || []).map(p => ({
     id: p.id,
     name: p.name,
     fillIn: p.isFillIn || p.fillIn || false,
-    favPosition: p.favoritePosition || p.favPosition || ''
+    favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition)
   }));
 
   // Transform games - match coach app format
