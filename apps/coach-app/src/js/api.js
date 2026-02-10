@@ -395,6 +395,13 @@ export function transformTeamDataFromSheet(data, teamID) {
     if (g.aiSummary) {
       game.aiSummary = g.aiSummary;
     }
+    // Preserve fixture linking fields
+    if (g.fixtureMatchId) {
+      game.fixtureMatchId = g.fixtureMatchId;
+    }
+    if (g.fixtureScore) {
+      game.fixtureScore = g.fixtureScore;
+    }
     return game;
   });
 
@@ -498,6 +505,13 @@ export function transformTeamDataToSheet(pwaData) {
     // Preserve AI summary if present
     if (g.aiSummary) {
       game.aiSummary = g.aiSummary;
+    }
+    // Preserve fixture linking fields
+    if (g.fixtureMatchId) {
+      game.fixtureMatchId = g.fixtureMatchId;
+    }
+    if (g.fixtureScore) {
+      game.fixtureScore = g.fixtureScore;
     }
     return game;
   });

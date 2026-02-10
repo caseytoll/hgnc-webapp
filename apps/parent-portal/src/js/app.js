@@ -395,6 +395,16 @@ function renderSchedule() {
       scoreDisplay = `<div class="game-score-label">Upcoming</div>`;
     }
 
+    // Score validation badge
+    let validationBadge = '';
+    if (game.fixtureScore && game.scores && game.status === 'normal') {
+      if (game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent) {
+        validationBadge = '<span class="score-validated" title="Matches official result">✓</span>';
+      } else {
+        validationBadge = `<span class="score-mismatch" title="Official: ${game.fixtureScore.us}-${game.fixtureScore.opponent}">⚠</span>`;
+      }
+    }
+
     return `
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
@@ -403,7 +413,7 @@ function renderSchedule() {
           <div class="game-meta">${escapeHtml(formatDate(game.date) || 'TBD')} • ${escapeHtml(game.time || '')} • ${escapeHtml(game.location || '')}</div>
         </div>
         <div class="game-score">
-          ${scoreDisplay}
+          ${scoreDisplay}${validationBadge}
         </div>
       </div>
     `;
@@ -708,6 +718,13 @@ function renderGameScoreCard() {
       </div>
     </div>
     <div class="game-result-badge ${resultClass}">${resultText}</div>
+    ${game.fixtureScore ? `
+      <div class="fixture-score-note ${game.scores && game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent ? 'verified' : 'mismatch'}">
+        Official: ${game.fixtureScore.us} - ${game.fixtureScore.opponent}
+        ${game.scores && game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent
+          ? ' ✓ Verified' : ' ⚠ Differs'}
+      </div>
+    ` : ''}
   `;
 
   const shareActions = document.getElementById('share-actions');

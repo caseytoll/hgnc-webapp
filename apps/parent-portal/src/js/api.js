@@ -61,7 +61,7 @@ export function transformTeamDataFromSheet(data, teamID) {
       scores = g.scores;
     }
 
-    return {
+    const game = {
       gameID: g.id || g.gameID,
       round: g.round,
       opponent: g.opponent,
@@ -74,6 +74,14 @@ export function transformTeamDataFromSheet(data, teamID) {
       availablePlayerIDs: g.availablePlayerIDs || [],
       lineup
     };
+    // Preserve fixture linking fields
+    if (g.fixtureMatchId) {
+      game.fixtureMatchId = g.fixtureMatchId;
+    }
+    if (g.fixtureScore) {
+      game.fixtureScore = g.fixtureScore;
+    }
+    return game;
   });
 
   return {

@@ -248,6 +248,7 @@ function getSpreadsheet() {
                 archived: t.archived || false,
                 playerCount: t.playerCount || 0,
                 ladderUrl: t.ladderApi || '',
+                resultsApi: t.resultsApi || '',
                 lastModified: t.lastModified || 0, // For version checking - clients can skip full fetch if unchanged
                 hasPin: t.hasPin || false,
                 coach: t.coach || ''
@@ -519,6 +520,21 @@ function getSpreadsheet() {
             } catch (errInsights) {
               Logger.log('AI Insights error: ' + errInsights.message);
               result = { success: false, error: errInsights.message };
+            }
+          }
+          break;
+
+        case 'getFixtureData':
+          var fixtureTeamID = e.parameter.teamID || '';
+          var forceRefresh = e.parameter.forceRefresh === 'true';
+          if (!fixtureTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = getFixtureDataForTeam(fixtureTeamID, forceRefresh);
+            } catch (errFixture) {
+              Logger.log('getFixtureData error: ' + errFixture.message);
+              result = { success: false, error: errFixture.message };
             }
           }
           break;
@@ -1158,6 +1174,226 @@ function getCachedMatchResults() {
     // Fallback to the old sheet-based method
     return loadArchivedMatchResults();
   }
+}
+
+// --- Parameterized Squadi Fixture API ---
+
+/**
+ * Fetch fixture data from Squadi API for any competition/division.
+ * Parameterized version of getMatchResults().
+ * @param {number} competitionId
+ * @param {number} divisionId
+ * @returns {Object} { success, rounds, division } or { error }
+ */
+function fetchSquadiFixtures(competitionId, divisionId) {
+  var AUTH_TOKEN = loadAuthToken();
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+    return { error: 'AUTH_TOKEN_MISSING', message: 'Squadi auth token not configured' };
+  }
+
+  var url = 'https://api-netball.squadi.com/livescores/round/matches'
+    + '?competitionId=' + competitionId
+    + '&divisionId=' + divisionId
+    + '&teamIds=&ignoreStatuses=%5B1%5D';
+
+  var options = {
+    'method': 'get',
+    'headers': {
+      'Authorization': AUTH_TOKEN,
+      'Accept': 'application/json',
+      'Origin': 'https://registration.netballconnect.com',
+      'Referer': 'https://registration.netballconnect.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15'
+    },
+    'muteHttpExceptions': true
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var responseCode = response.getResponseCode();
+
+    if (responseCode === 200) {
+      var data = JSON.parse(response.getContentText());
+      return { success: true, rounds: data.rounds || [], division: data.division || {} };
+    } else if (responseCode === 401) {
+      return { error: 'AUTH_TOKEN_EXPIRED', message: 'Squadi auth token needs refreshing' };
+    } else {
+      Logger.log('Squadi API error: ' + responseCode);
+      return { error: 'Squadi API Error: ' + responseCode };
+    }
+  } catch (e) {
+    Logger.log('Squadi fetch error: ' + e.message);
+    return { error: 'Network error: ' + e.message };
+  }
+}
+
+/**
+ * Get fixture data for a specific team, using its ResultsApi config.
+ * Caches results in CacheService for 6 hours.
+ * @param {string} teamID
+ * @param {boolean} forceRefresh - bypass cache
+ * @returns {Object} { success, teamFixtures, divisionResults } or { success:false, error }
+ */
+function getFixtureDataForTeam(teamID, forceRefresh) {
+  // Load team's ResultsApi config
+  var teams = loadMasterTeamList();
+  if (teams.error) throw new Error(teams.error);
+
+  var team = null;
+  for (var i = 0; i < teams.length; i++) {
+    if (teams[i].teamID == teamID) { team = teams[i]; break; }
+  }
+  if (!team) throw new Error('Team not found: ' + teamID);
+  if (!team.resultsApi) throw new Error('No fixture config for this team');
+
+  var config;
+  try {
+    config = JSON.parse(team.resultsApi);
+  } catch (e) {
+    throw new Error('Invalid fixture config JSON: ' + e.message);
+  }
+
+  if (config.source !== 'squadi' || !config.competitionId || !config.divisionId || !config.squadiTeamName) {
+    throw new Error('Incomplete fixture config: need source=squadi, competitionId, divisionId, squadiTeamName');
+  }
+
+  // Check cache
+  var cacheKey = 'FIXTURE_' + teamID;
+  if (!forceRefresh) {
+    try {
+      var cache = CacheService.getScriptCache();
+      var cached = cache.get(cacheKey);
+      if (cached) {
+        Logger.log('Returning cached fixture data for team ' + teamID);
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      Logger.log('Cache read error: ' + e.message);
+    }
+  }
+
+  // Fetch from Squadi API
+  var apiResult = fetchSquadiFixtures(config.competitionId, config.divisionId);
+  if (apiResult.error) {
+    return { success: false, error: apiResult.error, message: apiResult.message || apiResult.error };
+  }
+
+  // Transform into team-specific fixtures + division results
+  var teamFixtures = [];
+  var divisionResults = [];
+  var squadiName = config.squadiTeamName.toLowerCase();
+
+  for (var r = 0; r < apiResult.rounds.length; r++) {
+    var round = apiResult.rounds[r];
+    var roundName = round.name || ('Round ' + (r + 1));
+    var roundNum = parseInt(roundName.replace(/[^0-9]/g, ''), 10) || (r + 1);
+    var roundMatches = [];
+
+    for (var m = 0; m < round.matches.length; m++) {
+      var match = round.matches[m];
+      var t1Name = (match.team1 && match.team1.name) || '';
+      var t2Name = (match.team2 && match.team2.name) || '';
+
+      // Check if this team is involved
+      var isTeam1 = t1Name.toLowerCase() === squadiName;
+      var isTeam2 = t2Name.toLowerCase() === squadiName;
+
+      if (isTeam1 || isTeam2) {
+        var opponent = isTeam1 ? t2Name : t1Name;
+        var ourScore = null;
+        var theirScore = null;
+        var ourResultId = isTeam1 ? match.team1ResultId : match.team2ResultId;
+
+        // Map status
+        var status = 'upcoming';
+        if (ourResultId === 7) {
+          status = 'bye';
+          opponent = 'Bye';
+        } else if (ourResultId === 9) {
+          status = 'abandoned';
+        } else if (match.matchStatus === 'ENDED' && ourResultId != null) {
+          status = 'normal';
+          ourScore = isTeam1 ? match.team1Score : match.team2Score;
+          theirScore = isTeam1 ? match.team2Score : match.team1Score;
+        }
+
+        // Parse date/time from startTime
+        var date = '';
+        var time = '';
+        if (match.startTime) {
+          var dt = new Date(match.startTime);
+          date = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          time = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'h:mm a');
+        }
+
+        // Venue
+        var venue = '';
+        if (match.venueCourt) {
+          var courtName = match.venueCourt.name || '';
+          var venueName = (match.venueCourt.venue && match.venueCourt.venue.shortName) || '';
+          venue = venueName ? (venueName + ' ' + courtName) : courtName;
+        }
+
+        teamFixtures.push({
+          matchId: match.id,
+          roundName: roundName,
+          roundNum: roundNum,
+          opponent: opponent,
+          date: date,
+          time: time,
+          venue: venue,
+          status: status,
+          ourScore: ourScore,
+          theirScore: theirScore
+        });
+      }
+
+      // Division results: include all matches
+      roundMatches.push({
+        matchId: match.id,
+        team1: t1Name,
+        team2: t2Name,
+        score1: match.team1Score,
+        score2: match.team2Score,
+        team1ResultId: match.team1ResultId,
+        team2ResultId: match.team2ResultId,
+        status: match.matchStatus === 'ENDED' ? 'ended' : 'upcoming'
+      });
+    }
+
+    divisionResults.push({
+      roundName: roundName,
+      roundNum: roundNum,
+      matches: roundMatches
+    });
+  }
+
+  // Sort team fixtures by round number
+  teamFixtures.sort(function(a, b) { return a.roundNum - b.roundNum; });
+  divisionResults.sort(function(a, b) { return a.roundNum - b.roundNum; });
+
+  var result = {
+    success: true,
+    teamFixtures: teamFixtures,
+    divisionResults: divisionResults,
+    divisionName: (apiResult.division && apiResult.division.name) || ''
+  };
+
+  // Cache the result (6 hours)
+  try {
+    var cache = CacheService.getScriptCache();
+    var jsonStr = JSON.stringify(result);
+    if (jsonStr.length <= 100000) {
+      cache.put(cacheKey, jsonStr, 21600);
+      Logger.log('Cached fixture data for team ' + teamID + ' (' + jsonStr.length + ' bytes)');
+    } else {
+      Logger.log('Fixture data too large to cache (' + jsonStr.length + ' bytes)');
+    }
+  } catch (e) {
+    Logger.log('Cache write error: ' + e.message);
+  }
+
+  return result;
 }
 
 // --- AI Insights using Gemini ---
@@ -2334,6 +2570,9 @@ function updateTeamSettings(teamID, settings) {
         }
         if (settings.ladderUrl !== undefined) {
           teamsSheet.getRange(row, 7).setValue(settings.ladderUrl); // Column G = Ladder API
+        }
+        if (settings.resultsApi !== undefined) {
+          teamsSheet.getRange(row, 8).setValue(settings.resultsApi); // Column H = Results API / Squadi config
         }
         if (settings.archived !== undefined) {
           teamsSheet.getRange(row, 9).setValue(settings.archived ? 'true' : ''); // Column I = Archived

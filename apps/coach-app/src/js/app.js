@@ -658,12 +658,13 @@ async function loadTeams(forceRefresh = false) {
           const freshTeams = (data.teams || []).map(t => ({
             teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
             year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
+            resultsApi: t.resultsApi || '',
             lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
           }));
 
           // Lightweight comparison by teamID + playerCount + name + coach + hasPin
-          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin })));
-          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin })));
+          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
 
           if (oldSig !== newSig) {
             console.log('[Cache] Teams list updated on server; refreshing UI');
@@ -715,6 +716,7 @@ async function loadTeams(forceRefresh = false) {
         // Ensure defaults for fields that may be missing from older API responses
         if (t.hasPin === undefined) t.hasPin = false;
         if (!t.coach) t.coach = '';
+        if (!t.resultsApi) t.resultsApi = '';
         return t;
       });
 
@@ -922,6 +924,192 @@ window.showAppMetrics = function() {
   }
 };
 
+// ========================================
+// FIXTURE SYNC (Squadi / Netball Connect)
+// ========================================
+
+function parseSquadiConfig(resultsApi) {
+  if (!resultsApi) return null;
+  try {
+    const config = JSON.parse(resultsApi);
+    if (config.source !== 'squadi') return null;
+    if (!config.competitionId || !config.divisionId || !config.squadiTeamName) return null;
+    return config;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Non-blocking fixture sync. Fetches fixture data from backend and merges into team data.
+ */
+async function syncFixtureData(team, teamData) {
+  if (!team || !navigator.onLine) return;
+  const config = parseSquadiConfig(team.resultsApi);
+  if (!config) return;
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const url = `${baseUrl}?api=true&action=getFixtureData&teamID=${encodeURIComponent(team.teamID)}&_t=${Date.now()}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.success || !data.teamFixtures?.length) {
+      if (data.error === 'AUTH_TOKEN_EXPIRED') {
+        showToast('Squadi auth token expired. Contact admin.', 'warning');
+      }
+      return;
+    }
+
+    // Store division results for opponent scouting (memory only)
+    state.divisionResults = data.divisionResults || [];
+
+    const report = mergeFixtureData(teamData, data.teamFixtures);
+    if (report.created > 0 || report.updated > 0) {
+      // Recalculate stats with new games
+      state.stats = calculateTeamStats(teamData);
+      state.analytics = calculateAllAnalytics(teamData);
+      saveToLocalStorage();
+      renderMainApp();
+
+      // Sync merged data to backend (non-blocking)
+      syncToGoogleSheets().catch(err => {
+        console.warn('[Fixture] Backend sync failed:', err.message);
+      });
+
+      const parts = [];
+      if (report.created > 0) parts.push(`${report.created} new`);
+      if (report.updated > 0) parts.push(`${report.updated} updated`);
+      showToast(`Fixtures synced: ${parts.join(', ')}`, 'success');
+    }
+  } catch (err) {
+    console.warn('[Fixture] Auto-sync failed:', err.message);
+  }
+}
+
+/**
+ * Merge fixture data into existing games array.
+ * Rules:
+ * - Link games to fixtures via fixtureMatchId
+ * - Fill empty fields only (never overwrite non-empty)
+ * - Status only upgrades from "upcoming" (manual status always wins)
+ * - fixtureScore always updated for validation
+ * - Never touch: scores, lineup, notes, captain, availablePlayerIDs
+ */
+function mergeFixtureData(teamData, teamFixtures) {
+  const report = { created: 0, updated: 0, skipped: 0 };
+  if (!teamData.games) teamData.games = [];
+
+  for (const fixture of teamFixtures) {
+    // 1. Find by fixtureMatchId
+    let existing = teamData.games.find(g => g.fixtureMatchId === fixture.matchId);
+
+    // 2. Fuzzy match: same round number + no fixtureMatchId set yet
+    if (!existing) {
+      existing = teamData.games.find(g =>
+        !g.fixtureMatchId &&
+        g.round == fixture.roundNum &&
+        fuzzyOpponentMatch(g.opponent, fixture.opponent)
+      );
+    }
+
+    if (existing) {
+      let changed = false;
+
+      // Link if not already linked
+      if (!existing.fixtureMatchId) {
+        existing.fixtureMatchId = fixture.matchId;
+        changed = true;
+      }
+
+      // Fill empty fields only
+      if (!existing.opponent || existing.opponent === 'TBD') {
+        existing.opponent = fixture.opponent;
+        changed = true;
+      }
+      if (!existing.date && fixture.date) {
+        existing.date = fixture.date;
+        changed = true;
+      }
+      if (!existing.time && fixture.time) {
+        existing.time = fixture.time;
+        changed = true;
+      }
+      if (!existing.location && fixture.venue) {
+        existing.location = fixture.venue;
+        changed = true;
+      }
+
+      // Status only upgrades from "upcoming"
+      if (existing.status === 'upcoming' && fixture.status !== 'upcoming') {
+        existing.status = fixture.status;
+        changed = true;
+      }
+
+      // Always update fixture score for validation
+      if (fixture.ourScore !== null && fixture.theirScore !== null) {
+        const newScore = { us: fixture.ourScore, opponent: fixture.theirScore };
+        if (!existing.fixtureScore ||
+            existing.fixtureScore.us !== newScore.us ||
+            existing.fixtureScore.opponent !== newScore.opponent) {
+          existing.fixtureScore = newScore;
+          changed = true;
+        }
+      }
+
+      if (changed) report.updated++;
+      else report.skipped++;
+    } else {
+      // Create new game from fixture
+      teamData.games.push({
+        gameID: `g${Date.now()}_${fixture.matchId}`,
+        fixtureMatchId: fixture.matchId,
+        round: fixture.roundNum,
+        opponent: fixture.opponent,
+        date: fixture.date || '',
+        time: fixture.time || '',
+        location: fixture.venue || '',
+        status: fixture.status,
+        captain: null,
+        scores: null,
+        fixtureScore: (fixture.ourScore !== null && fixture.theirScore !== null)
+          ? { us: fixture.ourScore, opponent: fixture.theirScore }
+          : null,
+        availablePlayerIDs: (teamData.players || []).filter(p => !p.fillIn).map(p => p.id),
+        lineup: null
+      });
+      report.created++;
+    }
+  }
+
+  // Sort games by round number
+  teamData.games.sort((a, b) => (a.round || 0) - (b.round || 0));
+  return report;
+}
+
+/**
+ * Fuzzy match opponent names (handles abbreviations like "HG 11 Fire" vs "Hazel Glen 11 Fire")
+ */
+function fuzzyOpponentMatch(existing, fixture) {
+  if (!existing || !fixture) return false;
+  const norm = s => s.toLowerCase().trim().replace(/\s+/g, ' ');
+  const a = norm(existing);
+  const b = norm(fixture);
+  if (a === b) return true;
+  // Check if one contains the other
+  if (a.includes(b) || b.includes(a)) return true;
+  // Check if the last word(s) match (e.g. "Fire" matches "HG 11 Fire")
+  const wordsA = a.split(' ');
+  const wordsB = b.split(' ');
+  if (wordsA.length > 1 && wordsB.length > 1) {
+    const lastA = wordsA.slice(-1)[0];
+    const lastB = wordsB.slice(-1)[0];
+    if (lastA === lastB && lastA.length > 2) return true;
+  }
+  return false;
+}
+
 async function loadTeamData(teamID) {
   // Show skeletons immediately for better perceived performance
   showView('main-app-view');
@@ -984,6 +1172,9 @@ async function loadTeamData(teamID) {
     if (!state.currentTeamData) {
       throw new Error('Team data not found');
     }
+
+    // Auto-populate from Squadi fixtures (non-blocking)
+    syncFixtureData(state.currentTeam, state.currentTeamData);
 
     state.stats = calculateTeamStats(state.currentTeamData);
     state.analytics = calculateAllAnalytics(state.currentTeamData);
@@ -1573,6 +1764,16 @@ function renderSchedule() {
       scoreDisplay = `<div class="game-score-label">Upcoming</div>`;
     }
 
+    // Score validation badge
+    let validationBadge = '';
+    if (game.fixtureScore && game.scores && game.status === 'normal') {
+      if (game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent) {
+        validationBadge = '<span class="score-validated" title="Matches official result">✓</span>';
+      } else {
+        validationBadge = `<span class="score-mismatch" title="Official: ${game.fixtureScore.us}-${game.fixtureScore.opponent}">⚠</span>`;
+      }
+    }
+
     return `
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
@@ -1581,7 +1782,7 @@ function renderSchedule() {
           <div class="game-meta">${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}</div>
         </div>
         <div class="game-score">
-          ${scoreDisplay}
+          ${scoreDisplay}${validationBadge}
         </div>
       </div>
     `;
@@ -4177,6 +4378,13 @@ function renderGameScoreCard() {
       </div>
     </div>
     <div class="game-result-badge ${escapeAttr(resultClass)}">${escapeHtml(resultText)}</div>
+    ${game.fixtureScore ? `
+      <div class="fixture-score-note ${game.scores && game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent ? 'verified' : 'mismatch'}">
+        Official: ${game.fixtureScore.us} - ${game.fixtureScore.opponent}
+        ${game.scores && game.scores.us === game.fixtureScore.us && game.scores.opponent === game.fixtureScore.opponent
+          ? ' ✓ Verified' : ' ⚠ Differs'}
+      </div>
+    ` : ''}
   `;
 
   // Show share actions for games with scores
@@ -6776,6 +6984,33 @@ window.openTeamSettings = function() {
       <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
       <input type="url" class="form-input" id="edit-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${escapeAttr(team.ladderUrl || '')}">
     </div>
+    ${(() => {
+      let sc = {};
+      try { sc = team.resultsApi ? JSON.parse(team.resultsApi) : {}; } catch(e) {}
+      return `
+    <div class="form-group">
+      <label class="form-label">Fixture Sync <span class="form-label-desc">(optional, Netball Connect / Squadi)</span></label>
+      <p class="form-hint" style="margin-bottom:8px">Auto-populate schedule from Netball Connect fixtures. Find these values in your browser's Network tab on the fixtures page.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="form-label form-label-sm">Competition ID</label>
+          <input type="number" class="form-input" id="edit-squadi-competition-id" placeholder="e.g. 4650" value="${sc.competitionId || ''}">
+        </div>
+        <div>
+          <label class="form-label form-label-sm">Division ID</label>
+          <input type="number" class="form-input" id="edit-squadi-division-id" placeholder="e.g. 29570" value="${sc.divisionId || ''}">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label class="form-label form-label-sm">Team Name (as shown in Squadi)</label>
+        <input type="text" class="form-input" id="edit-squadi-team-name" maxlength="100" placeholder="e.g. HG 11 Flames" value="${escapeAttr(sc.squadiTeamName || '')}">
+      </div>
+      <div style="margin-top:8px">
+        <label class="form-label form-label-sm">Competition Key <span class="form-label-desc">(optional, for ladder)</span></label>
+        <input type="text" class="form-input" id="edit-squadi-competition-key" maxlength="100" placeholder="UUID format" value="${escapeAttr(sc.competitionKey || '')}">
+      </div>
+    </div>`;
+    })()}
     <div class="form-group">
       <label class="form-label">Parent Portal Link <span class="form-label-desc">(read-only, for parents)</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -7056,6 +7291,18 @@ window.saveTeamSettings = async function() {
   const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
     const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
+  // Build Squadi fixture config from form fields
+  const squadiCompId = parseInt(document.getElementById('edit-squadi-competition-id')?.value) || 0;
+  const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
+  const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
+  const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
+  let resultsApi = '';
+  if (squadiCompId && squadiDivId && squadiTeamName) {
+    const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
+    if (squadiCompKey) config.competitionKey = squadiCompKey;
+    resultsApi = JSON.stringify(config);
+  }
+
   // Validation
   if (!name) {
     showToast('Please enter a team name', 'error');
@@ -7087,6 +7334,7 @@ window.saveTeamSettings = async function() {
   const oldSeason = state.currentTeam.season;
   const oldCoach = state.currentTeam.coach;
   const oldLadderUrl = state.currentTeam.ladderUrl;
+  const oldResultsApi = state.currentTeam.resultsApi;
 
   closeModal();
   showLoading();
@@ -7097,6 +7345,7 @@ window.saveTeamSettings = async function() {
     state.currentTeam.year = year;
     state.currentTeam.season = season;
     state.currentTeam.ladderUrl = ladderUrl;
+    state.currentTeam.resultsApi = resultsApi;
     state.currentTeam.coach = coach;
 
     // Also update in currentTeamData
@@ -7114,11 +7363,12 @@ window.saveTeamSettings = async function() {
       teamInList.year = year;
       teamInList.season = season;
       teamInList.ladderUrl = ladderUrl;
+      teamInList.resultsApi = resultsApi;
       teamInList.coach = coach;
     }
 
     // Save to backend
-    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, coach });
+    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, resultsApi, coach });
 
     saveToLocalStorage();
     renderMainApp();
@@ -7131,6 +7381,7 @@ window.saveTeamSettings = async function() {
     state.currentTeam.season = oldSeason;
     state.currentTeam.coach = oldCoach;
     state.currentTeam.ladderUrl = oldLadderUrl;
+    state.currentTeam.resultsApi = oldResultsApi;
     if (state.currentTeamData) {
       state.currentTeamData.teamName = oldName;
       state.currentTeamData.year = oldYear;
@@ -7144,6 +7395,7 @@ window.saveTeamSettings = async function() {
       rollbackTeam.season = oldSeason;
       rollbackTeam.coach = oldCoach;
       rollbackTeam.ladderUrl = oldLadderUrl;
+      rollbackTeam.resultsApi = oldResultsApi;
     }
     showToast('Failed to save: ' + error.message, 'error');
   } finally {
