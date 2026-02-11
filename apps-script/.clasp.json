@@ -1,4 +1,16 @@
 {
-  "scriptId": "18WnCpSMg2dfyNCVQIuu57bGS20w0J9AqdC7b4Zly1O7LhxKJNfJ2J-eV",
-  "rootDir": "/Users/casey-work/webapp-local-dev/apps-script"
+  "scriptId": "1wpXYGRD3ZVYxNUCCHSTcIK6DiSd0kobIzSxteb6avpAeEMwWtmUjtwNb",
+  "rootDir": "",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [],
+  "skipSubdirectories": false
 }
