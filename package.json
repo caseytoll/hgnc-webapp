@@ -36,6 +36,7 @@
     "vitest": "^4.0.17"
   },
   "dependencies": {
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "wrangler": "^4.63.0"
   }
 }

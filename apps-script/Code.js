@@ -568,6 +568,16 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'autoDetectSquadi':
+          try {
+            var forceRescanParam = e.parameter.forceRescan === 'true';
+            result = autoDetectSquadiConfig(forceRescanParam);
+          } catch (errAutoDetect) {
+            Logger.log('autoDetectSquadi error: ' + errAutoDetect.message);
+            result = { success: false, error: errAutoDetect.message };
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown action: ' + action };
       }
@@ -1325,6 +1335,265 @@ function discoverSquadiCompetitions(orgKey) {
   }
 
   return { success: true, orgKey: orgKey, results: results };
+}
+
+/**
+ * Ensures the Squadi_Lookup sheet exists with correct headers.
+ * Creates it if missing.
+ */
+function ensureSquadiLookupSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('Squadi_Lookup');
+  if (!sheet) {
+    sheet = ss.insertSheet('Squadi_Lookup');
+    sheet.getRange(1, 1, 1, 7).setValues([['CompetitionId', 'CompetitionName', 'OrgKey', 'DivisionId', 'DivisionName', 'TeamName', 'DiscoveredAt']]);
+    Logger.log('Created Squadi_Lookup sheet');
+  }
+  return sheet;
+}
+
+/**
+ * Scan Squadi competition IDs to find divisions with HG teams.
+ * Uses the PUBLIC fixture API (no auth token required).
+ * Writes discovered data to Squadi_Lookup sheet.
+ * @param {boolean} forceRescan - Clear existing data and rescan from default start
+ * @returns {Object} { success, scannedRange, found }
+ */
+function scanSquadiCompetitions(forceRescan) {
+  var SCAN_LOCK_KEY = 'SQUADI_SCAN_LOCK';
+  var props = PropertiesService.getScriptProperties();
+
+  // Check scan lock (7-minute expiry)
+  var lockVal = props.getProperty(SCAN_LOCK_KEY);
+  if (lockVal) {
+    var lockTime = parseInt(lockVal, 10);
+    if (Date.now() - lockTime < 7 * 60 * 1000) {
+      return { success: false, error: 'Scan already in progress. Try again in a few minutes.' };
+    }
+  }
+
+  // Set lock
+  props.setProperty(SCAN_LOCK_KEY, String(Date.now()));
+
+  try {
+    var sheet = ensureSquadiLookupSheet();
+    var startId = 4640; // Default start: just before known Nillumbik Force comp
+
+    if (forceRescan) {
+      // Clear existing data (keep headers)
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, 7).clearContent();
+      }
+    } else {
+      // Find max competition ID already scanned
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        var existingIds = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+        for (var i = 0; i < existingIds.length; i++) {
+          var id = parseInt(existingIds[i][0], 10);
+          if (id > startId) startId = id;
+        }
+      }
+    }
+
+    var scanFrom = startId + 1;
+    var scanTo = scanFrom + 200;
+    var consecutiveMisses = 0;
+    var found = [];
+    var newRows = [];
+
+    for (var compId = scanFrom; compId <= scanTo; compId++) {
+      // Stop after 50 consecutive misses
+      if (consecutiveMisses >= 50) break;
+
+      try {
+        var url = 'https://api-netball.squadi.com/livescores/round/matches'
+          + '?competitionId=' + compId
+          + '&divisionId=&teamIds=&ignoreStatuses=%5B1%5D';
+
+        var response = UrlFetchApp.fetch(url, {
+          'method': 'get',
+          'headers': {
+            'Accept': 'application/json',
+            'Origin': 'https://registration.netballconnect.com',
+            'Referer': 'https://registration.netballconnect.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+          },
+          'muteHttpExceptions': true
+        });
+
+        var code = response.getResponseCode();
+        if (code !== 200) {
+          consecutiveMisses++;
+          Utilities.sleep(50);
+          continue;
+        }
+
+        var data = JSON.parse(response.getContentText());
+        var rounds = data.rounds || [];
+        if (rounds.length === 0) {
+          consecutiveMisses++;
+          Utilities.sleep(50);
+          continue;
+        }
+
+        // Extract competition name and org key from first round's division data
+        var compName = data.division ? (data.division.competitionName || '') : '';
+        var orgKey = '';
+
+        // Collect all divisions and team names from all matches
+        var divisionMap = {};
+        for (var r = 0; r < rounds.length; r++) {
+          var matches = rounds[r].matches || [];
+          for (var m = 0; m < matches.length; m++) {
+            var match = matches[m];
+            var divId = match.divisionId || '';
+            var divName = match.divisionName || match.division || '';
+            if (!divId) continue;
+
+            if (!divisionMap[divId]) {
+              divisionMap[divId] = { divisionName: divName, teams: {} };
+            }
+
+            // Check both team names for "HG" prefix
+            var team1 = (match.team1 && match.team1.name) ? match.team1.name : '';
+            var team2 = (match.team2 && match.team2.name) ? match.team2.name : '';
+
+            if (team1 && team1.toUpperCase().indexOf('HG') === 0) {
+              divisionMap[divId].teams[team1] = true;
+            }
+            if (team2 && team2.toUpperCase().indexOf('HG') === 0) {
+              divisionMap[divId].teams[team2] = true;
+            }
+          }
+        }
+
+        // Check if any division has HG teams
+        var compEntry = { competitionId: compId, competitionName: compName, divisions: [] };
+        var hasHG = false;
+        var now = new Date().toISOString();
+
+        var divKeys = Object.keys(divisionMap);
+        for (var d = 0; d < divKeys.length; d++) {
+          var dId = divKeys[d];
+          var dInfo = divisionMap[dId];
+          var teamNames = Object.keys(dInfo.teams);
+          if (teamNames.length > 0) {
+            hasHG = true;
+            compEntry.divisions.push({ divisionId: dId, divisionName: dInfo.divisionName, teams: teamNames });
+            // Add rows for sheet
+            for (var t = 0; t < teamNames.length; t++) {
+              newRows.push([compId, compName, orgKey, dId, dInfo.divisionName, teamNames[t], now]);
+            }
+          }
+        }
+
+        if (hasHG) {
+          found.push(compEntry);
+          consecutiveMisses = 0;
+        } else {
+          consecutiveMisses++;
+        }
+
+      } catch (fetchErr) {
+        Logger.log('Scan error for compId ' + compId + ': ' + fetchErr.message);
+        consecutiveMisses++;
+      }
+
+      Utilities.sleep(100);
+    }
+
+    // Write discovered rows to sheet
+    if (newRows.length > 0) {
+      var writeRow = sheet.getLastRow() + 1;
+      sheet.getRange(writeRow, 1, newRows.length, 7).setValues(newRows);
+      Logger.log('Wrote ' + newRows.length + ' rows to Squadi_Lookup');
+    }
+
+    return {
+      success: true,
+      scannedRange: [scanFrom, compId - 1],
+      found: found,
+      newRowsWritten: newRows.length
+    };
+
+  } finally {
+    // Release lock
+    props.deleteProperty(SCAN_LOCK_KEY);
+  }
+}
+
+/**
+ * Auto-detect Squadi config for HG teams.
+ * Returns cached lookup data or triggers a scan.
+ * @param {boolean} forceRescan - Force a fresh scan
+ * @returns {Object} { success, competitions }
+ */
+function autoDetectSquadiConfig(forceRescan) {
+  var sheet = ensureSquadiLookupSheet();
+  var lastRow = sheet.getLastRow();
+
+  // If we have cached data and not forcing rescan, return it
+  if (!forceRescan && lastRow > 1) {
+    var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+    return { success: true, competitions: groupLookupData(data), fromCache: true };
+  }
+
+  // Run scan
+  var scanResult = scanSquadiCompetitions(forceRescan);
+  if (!scanResult.success) return scanResult;
+
+  // Re-read sheet for complete data
+  var finalLastRow = sheet.getLastRow();
+  if (finalLastRow <= 1) {
+    return { success: true, competitions: [], scannedRange: scanResult.scannedRange, message: 'No HG teams found' };
+  }
+
+  var allData = sheet.getRange(2, 1, finalLastRow - 1, 7).getValues();
+  return {
+    success: true,
+    competitions: groupLookupData(allData),
+    scannedRange: scanResult.scannedRange,
+    newRowsWritten: scanResult.newRowsWritten
+  };
+}
+
+/**
+ * Groups flat Squadi_Lookup rows into competition > division > teams hierarchy.
+ */
+function groupLookupData(rows) {
+  var compMap = {};
+  for (var i = 0; i < rows.length; i++) {
+    var compId = String(rows[i][0]);
+    var compName = rows[i][1] || '';
+    var orgKey = rows[i][2] || '';
+    var divId = String(rows[i][3]);
+    var divName = rows[i][4] || '';
+    var teamName = rows[i][5] || '';
+
+    if (!compMap[compId]) {
+      compMap[compId] = { id: compId, name: compName, orgKey: orgKey, divisions: {} };
+    }
+    if (!compMap[compId].divisions[divId]) {
+      compMap[compId].divisions[divId] = { id: divId, name: divName, teams: [] };
+    }
+    compMap[compId].divisions[divId].teams.push(teamName);
+  }
+
+  // Convert to arrays
+  var result = [];
+  var compKeys = Object.keys(compMap);
+  for (var c = 0; c < compKeys.length; c++) {
+    var comp = compMap[compKeys[c]];
+    var divs = [];
+    var divKeys = Object.keys(comp.divisions);
+    for (var d = 0; d < divKeys.length; d++) {
+      divs.push(comp.divisions[divKeys[d]]);
+    }
+    result.push({ id: comp.id, name: comp.name, orgKey: comp.orgKey, divisions: divs });
+  }
+  return result;
 }
 
 /**

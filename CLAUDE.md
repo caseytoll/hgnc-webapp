@@ -203,6 +203,7 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 
 **AI Insights (Stats → Overview tab):**
 - Analyzes team performance, leaderboards, combinations
+- Includes opponent difficulty context: per-game opponent ladder rank, strength of schedule rating, and full division W-L-D standings
 - Generates season summary, strengths, areas to improve, lineup recommendations
 - Cached in `state.currentTeamData.aiInsights`
 
@@ -234,6 +235,18 @@ The app uses Google's Gemini API for AI-generated insights. API key stored in Ap
 
 **Player AI Insights (Player stats modal):**
 - Individual player analysis with position versatility and development suggestions
+
+### Opponent Difficulty Ratings
+
+Coach-app only (parent portal has no ladder data). Uses cached ladder data from localStorage — no additional API calls.
+
+- **`getOpponentDifficulty(opponentName)`** — Reads `ladder.cache.{teamID}` from localStorage, fuzzy-matches opponent to ladder row via `fuzzyOpponentMatch()`. Returns `{ position, totalTeams, tier, label }` or `null`
+- **Tiers:** `top` (top 25% of ladder), `mid` (middle 50%), `bottom` (bottom 25%). Color-coded: red/amber/green
+- **Game list badges:** Colored pill badge (e.g. "1st", "5th") next to opponent name in `renderSchedule()`. Skipped for bye games
+- **Strength of Schedule:** Metric card in stats overview showing 1-100 rating (higher = harder schedule). Clickable modal shows per-opponent breakdown with W/L badges and ladder positions
+- **SoS formula:** `(totalTeams - avgOpponentPosition) / (totalTeams - 1) * 100`. Labels: >= 70 "Tough", >= 40 "Average", < 40 "Easy"
+- **AI context:** `fetchAIInsights()` includes `opponentRank` per game, `strengthOfSchedule` summary, and `divisionContext` (all division team W-L-D records from `state.divisionResults`)
+- **Graceful degradation:** All features return `null`/hidden when no ladder data available
 
 ### Parent Portal Specifics
 
