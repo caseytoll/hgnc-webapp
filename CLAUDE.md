@@ -182,6 +182,7 @@ When modifying UI in one app, check if the other needs the same change:
 - **Scoring panel:** Accordion-style quarters with score steppers and notes
 - **Offline support:** Data saved to localStorage first, synced when online
 - **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate (serve cache, refresh in background). Team data uses `lastModified` version check with TTL fallback. Player library loads in background (non-blocking).
+- **Squadi Auto-Discovery:** Team Settings includes "Auto-Detect from Squadi" button that scans Squadi API for HG teams and auto-fills competition/division/team configuration. Results cached in `Squadi_Lookup` sheet tab with 6-month TTL. Force rescan available for updated competitions.
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
 - **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). Features:
   - **Layout:** Fixed-position overlay breaking out of #app's 430px max-width. 440px sidebar (bench + position history) + 2×2 quarter grid
@@ -331,6 +332,7 @@ Coach-app only (parent portal has no ladder data). Uses cached ladder data from 
 | `getDiagnostics` | Retrieve diagnostic logs | `limit` (optional, default 50) |
 | `getFixtureData` | Fetch fixture data for team | `teamID`, `forceRefresh` (optional) |
 | `getSquadiLadder` | Fetch ladder/standings for team | `teamID` |
+| `autoDetectSquadi` | Auto-discover Squadi team config | `forceRescan` (optional) |
 | `rebuildPlayerCounts` | Rebuild player count cache | - |
 
 **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
@@ -350,9 +352,11 @@ Data is always saved to localStorage first for offline support, then synced to t
 
 **PIN Auth on Writes:** `saveTeamData` (POST-only, no GET handler) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
 
-**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, Diagnostics, PlayerLibrary
+**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, Diagnostics, PlayerLibrary, Squadi_Lookup
 
 **Teams sheet columns:** A=TeamID, B=Year, C=Season, D=TeamName, E=SheetName, F=LadderName, G=LadderApi, H=ResultsApi, I=Archived, J=PlayerCount, K=LastModified, L=PIN, M=PinToken, N=Coach
+
+**Squadi_Lookup sheet columns:** A=CompetitionId, B=CompetitionName, C=OrgKey, D=DivisionId, E=DivisionName, F=TeamName, G=DiscoveredAt
 
 ---
 
@@ -402,6 +406,17 @@ Teams with `resultsApi` configured get automatic game population from external f
 - **`roundOffset`:** Offsets round numbers for teams with pre-season grading games. E.g., if a team played 3 grading rounds before the main competition, set `roundOffset: 3` so GameDay Round 1 becomes app Round 4.
 - **`compID`** and **`client`:** Found in GameDay fixture page URLs (e.g., `mygameday.app/comp/655969/...`)
 - **`teamName`:** Must match exactly how the team appears on GameDay (case-insensitive matching used internally)
+
+### Squadi Auto-Discovery
+
+The "Auto-Detect from Squadi" feature eliminates manual configuration for new teams:
+
+- **Trigger:** "Auto-Detect from Squadi" button in Team Settings → Squadi section
+- **API Access:** Uses public Squadi fixture API (no authentication required)
+- **Scanning:** Probes competition IDs sequentially, looking for divisions containing "HG" teams
+- **Caching:** Results stored in `Squadi_Lookup` sheet with 6-month TTL
+- **UI Flow:** Shows picker modal with discovered teams, auto-fills config fields on selection
+- **Force Rescan:** Available to refresh cached data for new seasons/competitions
 
 ---
 
