@@ -7607,7 +7607,9 @@ window.pickSquadiOption = function(idx) {
   if (!options || !options[idx]) return;
   fillSquadiFields(options[idx]);
   closeModal();
-  showToast('Squadi config filled!', 'success');
+  showToast('Squadi config filled! Saving...', 'success');
+  // Auto-save the settings after filling
+  setTimeout(() => saveTeamSettings(), 500);
 };
 
 window.autoDetectSquadiRescan = async function() {
