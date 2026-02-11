@@ -7258,6 +7258,10 @@ window.openTeamSettings = function() {
           <label class="form-label form-label-sm">Competition Key <span class="form-label-desc">(optional, for ladder)</span></label>
           <input type="text" class="form-input" id="edit-squadi-competition-key" maxlength="100" placeholder="UUID format" value="${escapeAttr(sc.competitionKey || '')}">
         </div>
+        <div style="margin-top:12px;text-align:center">
+          <button type="button" class="btn btn-sm btn-outline" onclick="autoDetectSquadi()" id="btn-auto-detect-squadi">Auto-Detect from Squadi</button>
+          <p class="form-hint" style="margin-top:4px">Scans Squadi for HG teams and fills the fields above automatically.</p>
+        </div>
       </div>
     </div>`;
     })()}
@@ -7534,6 +7538,128 @@ window.unarchiveTeam = async function() {
     hideLoading();
   }
 };
+
+window.autoDetectSquadi = async function() {
+  const btn = document.getElementById('btn-auto-detect-squadi');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const resp = await fetch(`${baseUrl}?api=true&action=autoDetectSquadi&_t=${Date.now()}`);
+    const data = await resp.json();
+
+    if (!data.success) {
+      showToast(data.error || 'Auto-detect failed', 'error');
+      return;
+    }
+
+    const comps = data.competitions || [];
+    if (comps.length === 0) {
+      showToast('No HG teams found. Try again later or enter values manually.', 'error');
+      return;
+    }
+
+    // Build flat list of pickable options
+    const options = [];
+    comps.forEach(comp => {
+      (comp.divisions || []).forEach(div => {
+        (div.teams || []).forEach(teamName => {
+          options.push({ competitionId: comp.id, competitionName: comp.name, divisionId: div.id, divisionName: div.name, teamName });
+        });
+      });
+    });
+
+    if (options.length === 1) {
+      // Single match — auto-fill directly
+      fillSquadiFields(options[0]);
+      showToast('Squadi config detected and filled!', 'success');
+      return;
+    }
+
+    // Multiple matches — show picker modal
+    const rows = options.map((opt, idx) =>
+      `<div class="sos-opponent-row" style="cursor:pointer;padding:10px 8px" onclick="pickSquadiOption(${idx})">
+        <div>
+          <strong>${escapeHtml(opt.teamName)}</strong>
+          <div style="font-size:12px;color:var(--text-secondary)">${escapeHtml(opt.divisionName)} — ${escapeHtml(opt.competitionName)}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`
+    ).join('');
+
+    window._squadiAutoDetectOptions = options;
+    openModal('Select Your Team', `
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Found ${options.length} HG teams across ${comps.length} competition${comps.length > 1 ? 's' : ''}. Select yours:</p>
+      <div style="display:flex;flex-direction:column;gap:2px">${rows}</div>
+    `, `<button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-outline" onclick="autoDetectSquadiRescan()" style="margin-left:8px">Force Rescan</button>`);
+
+  } catch (err) {
+    showToast('Auto-detect error: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Auto-Detect from Squadi'; }
+  }
+};
+
+window.pickSquadiOption = function(idx) {
+  const options = window._squadiAutoDetectOptions;
+  if (!options || !options[idx]) return;
+  fillSquadiFields(options[idx]);
+  closeModal();
+  showToast('Squadi config filled!', 'success');
+};
+
+window.autoDetectSquadiRescan = async function() {
+  closeModal();
+  const btn = document.getElementById('btn-auto-detect-squadi');
+  if (btn) { btn.disabled = true; btn.textContent = 'Rescanning...'; }
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const resp = await fetch(`${baseUrl}?api=true&action=autoDetectSquadi&forceRescan=true&_t=${Date.now()}`);
+    const data = await resp.json();
+
+    if (!data.success) {
+      showToast(data.error || 'Rescan failed', 'error');
+      return;
+    }
+
+    const comps = data.competitions || [];
+    if (comps.length === 0) {
+      showToast('No HG teams found after rescan.', 'error');
+      return;
+    }
+
+    showToast(`Found ${comps.reduce((sum, c) => sum + c.divisions.reduce((s, d) => s + d.teams.length, 0), 0)} HG teams. Opening picker...`, 'success');
+    // Re-trigger to show picker
+    window.autoDetectSquadi();
+  } catch (err) {
+    showToast('Rescan error: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Auto-Detect from Squadi'; }
+  }
+};
+
+function fillSquadiFields(opt) {
+  const compIdEl = document.getElementById('edit-squadi-competition-id');
+  const divIdEl = document.getElementById('edit-squadi-division-id');
+  const teamNameEl = document.getElementById('edit-squadi-team-name');
+  const compKeyEl = document.getElementById('edit-squadi-competition-key');
+
+  if (compIdEl) compIdEl.value = opt.competitionId || '';
+  if (divIdEl) divIdEl.value = opt.divisionId || '';
+  if (teamNameEl) teamNameEl.value = opt.teamName || '';
+  if (compKeyEl && opt.competitionKey) compKeyEl.value = opt.competitionKey;
+
+  // Make sure Squadi source is selected
+  const sourceSelect = document.getElementById('edit-fixture-source');
+  if (sourceSelect && sourceSelect.value !== 'squadi') {
+    sourceSelect.value = 'squadi';
+    sourceSelect.dispatchEvent(new Event('change'));
+  }
+}
 
 window.saveTeamSettings = async function() {
   const nameInput = document.getElementById('edit-team-name');
