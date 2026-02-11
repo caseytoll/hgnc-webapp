@@ -7565,7 +7565,14 @@ window.autoDetectSquadi = async function() {
     comps.forEach(comp => {
       (comp.divisions || []).forEach(div => {
         (div.teams || []).forEach(teamName => {
-          options.push({ competitionId: comp.id, competitionName: comp.name, divisionId: div.id, divisionName: div.name, teamName });
+          options.push({ 
+            competitionId: comp.id, 
+            competitionName: comp.name, 
+            competitionKey: comp.orgKey,
+            divisionId: div.id, 
+            divisionName: div.name, 
+            teamName 
+          });
         });
       });
     });
@@ -7606,10 +7613,12 @@ window.pickSquadiOption = function(idx) {
   const options = window._squadiAutoDetectOptions;
   if (!options || !options[idx]) return;
   fillSquadiFields(options[idx]);
-  closeModal();
   showToast('Squadi config filled! Saving...', 'success');
-  // Auto-save the settings after filling
-  setTimeout(() => saveTeamSettings(), 500);
+  // Auto-save the settings after filling, then close modal
+  setTimeout(() => {
+    saveTeamSettings();
+    closeModal();
+  }, 500);
 };
 
 window.autoDetectSquadiRescan = async function() {
