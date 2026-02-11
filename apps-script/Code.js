@@ -73,9 +73,12 @@ function getSpreadsheet() {
    */
   function doPost(e) {
     try {
-      // Parse the POST body as JSON
-      var postData = JSON.parse(e.postData.contents);
-      var action = postData.action || '';
+      // Parse the POST body as JSON (if it exists)
+      var postData = {};
+      if (e.postData && e.postData.contents) {
+        postData = JSON.parse(e.postData.contents);
+      }
+      var action = postData.action || e.parameter.action || '';
       var result = { success: false, error: 'Unknown action' };
 
       Logger.log('POST API Request: ' + action);
@@ -168,6 +171,37 @@ function getSpreadsheet() {
               result = { success: true, suggestions: trainingFocus };
             } catch (trainingErr) {
               result = { success: false, error: trainingErr.message };
+            }
+          }
+          break;
+
+        case 'deleteTeam':
+          var deleteTeamID = postData.teamID || e.parameter.teamID || '';
+          if (!deleteTeamID) {
+            result = { success: false, error: 'Missing teamID parameter' };
+          } else {
+            try {
+              // Get team info first to find the sheet name
+              var teams = loadMasterTeamList();
+              if (teams.error) {
+                result = { success: false, error: teams.error };
+              } else {
+                var teamToDelete = null;
+                for (var i = 0; i < teams.length; i++) {
+                  if (teams[i].teamID == deleteTeamID) {
+                    teamToDelete = teams[i];
+                    break;
+                  }
+                }
+                if (!teamToDelete) {
+                  result = { success: false, error: 'Team not found: ' + deleteTeamID };
+                } else {
+                  result = deleteTeam(deleteTeamID, teamToDelete.sheetName);
+                }
+              }
+            } catch (errDelete) {
+              Logger.log('deleteTeam error: ' + errDelete.message);
+              result = { success: false, error: errDelete.message };
             }
           }
           break;
@@ -575,6 +609,37 @@ function getSpreadsheet() {
           } catch (errAutoDetect) {
             Logger.log('autoDetectSquadi error: ' + errAutoDetect.message);
             result = { success: false, error: errAutoDetect.message };
+          }
+          break;
+
+        case 'deleteTeam':
+          var deleteTeamID = e.parameter.teamID || '';
+          if (!deleteTeamID) {
+            result = { success: false, error: 'Missing teamID parameter' };
+          } else {
+            try {
+              // Get team info first to find the sheet name
+              var teams = loadMasterTeamList();
+              if (teams.error) {
+                result = { success: false, error: teams.error };
+              } else {
+                var teamToDelete = null;
+                for (var i = 0; i < teams.length; i++) {
+                  if (teams[i].teamID == deleteTeamID) {
+                    teamToDelete = teams[i];
+                    break;
+                  }
+                }
+                if (!teamToDelete) {
+                  result = { success: false, error: 'Team not found: ' + deleteTeamID };
+                } else {
+                  result = deleteTeam(deleteTeamID, teamToDelete.sheetName);
+                }
+              }
+            } catch (errDelete) {
+              Logger.log('deleteTeam error: ' + errDelete.message);
+              result = { success: false, error: errDelete.message };
+            }
           }
           break;
 
@@ -1628,7 +1693,7 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
   for (var ch = 0; ch < configStr.length; ch++) {
     configHash = ((configHash << 5) - configHash + configStr.charCodeAt(ch)) | 0;
   }
-  var cacheKey = 'FIXTURE_' + teamID + '_' + Math.abs(configHash);
+  var cacheKey = 'FIXTURE_' + teamID + '_' + Math.abs(configHash) + '_v2';
   if (!forceRefresh) {
     try {
       var cache = CacheService.getScriptCache();
@@ -1716,6 +1781,16 @@ function fetchSquadiFixtureData(config) {
           status = 'normal';
           ourScore = isTeam1 ? match.team1Score : match.team2Score;
           theirScore = isTeam1 ? match.team2Score : match.team1Score;
+        } else if (match.team1Score != null && match.team2Score != null && match.startTime) {
+          // Check if game has scores and date has passed - treat as completed even if status isn't 'ENDED'
+          var gameDateTime = new Date(match.startTime);
+          var now = new Date();
+          if (gameDateTime < now) {
+            status = 'normal';
+            ourScore = isTeam1 ? match.team1Score : match.team2Score;
+            theirScore = isTeam1 ? match.team2Score : match.team1Score;
+            Logger.log('Game marked as completed due to scores and past date: ' + match.id + ', date: ' + match.startTime);
+          }
         }
 
         var date = '';

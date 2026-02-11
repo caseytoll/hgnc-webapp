@@ -321,6 +321,30 @@ h4 { font-size: 1rem; }
   text-overflow: ellipsis;
 }
 
+.team-card-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  margin-left: var(--space-sm);
+}
+
+.team-card-delete:hover {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.team-card-delete:active {
+  transform: scale(0.9);
+}
+
 /* Archived teams section */
 .archived-section {
   margin-top: var(--space-lg);
