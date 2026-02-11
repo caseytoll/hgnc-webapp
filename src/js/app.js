@@ -352,59 +352,212 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.openAddTeamModal = function() {
-    const currentYear = new Date().getFullYear();
-    openModal('Add New Team', `
-      <div class="form-group">
-        <label class="form-label">Team Name</label>
-        <input type="text" class="form-input" id="new-team-name" maxlength="100" placeholder="e.g. U11 Thunder">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Year</label>
-        <input type="number" class="form-input" id="new-team-year" min="2000" max="2100" value="${currentYear}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Season</label>
-        <select class="form-select" id="new-team-season">
-          <option value="Season 1">Season 1</option>
-          <option value="Season 2">Season 2</option>
-          <option value="NFNL">NFNL</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
-        <input type="url" class="form-input" id="new-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/...">
-      </div>
-    `, `
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="addNewTeam()">Add Team</button>
-    `);
+  // Multi-step wizard state
+  let wizardState = {
+    currentStep: 1,
+    totalSteps: 3,
+    data: {
+      name: '',
+      year: new Date().getFullYear(),
+      season: 'Season 1',
+      ladderUrl: ''
+    }
   };
 
-  window.addNewTeam = async function() {
-    const nameInput = document.getElementById('new-team-name');
-    const yearInput = document.getElementById('new-team-year');
-    const seasonInput = document.getElementById('new-team-season');
-    const ladderUrlInput = document.getElementById('new-team-ladder-url');
-    const name = nameInput.value.trim();
-    const year = parseInt(yearInput.value);
-    const season = seasonInput.value;
-    const ladderUrl = ladderUrlInput.value.trim();
+  window.openAddTeamModal = function() {
+    // Reset wizard state
+    wizardState = {
+      currentStep: 1,
+      totalSteps: 3,
+      data: {
+        name: '',
+        year: new Date().getFullYear(),
+        season: 'Season 1',
+        ladderUrl: ''
+      }
+    };
 
-    // Validation
+    renderWizardModal();
+  };
+
+  function renderWizardModal() {
+    const stepTitles = {
+      1: 'Basic Information',
+      2: 'Integration Setup',
+      3: 'Summary & Confirmation'
+    };
+
+    const stepContent = getWizardStepContent(wizardState.currentStep);
+    const footerButtons = getWizardFooterButtons(wizardState.currentStep);
+
+    openModal(`Add New Team - ${stepTitles[wizardState.currentStep]}`, stepContent, footerButtons);
+  }
+
+  function getWizardStepContent(step) {
+    const progressBar = `
+      <div class="wizard-progress" style="margin-bottom: 20px;">
+        <div class="progress-steps">
+          ${Array.from({length: wizardState.totalSteps}, (_, i) => {
+            const stepNum = i + 1;
+            const isActive = stepNum === step;
+            const isCompleted = stepNum < step;
+            return `<div class="progress-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}">${stepNum}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    switch(step) {
+      case 1:
+        return progressBar + `
+          <div class="form-group">
+            <label class="form-label">Team Name</label>
+            <input type="text" class="form-input" id="wizard-team-name" maxlength="100" placeholder="e.g. U11 Thunder" value="${wizardState.data.name}">
+            <div class="form-help">Enter a unique name for your team (2-100 characters)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year</label>
+            <input type="number" class="form-input" id="wizard-team-year" min="2000" max="2100" value="${wizardState.data.year}">
+            <div class="form-help">The competition year for this team</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Season</label>
+            <select class="form-select" id="wizard-team-season">
+              <option value="Season 1" ${wizardState.data.season === 'Season 1' ? 'selected' : ''}>Season 1</option>
+              <option value="Season 2" ${wizardState.data.season === 'Season 2' ? 'selected' : ''}>Season 2</option>
+              <option value="NFNL" ${wizardState.data.season === 'NFNL' ? 'selected' : ''}>NFNL</option>
+            </select>
+            <div class="form-help">Select the competition season</div>
+          </div>
+        `;
+
+      case 2:
+        return progressBar + `
+          <div class="form-group">
+            <label class="form-label">Ladder URL <span class="form-label-desc">(optional)</span></label>
+            <input type="url" class="form-input" id="wizard-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${wizardState.data.ladderUrl}">
+            <div class="form-help">For NFNL teams, enter the ladder URL from MyGameDay to automatically sync results</div>
+          </div>
+        `;
+
+      case 3:
+        return progressBar + `
+          <div class="summary-section">
+            <h4 style="margin-bottom: 15px; color: var(--text-primary);">Review Your Team Details</h4>
+            <div class="summary-item">
+              <strong>Team Name:</strong> ${wizardState.data.name || 'Not specified'}
+            </div>
+            <div class="summary-item">
+              <strong>Year & Season:</strong> ${wizardState.data.year} - ${wizardState.data.season}
+            </div>
+            <div class="summary-item">
+              <strong>Ladder Integration:</strong> ${wizardState.data.ladderUrl ? 'Yes' : 'No'}
+            </div>
+            ${wizardState.data.ladderUrl ? `<div class="summary-item"><strong>Ladder URL:</strong> ${wizardState.data.ladderUrl}</div>` : ''}
+          </div>
+        `;
+
+      default:
+        return '';
+    }
+  }
+
+  function getWizardFooterButtons(step) {
+    const prevBtn = step > 1 ? `<button class="btn btn-ghost" onclick="wizardNavigate(${step - 1})">← Back</button>` : '';
+    const nextBtn = step < wizardState.totalSteps ? `<button class="btn btn-primary" onclick="wizardNavigate(${step + 1})">Next →</button>` : '';
+    const createBtn = step === wizardState.totalSteps ? `<button class="btn btn-primary" onclick="addNewTeam()">Create Team</button>` : '';
+    const cancelBtn = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`;
+
+    return `${prevBtn}${cancelBtn}${nextBtn}${createBtn}`;
+  }
+
+  window.wizardNavigate = function(targetStep) {
+    // Validate current step before proceeding
+    if (!validateWizardStep(wizardState.currentStep)) {
+      return;
+    }
+
+    // Save current step data
+    saveWizardStepData(wizardState.currentStep);
+
+    // Navigate to target step
+    wizardState.currentStep = targetStep;
+    renderWizardModal();
+  };
+
+  function validateWizardStep(step) {
+    switch(step) {
+      case 1:
+        const name = document.getElementById('wizard-team-name').value.trim();
+        const year = parseInt(document.getElementById('wizard-team-year').value);
+        const season = document.getElementById('wizard-team-season').value;
+
+        if (!name) {
+          showToast('Please enter a team name', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        if (name.length < 2 || name.length > 100) {
+          showToast('Team name must be 2-100 characters', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        if (isNaN(year) || year < 2000 || year > 2100) {
+          showToast('Year must be between 2000 and 2100', 'error');
+          document.getElementById('wizard-team-year').focus();
+          return false;
+        }
+        const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+        if (!validSeasons.includes(season)) {
+          showToast('Invalid season selected', 'error');
+          return false;
+        }
+
+        // Check for duplicate name/year/season
+        if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
+          showToast('A team with this name, year, and season already exists', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        return true;
+
+      case 2:
+        // Ladder URL is optional, no validation needed
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  function saveWizardStepData(step) {
+    switch(step) {
+      case 1:
+        wizardState.data.name = document.getElementById('wizard-team-name').value.trim();
+        wizardState.data.year = parseInt(document.getElementById('wizard-team-year').value);
+        wizardState.data.season = document.getElementById('wizard-team-season').value;
+        break;
+      case 2:
+        wizardState.data.ladderUrl = document.getElementById('wizard-team-ladder-url').value.trim();
+        break;
+    }
+  }
+
+  window.addNewTeam = async function() {
+    // Use wizard state data instead of DOM elements
+    const { name, year, season, ladderUrl } = wizardState.data;
+
+    // Validation (should already be done in wizard, but double-check)
     if (!name) {
       showToast('Please enter a team name', 'error');
-      nameInput.focus();
       return;
     }
     if (name.length < 2 || name.length > 100) {
       showToast('Team name must be 2-100 characters', 'error');
-      nameInput.focus();
       return;
     }
     if (isNaN(year) || year < 2000 || year > 2100) {
       showToast('Year must be between 2000 and 2100', 'error');
-      yearInput.focus();
       return;
     }
     const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
@@ -416,7 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check for duplicate name/year/season
     if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
       showToast('A team with this name, year, and season already exists', 'error');
-      nameInput.focus();
       return;
     }
 
@@ -424,13 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoading();
 
     try {
-      // Add ladderUrl to new team object
-      // ...existing code...
-      // When saving the new team, include ladderUrl
-      // If you have a saveTeam or similar function, update it to accept ladderUrl
-      // Example:
-      // const newTeam = { teamName: name, year, season, ladderUrl };
-      // ...existing code...
       if (state.dataSource === 'api') {
         // Call API to create team
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -441,6 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
         url.searchParams.set('year', year);
         url.searchParams.set('season', season);
         url.searchParams.set('name', name);
+        if (ladderUrl) url.searchParams.set('ladderUrl', ladderUrl);
 
         const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
         const data = await response.json();
