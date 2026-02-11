@@ -415,7 +415,7 @@ The "Auto-Detect from Squadi" feature eliminates manual configuration for new te
 - **API Access:** Uses public Squadi fixture API (no authentication required)
 - **Scanning:** Probes competition IDs sequentially, looking for divisions containing "HG" teams
 - **Caching:** Results stored in `Squadi_Lookup` sheet with 6-month TTL
-- **UI Flow:** Shows picker modal with discovered teams, auto-fills config fields on selection
+- **UI Flow:** Shows picker modal with discovered teams, auto-fills config fields on selection, and automatically saves the configuration
 - **Force Rescan:** Available to refresh cached data for new seasons/competitions
 
 ---
