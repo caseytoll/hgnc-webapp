@@ -88,7 +88,7 @@ try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop *
 // ========================================
 
 const state = {
-  dataSource: (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168')) ? 'mock' : 'api',
+  dataSource: (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168')) ? 'api' : 'api',
   teams: [],
   currentTeam: null,
   currentTeamData: null,
@@ -422,22 +422,34 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="form-group">
             <label class="form-label">Season</label>
-            <select class="form-select" id="wizard-team-season">
+            <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
               <option value="Season 1" ${wizardState.data.season === 'Season 1' ? 'selected' : ''}>Season 1</option>
               <option value="Season 2" ${wizardState.data.season === 'Season 2' ? 'selected' : ''}>Season 2</option>
               <option value="NFNL" ${wizardState.data.season === 'NFNL' ? 'selected' : ''}>NFNL</option>
+              <option value="Other" ${wizardState.data.season === 'Other' ? 'selected' : ''}>Other</option>
             </select>
             <div class="form-help">Select the competition season</div>
           </div>
         `;
 
       case 2:
+        const isNFNL = wizardState.data.season === 'NFNL';
         return progressBar + `
+          ${isNFNL ? `
           <div class="form-group">
             <label class="form-label">Ladder URL <span class="form-label-desc">(optional)</span></label>
             <input type="url" class="form-input" id="wizard-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${wizardState.data.ladderUrl}">
             <div class="form-help">For NFNL teams, enter the ladder URL from MyGameDay to automatically sync results</div>
           </div>
+          ` : `
+          <div class="info-section">
+            <div class="info-icon">ℹ️</div>
+            <div class="info-content">
+              <h4>Integration Setup</h4>
+              <p>Ladder integration is only available for NFNL teams. If you need integration for other competitions, please contact support.</p>
+            </div>
+          </div>
+          `}
         `;
 
       case 3:
@@ -507,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('wizard-team-year').focus();
           return false;
         }
-        const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+        const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
         if (!validSeasons.includes(season)) {
           showToast('Invalid season selected', 'error');
           return false;
@@ -538,7 +550,13 @@ document.addEventListener('DOMContentLoaded', () => {
         wizardState.data.season = document.getElementById('wizard-team-season').value;
         break;
       case 2:
-        wizardState.data.ladderUrl = document.getElementById('wizard-team-ladder-url').value.trim();
+        // Only save ladder URL if it's an NFNL team
+        if (wizardState.data.season === 'NFNL') {
+          const ladderUrlInput = document.getElementById('wizard-team-ladder-url');
+          wizardState.data.ladderUrl = ladderUrlInput ? ladderUrlInput.value.trim() : '';
+        } else {
+          wizardState.data.ladderUrl = '';
+        }
         break;
     }
   }
@@ -560,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Year must be between 2000 and 2100', 'error');
       return;
     }
-    const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+    const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
     if (!validSeasons.includes(season)) {
       showToast('Invalid season selected', 'error');
       return;
@@ -579,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.dataSource === 'api') {
         // Call API to create team
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
         url.searchParams.set('api', 'true');
         url.searchParams.set('action', 'createTeam');
@@ -635,6 +653,23 @@ document.addEventListener('DOMContentLoaded', () => {
       hideLoading();
     }
   };
+
+// ========================================
+// SEASON CHANGE HANDLER
+// ========================================
+
+window.handleSeasonChange = function() {
+  const seasonSelect = document.getElementById('wizard-team-season');
+  if (seasonSelect) {
+    wizardState.data.season = seasonSelect.value;
+    // If changing away from NFNL, clear ladder URL
+    if (wizardState.data.season !== 'NFNL') {
+      wizardState.data.ladderUrl = '';
+    }
+    // Re-render the current step to show/hide ladder URL field
+    renderWizardModal();
+  }
+};
 
 // ========================================
 // VIEW MANAGEMENT
@@ -843,7 +878,7 @@ async function loadTeams(forceRefresh = false) {
             try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
             const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
             if (!resp.ok) {
               console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
@@ -891,7 +926,7 @@ async function loadTeams(forceRefresh = false) {
       } else {
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         console.log('[App] Fetching teams from:', baseUrl);
         // Measure teams fetch time
         const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
@@ -1010,7 +1045,7 @@ async function loadTeams(forceRefresh = false) {
           // Send metric to server-side diagnostics (best-effort)
           try {
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
             // Fire-and-forget with success logging and keepalive for page unloads
             try {
               const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`;
@@ -1067,7 +1102,7 @@ async function loadTeams(forceRefresh = false) {
 function sendClientMetric(name, value, teams) {
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
     const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
 
     const sendMetricWithRetry = async (attempt = 1) => {
@@ -1137,7 +1172,7 @@ async function loadTeamData(teamID) {
         showLoading();
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         const sheetName = state.teamSheetMap?.[teamID] || '';
         const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
         const data = await response.json();
@@ -1185,7 +1220,7 @@ async function loadPlayerLibraryFromAPI() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
     const response = await fetch(`${baseUrl}?api=true&action=getPlayerLibrary`);
     const data = await response.json();
@@ -1224,7 +1259,7 @@ async function syncPlayerLibrary() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
     // Use POST for potentially large data
     const postBody = {
@@ -3278,7 +3313,7 @@ async function syncToGoogleSheets() {
   console.log('[syncToGoogleSheets] saveData players:', saveData.players?.length, 'games:', saveData.games?.length);
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
   // Use POST for large data payloads
   const postBody = {
@@ -3324,7 +3359,7 @@ async function updateTeamSettingsAPI(teamID, settings) {
   }
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
   const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
   url.searchParams.set('api', 'true');
@@ -5035,7 +5070,7 @@ window.forceFetchTeams = async function() {
   showLoading();
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
     const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
     if (!resp.ok) {
       const errMsg = `Server responded ${resp.status}`;

@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
       const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
       url.searchParams.set('api', 'true');
       url.searchParams.set('action', 'createTeam');
@@ -663,7 +663,7 @@ async function loadTeams(forceRefresh = false) {
           try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
           const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-          const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+          const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
           const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
@@ -716,7 +716,7 @@ async function loadTeams(forceRefresh = false) {
     } else {
       // Use proxy for local dev to bypass CORS
       const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+      const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
       console.log('[App] Fetching teams from:', baseUrl);
       // Measure teams fetch time
       const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
@@ -838,7 +838,7 @@ async function loadTeams(forceRefresh = false) {
           // Send metric to server-side diagnostics (best-effort)
           try {
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
             // Fire-and-forget with success logging and keepalive for page unloads
             try {
               const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`;
@@ -895,7 +895,7 @@ async function loadTeams(forceRefresh = false) {
 function sendClientMetric(name, value, teams) {
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
 
     const sendMetricWithRetry = async (attempt = 1) => {
@@ -982,7 +982,7 @@ async function syncFixtureData(team, teamData) {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const url = `${baseUrl}?api=true&action=getFixtureData&teamID=${encodeURIComponent(team.teamID)}&_t=${Date.now()}`;
     const response = await fetch(url);
     const data = await response.json();
@@ -1248,7 +1248,7 @@ async function loadTeamData(teamID) {
         showLoading();
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
         const sheetName = state.teamSheetMap?.[teamID] || '';
         console.log('[App] Fetching fresh team data (server:', serverLastModified, 'cached:', cachedLastModified, ')');
         const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
@@ -1309,7 +1309,7 @@ async function loadTeamData(teamID) {
 async function loadPlayerLibraryFromAPI() {
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
     const response = await fetch(`${baseUrl}?api=true&action=getPlayerLibrary`);
     const data = await response.json();
@@ -1348,7 +1348,7 @@ async function syncPlayerLibrary() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
     // Use POST for potentially large data
     const postBody = {
@@ -1809,7 +1809,7 @@ function getCachedLadder(teamID, fetchFn) {
 
 function fetchSquadiLadder(teamID) {
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
   return fetch(`${baseUrl}?api=true&action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}`)
     .then(res => res.json());
 }
@@ -2307,7 +2307,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
     // Build rich analytics payload for Gemini
     if (!state.analytics || !state.analytics.advanced) {
@@ -2521,7 +2521,7 @@ window.showGameAISummary = async function(forceRefresh = false) {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
     // Build game analysis payload
     const gamePayload = buildGameAnalysisPayload(game);
@@ -4009,7 +4009,7 @@ window.fetchTrainingFocus = async function(forceRefresh = false) {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const trainingData = buildTrainingPayload();
 
     // POST training data to backend
@@ -6100,7 +6100,7 @@ async function syncToGoogleSheets() {
   console.log('[syncToGoogleSheets] saveData players:', saveData.players?.length, 'games:', saveData.games?.length);
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
   // Use POST for large data payloads
   // Include clientLastModified to detect stale data conflicts
@@ -6299,7 +6299,7 @@ async function updateTeamSettings(teamID, settings) {
   }
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
   const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
   url.searchParams.set('api', 'true');
@@ -6577,7 +6577,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const playerStats = calculatePlayerStats(player);
 
     // Build detailed game history with results, scores, and quarter-by-quarter detail
@@ -7559,7 +7559,7 @@ window.autoDetectSquadi = async function() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const resp = await fetch(`${baseUrl}?api=true&action=autoDetectSquadi&_t=${Date.now()}`);
     const data = await resp.json();
 
@@ -7696,7 +7696,7 @@ window.autoDetectSquadiRescan = async function() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const resp = await fetch(`${baseUrl}?api=true&action=autoDetectSquadi&forceRescan=true&_t=${Date.now()}`);
     const data = await resp.json();
 
@@ -8776,7 +8776,7 @@ window.forceFetchTeams = async function() {
   showLoading();
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
     if (!resp.ok) {
       const errMsg = `Server responded ${resp.status}`;
@@ -8823,7 +8823,7 @@ window.deleteTeam = async function(teamID, teamName) {
   showLoading();
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
     const response = await fetch(`${baseUrl}?api=true&action=deleteTeam&teamID=${encodeURIComponent(teamID)}`, {
       method: 'POST'

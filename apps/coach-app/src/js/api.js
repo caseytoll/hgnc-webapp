@@ -2,7 +2,7 @@
 import { API_CONFIG } from './config.js';
 import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
 
-// Current data source: always use live API
+// Current data source: use API for production, mock for development
 let dataSource = 'api';
 
 // Cache for team sheetNames (needed to map teamID to sheetName for API calls)
@@ -46,8 +46,7 @@ async function callAppsScript(action, params = {}) {
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
 
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
-    const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec';
 
     // Add api=true flag for Apps Script to know this is an API request
     url.searchParams.set('api', 'true');
@@ -134,7 +133,7 @@ async function saveTeamDataWithProtection(teamID, sheetName, saveData, freshlyFe
   }
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec';
 
   // Use freshly fetched timestamp if provided, otherwise fall back to cached
   const clientLastModified = freshlyFetchedLastModified || teamLastModified.get(teamID) || null;
