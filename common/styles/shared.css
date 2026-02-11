@@ -4144,3 +4144,31 @@ body.read-only .availability-checkbox {
 .summary-item strong {
   color: var(--primary-400);
 }
+
+.info-section {
+  background-color: var(--bg-tertiary);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-700);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.info-icon {
+  font-size: 24px;
+  opacity: 0.7;
+}
+
+.info-content h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.info-content p {
+  margin: 0;
+  color: var(--gray-300);
+  font-size: 14px;
+  line-height: 1.4;
+}

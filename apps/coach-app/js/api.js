@@ -42,7 +42,7 @@ async function callAppsScript(action, params = {}) {
     // Use proxy for local dev, direct URL for production
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
 
     // Add api=true flag for Apps Script to know this is an API request
