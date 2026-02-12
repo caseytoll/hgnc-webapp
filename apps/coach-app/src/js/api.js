@@ -388,7 +388,15 @@ export function transformTeamDataFromSheet(data, teamID) {
       captain: g.captain || null,
       scores,
       availablePlayerIDs: g.availablePlayerIDs || [],
-      lineup
+      lineup,
+      // Map opponent details (may be provided by Squadi backend)
+      opponentDetails: g.opponentDetails || (g.opponentInfo ? g.opponentInfo : {}),
+      // Lineup confirmation flags (Squadi fields)
+      lineupConfirmed: g.team1LineupConfirmed !== undefined ? g.team1LineupConfirmed : (g.lineupConfirmed !== undefined ? g.lineupConfirmed : undefined),
+      opponentLineupConfirmed: g.team2LineupConfirmed !== undefined ? g.team2LineupConfirmed : (g.opponentLineupConfirmed !== undefined ? g.opponentLineupConfirmed : undefined),
+      // Venue and livestream hints
+      venueDetails: g.venueCourt || g.venueDetails || null,
+      livestreamUrl: g.livestreamURL || g.livestreamUrl || null
     };
     // Preserve AI summary if present
     if (g.aiSummary) {
@@ -401,6 +409,15 @@ export function transformTeamDataFromSheet(data, teamID) {
     if (g.fixtureScore) {
       game.fixtureScore = g.fixtureScore;
     }
+    // Ensure opponentDetails has a normalized logoUrl if available from different field names
+    if (game.opponentDetails) {
+      game.opponentDetails.logoUrl = game.opponentDetails.logoUrl || game.opponentDetails.logo || g.opponentLogo || g.opponentLogoUrl || g.opponentLogoURL || null;
+    } else if (g.opponentLogo || g.opponentLogoUrl) {
+      game.opponentDetails = { logoUrl: g.opponentLogo || g.opponentLogoUrl };
+    }
+    // Other helpful mappings
+    if (!game.lineupConfirmed && g.lineupConfirmed !== undefined) game.lineupConfirmed = g.lineupConfirmed;
+    if (!game.opponentLineupConfirmed && g.opponentLineupConfirmed !== undefined) game.opponentLineupConfirmed = g.opponentLineupConfirmed;
     return game;
   });
 
@@ -414,6 +431,14 @@ export function transformTeamDataFromSheet(data, teamID) {
     // Preserve server timestamp for stale data detection
     _lastModified: data._lastModified || null
   };
+  // Map team-level logo into PWA model (usable as `ourLogo`)
+  result.ourLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
+  // Also propagate ourLogo onto each game if not already present (helps header rendering)
+  if (result.ourLogo) {
+    result.games.forEach(g => {
+      if (!g.ourLogo) g.ourLogo = result.ourLogo;
+    });
+  }
   // Preserve team AI insights if present
   if (data.aiInsights) {
     result.aiInsights = data.aiInsights;
