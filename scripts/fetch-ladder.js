@@ -9,14 +9,14 @@ import path from 'path';
 // Load teams from a JSON file or Google Sheets export (for demo, you may need to adapt this)
 // For now, we'll expect a local file: data/teams.json
 const TEAMS_PATH = path.resolve('data/teams.json');
-const OUTPUT_DIR = path.resolve('public');
+let OUTPUT_DIR = path.resolve('public');
 
 function getNowISO() {
   return new Date().toISOString();
 }
 
 async function fetchLadder(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Failed to fetch ladder: ${url}`);
   return await res.text();
 }
@@ -54,6 +54,14 @@ async function main() {
     }
     if (argv[i] === '--only-team-id' && argv[i+1]) {
       onlyTeamID = argv[i+1];
+      i++;
+    }
+    if (argv[i] === '--api' && argv[i+1]) {
+      process.env.GS_API_URL = argv[i+1];
+      i++;
+    }
+    if (argv[i] === '--out' && argv[i+1]) {
+      OUTPUT_DIR = path.resolve(argv[i+1]);
       i++;
     }
   }
@@ -99,6 +107,7 @@ async function main() {
     return;
   }
 
+  let failCount = 0;
   for (const team of teams) {
     // Support both ladderUrl (client field) and ladderApi (sheet column)
     const ladderUrl = team.ladderUrl || team.ladderApi || '';
@@ -122,7 +131,13 @@ async function main() {
       console.log(`Saved ladder to ${outPath}`);
     } catch (err) {
       console.error(`Error fetching ladder for ${team.teamName || team.teamID}:`, err.message);
+      failCount++;
     }
+  }
+
+  if (failCount > 0) {
+    console.error(`${failCount} team(s) failed to fetch ladder data`);
+    process.exit(1);
   }
 }
 

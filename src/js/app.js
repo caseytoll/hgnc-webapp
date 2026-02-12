@@ -44,7 +44,7 @@ window.exportMockData = function() {
 
 import '../css/styles.css';
 import { API_CONFIG } from './config.js';
-import { mockTeams, calculateMockStats } from './mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../common/mock-data.js';
 import {
   escapeHtml,
   escapeAttr,
@@ -60,8 +60,8 @@ import {
   isDuplicateName,
   generateId,
   getInitials
-} from './utils.js';
-import { calculateAllAnalytics } from './stats-calculations.js';
+} from '../../common/utils.js';
+import { calculateAllAnalytics } from '../../common/stats-calculations.js';
 import { transformTeamDataFromSheet, transformTeamDataToSheet } from './api.js';
 import {
   formatGameShareText,
@@ -76,7 +76,7 @@ import {
   shareImageBlob,
   triggerJsonImport,
   validateImportedTeamData
-} from './share-utils.js';
+} from '../../common/share-utils.js';
 import html2canvas from 'html2canvas';
 import { setDataSource as apiSetDataSource } from './api.js';
 
@@ -88,7 +88,7 @@ try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop *
 // ========================================
 
 const state = {
-  dataSource: (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168')) ? 'mock' : 'api',
+  dataSource: (window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168')) ? 'api' : 'api',
   teams: [],
   currentTeam: null,
   currentTeamData: null,
@@ -352,62 +352,233 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.openAddTeamModal = function() {
-    const currentYear = new Date().getFullYear();
-    openModal('Add New Team', `
-      <div class="form-group">
-        <label class="form-label">Team Name</label>
-        <input type="text" class="form-input" id="new-team-name" maxlength="100" placeholder="e.g. U11 Thunder">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Year</label>
-        <input type="number" class="form-input" id="new-team-year" min="2000" max="2100" value="${currentYear}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Season</label>
-        <select class="form-select" id="new-team-season">
-          <option value="Season 1">Season 1</option>
-          <option value="Season 2">Season 2</option>
-          <option value="NFNL">NFNL</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
-        <input type="url" class="form-input" id="new-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/...">
-      </div>
-    `, `
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="addNewTeam()">Add Team</button>
-    `);
+  // Multi-step wizard state
+  let wizardState = {
+    currentStep: 1,
+    totalSteps: 3,
+    data: {
+      name: '',
+      year: new Date().getFullYear(),
+      season: 'Season 1',
+      ladderUrl: ''
+    }
   };
 
-  window.addNewTeam = async function() {
-    const nameInput = document.getElementById('new-team-name');
-    const yearInput = document.getElementById('new-team-year');
-    const seasonInput = document.getElementById('new-team-season');
-    const ladderUrlInput = document.getElementById('new-team-ladder-url');
-    const name = nameInput.value.trim();
-    const year = parseInt(yearInput.value);
-    const season = seasonInput.value;
-    const ladderUrl = ladderUrlInput.value.trim();
+  window.openAddTeamModal = function() {
+    // Reset wizard state
+    wizardState = {
+      currentStep: 1,
+      totalSteps: 3,
+      data: {
+        name: '',
+        year: new Date().getFullYear(),
+        season: 'Season 1',
+        ladderUrl: ''
+      }
+    };
 
-    // Validation
+    renderWizardModal();
+  };
+
+  function renderWizardModal() {
+    const stepTitles = {
+      1: 'Basic Information',
+      2: 'Integration Setup',
+      3: 'Summary & Confirmation'
+    };
+
+    const stepContent = getWizardStepContent(wizardState.currentStep);
+    const footerButtons = getWizardFooterButtons(wizardState.currentStep);
+
+    openModal(`Add New Team - ${stepTitles[wizardState.currentStep]}`, stepContent, footerButtons);
+  }
+
+  function getWizardStepContent(step) {
+    const progressBar = `
+      <div class="wizard-progress" style="margin-bottom: 20px;">
+        <div class="progress-steps">
+          ${Array.from({length: wizardState.totalSteps}, (_, i) => {
+            const stepNum = i + 1;
+            const isActive = stepNum === step;
+            const isCompleted = stepNum < step;
+            return `<div class="progress-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}">${stepNum}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    switch(step) {
+      case 1:
+        return progressBar + `
+          <div class="form-group">
+            <label class="form-label">Team Name</label>
+            <input type="text" class="form-input" id="wizard-team-name" maxlength="100" placeholder="e.g. U11 Thunder" value="${wizardState.data.name}">
+            <div class="form-help">Enter a unique name for your team (2-100 characters)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year</label>
+            <input type="number" class="form-input" id="wizard-team-year" min="2000" max="2100" value="${wizardState.data.year}">
+            <div class="form-help">The competition year for this team</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Season</label>
+            <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
+              <option value="Season 1" ${wizardState.data.season === 'Season 1' ? 'selected' : ''}>Season 1</option>
+              <option value="Season 2" ${wizardState.data.season === 'Season 2' ? 'selected' : ''}>Season 2</option>
+              <option value="NFNL" ${wizardState.data.season === 'NFNL' ? 'selected' : ''}>NFNL</option>
+              <option value="Other" ${wizardState.data.season === 'Other' ? 'selected' : ''}>Other</option>
+            </select>
+            <div class="form-help">Select the competition season</div>
+          </div>
+        `;
+
+      case 2:
+        const isNFNL = wizardState.data.season === 'NFNL';
+        return progressBar + `
+          ${isNFNL ? `
+          <div class="form-group">
+            <label class="form-label">Ladder URL <span class="form-label-desc">(optional)</span></label>
+            <input type="url" class="form-input" id="wizard-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${wizardState.data.ladderUrl}">
+            <div class="form-help">For NFNL teams, enter the ladder URL from MyGameDay to automatically sync results</div>
+          </div>
+          ` : `
+          <div class="info-section">
+            <div class="info-icon">ℹ️</div>
+            <div class="info-content">
+              <h4>Integration Setup</h4>
+              <p>Ladder integration is only available for NFNL teams. If you need integration for other competitions, please contact support.</p>
+            </div>
+          </div>
+          `}
+        `;
+
+      case 3:
+        return progressBar + `
+          <div class="summary-section">
+            <h4 style="margin-bottom: 15px; color: var(--text-primary);">Review Your Team Details</h4>
+            <div class="summary-item">
+              <strong>Team Name:</strong> ${wizardState.data.name || 'Not specified'}
+            </div>
+            <div class="summary-item">
+              <strong>Year & Season:</strong> ${wizardState.data.year} - ${wizardState.data.season}
+            </div>
+            <div class="summary-item">
+              <strong>Ladder Integration:</strong> ${wizardState.data.ladderUrl ? 'Yes' : 'No'}
+            </div>
+            ${wizardState.data.ladderUrl ? `<div class="summary-item"><strong>Ladder URL:</strong> ${wizardState.data.ladderUrl}</div>` : ''}
+          </div>
+        `;
+
+      default:
+        return '';
+    }
+  }
+
+  function getWizardFooterButtons(step) {
+    const prevBtn = step > 1 ? `<button class="btn btn-ghost" onclick="wizardNavigate(${step - 1})">← Back</button>` : '';
+    const nextBtn = step < wizardState.totalSteps ? `<button class="btn btn-primary" onclick="wizardNavigate(${step + 1})">Next →</button>` : '';
+    const createBtn = step === wizardState.totalSteps ? `<button class="btn btn-primary" onclick="addNewTeam()">Create Team</button>` : '';
+    const cancelBtn = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`;
+
+    return `${prevBtn}${cancelBtn}${nextBtn}${createBtn}`;
+  }
+
+  window.wizardNavigate = function(targetStep) {
+    // Validate current step before proceeding
+    if (!validateWizardStep(wizardState.currentStep)) {
+      return;
+    }
+
+    // Save current step data
+    saveWizardStepData(wizardState.currentStep);
+
+    // Navigate to target step
+    wizardState.currentStep = targetStep;
+    renderWizardModal();
+  };
+
+  function validateWizardStep(step) {
+    switch(step) {
+      case 1:
+        const name = document.getElementById('wizard-team-name').value.trim();
+        const year = parseInt(document.getElementById('wizard-team-year').value);
+        const season = document.getElementById('wizard-team-season').value;
+
+        if (!name) {
+          showToast('Please enter a team name', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        if (name.length < 2 || name.length > 100) {
+          showToast('Team name must be 2-100 characters', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        if (isNaN(year) || year < 2000 || year > 2100) {
+          showToast('Year must be between 2000 and 2100', 'error');
+          document.getElementById('wizard-team-year').focus();
+          return false;
+        }
+        const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
+        if (!validSeasons.includes(season)) {
+          showToast('Invalid season selected', 'error');
+          return false;
+        }
+
+        // Check for duplicate name/year/season
+        if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
+          showToast('A team with this name, year, and season already exists', 'error');
+          document.getElementById('wizard-team-name').focus();
+          return false;
+        }
+        return true;
+
+      case 2:
+        // Ladder URL is optional, no validation needed
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  function saveWizardStepData(step) {
+    switch(step) {
+      case 1:
+        wizardState.data.name = document.getElementById('wizard-team-name').value.trim();
+        wizardState.data.year = parseInt(document.getElementById('wizard-team-year').value);
+        wizardState.data.season = document.getElementById('wizard-team-season').value;
+        break;
+      case 2:
+        // Only save ladder URL if it's an NFNL team
+        if (wizardState.data.season === 'NFNL') {
+          const ladderUrlInput = document.getElementById('wizard-team-ladder-url');
+          wizardState.data.ladderUrl = ladderUrlInput ? ladderUrlInput.value.trim() : '';
+        } else {
+          wizardState.data.ladderUrl = '';
+        }
+        break;
+    }
+  }
+
+  window.addNewTeam = async function() {
+    // Use wizard state data instead of DOM elements
+    const { name, year, season, ladderUrl } = wizardState.data;
+
+    // Validation (should already be done in wizard, but double-check)
     if (!name) {
       showToast('Please enter a team name', 'error');
-      nameInput.focus();
       return;
     }
     if (name.length < 2 || name.length > 100) {
       showToast('Team name must be 2-100 characters', 'error');
-      nameInput.focus();
       return;
     }
     if (isNaN(year) || year < 2000 || year > 2100) {
       showToast('Year must be between 2000 and 2100', 'error');
-      yearInput.focus();
       return;
     }
-    const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+    const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
     if (!validSeasons.includes(season)) {
       showToast('Invalid season selected', 'error');
       return;
@@ -416,7 +587,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check for duplicate name/year/season
     if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
       showToast('A team with this name, year, and season already exists', 'error');
-      nameInput.focus();
       return;
     }
 
@@ -424,23 +594,17 @@ document.addEventListener('DOMContentLoaded', () => {
     showLoading();
 
     try {
-      // Add ladderUrl to new team object
-      // ...existing code...
-      // When saving the new team, include ladderUrl
-      // If you have a saveTeam or similar function, update it to accept ladderUrl
-      // Example:
-      // const newTeam = { teamName: name, year, season, ladderUrl };
-      // ...existing code...
       if (state.dataSource === 'api') {
         // Call API to create team
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
         url.searchParams.set('api', 'true');
         url.searchParams.set('action', 'createTeam');
         url.searchParams.set('year', year);
         url.searchParams.set('season', season);
         url.searchParams.set('name', name);
+        if (ladderUrl) url.searchParams.set('ladderUrl', ladderUrl);
 
         const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
         const data = await response.json();
@@ -489,6 +653,23 @@ document.addEventListener('DOMContentLoaded', () => {
       hideLoading();
     }
   };
+
+// ========================================
+// SEASON CHANGE HANDLER
+// ========================================
+
+window.handleSeasonChange = function() {
+  const seasonSelect = document.getElementById('wizard-team-season');
+  if (seasonSelect) {
+    wizardState.data.season = seasonSelect.value;
+    // If changing away from NFNL, clear ladder URL
+    if (wizardState.data.season !== 'NFNL') {
+      wizardState.data.ladderUrl = '';
+    }
+    // Re-render the current step to show/hide ladder URL field
+    renderWizardModal();
+  }
+};
 
 // ========================================
 // VIEW MANAGEMENT
@@ -697,7 +878,7 @@ async function loadTeams(forceRefresh = false) {
             try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
             const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
             if (!resp.ok) {
               console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
@@ -745,7 +926,7 @@ async function loadTeams(forceRefresh = false) {
       } else {
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         console.log('[App] Fetching teams from:', baseUrl);
         // Measure teams fetch time
         const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
@@ -864,7 +1045,7 @@ async function loadTeams(forceRefresh = false) {
           // Send metric to server-side diagnostics (best-effort)
           try {
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+            const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
             // Fire-and-forget with success logging and keepalive for page unloads
             try {
               const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=app-load&value=${duration}&teams=${state.teams.length}`;
@@ -921,7 +1102,7 @@ async function loadTeams(forceRefresh = false) {
 function sendClientMetric(name, value, teams) {
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
     const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
 
     const sendMetricWithRetry = async (attempt = 1) => {
@@ -991,7 +1172,7 @@ async function loadTeamData(teamID) {
         showLoading();
         // Use proxy for local dev to bypass CORS
         const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+        const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
         const sheetName = state.teamSheetMap?.[teamID] || '';
         const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}`);
         const data = await response.json();
@@ -1016,7 +1197,7 @@ async function loadTeamData(teamID) {
       throw new Error('Team data not found');
     }
 
-    state.stats = calculateMockStats(state.currentTeamData);
+    state.stats = calculateTeamStats(state.currentTeamData);
     state.analytics = calculateAllAnalytics(state.currentTeamData);
 
     renderMainApp();
@@ -1039,7 +1220,7 @@ async function loadPlayerLibraryFromAPI() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
     const response = await fetch(`${baseUrl}?api=true&action=getPlayerLibrary`);
     const data = await response.json();
@@ -1078,7 +1259,7 @@ async function syncPlayerLibrary() {
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
     // Use POST for potentially large data
     const postBody = {
@@ -1121,43 +1302,43 @@ function renderTeamList() {
 
   // Define archivedTeams and showArchived for use in UI
   const archivedTeams = state.teams.filter(team => team.archived);
+  const activeTeams = state.teams.filter(team => !team.archived);
   let showArchived = state.showArchivedTeams ?? false;
 
-  if (state.teams.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No teams available</p></div>';
-    return;
-  }
+  if (activeTeams.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No active teams available</p></div>';
+  } else {
+    // Group active teams by year
+    const byYear = {};
+    activeTeams.forEach(team => {
+      const year = team.year || 'Unknown';
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(team);
+    });
 
-  // Group teams by year
-  const byYear = {};
-  state.teams.forEach(team => {
-    const year = team.year || 'Unknown';
-    if (!byYear[year]) byYear[year] = [];
-    byYear[year].push(team);
-  });
+    const years = Object.keys(byYear).sort((a, b) => b - a);
 
-  const years = Object.keys(byYear).sort((a, b) => b - a);
-
-
-  let html = years.map(year => `
-    <div class="team-year-group">
-      <div class="team-year-header">${escapeHtml(year)}</div>
-      ${byYear[year].map(team => `
-        <div class="team-card" onclick="selectTeam('${escapeAttr(team.teamID)}')">
-          <div class="team-avatar">${escapeHtml(getInitials(team.teamName))}</div>
-          <div class="team-info">
-            <div class="team-name">${escapeHtml(team.teamName)}</div>
-            <div class="team-meta">${escapeHtml(team.season || '')}</div>
+    let html = years.map(year => `
+      <div class="team-year-group">
+        <div class="team-year-header">${escapeHtml(year)}</div>
+        ${byYear[year].map(team => `
+          <div class="team-card active" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+            <div class="team-card-icon">🏐</div>
+            <div class="team-card-info">
+              <div class="team-card-name">${escapeHtml(team.teamName)}</div>
+              <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+            </div>
+            <div class="team-card-arrow">→</div>
           </div>
-          <div class="team-arrow">→</div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
+        `).join('')}
+      </div>
+    `).join('');
+    container.innerHTML = html;
+  }
 
   // Archived teams section (always visible if there are archived teams)
   if (archivedTeams.length > 0) {
-    html += `
+    let archivedHtml = `
       <div class="archived-section">
         <button class="archived-section-header" onclick="toggleArchivedTeams()">
           <div class="archived-section-title">
@@ -1184,9 +1365,9 @@ function renderTeamList() {
         ` : ''}
       </div>
     `;
+    // Append archived section after active teams
+    container.innerHTML += archivedHtml;
   }
-
-  container.innerHTML = html;
 
   // Update library count badge
   updateLibraryCount();
@@ -1247,6 +1428,14 @@ function renderMainApp() {
   // Update header - textContent is safe, no escaping needed
   document.getElementById('current-team-name').textContent = team.teamName;
   document.getElementById('current-team-season').textContent = `${team.year} ${team.season}`;
+
+  // REMOVE any dynamically rendered back/switch team button in the top bar if present
+  // (Legacy: some builds injected a back arrow for switching teams)
+  const topBar = document.querySelector('#main-app-view .top-bar');
+  if (topBar) {
+    const legacyBackBtn = topBar.querySelector('.icon-btn.switch-team');
+    if (legacyBackBtn) legacyBackBtn.remove();
+  }
 
   // Update quick stats
   document.getElementById('qs-record').textContent = `${stats.wins}-${stats.losses}-${stats.draws}`;
@@ -1414,7 +1603,10 @@ function renderSchedule() {
     let resultClass = '';
     let scoreDisplay = '';
 
-    if (game.scores) {
+    if (game.status === 'abandoned') {
+      scoreDisplay = `<div class="game-score-label">Abandoned</div>`;
+      resultClass = 'abandoned';
+    } else if (game.scores) {
       const { us, opponent } = game.scores;
       if (us > opponent) resultClass = 'win';
       else if (us < opponent) resultClass = 'loss';
@@ -2476,7 +2668,7 @@ window.confirmImport = async function() {
   state.currentTeam = data;
 
   // Recalculate stats for imported data
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Save to localStorage
@@ -3071,7 +3263,7 @@ window.finalizeGame = async function() {
   renderGameScoreCard();
 
   // Recalculate stats and analytics
-  state.stats = calculateMockStats(state.currentTeamData);
+  state.stats = calculateTeamStats(state.currentTeamData);
   state.analytics = calculateAllAnalytics(state.currentTeamData);
 
   // Persist to localStorage
@@ -3121,7 +3313,7 @@ async function syncToGoogleSheets() {
   console.log('[syncToGoogleSheets] saveData players:', saveData.players?.length, 'games:', saveData.games?.length);
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
   // Use POST for large data payloads
   const postBody = {
@@ -3167,7 +3359,7 @@ async function updateTeamSettingsAPI(teamID, settings) {
   }
 
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+  const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
 
   const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
   url.searchParams.set('api', 'true');
@@ -3755,7 +3947,7 @@ window.openTeamSettings = function() {
   const slug = team.teamName && team.year && team.season
     ? [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-')
     : '';
-  const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
+  const portalUrl = slug ? `https://5072979e.hgnc-gameday.pages.dev/teams/${slug}/` : '';
   openModal('Team Settings', `
     <div class="form-group">
       <label class="form-label">Team Name</label>
@@ -4771,7 +4963,7 @@ function renderSystemSettings() {
         const slug = t.teamName && t.year && t.season
           ? [slugify(t.teamName), String(t.year), slugify(t.season)].filter(Boolean).join('-')
           : '';
-        const portalUrl = slug ? `https://hgnc-gameday-${slug}.pages.dev/teams/${slug}/` : '';
+        const portalUrl = slug ? `https://5072979e.hgnc-gameday.pages.dev/teams/${slug}/` : '';
         return `<div class="settings-row"><span>${escapeHtml(t.teamName || t.teamID)}<br><small style="color:var(--text-secondary)">${escapeHtml(t.season||'')}</small></span><span style="display:flex;gap:8px;align-items:center;">
               <input type="text" class="form-input" value="${portalUrl}" readonly style="flex:1;min-width:0;max-width:260px;">
               <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${portalUrl}').then(()=>showToast('Copied!','success'))">Copy</button>
@@ -4878,7 +5070,7 @@ window.forceFetchTeams = async function() {
   showLoading();
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-    const baseUrl = isLocalDev ? '/gas-proxy' : API_CONFIG.baseUrl;
+    const baseUrl = isLocalDev ? 'http://localhost:3002' : API_CONFIG.baseUrl;
     const resp = await fetch(`${baseUrl}?api=true&action=getTeams`);
     if (!resp.ok) {
       const errMsg = `Server responded ${resp.status}`;

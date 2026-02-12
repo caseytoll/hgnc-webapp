@@ -7,21 +7,21 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "cd apps/coach-app && npm run dev",
+    "build": "cd apps/coach-app && npm run build && cp -r dist/* ../../dist/",
     "postbuild": "",
     "preview": "vite preview",
     "generate:team-portals": "echo 'DISABLED'",
     "deploy:wrangler": "npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager",
     "generate:static-teams": "echo 'DISABLED'",
     "deploy": "npm run build && npm run deploy:wrangler",
-    "build:readonly": "VITE_READONLY=1 vite build --outDir ../viewer/dist",
-    "deploy:readonly-viewer": "npm run build:readonly && node scripts/copy-index-to-viewer.cjs && cd ../viewer && wrangler pages deploy dist --project-name=hgnc-gameday",
-      "build:readonly:team": "VITE_READONLY=1 TEAM_ID=$TEAM_ID vite build --outDir ../viewer/dist",
-      "deploy:readonly-viewer:team": "npm run build:readonly:team && node scripts/copy-index-to-viewer.cjs && cd ../viewer && wrangler pages deploy dist --project-name=hgnc-gameday",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "build:readonly": "cd apps/parent-portal && VITE_READONLY=1 npm run build",
+    "deploy:readonly-viewer": "npm run build:readonly && node scripts/copy-index-to-viewer.cjs && cd apps/parent-portal && wrangler pages deploy dist --project-name=hgnc-gameday",
+    "build:readonly:team": "VITE_READONLY=1 TEAM_ID=$TEAM_ID vite build --outDir apps/parent-portal/dist",
+    "deploy:readonly-viewer:team": "npm run build:readonly:team && node scripts/copy-index-to-viewer.cjs && cd apps/parent-portal && wrangler pages deploy dist --project-name=hgnc-gameday",
+    "test": "cd apps/coach-app && npm run test",
+    "test:run": "cd apps/coach-app && npm run test:run",
+    "test:coverage": "cd apps/coach-app && npm run test:coverage"
   },
   "keywords": [],
   "author": "",
@@ -30,12 +30,15 @@
     "@vitest/coverage-v8": "^4.0.17",
     "canvas": "^3.2.1",
     "cheerio": "^1.2.0",
+    "express": "^5.2.1",
     "happy-dom": "^20.1.0",
+    "http-proxy-middleware": "^3.0.5",
     "node-fetch": "^2.7.0",
     "vite": "^7.3.1",
     "vitest": "^4.0.17"
   },
   "dependencies": {
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "wrangler": "^4.63.0"
   }
 }

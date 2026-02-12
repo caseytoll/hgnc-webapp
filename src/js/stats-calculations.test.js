@@ -4,7 +4,7 @@ import {
   calculateLeaderboards,
   calculateCombinations,
   calculateAllAnalytics
-} from './stats-calculations.js';
+} from '../../common/stats-calculations.js';
 
 // ========================================
 // TEST DATA FIXTURES

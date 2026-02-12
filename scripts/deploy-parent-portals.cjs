@@ -10,8 +10,8 @@ const fs = require('fs');
 const path = require('path');
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec?api=true&action=getTeams';
-const PARENT_PORTAL_BASE = 'https://hgnc-gameday-'; // subdomain prefix
-const PARENT_PORTAL_SUFFIX = '.pages.dev';
+const PARENT_PORTAL_BASE = 'https://4d3c21c0.hgnc-gameday.pages.dev/teams/'; // Use the latest working deployment URL
+const PARENT_PORTAL_SUFFIX = '/';
 const SYSTEM_PAGE_PATH = path.join(__dirname, '../public/parent-portals.html');
 
 function slugify(s) {

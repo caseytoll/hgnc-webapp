@@ -49,7 +49,17 @@ self.addEventListener('fetch', (event) => {
 
   // Network-only for API calls
   if (url.search.includes('api=true') || url.hostname.includes('script.google.com')) {
-    event.respondWith(fetch(event.request));
+    // Attempt fetch but handle failures gracefully to avoid unhandled promise rejections
+    event.respondWith(
+      fetch(event.request).catch(err => {
+        console.warn('[SW] API fetch failed:', err);
+        // Return JSON error response so client can handle it
+        return new Response(JSON.stringify({ error: 'network_failed', message: err?.message || String(err) }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      })
+    );
     return;
   }
 

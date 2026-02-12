@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mockTeams, calculateMockStats } from './mock-data.js';
+import { mockTeams, calculateTeamStats } from '../../common/mock-data.js';
 
 // ========================================
 // MOCK DATA STRUCTURE TESTS
@@ -53,7 +53,7 @@ describe('mockTeams', () => {
 // STATS CALCULATION TESTS
 // ========================================
 
-describe('calculateMockStats', () => {
+describe('calculateTeamStats', () => {
   const testTeam = {
     teamID: 'test-team',
     teamName: 'Test Team',
@@ -95,7 +95,7 @@ describe('calculateMockStats', () => {
   let stats;
 
   beforeEach(() => {
-    stats = calculateMockStats(testTeam);
+    stats = calculateTeamStats(testTeam);
   });
 
   it('should calculate game count correctly', () => {
@@ -156,7 +156,7 @@ describe('calculateMockStats', () => {
   });
 });
 
-describe('calculateMockStats with empty data', () => {
+describe('calculateTeamStats with empty data', () => {
   it('should handle team with no games', () => {
     const emptyTeam = {
       teamID: 'empty',
@@ -165,7 +165,7 @@ describe('calculateMockStats with empty data', () => {
       games: []
     };
 
-    const stats = calculateMockStats(emptyTeam);
+    const stats = calculateTeamStats(emptyTeam);
 
     expect(stats.gameCount).toBe(0);
     expect(stats.wins).toBe(0);
@@ -193,7 +193,7 @@ describe('calculateMockStats with empty data', () => {
       ]
     };
 
-    const stats = calculateMockStats(teamWithNoLineup);
+    const stats = calculateTeamStats(teamWithNoLineup);
 
     expect(stats.gameCount).toBe(1);
     expect(stats.wins).toBe(1);
@@ -217,7 +217,7 @@ describe('calculateMockStats with empty data', () => {
       ]
     };
 
-    const stats = calculateMockStats(teamWithUpcoming);
+    const stats = calculateTeamStats(teamWithUpcoming);
 
     expect(stats.gameCount).toBe(0); // Upcoming games shouldn't count
   });
@@ -239,7 +239,7 @@ describe('calculateMockStats with empty data', () => {
       ]
     };
 
-    const stats = calculateMockStats(teamWithDraw);
+    const stats = calculateTeamStats(teamWithDraw);
 
     expect(stats.draws).toBe(1);
     expect(stats.wins).toBe(0);
@@ -247,10 +247,10 @@ describe('calculateMockStats with empty data', () => {
   });
 });
 
-describe('calculateMockStats with real mock data', () => {
+describe('calculateTeamStats with real mock data', () => {
   it('should calculate stats for all mock teams without errors', () => {
     mockTeams.forEach(team => {
-      const stats = calculateMockStats(team);
+      const stats = calculateTeamStats(team);
 
       expect(stats).toHaveProperty('gameCount');
       expect(stats).toHaveProperty('wins');
