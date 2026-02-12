@@ -330,6 +330,17 @@ export function transformTeamDataFromSheet(data, teamID) {
     return [];
   }
 
+  // Helper to create a simple slug from a team name for local asset fallback
+  function slugifyTeamName(name) {
+    if (!name) return '';
+    return String(name).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .replace(/-+/g, '-')
+      .replace(/-/g, '')
+      .trim();
+  }
+
   // Debug: Log the incoming data object and its keys to inspect property names
   console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
   if (data && typeof data === 'object') {
@@ -421,6 +432,22 @@ export function transformTeamDataFromSheet(data, teamID) {
     return game;
   });
 
+  // Apply local asset fallbacks for logos when external URLs are not provided
+  games.forEach(g => {
+    try {
+      // Opponent logo fallback from opponent name
+      if ((!g.opponentDetails || !g.opponentDetails.logoUrl) && g.opponent) {
+        const slug = slugifyTeamName(g.opponent);
+        if (slug) {
+          g.opponentDetails = g.opponentDetails || {};
+          g.opponentDetails.logoUrl = `/assets/team-logos/${slug}.png`;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  });
+
   const result = {
     teamID: teamID,
     teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || '',
@@ -438,6 +465,15 @@ export function transformTeamDataFromSheet(data, teamID) {
     result.games.forEach(g => {
       if (!g.ourLogo) g.ourLogo = result.ourLogo;
     });
+  }
+  // If no remote team logo, try local asset by team name
+  if (!result.ourLogo && (result.teamName || data.team?.name)) {
+    const tname = result.teamName || (data.team && data.team.name) || '';
+    const tslug = slugifyTeamName(tname);
+    if (tslug) {
+      result.ourLogo = `/assets/team-logos/${tslug}.png`;
+      result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
+    }
   }
   // Preserve team AI insights if present
   if (data.aiInsights) {
