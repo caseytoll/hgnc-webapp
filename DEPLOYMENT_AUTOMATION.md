@@ -1,67 +1,172 @@
-# HGNC Parent Portal Automation & Deployment Guide
+# HGNC Deployment Guide
 
-## Overview
-This document describes the fully automated process for building, testing, and deploying the Hazel Glen Netball Club (HGNC) Parent Portal - the read-only viewer SPA for parents and spectators. The Parent Portal is separate from the Coach's App and provides view-only access to team information.
+## Current Production Status
 
-The process ensures:
-- All editing controls are hidden/disabled in the Parent Portal (`/viewer/src/js/app.js`)
-- All mutation actions are blocked (read-only enforcement)
-- Team-specific landing pages are handled by SPA routing (e.g., `/teams/{slug}`)
-- Formatting and features are optimized for read-only viewing
-- All automation is robust and test-verified
+| Component | Status | URL |
+|-----------|--------|-----|
+| Coach's App | ✅ Live | https://hgnc-team-manager.pages.dev |
+| Parent Portal | ✅ Live | https://hgnc-gameday.pages.dev |
+| Google Apps Script API | ✅ Live (v@10) | https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec |
 
-## Applications
-
-### Coach's App (`/`)
-- **Location:** Root directory
-- **Purpose:** Full-featured PWA for coaches with editing capabilities
-- **Build:** `npm run build`
-- **Deploy:** `npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager`
-
-### Parent Portal (`/viewer/`)
-- **Location:** `viewer/` directory
-- **Purpose:** Read-only SPA for parents and spectators
-- **Build:** `npm run build:readonly`
-- **Deploy:** `npm run deploy:readonly-viewer`
-
-## Automation Steps
-
-### 1. Validate Read-Only Enforcement
-- All editing controls are hidden/disabled in the Parent Portal (`/viewer/src/js/app.js`)
-- All mutation actions are blocked
-- Parity with Coach's App viewing features is maintained
-
-### 2. Build Process
-- Run `npm run build:readonly` for the Parent Portal SPA build
-- Run `npm run build` for the Coach's App
-- Output is written to `/viewer/dist/` for the Parent Portal
-
-### 3. Team-Specific Routing
-- Team-specific landing pages are handled by SPA routing at https://hgnc-gameday.pages.dev (e.g., `/teams/{slug}`)
-- No static HTML generation or per-team deploys required
-
-### 4. Testing & Validation
-- Run `npm run test:run` to execute all unit and integration tests
-- All tests must pass (172/172 passing as of last run)
-
-### 5. Deployment
-- Use `npm run deploy:readonly-viewer` for production deploys of the SPA to Cloudflare Pages.
-
-## Scripts Reference
-- `build:readonly`: Build viewer in read-only mode
-- `deploy:readonly-viewer`: Build and deploy the SPA viewer
-
-## Maintenance Notes
-- All scripts are in `/scripts/` and referenced in `package.json`
-- Read-only logic is enforced in `/viewer/src/js/app.js` and related files
-- Team portal generation is robust to API or file-based team lists
-- All code is covered by automated tests (see `/src/js/*.test.js`)
-
-## Troubleshooting
-- If builds fail, check for missing environment variables (e.g., `GS_API_URL`)
-- If portal generation fails, ensure API is reachable and returns valid JSON
-- For test failures, run `npm run test:run` and review output
+**Last Updated:** February 12, 2026  
+**Latest Version:** v2026-02-12 - Team creation wizard restructuring, Squadi auto-detect fixes  
+**Tests:** 173/173 passing
 
 ---
 
-_Last updated: 2026-01-28_
+## Deployment Process
+
+### Coach's App Deployment
+
+```bash
+cd /Users/casey-work/webapp-local-dev
+npm run build
+wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
+```
+
+**Build Output:** `dist/` directory  
+**Hosted on:** Cloudflare Pages  
+**Features:** Full PWA with editing, offline support, service worker auto-updates  
+**Version marker:** `REVISION` in [apps/coach-app/vite.config.js](apps/coach-app/vite.config.js)
+
+### Parent Portal Deployment  
+
+```bash
+cd /Users/casey-work/webapp-local-dev/apps/parent-portal
+npm run build
+wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
+```
+
+**Build Output:** `dist/` directory  
+**Hosted on:** Cloudflare Pages  
+**Features:** Read-only SPA, team-specific routing, no editing controls  
+**Routing:** SPA handles `/teams/{slug}/` URLs via client-side router
+
+### Google Apps Script Deployment
+
+```bash
+cd /Users/casey-work/webapp-local-dev/apps-script
+clasp push                                    # Push code changes to HEAD
+clasp deploy -d "Description"                 # Create new versioned deployment
+```
+
+**Scripts location:** [apps-script/Code.js](apps-script/Code.js)  
+**Current API URL:** https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec  
+**Config location:** [apps/coach-app/src/js/config.js](apps/coach-app/src/js/config.js)
+
+**Important:** After deploying a new version, Google may cache the web app URL. If testing fails:
+- Wait 2-3 minutes for Google's cache to expire
+- Or create a new web app deployment via Google Apps Script editor
+- Or test with `curl -L` to follow redirects
+
+---
+
+## Pre-Deployment Checklist
+
+- [ ] All tests pass: `npm run test:run` (must be 173/173 passing)
+- [ ] Build succeeds: `npm run build` (creates `dist/`)
+- [ ] Version bumped: Check `REVISION` in `apps/coach-app/vite.config.js`
+- [ ] No console errors: `npm run dev` then check browser DevTools
+- [ ] API responding: `curl https://script.google.com/macros/s/.../exec?api=true&action=ping`
+
+---
+
+## Testing
+
+### Unit Tests
+
+```bash
+npm run test:run              # Run all tests once
+npm run test                  # Run tests in watch mode
+npm run test:coverage        # Generate coverage report
+```
+
+**Current status:** 173/173 tests passing  
+**Test files:**
+- `apps/coach-app/src/js/*.test.js` - Unit tests for coach app
+- `apps/parent-portal/src/js/*.test.js` - Unit tests for parent portal
+- `apps/coach-app/vitest.config.js` - Test configuration
+
+### Manual Testing
+
+**Coach's App Features:**
+1. Create team with 6-step wizard
+2. Create game and add lineup
+3. Score game in real-time
+4. Toggle offline mode (DevTools → Network → Offline)
+5. Resync when back online
+6. Generate team sheet
+
+**Parent Portal Features:**
+1. View team page: https://hgnc-gameday.pages.dev/teams/{slug}/
+2. View latest games
+3. View season stats
+4. Verify no editing controls visible
+5. Test on mobile (responsive)
+
+**API Testing:**
+
+```bash
+# Health check
+curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=ping"
+
+# Get teams
+curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=getTeams"
+
+# Get Squadi teams
+curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=autoDetectSquadi"
+```
+
+---
+
+## Rollback Procedure
+
+If a deployment causes issues:
+
+1. **Coach's App:** Deploy previous `dist/` commit via Cloudflare Pages
+2. **Parent Portal:** Deploy previous `dist/` commit via Cloudflare Pages  
+3. **Apps Script:** Revert to previous deployment version via clasp or Google Console
+
+```bash
+# View all App Script deployments
+cd apps-script && clasp deployments
+
+# If needed, delete problematic deployment (select when prompted)
+# No action needed - old deployments remain accessible via ID
+```
+
+---
+
+## Architecture
+
+- **Frontend:** Vanilla JS (ES modules), Vite builds, Cloudflare Pages hosting
+- **Backend:** Google Apps Script with Google Sheets
+- **Caching:** Client-side localStorage, 5-minute API cache with stale-while-revalidate
+- **Offline:** Service worker persists data, syncs on reconnect
+- **Auth:** Optional per-team PIN system with device tokens
+
+---
+
+## Recent Changes (v2026-02-12)
+
+### Team Creation Wizard
+- Restructured from 4 to 6 steps
+- Added competition type selection (NFNL, Nillumbik Force, Other)
+- Conditional season selection
+- Integrated fixture sync setup
+
+### Squadi Integration
+- Auto-detect teams from Squadi/Netball Connect competitions
+- Detects both "HG" and "Hazel Glen" team name prefixes
+- Automatic configuration for fixture sync
+
+### API Updates
+- `createTeam` now accepts `ladderUrl` and `resultsApi` parameters
+- Backend properly stores integration config
+- Maintains backward compatibility with existing teams
+
+### Deployment Status
+- ✅ All tests passing (173/173)
+- ✅ Both apps building successfully
+- ✅ Apps Script deployed (v@10)
+- ✅ Squadi auto-detect working end-to-end

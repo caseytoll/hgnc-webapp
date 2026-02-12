@@ -235,6 +235,17 @@ function getSpreadsheet() {
     try {
       switch (action) {
 
+        case 'autoDetectSquadi':
+        case 'autodetectsquadi':
+          try {
+            var forceRescanParam = e.parameter.forceRescan === 'true';
+            result = autoDetectSquadiConfig(forceRescanParam);
+          } catch (errAutoDetect) {
+            Logger.log('autoDetectSquadi error: ' + errAutoDetect.message);
+            result = { success: false, error: errAutoDetect.message };
+          }
+          break;
+
         case 'ping':
           result = { success: true, message: 'pong', timestamp: new Date().toISOString() };
           break;
@@ -609,6 +620,16 @@ function getSpreadsheet() {
           } catch (errAutoDetect) {
             Logger.log('autoDetectSquadi error: ' + errAutoDetect.message);
             result = { success: false, error: errAutoDetect.message };
+          }
+          break;
+
+        case 'autodetectsquadi':
+          try {
+            var forceRescanParamLower = e.parameter.forceRescan === 'true';
+            result = autoDetectSquadiConfig(forceRescanParamLower);
+          } catch (errAutoDetectLower) {
+            Logger.log('autoDetectSquadi error: ' + errAutoDetectLower.message);
+            result = { success: false, error: errAutoDetectLower.message };
           }
           break;
 
@@ -1521,14 +1542,20 @@ function scanSquadiCompetitions(forceRescan) {
               divisionMap[divId] = { divisionName: divName, teams: {} };
             }
 
-            // Check both team names for "HG" prefix
+            // Check both team names for "HG" or "Hazel Glen" prefix
             var team1 = (match.team1 && match.team1.name) ? match.team1.name : '';
             var team2 = (match.team2 && match.team2.name) ? match.team2.name : '';
 
-            if (team1 && team1.toUpperCase().indexOf('HG') === 0) {
+            var isHGTeam = function(teamName) {
+              if (!teamName) return false;
+              var upper = teamName.toUpperCase();
+              return upper.indexOf('HG ') === 0 || upper.indexOf('HAZEL GLEN') === 0;
+            };
+
+            if (isHGTeam(team1)) {
               divisionMap[divId].teams[team1] = true;
             }
-            if (team2 && team2.toUpperCase().indexOf('HG') === 0) {
+            if (isHGTeam(team2)) {
               divisionMap[divId].teams[team2] = true;
             }
           }
@@ -1802,23 +1829,56 @@ function fetchSquadiFixtureData(config) {
         }
 
         var venue = '';
+        var venueDetails = {};
         if (match.venueCourt) {
           var courtName = match.venueCourt.name || '';
           var venueName = (match.venueCourt.venue && match.venueCourt.venue.shortName) || '';
           venue = venueName ? (venueName + ' ' + courtName) : courtName;
+
+          // Extract detailed venue information
+          venueDetails = {
+            courtName: courtName,
+            courtNumber: match.venueCourt.courtNumber || null,
+            venueName: match.venueCourt.venue ? match.venueCourt.venue.name : '',
+            venueShortName: venueName,
+            street: match.venueCourt.venue ? match.venueCourt.venue.street1 : '',
+            suburb: match.venueCourt.venue ? match.venueCourt.venue.suburb : '',
+            lat: match.venueCourt.lat || null,
+            lng: match.venueCourt.lng || null,
+            venueLat: match.venueCourt.venue ? match.venueCourt.venue.lat : null,
+            venueLng: match.venueCourt.venue ? match.venueCourt.venue.lng : null
+          };
         }
+
+        // Extract team information including logos and IDs
+        var opponentTeam = isTeam1 ? match.team2 : match.team1;
+        var opponentDetails = {
+          id: opponentTeam.id,
+          name: opponentTeam.name,
+          logoUrl: opponentTeam.logoUrl,
+          teamUniqueKey: opponentTeam.teamUniqueKey,
+          alias: opponentTeam.alias
+        };
 
         teamFixtures.push({
           matchId: match.id,
           roundName: roundName,
           roundNum: roundNum,
           opponent: opponent,
+          opponentDetails: opponentDetails,
           date: date,
           time: time,
           venue: venue,
+          venueDetails: venueDetails,
           status: status,
           ourScore: ourScore,
-          theirScore: theirScore
+          theirScore: theirScore,
+          lineupConfirmed: isTeam1 ? match.team1LineupConfirmed : match.team2LineupConfirmed,
+          opponentLineupConfirmed: isTeam1 ? match.team2LineupConfirmed : match.team1LineupConfirmed,
+          hasPenalty: match.hasPenalty || false,
+          livestreamUrl: match.livestreamURL,
+          matchDuration: match.matchDuration,
+          isResultsLocked: match.isResultsLocked || false
         });
       }
 
@@ -2157,7 +2217,7 @@ function fetchSquadiLadderData(config) {
       return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
     }
 
-    var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS'];
+    var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS', 'GD', 'PPG', 'Logo'];
     var rows = ladders.map(function(entry) {
       return {
         'POS': entry.rk || '',
@@ -2171,7 +2231,10 @@ function fetchSquadiLadderData(config) {
         'For': entry.F || '0',
         'Agst': entry.A || '0',
         '% Won': entry.win ? (parseFloat(entry.win) * 100).toFixed(0) + '%' : '0%',
-        'PTS': entry.PTS || '0'
+        'PTS': entry.PTS || '0',
+        'GD': entry.goalDifference || '0',
+        'PPG': entry.ppg ? parseFloat(entry.ppg).toFixed(2) : '0.00',
+        'Logo': entry.logoUrl || ''
       };
     });
 
