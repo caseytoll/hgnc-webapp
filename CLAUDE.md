@@ -55,8 +55,9 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch
 
 **Backend (Apps Script):**
 ```bash
-cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V -d "Description"
+cd apps-script && clasp push && clasp deploy -i <DEPLOYMENT_ID> -d "Description"
 ```
+Current production API: https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec
 
 ### Versioning
 
@@ -78,6 +79,24 @@ cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeA
 **Tech:** Vanilla JS (ES modules), Vite 7.x, Vitest, Google Apps Script backend
 
 **Prerequisites:** Node.js 20+, npm 9+, clasp (for Apps Script deployment)
+
+### Team Creation Wizard
+
+The Coach's App uses a 6-step wizard for creating new teams:
+
+1. **Team Info** - Name and year
+2. **Competition Type** - NFNL, Nillumbik Force, or Other
+3. **Season** - Season 1/2/Other (skipped for Nillumbik Force, uses 'Nillumbik Force' label)
+4. **Coach** - Optional coach selection
+5. **Integration Setup** - Competition-specific:
+   - **NFNL**: Ladder URL (MyGameDay) for auto-sync + results API
+   - **Nillumbik Force**: Fixture sync (GameDay or Squadi/Netball Connect) with auto-detect
+   - **Other**: No integration setup
+6. **Review** - Confirm all settings before creation
+
+Validation happens at each step with duplicate team detection. The wizard saves competition type, season, coach, and integration config (ladderUrl or resultsApi) via the createTeam API.
+
+**Squadi Auto-Detect**: Click "Auto-Detect from Squadi" in Team Settings to discover HG teams from Squadi/Netball Connect competitions. Detects both "HG" and "Hazel Glen" team name prefixes. Auto-detection caches results for performance (use "Force Rescan" to refresh).
 
 ### Directory Structure
 
@@ -263,7 +282,9 @@ Coach-app only (parent portal has no ladder data). Uses cached ladder data from 
 
 ```javascript
 // Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
-{ teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach }
+{ teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach, competitionType }
+// competitionType: Not stored in backend, inferred from resultsApi/ladderUrl (NFNL, Nillumbik Force, or Other)
+// season: 'Season 1', 'Season 2', 'Nillumbik Force', 'Other', or 'NFNL' (legacy)
 
 // Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
 {
@@ -316,7 +337,7 @@ Coach-app only (parent portal has no ladder data). Uses cached ladder data from 
 | `getTeams` | List all teams | - |
 | `getTeamData` | Get team details | `teamID`, `sheetName` |
 | `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
-| `createTeam` | Create new team | `year`, `season`, `name`, `coach` (optional) |
+| `createTeam` | Create new team | `year`, `season`, `name`, `coach`, `ladderUrl`, `resultsApi` (all optional except year/season/name) |
 | `updateTeam` | Update team settings | `teamID`, `settings` (JSON) |
 | `validateTeamPIN` | Check team PIN | `teamID`, `pin` |
 | `setTeamPIN` | Set/change/remove PIN | `teamID`, `pin`, `pinToken` |

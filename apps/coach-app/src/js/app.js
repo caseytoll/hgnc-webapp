@@ -328,14 +328,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Multi-step wizard state
   let wizardState = {
     currentStep: 1,
-    totalSteps: 4,
+    totalSteps: 6,
     data: {
       name: '',
       year: new Date().getFullYear(),
+      competitionType: 'NFNL',
       season: 'Season 1',
       coach: '',
       coachCustom: '',
-      ladderUrl: ''
+      ladderUrl: '',
+      resultsApi: ''
     }
   };
 
@@ -343,14 +345,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reset wizard state
     wizardState = {
       currentStep: 1,
-      totalSteps: 4,
+      totalSteps: 6,
       data: {
         name: '',
         year: new Date().getFullYear(),
+        competitionType: 'NFNL',
         season: 'Season 1',
         coach: '',
         coachCustom: '',
-        ladderUrl: ''
+        ladderUrl: '',
+        resultsApi: ''
       }
     };
 
@@ -398,19 +402,48 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="number" class="form-input" id="wizard-team-year" min="2000" max="2100" value="${wizardState.data.year}">
             <div class="form-help">The competition year for this team</div>
           </div>
+        `;
+
+      case 2:
+        return progressBar + `
+          <div class="form-group">
+            <label class="form-label">Competition Type</label>
+            <select class="form-select" id="wizard-competition-type" onchange="handleCompetitionTypeChange()">
+              <option value="NFNL" ${wizardState.data.competitionType === 'NFNL' ? 'selected' : ''}>NFNL (Northern Football Netball League)</option>
+              <option value="Nillumbik Force" ${wizardState.data.competitionType === 'Nillumbik Force' ? 'selected' : ''}>Nillumbik Force</option>
+              <option value="Other" ${wizardState.data.competitionType === 'Other' ? 'selected' : ''}>Other</option>
+            </select>
+            <div class="form-help">Select the competition your team participates in</div>
+          </div>
+        `;
+
+      case 3:
+        const showSeason = wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other';
+        if (!showSeason) {
+          // Skip season step for Nillumbik Force - they have different structure
+          setTimeout(() => wizardNavigate(4), 0);
+          return progressBar + `
+            <div class="info-section">
+              <div class="info-icon">⏭️</div>
+              <div class="info-content">
+                <p>Skipping season selection for Nillumbik Force competitions.</p>
+              </div>
+            </div>
+          `;
+        }
+        return progressBar + `
           <div class="form-group">
             <label class="form-label">Season</label>
             <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
               <option value="Season 1" ${wizardState.data.season === 'Season 1' ? 'selected' : ''}>Season 1</option>
               <option value="Season 2" ${wizardState.data.season === 'Season 2' ? 'selected' : ''}>Season 2</option>
-              <option value="NFNL" ${wizardState.data.season === 'NFNL' ? 'selected' : ''}>NFNL</option>
-              <option value="Other" ${wizardState.data.season === 'Other' ? 'selected' : ''}>Other</option>
+              ${wizardState.data.competitionType === 'Other' ? '<option value="Other"' + (wizardState.data.season === 'Other' ? ' selected' : '') + '>Other</option>' : ''}
             </select>
             <div class="form-help">Select the competition season</div>
           </div>
         `;
 
-      case 2:
+      case 4:
         return progressBar + `
           <div class="form-group">
             <label class="form-label">Coach</label>
@@ -426,8 +459,9 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         `;
 
-      case 3:
-        const isNFNL = wizardState.data.season === 'NFNL';
+      case 5:
+        const isNFNL = wizardState.data.competitionType === 'NFNL';
+        const isForce = wizardState.data.competitionType === 'Nillumbik Force';
         return progressBar + `
           ${isNFNL ? `
           <div class="form-group">
@@ -435,19 +469,34 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="url" class="form-input" id="wizard-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${wizardState.data.ladderUrl}">
             <div class="form-help">For NFNL teams, enter the ladder URL from MyGameDay to automatically sync results</div>
           </div>
+          ` : isForce ? `
+          <div class="form-group">
+            <label class="form-label">Fixture Sync Setup <span class="form-label-desc">(optional)</span></label>
+            <select class="form-select" id="wizard-fixture-source" onchange="handleFixtureSourceChange()">
+              <option value="">— No fixture sync —</option>
+              <option value="squadi">Squadi (Competition fixtures)</option>
+              <option value="gameday">GameDay (MyGameDay integration)</option>
+            </select>
+            <div id="fixture-config-section" style="display:none;margin-top:10px;">
+              <!-- Dynamic content will be inserted here -->
+            </div>
+            <div class="form-help">For Nillumbik Force teams, configure automatic fixture syncing from Squadi or GameDay</div>
+          </div>
           ` : `
           <div class="info-section">
             <div class="info-icon">ℹ️</div>
             <div class="info-content">
               <h4>Integration Setup</h4>
-              <p>Ladder integration is only available for NFNL teams. If you need integration for other competitions, please contact support.</p>
+              <p>Integration setup is available for NFNL (ladder sync) and Nillumbik Force (fixture sync) competitions.</p>
             </div>
           </div>
           `}
         `;
 
-      case 4:
+      case 6:
         const coachDisplay = wizardState.data.coach === COACH_OTHER_SENTINEL ? wizardState.data.coachCustom : wizardState.data.coach;
+        const integrationType = wizardState.data.competitionType === 'NFNL' ? 'Ladder' : wizardState.data.competitionType === 'Nillumbik Force' ? 'Fixture Sync' : 'None';
+        const hasIntegration = (wizardState.data.competitionType === 'NFNL' && wizardState.data.ladderUrl) || (wizardState.data.competitionType === 'Nillumbik Force' && wizardState.data.resultsApi);
         return progressBar + `
           <div class="summary-section">
             <h4 style="margin-bottom: 15px; color: var(--text-primary);">Review Your Team Details</h4>
@@ -455,15 +504,20 @@ document.addEventListener('DOMContentLoaded', () => {
               <strong>Team Name:</strong> ${wizardState.data.name || 'Not specified'}
             </div>
             <div class="summary-item">
-              <strong>Year & Season:</strong> ${wizardState.data.year} - ${wizardState.data.season}
+              <strong>Year:</strong> ${wizardState.data.year}
             </div>
+            <div class="summary-item">
+              <strong>Competition:</strong> ${wizardState.data.competitionType}
+            </div>
+            ${wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other' ? `<div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>` : ''}
             <div class="summary-item">
               <strong>Coach:</strong> ${coachDisplay || 'Not specified'}
             </div>
             <div class="summary-item">
-              <strong>Ladder Integration:</strong> ${wizardState.data.ladderUrl ? 'Yes' : 'No'}
+              <strong>${integrationType} Integration:</strong> ${hasIntegration ? 'Yes' : 'No'}
             </div>
             ${wizardState.data.ladderUrl ? `<div class="summary-item"><strong>Ladder URL:</strong> ${wizardState.data.ladderUrl}</div>` : ''}
+            ${wizardState.data.resultsApi ? `<div class="summary-item"><strong>Fixture Source:</strong> ${JSON.parse(wizardState.data.resultsApi).source || 'Configured'}</div>` : ''}
           </div>
         `;
 
@@ -500,7 +554,6 @@ document.addEventListener('DOMContentLoaded', () => {
       case 1:
         const name = document.getElementById('wizard-team-name').value.trim();
         const year = parseInt(document.getElementById('wizard-team-year').value);
-        const season = document.getElementById('wizard-team-season').value;
 
         if (!name) {
           showToast('Please enter a team name', 'error');
@@ -517,26 +570,77 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('wizard-team-year').focus();
           return false;
         }
-        const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
-        if (!validSeasons.includes(season)) {
-          showToast('Invalid season selected', 'error');
-          return false;
-        }
-
-        // Check for duplicate name/year/season
-        if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
-          showToast('A team with this name, year, and season already exists', 'error');
-          document.getElementById('wizard-team-name').focus();
-          return false;
-        }
         return true;
 
       case 2:
-        // Coach selection is optional, no validation needed
+        // Competition type is always valid (has defaults)
         return true;
 
       case 3:
-        // Ladder URL is optional, no validation needed
+        // Season validation only for NFNL and Other competitions
+        if (wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other') {
+          const seasonSelect = document.getElementById('wizard-team-season');
+          if (seasonSelect) {
+            const season = seasonSelect.value;
+            const validSeasons = wizardState.data.competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
+            if (!validSeasons.includes(season)) {
+              showToast('Invalid season selected', 'error');
+              return false;
+            }
+            
+            // Check for duplicate name/year/season
+            const name = wizardState.data.name;
+            const year = wizardState.data.year;
+            if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
+              showToast('A team with this name, year, and season already exists', 'error');
+              return false;
+            }
+          }
+        }
+        return true;
+
+      case 4:
+        // Coach selection is optional, no validation needed
+        return true;
+
+      case 5:
+        // Integration setup validation
+        if (wizardState.data.competitionType === 'NFNL') {
+          const ladderUrl = document.getElementById('wizard-team-ladder-url');
+          if (ladderUrl && ladderUrl.value.trim()) {
+            try {
+              new URL(ladderUrl.value.trim());
+            } catch (e) {
+              showToast('Please enter a valid ladder URL', 'error');
+              ladderUrl.focus();
+              return false;
+            }
+          }
+        } else if (wizardState.data.competitionType === 'Nillumbik Force') {
+          const sourceSelect = document.getElementById('wizard-fixture-source');
+          if (sourceSelect && sourceSelect.value) {
+            const source = sourceSelect.value;
+            if (source === 'squadi') {
+              const compId = document.getElementById('wizard-squadi-competition-id');
+              const divId = document.getElementById('wizard-squadi-division-id');
+              const teamName = document.getElementById('wizard-squadi-team-name');
+              
+              if (!compId.value || !divId.value || !teamName.value.trim()) {
+                showToast('Please fill in all Squadi configuration fields', 'error');
+                return false;
+              }
+            } else if (source === 'gameday') {
+              const compId = document.getElementById('wizard-gameday-comp-id');
+              const client = document.getElementById('wizard-gameday-client');
+              const teamName = document.getElementById('wizard-gameday-team-name');
+              
+              if (!compId.value.trim() || !client.value.trim() || !teamName.value.trim()) {
+                showToast('Please fill in all GameDay configuration fields', 'error');
+                return false;
+              }
+            }
+          }
+        }
         return true;
 
       default:
@@ -549,21 +653,64 @@ document.addEventListener('DOMContentLoaded', () => {
       case 1:
         wizardState.data.name = document.getElementById('wizard-team-name').value.trim();
         wizardState.data.year = parseInt(document.getElementById('wizard-team-year').value);
-        wizardState.data.season = document.getElementById('wizard-team-season').value;
         break;
       case 2:
+        wizardState.data.competitionType = document.getElementById('wizard-competition-type').value;
+        break;
+      case 3:
+        // Only save season for NFNL and Other competitions
+        if (wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other') {
+          const seasonSelect = document.getElementById('wizard-team-season');
+          wizardState.data.season = seasonSelect ? seasonSelect.value : 'Season 1';
+        }
+        break;
+      case 4:
         const coachSelect = document.getElementById('wizard-team-coach');
         const coachCustom = document.getElementById('wizard-team-coach-custom');
         wizardState.data.coach = coachSelect.value;
         wizardState.data.coachCustom = coachCustom.value.trim();
         break;
-      case 3:
-        // Only save ladder URL if it's an NFNL team
-        if (wizardState.data.season === 'NFNL') {
+      case 5:
+        // Save integration data based on competition type
+        if (wizardState.data.competitionType === 'NFNL') {
           const ladderUrlInput = document.getElementById('wizard-team-ladder-url');
           wizardState.data.ladderUrl = ladderUrlInput ? ladderUrlInput.value.trim() : '';
+          wizardState.data.resultsApi = '';
+        } else if (wizardState.data.competitionType === 'Nillumbik Force') {
+          const sourceSelect = document.getElementById('wizard-fixture-source');
+          const source = sourceSelect ? sourceSelect.value : '';
+          
+          if (source === 'squadi') {
+            const compId = document.getElementById('wizard-squadi-competition-id').value;
+            const divId = document.getElementById('wizard-squadi-division-id').value;
+            const teamName = document.getElementById('wizard-squadi-team-name').value.trim();
+            
+            if (compId && divId && teamName) {
+              wizardState.data.resultsApi = JSON.stringify({
+                source: 'squadi',
+                competitionId: parseInt(compId),
+                divisionId: parseInt(divId),
+                squadiTeamName: teamName
+              });
+            }
+          } else if (source === 'gameday') {
+            const compId = document.getElementById('wizard-gameday-comp-id').value.trim();
+            const client = document.getElementById('wizard-gameday-client').value.trim();
+            const teamName = document.getElementById('wizard-gameday-team-name').value.trim();
+            
+            if (compId && client && teamName) {
+              wizardState.data.resultsApi = JSON.stringify({
+                source: 'gameday',
+                compID: compId,
+                client: client,
+                teamName: teamName
+              });
+            }
+          }
+          wizardState.data.ladderUrl = '';
         } else {
           wizardState.data.ladderUrl = '';
+          wizardState.data.resultsApi = '';
         }
         break;
     }
@@ -593,8 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.addNewTeam = async function() {
-    // Use wizard state data instead of DOM elements
-    const { name, year, season, coach, coachCustom, ladderUrl } = wizardState.data;
+    // Use wizard state data
+    const { name, year, competitionType, season, coach, coachCustom, ladderUrl, resultsApi } = wizardState.data;
     const coachRaw = coach === COACH_OTHER_SENTINEL ? coachCustom : coach;
 
     // Validation (should already be done in wizard, but double-check)
@@ -610,14 +757,22 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Year must be between 2000 and 2100', 'error');
       return;
     }
-    const validSeasons = ['Season 1', 'Season 2', 'NFNL', 'Other'];
-    if (!validSeasons.includes(season)) {
-      showToast('Invalid season selected', 'error');
-      return;
+
+    // Season validation depends on competition type
+    let seasonToUse = season;
+    if (competitionType === 'Nillumbik Force') {
+      // For Nillumbik Force, use a default season or empty
+      seasonToUse = 'Nillumbik Force';
+    } else {
+      const validSeasons = competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
+      if (!validSeasons.includes(season)) {
+        showToast('Invalid season selected', 'error');
+        return;
+      }
     }
 
     // Check for duplicate name/year/season
-    if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
+    if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === seasonToUse)) {
       showToast('A team with this name, year, and season already exists', 'error');
       return;
     }
@@ -632,10 +787,11 @@ document.addEventListener('DOMContentLoaded', () => {
       url.searchParams.set('api', 'true');
       url.searchParams.set('action', 'createTeam');
       url.searchParams.set('year', year);
-      url.searchParams.set('season', season);
+      url.searchParams.set('season', seasonToUse);
       url.searchParams.set('name', name);
       if (coachRaw) url.searchParams.set('coach', coachRaw);
       if (ladderUrl) url.searchParams.set('ladderUrl', ladderUrl);
+      if (resultsApi) url.searchParams.set('resultsApi', resultsApi);
 
       const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
       const data = await response.json();
@@ -667,6 +823,88 @@ function handleSeasonChange() {
     renderWizardModal();
   }
 };
+
+// ========================================
+// COMPETITION TYPE CHANGE HANDLER
+// ========================================
+
+function handleCompetitionTypeChange() {
+  const competitionSelect = document.getElementById('wizard-competition-type');
+  if (competitionSelect) {
+    wizardState.data.competitionType = competitionSelect.value;
+    // Reset season for Nillumbik Force (they don't use Season 1/2 structure)
+    if (competitionSelect.value === 'Nillumbik Force') {
+      wizardState.data.season = '';
+    } else if (!wizardState.data.season || wizardState.data.season === '') {
+      wizardState.data.season = 'Season 1';
+    }
+    // Re-render the current step
+    renderWizardModal();
+  }
+};
+
+// ========================================
+// FIXTURE SOURCE CHANGE HANDLER
+// ========================================
+
+function handleFixtureSourceChange() {
+  const sourceSelect = document.getElementById('wizard-fixture-source');
+  const configSection = document.getElementById('fixture-config-section');
+  
+  if (!sourceSelect || !configSection) return;
+  
+  const source = sourceSelect.value;
+  
+  if (!source) {
+    configSection.style.display = 'none';
+    wizardState.data.resultsApi = '';
+    return;
+  }
+  
+  configSection.style.display = 'block';
+  
+  if (source === 'squadi') {
+    configSection.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Competition ID</label>
+        <input type="number" class="form-input" id="wizard-squadi-competition-id" placeholder="e.g. 4640" min="1">
+        <div class="form-help">Squadi competition ID (found in URL or settings)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Division ID</label>
+        <input type="number" class="form-input" id="wizard-squadi-division-id" placeholder="e.g. 12345" min="1">
+        <div class="form-help">Squadi division ID for your team's division</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Team Name in Squadi</label>
+        <input type="text" class="form-input" id="wizard-squadi-team-name" placeholder="e.g. Hazel Glen 6" maxlength="100">
+        <div class="form-help">Exact team name as it appears in Squadi</div>
+      </div>
+    `;
+  } else if (source === 'gameday') {
+    configSection.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Competition ID</label>
+        <input type="text" class="form-input" id="wizard-gameday-comp-id" placeholder="e.g. 655969" maxlength="20">
+        <div class="form-help">MyGameDay competition ID (from ladder URL)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Client Code</label>
+        <input type="text" class="form-input" id="wizard-gameday-client" placeholder="e.g. 0-9074-0-602490-0" maxlength="50">
+        <div class="form-help">MyGameDay client code (from ladder URL)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Team Name in GameDay</label>
+        <input type="text" class="form-input" id="wizard-gameday-team-name" placeholder="e.g. Hazel Glen 6" maxlength="100">
+        <div class="form-help">Exact team name as it appears in MyGameDay</div>
+      </div>
+    `;
+  }
+};
+
+// Expose handlers to window
+window.handleCompetitionTypeChange = handleCompetitionTypeChange;
+window.handleFixtureSourceChange = handleFixtureSourceChange;
 
 // ========================================
 // VIEW MANAGEMENT
@@ -2060,7 +2298,13 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   html += data.ladder.rows.map(row => {
     const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
     const isCurrent = highlightName && rowTeamName.includes(highlightName.toLowerCase());
-    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + `</tr>`;
+    const logoHtml = row['Logo'] ? `<img src="${escapeAttr(row['Logo'])}" class="team-logo-ladder" alt="${escapeAttr(row['TEAM'] || '')} logo" onerror="this.style.display='none'">` : '';
+    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => {
+      if (h === 'TEAM' && logoHtml) {
+        return `<td data-key="${escapeAttr(h)}">${logoHtml}${escapeHtml(row[h] || '')}</td>`;
+      }
+      return `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`;
+    }).join('') + `</tr>`;
   }).join('');
 
   html += `</tbody></table></div>`;
@@ -2184,8 +2428,18 @@ function renderSchedule() {
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
         <div class="game-info">
-          <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}${difficultyBadge}</div>
-          <div class="game-meta">${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}</div>
+          <div class="game-opponent">
+            ${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}
+            ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" class="team-logo-small" alt="${escapeAttr(game.opponent)} logo" onerror="this.style.display='none'">` : ''}
+            ${difficultyBadge}
+            ${game.lineupConfirmed !== undefined ? `<span class="lineup-status ${game.lineupConfirmed ? 'confirmed' : 'pending'}" title="Your lineup ${game.lineupConfirmed ? 'confirmed' : 'pending'}">📋</span>` : ''}
+            ${game.opponentLineupConfirmed !== undefined ? `<span class="lineup-status ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}" title="Opponent lineup ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}">👥</span>` : ''}
+          </div>
+          <div class="game-meta">
+            ${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}
+            ${game.venueDetails && game.venueDetails.lat ? `<a href="https://maps.google.com/?q=${game.venueDetails.lat},${game.venueDetails.lng}" target="_blank" class="venue-link" title="View on map">📍</a>` : ''}
+            ${game.livestreamUrl ? `<a href="${escapeAttr(game.livestreamUrl)}" target="_blank" class="livestream-link" title="Watch live">📺</a>` : ''}
+          </div>
         </div>
         <div class="game-score">
           ${scoreDisplay}${validationBadge}
@@ -4812,11 +5066,13 @@ function renderGameScoreCard() {
   container.innerHTML = `
     <div class="game-score-display">
       <div class="score-team">
+        ${game.ourLogo ? `<img src="${escapeAttr(game.ourLogo)}" alt="${escapeAttr(state.currentTeamData?.name || 'Us')}" class="team-logo-game home">` : ''}
         <div class="score-label">Us</div>
         <div class="score-value">${escapeHtml(us)}</div>
       </div>
       <div class="score-divider">-</div>
       <div class="score-team">
+        ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" alt="${escapeAttr(game.opponent)}" class="team-logo-game away">` : ''}
         <div class="score-label">${escapeHtml(game.opponent)}</div>
         <div class="score-value">${escapeHtml(opponent)}</div>
       </div>
