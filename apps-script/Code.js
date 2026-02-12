@@ -599,6 +599,21 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'getTeamInfo':
+          var infoTeamID = e.parameter.teamID || '';
+          var infoForce = e.parameter.forceRefresh === 'true';
+          if (!infoTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = getTeamInfo(infoTeamID, infoForce);
+            } catch (errInfo) {
+              Logger.log('getTeamInfo error: ' + errInfo.message);
+              result = { success: false, error: errInfo.message };
+            }
+          }
+          break;
+
         case 'discoverSquadiComps':
           var discoverOrgKey = e.parameter.orgKey || '';
           if (!discoverOrgKey) {
@@ -1910,6 +1925,139 @@ function fetchSquadiFixtureData(config) {
     divisionResults: divisionResults,
     divisionName: (apiResult.division && apiResult.division.name) || ''
   };
+}
+
+
+/**
+ * Assemble a consolidated team info payload combining sheet data and Squadi-derived metadata.
+ * Returned keys: success, info: { teamID, sheetName, ourLogo, nextFixture, ladder, lastUpdated }
+ */
+function getTeamInfo(teamID, forceRefresh) {
+  var cacheKey = 'TEAM_INFO_' + teamID;
+  try {
+    if (!forceRefresh) {
+      try {
+        var cache = CacheService.getScriptCache();
+        var cached = cache.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      } catch (e) {
+        Logger.log('getTeamInfo: cache read failed: ' + e.message);
+      }
+    }
+
+    var teams = loadMasterTeamList();
+    if (teams.error) throw new Error(teams.error);
+
+    var team = null;
+    for (var i = 0; i < teams.length; i++) {
+      if (teams[i].teamID == teamID) { team = teams[i]; break; }
+    }
+    if (!team) throw new Error('Team not found: ' + teamID);
+
+    var sheetName = team.sheetName;
+    var sheetData = loadTeamData(sheetName);
+    if (sheetData.error) throw new Error(sheetData.error);
+    var teamData = {};
+    try { teamData = JSON.parse(sheetData.teamData || '{"players":[],"games":[]}'); } catch (e) { teamData = sheetData.teamData || {}; }
+
+    var info = {
+      teamID: teamID,
+      sheetName: sheetName,
+      ourLogo: teamData.logoUrl || teamData.teamLogo || teamData.teamLogoUrl || teamData.logo || null,
+      lastUpdated: Date.now(),
+      nextFixture: null,
+      ladder: null
+    };
+
+    // Derive club slug and include it in the response for client-side logic
+    function _deriveClubSlug(name) {
+      if (!name) return 'hazel-glen';
+      var n = String(name).toLowerCase().trim();
+      if (n.indexOf('hg ') === 0 || n.indexOf('hazel') === 0) return 'hazel-glen';
+      if (n.indexOf('dc') === 0 || n.indexOf('dandenong') === 0) return 'dcgarnets';
+      if (n.indexOf('montmorency') === 0) return 'montmorency';
+      if (n.indexOf('titans') === 0) return 'titans';
+      // fallback: slugify first two words
+      var toks = n.split(/\s+/).slice(0,2).join('-').replace(/[^a-z0-9-]+/g,'-').replace(/(^-|-$)/g,'');
+      return toks || 'hazel-glen';
+    }
+
+    info.clubSlug = _deriveClubSlug(team.teamName || teamData.teamName || 'hazel-glen');
+
+    // If no explicit team logo, prefer club-level asset (server-side fallback)
+    if (!info.ourLogo) {
+      try {
+        info.ourLogo = '/assets/team-logos/' + info.clubSlug + '.svg';
+      } catch (e) {
+        info.ourLogo = '/assets/team-logos/hg13fury.png';
+      }
+    }
+
+    // If we have a Squadi config, try to enrich with fixture and ladder info
+    if (team.resultsApi) {
+      try {
+        var config = JSON.parse(team.resultsApi);
+        if (config.source === 'squadi') {
+          // Get fixtures for this team
+          try {
+            var fixturesRes = getFixtureDataForTeam(teamID, forceRefresh);
+            if (fixturesRes && fixturesRes.success && Array.isArray(fixturesRes.teamFixtures)) {
+              // Pick next upcoming fixture (first with status 'upcoming' or 'normal' and not a bye)
+              var next = null;
+              for (var f = 0; f < fixturesRes.teamFixtures.length; f++) {
+                var tf = fixturesRes.teamFixtures[f];
+                if (tf.status === 'bye') continue;
+                // Choose upcoming first, otherwise accept normal future matches
+                if (!next && (tf.status === 'upcoming' || tf.status === 'normal')) next = tf;
+              }
+              if (next) info.nextFixture = next;
+            }
+          } catch (e) {
+            Logger.log('getTeamInfo: fixture fetch failed: ' + e.message);
+          }
+
+          // Ladder and logo from Squadi ladder api
+          try {
+            var ladderRes = getSquadiLadderForTeam(teamID, forceRefresh);
+            if (ladderRes && ladderRes.success && ladderRes.ladder) {
+              info.ladder = ladderRes.ladder;
+              // If ourLogo missing, try ladder Logo column for this team
+              if (!info.ourLogo && Array.isArray(ladderRes.ladder.rows)) {
+                // Use robust matching (slug compare / contains) to prefer Squadi ladder logo when available
+                var teamSlug = (teamData.teamName || team.name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                for (var r = 0; r < ladderRes.ladder.rows.length; r++) {
+                  var row = ladderRes.ladder.rows[r] || {};
+                  var rowName = (row.TEAM || '').toString().toLowerCase();
+                  var rowSlug = rowName.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+                  // exact slug match, or substring match as fallback
+                  if ((rowSlug && rowSlug === teamSlug) || (rowName && rowName.indexOf((teamData.teamName || team.name || '').toString().toLowerCase()) !== -1)) {
+                    if (row.Logo) { info.ourLogo = row.Logo; break; }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            Logger.log('getTeamInfo: ladder fetch failed: ' + e.message);
+          }
+        }
+      } catch (e) {
+        Logger.log('getTeamInfo: invalid resultsApi JSON: ' + e.message);
+      }
+    }
+
+    var out = { success: true, info: info };
+    try {
+      var cache2 = CacheService.getScriptCache();
+      cache2.put(cacheKey, JSON.stringify(out), 600); // cache 10 minutes
+    } catch (e) {}
+    return out;
+  } catch (e) {
+    Logger.log('getTeamInfo fatal: ' + e.message);
+    return { success: false, error: e.message };
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 // API Layer - Switches between mock data and real Apps Script backend
 import { API_CONFIG } from './config.js';
 import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
+import { clubSlugFor } from '../../../../common/utils.js';
 
 // Current data source: use API for production, mock for development
 let dataSource = 'api';
@@ -265,7 +266,17 @@ export async function loadTeamData(teamID) {
     throw new Error(`No sheetName found for team ${teamID}. Call loadTeams first.`);
   }
 
-  // Real API call
+  // Try to fetch consolidated team info (logo, nextFixture, ladder) first
+  let teamInfo = null;
+  try {
+    const infoRes = await callAppsScript('getTeamInfo', { teamID });
+    if (infoRes && infoRes.success && infoRes.info) teamInfo = infoRes.info;
+  } catch (e) {
+    // Non-fatal: fall back to sheet-only data
+    console.warn('[API] getTeamInfo failed, falling back to getTeamData:', e.message || e);
+  }
+
+  // Real API call for sheet data
   const result = await callAppsScript('getTeamData', { teamID, sheetName });
   const rawData = result.teamData;
 
@@ -276,6 +287,39 @@ export async function loadTeamData(teamID) {
   if (transformed._lastModified) {
     teamLastModified.set(teamID, transformed._lastModified);
     console.log(`[API] Stored _lastModified for ${teamID}:`, transformed._lastModified);
+  }
+
+  // Merge server-provided teamInfo (logos/fixtures) when available
+  if (teamInfo) {
+    try {
+      if (teamInfo.ourLogo && !transformed.ourLogo) {
+        transformed.ourLogo = teamInfo.ourLogo;
+        transformed.games.forEach(g => { if (!g.ourLogo) g.ourLogo = transformed.ourLogo; });
+      }
+      if (teamInfo.nextFixture) {
+        // attach top-level nextFixture for convenience
+        transformed.nextFixture = teamInfo.nextFixture;
+        // try to merge into matching game by matchId
+        const mid = teamInfo.nextFixture.matchId || teamInfo.nextFixture.matchID || teamInfo.nextFixture.id || null;
+        if (mid) {
+          const matchGame = transformed.games.find(g => String(g.matchId || g.gameID || g.gameId || g.gameID) === String(mid) || String(g.fixtureMatchId) === String(mid));
+          if (matchGame) {
+            // Merge opponentDetails and flags
+            if (teamInfo.nextFixture.opponentDetails) {
+              matchGame.opponentDetails = matchGame.opponentDetails || {};
+              matchGame.opponentDetails.logoUrl = matchGame.opponentDetails.logoUrl || teamInfo.nextFixture.opponentDetails.logoUrl || teamInfo.nextFixture.opponentDetails.logo || matchGame.opponentDetails.logoUrl;
+              matchGame.opponentDetails.id = matchGame.opponentDetails.id || teamInfo.nextFixture.opponentDetails.id;
+            }
+            if (teamInfo.nextFixture.lineupConfirmed !== undefined) matchGame.lineupConfirmed = teamInfo.nextFixture.lineupConfirmed;
+            if (teamInfo.nextFixture.opponentLineupConfirmed !== undefined) matchGame.opponentLineupConfirmed = teamInfo.nextFixture.opponentLineupConfirmed;
+            if (teamInfo.nextFixture.livestreamUrl) matchGame.livestreamUrl = matchGame.livestreamUrl || teamInfo.nextFixture.livestreamUrl;
+            if (teamInfo.nextFixture.venueDetails) matchGame.venueDetails = matchGame.venueDetails || teamInfo.nextFixture.venueDetails;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[API] Failed to merge teamInfo:', e.message || e);
+    }
   }
 
   return transformed;
@@ -466,15 +510,37 @@ export function transformTeamDataFromSheet(data, teamID) {
       if (!g.ourLogo) g.ourLogo = result.ourLogo;
     });
   }
-  // If no remote team logo, try local asset by team name
+  // If no remote team logo, prefer a club-level logo (derived from team name),
+  // then fall back to a team-named local asset.
   if (!result.ourLogo && (result.teamName || data.team?.name)) {
     const tname = result.teamName || (data.team && data.team.name) || '';
+
+    // 1) Club-level asset (prefer .svg)
+    const club = clubSlugFor(tname);
+    result.ourLogo = `/assets/team-logos/${club}.svg`;
+
+    // 2) Secondary: team-level png (legacy naming)
     const tslug = slugifyTeamName(tname);
-    if (tslug) {
+    if (!result.ourLogo && tslug) {
       result.ourLogo = `/assets/team-logos/${tslug}.png`;
-      result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
     }
+
+    // Apply to games
+    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
   }
+
+  // Final fallback: dedicated Hazel Glen SVG (guaranteed)
+  if (!result.ourLogo) {
+    result.ourLogo = '/assets/team-logos/hazel-glen.svg';
+    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
+  }
+
+  // Backstop (shouldn't be reached) — last-resort PNG
+  if (!result.ourLogo) {
+    result.ourLogo = '/assets/team-logos/hg13fury.png';
+    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
+  }
+
   // Preserve team AI insights if present
   if (data.aiInsights) {
     result.aiInsights = data.aiInsights;
