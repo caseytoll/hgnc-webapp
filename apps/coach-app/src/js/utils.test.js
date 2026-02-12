@@ -260,6 +260,32 @@ describe('validateLocation', () => {
   });
 });
 
+// ----------------------------------------
+// Club slug extraction tests
+// ----------------------------------------
+
+describe('clubSlugFor', () => {
+  it('maps HG and Hazel Glen to hazel-glen', () => {
+    expect(clubSlugFor('HG 11 Fire')).toBe('hazel-glen');
+    expect(clubSlugFor('Hazel Glen 6')).toBe('hazel-glen');
+  });
+
+  it('maps DC / Dandenong to dcgarnets', () => {
+    expect(clubSlugFor('DC Garnets')).toBe('dcgarnets');
+    expect(clubSlugFor('Dandenong City U14')).toBe('dcgarnets');
+  });
+
+  it('returns sensible slugs for unknown names', () => {
+    expect(clubSlugFor('Montmorency Titans')).toBe('montmorency');
+    expect(clubSlugFor('Some Club 12')).toBe('some-club');
+  });
+
+  it('defaults to hazel-glen when input is falsy', () => {
+    expect(clubSlugFor('')).toBe('hazel-glen');
+    expect(clubSlugFor(null)).toBe('hazel-glen');
+  });
+});
+
 describe('validateSeason', () => {
   it('should accept valid seasons', () => {
     expect(validateSeason('Season 1')).toEqual({ valid: true });
