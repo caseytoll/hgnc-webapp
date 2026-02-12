@@ -33,4 +33,4 @@ jobs:
           # Use example config - update account_id/route or configure in dashboard
           echo "Deploying Worker (wrangler deploy)..."
           # Note: For Pages domains, route binding may need manual steps or Pages-specific API
-          wrangler deploy workers/team-portal-worker.js --compatibility-date 2026-01-01 --name hgnc-team-portals-worker --routes "hgnc-gameday.pages.dev/teams/*" --routes "hgnc-gameday.pages.dev/p/*"
+          wrangler deploy workers/team-portal-worker.js --compatibility-date 2026-01-01 --name hgnc-team-portals-worker --routes "hgnc-gameday.pages.dev/teams/*" --routes "hgnc-gameday.pages.dev/p/*" --routes "hgnc-gameday.pages.dev/api/*"
