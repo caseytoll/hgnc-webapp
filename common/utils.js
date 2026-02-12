@@ -256,6 +256,41 @@ export function getInitials(name) {
 }
 
 /**
+ * Derive a club slug from a team name.
+ * - Recognises common abbreviations (e.g. "HG" -> "hazel-glen", "DC" -> "dcgarnets")
+ * - Falls back to the first one or two words slugified
+ * @param {string} teamName
+ * @returns {string} club slug (suitable for `/assets/team-logos/{slug}.svg`)
+ */
+export function clubSlugFor(teamName) {
+  if (!teamName || typeof teamName !== 'string') return 'hazel-glen';
+  const normalized = teamName.trim().toLowerCase();
+
+  // Known aliases (map common prefixes/abbreviations to canonical club slugs)
+  const aliases = {
+    'hg': 'hazel-glen',
+    'hazel': 'hazel-glen',
+    'hazel-glen': 'hazel-glen',
+    'dc': 'dcgarnets',
+    'dandenong': 'dcgarnets',
+    'dcgarnets': 'dcgarnets',
+    'titans': 'titans',
+    'montmorency': 'montmorency'
+  };
+
+  const words = normalized.split(/\s+/);
+  const first = words[0];
+  const firstTwo = (words.length > 1) ? `${words[0]} ${words[1]}` : first;
+
+  if (aliases[first]) return aliases[first];
+  if (aliases[firstTwo]) return aliases[firstTwo.replace(/\s+/g, '-')] || aliases[firstTwo];
+
+  // Fallback: slugify first two words (replace non-alphanum with '-')
+  const slug = firstTwo.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return slug || 'hazel-glen';
+}
+
+/**
  * Check if a game date/time is in the past (i.e., the game has been played).
  * Used to exclude upcoming games from stats calculations.
  * @param {Object} game - Game object with date and optional time fields
