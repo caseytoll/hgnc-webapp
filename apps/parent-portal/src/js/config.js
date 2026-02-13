@@ -4,14 +4,14 @@ export const API_CONFIG = {
   // Use the same Apps Script URL as the coach app
   // Prefer a proxy worker URL when available (set VITE_GS_API_PROXY_URL to your worker URL),
   // otherwise fall back to the Apps Script URL
-  baseUrl: import.meta.env.VITE_GS_API_PROXY_URL || 'https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec',
+  baseUrl: import.meta.env.VITE_GS_API_PROXY_URL || 'https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec',
   useMockData: false, // Use real API data
   debug: true
 };
 
-// Log environment and config for debugging
-console.log('[DEBUG] import.meta.env.VITE_GS_API_URL:', import.meta.env.VITE_GS_API_URL);
-console.log('[DEBUG] API_CONFIG.baseUrl:', API_CONFIG.baseUrl);
+// Log environment and config for debugging (guarded by debug flag)
+if (API_CONFIG.debug) console.log('[DEBUG] import.meta.env.VITE_GS_API_URL:', import.meta.env.VITE_GS_API_URL);
+if (API_CONFIG.debug) console.log('[DEBUG] API_CONFIG.baseUrl:', API_CONFIG.baseUrl);
 
 // Import mock data directly
 import { mockTeams } from '../../../../common/mock-data.js';

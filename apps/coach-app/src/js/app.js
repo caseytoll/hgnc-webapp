@@ -61,8 +61,8 @@ import {
   getInitials
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
-import { calculateTeamStats } from '../../../../common/mock-data.js';
-import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess } from './api.js';
+import { calculateTeamStats, mockTeams } from '../../../../common/mock-data.js';
+import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess, setDataSource } from './api.js';
 import {
   formatGameShareText,
   formatLineupText,
@@ -111,9 +111,52 @@ const state = {
   showArchivedTeams: false,
   // PIN tokens for device authentication per team
   teamPinTokens: {},
+  // API availability flag (runtime) — set to false if live API fails so we can
+  // suppress metrics and avoid repeat failing requests.
+  apiAvailable: true,
   // Coach section collapsed state (not persisted, resets each session)
   collapsedCoachSections: {}
 };
+
+// Runtime API health check and query-toggle handling
+async function checkApiHealth(timeoutMs = 3000) {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    const resp = await fetch(`${API_CONFIG.baseUrl}?api=true&action=ping`, { signal: controller.signal, cache: 'no-store' });
+    clearTimeout(id);
+    if (!resp.ok) throw new Error('Non-OK');
+    const data = await resp.json().catch(() => ({}));
+    state.apiAvailable = true;
+    updateStatus('API OK');
+    return true;
+  } catch (err) {
+    state.apiAvailable = false;
+    updateStatus('API unavailable');
+    return false;
+  }
+}
+
+// Inspect URL query for a runtime data override: ?data=mock|live
+function applyRuntimeDataOverride() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const val = params.get('data');
+    if (val === 'mock') {
+      setDataSource('mock');
+      console.log('[App] Runtime override: using mock data (URL param)');
+      return true;
+    }
+    if (val === 'live') {
+      setDataSource('api');
+      console.log('[App] Runtime override: using live API (URL param)');
+      return true;
+    }
+  } catch (e) {
+    /* noop */
+  }
+  return false;
+}
 
 // ========================================
 // LOCAL STORAGE PERSISTENCE
@@ -245,14 +288,19 @@ function loadFromLocalStorage() {
 const THEME_KEY = 'team-manager-theme';
 
 function loadTheme() {
-  const savedTheme = localStorage.getItem(THEME_KEY);
-  if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  } else {
-    // Check system preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  try {
+    const savedTheme = (typeof localStorage !== 'undefined') ? localStorage.getItem(THEME_KEY) : null;
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      return;
+    }
+  } catch (e) {
+    console.warn('[App] loadTheme: localStorage unavailable', e && e.message ? e.message : e);
   }
+
+  // Check system preference
+  const prefersDark = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) || false;
+  document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
 }
 
 window.toggleTheme = function() {
@@ -309,6 +357,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (e) {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
+  }
+
+  // Apply runtime override (URL: ?data=mock|live). If none, perform health-check and use live by default.
+  if (!applyRuntimeDataOverride()) {
+    checkApiHealth().then(ok => {
+      if (!ok) {
+        // If API is down, switch data source to mock for safety
+        setDataSource('mock');
+        console.warn('[App] API health-check failed — switched to mock data');
+      }
+    });
+    // Periodic health-check to recover if API comes back
+    setInterval(checkApiHealth, 60 * 1000);
   }
 
   loadTeams(); // Use cache if valid, fetch fresh otherwise
@@ -1127,8 +1188,7 @@ async function loadTeams(forceRefresh = false) {
           console.log('[Cache] Background teams revalidation started');
           try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
-          const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-          const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : API_CONFIG.baseUrl;
+          const baseUrl = API_CONFIG.baseUrl;
           const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
@@ -1179,10 +1239,51 @@ async function loadTeams(forceRefresh = false) {
       })();
 
     } else {
+      // Check if using mock data
+      if (API_CONFIG.useMockData) {
+        console.log('[App] Using mock data for teams');
+        state.teamSheetMap = state.teamSheetMap || {};
+        state.teams = mockTeams.map(t => {
+          const teamID = t.teamID;
+          const sheetName = `Mock-${teamID}`;
+          state.teamSheetMap[teamID] = sheetName;
+          return {
+            teamID,
+            teamName: t.teamName,
+            playerCount: t.players ? t.players.length : 0,
+            sheetName,
+            year: t.year,
+            season: t.season,
+            archived: false,
+            ladderUrl: '',
+            resultsApi: '',
+            lastModified: new Date().toISOString(),
+            hasPin: false,
+            coach: ''
+          };
+        });
+        // Cache the teams list
+        teamsListCache = {
+          teams: state.teams,
+          teamSheetMap: state.teamSheetMap
+        };
+        teamsListCacheTime = new Date().toISOString();
+        saveToLocalStorage();
+        console.log('[Cache] Loaded mock teams list');
+        // Send teams fetch metric
+        try {
+          sendClientMetric('teams-fetch', 0, (state.teams || []).length);
+        } catch (e) { /* noop */ }
+        try {
+          sendClientMetric('app-load', Math.round((performance && performance.now) ? performance.now() : Date.now()), (state.teams || []).length);
+        } catch (e) { /* noop */ }
+        hideLoading();
+        renderTeamList();
+        return;
+      }
+
       // Use direct API for both dev and production (browsers handle redirects automatically)
-      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : API_CONFIG.baseUrl;
-      console.log('[App] Fetching teams from:', baseUrl);
+      const baseUrl = API_CONFIG.baseUrl;
       // Measure teams fetch time
       const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
       const response = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
@@ -1274,8 +1375,48 @@ async function loadTeams(forceRefresh = false) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
     try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (e) { /* noop */ }
-    try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
-    showToast('Failed to load teams', 'error');
+
+    // If we intended to use live API but it failed, gracefully fall back to
+    // mock data so the UI remains usable and the console isn't spammed.
+    if (!API_CONFIG.useMockData) {
+      console.warn('[App] Live API unavailable — falling back to mock data');
+      try { state.apiAvailable = false; } catch (e) { /* noop */ }
+
+      // Populate teams from mock data
+      state.teamSheetMap = state.teamSheetMap || {};
+      state.teams = mockTeams.map(t => {
+        const teamID = t.teamID;
+        const sheetName = `Mock-${teamID}`;
+        state.teamSheetMap[teamID] = sheetName;
+        return {
+          teamID,
+          teamName: t.teamName,
+          playerCount: t.players ? t.players.length : 0,
+          sheetName,
+          year: t.year,
+          season: t.season,
+          archived: false,
+          ladderUrl: '',
+          resultsApi: '',
+          lastModified: new Date().toISOString(),
+          hasPin: false,
+          coach: ''
+        };
+      });
+
+      // Cache and render
+      teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+      teamsListCacheTime = new Date().toISOString();
+      saveToLocalStorage();
+
+      try { sendClientMetric('teams-fallback-to-mock', 1, (state.teams || []).length); } catch (e) { /* noop */ }
+      showToast('Live API unavailable — using mock data', 'warning');
+      try { renderTeamList(); } catch (e) { console.warn('[App] renderTeamList after fallback failed', e); }
+
+    } else {
+      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
+      showToast('Failed to load teams', 'error');
+    }
   } finally {
     hideLoading();
 
@@ -1359,6 +1500,12 @@ async function loadTeams(forceRefresh = false) {
 // Helper to send a client metric (used for teams-fetch and other small metrics)
 function sendClientMetric(name, value, teams) {
   try {
+    // Skip metric sending when using mock data or when the API is known to be unavailable
+    if (API_CONFIG.useMockData || (typeof state !== 'undefined' && state.apiAvailable === false)) {
+      console.log('[Metric] Skipping metric send (mock/offline mode):', name, value, teams);
+      return;
+    }
+
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
     const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
@@ -8107,17 +8254,17 @@ window.autoDetectSquadi = async function() {
 };
 
 window.pickSquadiOption = function(idx) {
-  console.log('[DEBUG] pickSquadiOption called with idx:', idx);
+  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption called with idx:', idx);
   const options = window._squadiAutoDetectOptions;
   if (!options || !options[idx]) {
-    console.log('[DEBUG] pickSquadiOption: no options or invalid idx');
+    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: no options or invalid idx');
     return;
   }
   const selectedOption = options[idx];
-  console.log('[DEBUG] pickSquadiOption: selected option:', selectedOption);
+  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: selected option:', selectedOption);
 
   // Close the auto-detect modal
-  console.log('[DEBUG] pickSquadiOption: closing auto-detect modal');
+  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: closing auto-detect modal');
   closeModal();
 
   // Build Squadi resultsApi configuration
@@ -8131,10 +8278,10 @@ window.pickSquadiOption = function(idx) {
     config.competitionKey = selectedOption.competitionKey;
   }
   const resultsApi = JSON.stringify(config);
-  console.log('[DEBUG] pickSquadiOption: built resultsApi config:', resultsApi);
+  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: built resultsApi config:', resultsApi);
 
   // Show loading and save directly
-  console.log('[DEBUG] pickSquadiOption: showing loading and calling updateTeamSettings');
+  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: showing loading and calling updateTeamSettings');
   showLoading();
   showToast('Saving Squadi configuration...', 'info');
 
@@ -8146,7 +8293,7 @@ window.pickSquadiOption = function(idx) {
     resultsApi: resultsApi,
     coach: state.currentTeam.coach
   }).then(() => {
-    console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
+    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
 
     // Update local state
     state.currentTeam.resultsApi = resultsApi;
@@ -8163,9 +8310,9 @@ window.pickSquadiOption = function(idx) {
     saveToLocalStorage();
     renderMainApp();
     showToast('Squadi configuration saved!', 'success');
-    console.log('[DEBUG] pickSquadiOption: completed successfully');
+    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: completed successfully');
   }).catch((error) => {
-    console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
+    if (API_CONFIG.debug) console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
     showToast('Failed to save Squadi config: ' + error.message, 'error');
   }).finally(() => {
     hideLoading();
@@ -8205,35 +8352,35 @@ window.autoDetectSquadiRescan = async function() {
 };
 
 function fillSquadiFields(opt) {
-  console.log('[DEBUG] fillSquadiFields: called with option:', opt);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: called with option:', opt);
   const compIdEl = document.getElementById('edit-squadi-competition-id');
   const divIdEl = document.getElementById('edit-squadi-division-id');
   const teamNameEl = document.getElementById('edit-squadi-team-name');
   const compKeyEl = document.getElementById('edit-squadi-competition-key');
 
-  console.log('[DEBUG] fillSquadiFields: setting compIdEl to:', opt.competitionId);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting compIdEl to:', opt.competitionId);
   if (compIdEl) compIdEl.value = opt.competitionId || '';
-  console.log('[DEBUG] fillSquadiFields: setting divIdEl to:', opt.divisionId);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting divIdEl to:', opt.divisionId);
   if (divIdEl) divIdEl.value = opt.divisionId || '';
-  console.log('[DEBUG] fillSquadiFields: setting teamNameEl to:', opt.teamName);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting teamNameEl to:', opt.teamName);
   if (teamNameEl) teamNameEl.value = opt.teamName || '';
-  console.log('[DEBUG] fillSquadiFields: setting compKeyEl to:', opt.competitionKey);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting compKeyEl to:', opt.competitionKey);
   if (compKeyEl && opt.competitionKey) compKeyEl.value = opt.competitionKey;
 
   // Make sure Squadi source is selected
   const sourceSelect = document.getElementById('edit-fixture-source');
-  console.log('[DEBUG] fillSquadiFields: current sourceSelect value:', sourceSelect?.value);
+  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: current sourceSelect value:', sourceSelect?.value);
   if (sourceSelect && sourceSelect.value !== 'squadi') {
-    console.log('[DEBUG] fillSquadiFields: changing sourceSelect to squadi');
+    if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: changing sourceSelect to squadi');
     sourceSelect.value = 'squadi';
     sourceSelect.dispatchEvent(new Event('change'));
   } else {
-    console.log('[DEBUG] fillSquadiFields: sourceSelect already set to squadi');
+    if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: sourceSelect already set to squadi');
   }
 }
 
 window.saveTeamSettings = async function() {
-  console.log('[DEBUG] saveTeamSettings: starting execution');
+  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: starting execution');
   const nameInput = document.getElementById('edit-team-name');
   const name = nameInput.value.trim();
   const yearInput = document.getElementById('edit-team-year');
@@ -8264,34 +8411,34 @@ window.saveTeamSettings = async function() {
     const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
     const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
     const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
-    console.log('[DEBUG] saveTeamSettings: Squadi config - compId:', squadiCompId, 'divId:', squadiDivId, 'teamName:', squadiTeamName, 'compKey:', squadiCompKey);
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Squadi config - compId:', squadiCompId, 'divId:', squadiDivId, 'teamName:', squadiTeamName, 'compKey:', squadiCompKey);
     if (squadiCompId && squadiDivId && squadiTeamName) {
       const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
       if (squadiCompKey) config.competitionKey = squadiCompKey;
       resultsApi = JSON.stringify(config);
-      console.log('[DEBUG] saveTeamSettings: Built Squadi resultsApi:', resultsApi);
+      if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Built Squadi resultsApi:', resultsApi);
     } else {
-      console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
+      if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
     }
   }
 
   // Validation
   if (!name) {
-    console.log('[DEBUG] saveTeamSettings: validation failed - no name');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - no name');
     showToast('Please enter a team name', 'error');
     nameInput.focus();
     return;
   }
 
   if (name.length < 2 || name.length > 100) {
-    console.log('[DEBUG] saveTeamSettings: validation failed - invalid name length');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid name length');
     showToast('Team name must be 2-100 characters', 'error');
     nameInput.focus();
     return;
   }
 
   if (isNaN(year) || year < 2000 || year > 2100) {
-    console.log('[DEBUG] saveTeamSettings: validation failed - invalid year');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid year');
     showToast('Year must be between 2000 and 2100', 'error');
     yearInput.focus();
     return;
@@ -8299,13 +8446,13 @@ window.saveTeamSettings = async function() {
 
   const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
   if (!validSeasons.includes(season)) {
-    console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
     showToast('Invalid season selected', 'error');
     return;
   }
 
-  console.log('[DEBUG] saveTeamSettings: validation passed, proceeding with save');
-  console.log('[DEBUG] saveTeamSettings: name:', name, 'year:', year, 'season:', season, 'fixtureSource:', fixtureSource, 'resultsApi:', resultsApi);
+  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation passed, proceeding with save');
+  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: name:', name, 'year:', year, 'season:', season, 'fixtureSource:', fixtureSource, 'resultsApi:', resultsApi);
 
   // Store old values for rollback
   const oldName = state.currentTeam.teamName;
@@ -8315,9 +8462,9 @@ window.saveTeamSettings = async function() {
   const oldLadderUrl = state.currentTeam.ladderUrl;
   const oldResultsApi = state.currentTeam.resultsApi;
 
-  console.log('[DEBUG] saveTeamSettings: calling closeModal()');
+  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling closeModal()');
   closeModal();
-  console.log('[DEBUG] saveTeamSettings: calling showLoading()');
+  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling showLoading()');
   showLoading();
 
   try {
@@ -8349,18 +8496,18 @@ window.saveTeamSettings = async function() {
     }
 
     // Save to backend
-    console.log('[DEBUG] saveTeamSettings: calling updateTeamSettings API');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling updateTeamSettings API');
     await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, resultsApi, coach });
 
-    console.log('[DEBUG] saveTeamSettings: API call successful, saving to localStorage');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: API call successful, saving to localStorage');
     saveToLocalStorage();
-    console.log('[DEBUG] saveTeamSettings: calling renderMainApp');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling renderMainApp');
     renderMainApp();
-    console.log('[DEBUG] saveTeamSettings: showing success toast');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: showing success toast');
     showToast('Team updated', 'success');
-    console.log('[DEBUG] saveTeamSettings: completed successfully');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: completed successfully');
   } catch (error) {
-    console.error('[DEBUG] saveTeamSettings: ERROR -', error);
+    if (API_CONFIG.debug) console.error('[DEBUG] saveTeamSettings: ERROR -', error);
     console.error('[App] Failed to save team settings:', error);
     // Rollback
     state.currentTeam.teamName = oldName;
@@ -8384,10 +8531,10 @@ window.saveTeamSettings = async function() {
       rollbackTeam.ladderUrl = oldLadderUrl;
       rollbackTeam.resultsApi = oldResultsApi;
     }
-    console.log('[DEBUG] saveTeamSettings: showing error toast');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: showing error toast');
     showToast('Failed to save: ' + error.message, 'error');
   } finally {
-    console.log('[DEBUG] saveTeamSettings: calling hideLoading');
+    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling hideLoading');
     hideLoading();
   }
 };
@@ -9353,6 +9500,9 @@ window.deleteTeam = async function(teamID, teamName) {
 };
 
 // Utility functions are imported from utils.js
+
+// Export state and functions for testing and runtime control
+export { state, loadTeams };
 
 // Export for hot module replacement
 if (import.meta.hot) {
