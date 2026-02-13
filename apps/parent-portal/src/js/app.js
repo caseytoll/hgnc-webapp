@@ -2,7 +2,11 @@
 // HGNC GAMEDAY - Read-only Parent Portal
 // ========================================
 
+<<<<<<< HEAD
 // (Debug log moved below imports and guarded by API_CONFIG.debug)
+=======
+console.log('[DEBUG] app.js loaded and executing - v2025-02-01h');
+>>>>>>> origin/master
 
 // Unregister any service workers on startup for read-only portal to avoid SW intercepting API calls
 if ('serviceWorker' in navigator) {
@@ -18,8 +22,11 @@ if ('serviceWorker' in navigator) {
 
 import '../css/styles.css';
 import { API_CONFIG, callApi } from './config.js';
+<<<<<<< HEAD
 
 if (API_CONFIG.debug) console.log('[DEBUG] app.js loaded and executing - v2025-02-01h');
+=======
+>>>>>>> origin/master
 import { resolveTeamParamFromLocation } from './router.js';
 import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
 import {
@@ -238,7 +245,11 @@ async function fetchAndRenderTeams() {
 }
 
 window.selectTeam = async function(teamID) {
+<<<<<<< HEAD
   if (API_CONFIG.debug) console.log('[DEBUG] selectTeam called with teamID:', teamID);
+=======
+  console.log('[DEBUG] selectTeam called with teamID:', teamID);
+>>>>>>> origin/master
 
   if (document.readyState !== 'complete') {
     await new Promise(resolve => {
@@ -266,9 +277,15 @@ window.selectTeam = async function(teamID) {
     }
 
     state.currentTeamData = transformTeamDataFromSheet(rawData, teamID);
+<<<<<<< HEAD
     if (API_CONFIG.debug) console.log('[DEBUG] Transformed teamData:', state.currentTeamData);
   } catch (err) {
     if (API_CONFIG.debug) console.error('[DEBUG] Error fetching team data:', err);
+=======
+    console.log('[DEBUG] Transformed teamData:', state.currentTeamData);
+  } catch (err) {
+    console.error('[DEBUG] Error fetching team data:', err);
+>>>>>>> origin/master
     showToast('Failed to load team data', 'error');
     return;
   } finally {
