@@ -9,6 +9,9 @@ let dataSource = 'api';
 // Cache for team sheetNames (needed to map teamID to sheetName for API calls)
 const teamSheetMap = new Map();
 
+// Cache for full team info (needed for team names and other metadata)
+const teamInfoMap = new Map();
+
 // Track last known modification timestamp per team (for stale data detection)
 const teamLastModified = new Map();
 
@@ -47,7 +50,7 @@ async function callAppsScript(action, params = {}) {
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
 
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec';
+  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec' : 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec';
 
     // Add api=true flag for Apps Script to know this is an API request
     url.searchParams.set('api', 'true');
@@ -243,9 +246,10 @@ export async function loadTeams() {
   const result = await callAppsScript('getTeams');
   const teams = result.teams || [];
 
-  // Cache the sheetName mapping for later use
+  // Cache the sheetName mapping and full team info for later use
   teams.forEach(t => {
     teamSheetMap.set(t.teamID, t.sheetName);
+    teamInfoMap.set(t.teamID, t);
   });
 
   return teams;
@@ -260,17 +264,18 @@ export async function loadTeamData(teamID) {
     return team;
   }
 
-  // Get sheetName from cache (populated by loadTeams)
+  // Get sheetName and team info from cache (populated by loadTeams)
   const sheetName = teamSheetMap.get(teamID);
+  const teamInfo = teamInfoMap.get(teamID);
   if (!sheetName) {
     throw new Error(`No sheetName found for team ${teamID}. Call loadTeams first.`);
   }
 
   // Try to fetch consolidated team info (logo, nextFixture, ladder) first
-  let teamInfo = null;
+  let serverTeamInfo = null;
   try {
     const infoRes = await callAppsScript('getTeamInfo', { teamID });
-    if (infoRes && infoRes.success && infoRes.info) teamInfo = infoRes.info;
+    if (infoRes && infoRes.success && infoRes.info) serverTeamInfo = infoRes.info;
   } catch (e) {
     // Non-fatal: fall back to sheet-only data
     console.warn('[API] getTeamInfo failed, falling back to getTeamData:', e.message || e);
@@ -281,7 +286,7 @@ export async function loadTeamData(teamID) {
   const rawData = result.teamData;
 
   // Transform from Google Sheet format to PWA format
-  const transformed = transformTeamDataFromSheet(rawData, teamID);
+  const transformed = transformTeamDataFromSheet(rawData, teamID, teamInfo?.teamName);
 
   // Store the server's last modified timestamp for stale data detection
   if (transformed._lastModified) {
@@ -349,7 +354,7 @@ export async function revokeTeamAccess(teamID, pinToken) {
 /**
  * Transform team data from Google Sheet format to PWA format
  */
-export function transformTeamDataFromSheet(data, teamID) {
+export function transformTeamDataFromSheet(data, teamID, teamName = '') {
   // Transform players
   const players = (data.players || []).map(p => {
     const player = {
@@ -494,7 +499,7 @@ export function transformTeamDataFromSheet(data, teamID) {
 
   const result = {
     teamID: teamID,
-    teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || '',
+    teamName: data.teamName || data.TeamName || data.name || data['Team Name'] || teamName || '',
     year: data.year || data.Year || data['Year'] || '',
     season: data.season || data.Season || data['Season'] || '',
     players: players,
@@ -504,6 +509,13 @@ export function transformTeamDataFromSheet(data, teamID) {
   };
   // Map team-level logo into PWA model (usable as `ourLogo`)
   result.ourLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
+  console.log('[LOGO DEBUG] Initial ourLogo from data:', result.ourLogo, {
+    logoUrl: data.logoUrl,
+    teamLogo: data.teamLogo,
+    teamLogoUrl: data.teamLogoUrl,
+    logo: data.logo,
+    team: data.team
+  });
   // Also propagate ourLogo onto each game if not already present (helps header rendering)
   if (result.ourLogo) {
     result.games.forEach(g => {
@@ -514,20 +526,21 @@ export function transformTeamDataFromSheet(data, teamID) {
   // then fall back to a team-named local asset.
   if (!result.ourLogo && (result.teamName || data.team?.name)) {
     const tname = result.teamName || (data.team && data.team.name) || '';
-
+    console.log('[LOGO DEBUG] No ourLogo found, using team name for fallback:', tname);
     // 1) Club-level asset (prefer .svg)
     const club = clubSlugFor(tname);
     result.ourLogo = `/assets/team-logos/${club}.svg`;
-
+    console.log('[LOGO DEBUG] Fallback to club logo:', result.ourLogo);
     // 2) Secondary: team-level png (legacy naming)
     const tslug = slugifyTeamName(tname);
     if (!result.ourLogo && tslug) {
       result.ourLogo = `/assets/team-logos/${tslug}.png`;
+      console.log('[LOGO DEBUG] Fallback to team PNG logo:', result.ourLogo);
     }
-
     // Apply to games
     result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
   }
+  console.log('[LOGO DEBUG] Final ourLogo for team:', result.ourLogo);
 
   // Final fallback: dedicated Hazel Glen SVG (guaranteed)
   if (!result.ourLogo) {
