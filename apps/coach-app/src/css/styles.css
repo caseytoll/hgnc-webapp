@@ -720,6 +720,19 @@
 .ladder-table th.numeric,
 .ladder-table td.numeric { text-align: left; }
 
+/* Ensure header and cell box model & padding match exactly to avoid visual misalignment */
+.ladder-table thead th,
+.ladder-table tbody td {
+  box-sizing: border-box;
+  padding: 4px 6px;   /* explicitly match header/cell padding */
+}
+
+/* Keep mobile padding consistent too */
+@media (max-width: 768px) {
+  .ladder-table thead th,
+  .ladder-table tbody td { padding: 3px 4px; box-sizing: border-box; }
+}
+
 .ladder-table thead th {
   position: sticky;
   top: 0;
@@ -2146,7 +2159,7 @@
 
 /* Dedicated logo column */
 .ladder-table th.logo-col {
-  width: 56px;                /* slightly smaller so TEAM gets more room (v6-like) */
+  width: 36px;                /* match body cell width so headers align */
   text-align: center;         /* center the TEAM label above the icon */
   padding: 4px 6px;
   vertical-align: middle;
@@ -2157,7 +2170,7 @@
   font-size: 0.75rem;
 }
 .ladder-table td.logo-col {
-  width: 30px;
+  width: 36px; /* match header width */
   text-align: center; /* icon centered in its column */
   padding: 4px 6px;
   vertical-align: middle;
