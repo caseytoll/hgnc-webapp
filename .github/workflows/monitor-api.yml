@@ -27,11 +27,18 @@ jobs:
           if [ -z "${GS_API_URL:-}" ]; then
             echo "WARNING: GS_API_URL not set; skipping ping check"
             echo "ping_failed=false" >> $GITHUB_OUTPUT
+            echo "ping_status=000" >> $GITHUB_OUTPUT
             exit 0
           fi
           PING_URL="${GS_API_URL}?api=true&action=ping"
           echo "Pinging $PING_URL"
+
+          # Capture response body (if any) and HTTP status code separately so we can
+          # detect permission/403 errors explicitly.
           resp=$(curl -sSfL "$PING_URL" || true)
+          http_status=$(curl -s -o /dev/null -w "%{http_code}" "$PING_URL" || echo "000")
+          echo "ping_status=$http_status" >> $GITHUB_OUTPUT
+
           if [ -z "$resp" ]; then
             echo "ping_failed=true" >> $GITHUB_OUTPUT
           else
@@ -84,13 +91,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pingFailed = `${{ steps.ping.outputs.ping_failed }}` === 'true';
+            const pingStatus = `${{ steps.ping.outputs.ping_status }}` || '000';
             const teamsFailed = `${{ steps.fetch.outputs.teams_failed }}` === 'true';
             const spike = `${{ steps.fetch.outputs.spike }}` === '1';
             const spikeCount = `${{ steps.fetch.outputs.spike_count }}` || '0';
             const recent = `${{ steps.fetch.outputs.recent_values }}` || '';
             const runUrl = process.env.GITHUB_RUN_URL || `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const title = spike ? `ALERT: getTeams_totalMs spike detected (${spikeCount} entries > threshold)` : 'Monitor alert: API issue';
-            const body = `Monitor alert:\n- pingFailed: ${pingFailed}\n- teamsFailed: ${teamsFailed}\n- spike: ${spike} (${spikeCount})\n- recent_values: ${recent}\n\nRun: ${runUrl}`;
+            const body = `Monitor alert:\n- pingFailed: ${pingFailed} (HTTP ${pingStatus})\n- teamsFailed: ${teamsFailed}\n- spike: ${spike} (${spikeCount})\n- recent_values: ${recent}\n\nRun: ${runUrl}`;
 
             // If Slack webhook available, try to post to Slack first
             if (process.env.SLACK_WEBHOOK_URL) {

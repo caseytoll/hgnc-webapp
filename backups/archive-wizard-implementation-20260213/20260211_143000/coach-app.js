@@ -61,8 +61,8 @@ import {
   getInitials
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
-import { calculateTeamStats, mockTeams } from '../../../../common/mock-data.js';
-import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess, setDataSource } from './api.js';
+import { calculateTeamStats } from '../../../../common/mock-data.js';
+import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess } from './api.js';
 import {
   formatGameShareText,
   formatLineupText,
@@ -111,52 +111,9 @@ const state = {
   showArchivedTeams: false,
   // PIN tokens for device authentication per team
   teamPinTokens: {},
-  // API availability flag (runtime) — set to false if live API fails so we can
-  // suppress metrics and avoid repeat failing requests.
-  apiAvailable: true,
   // Coach section collapsed state (not persisted, resets each session)
   collapsedCoachSections: {}
 };
-
-// Runtime API health check and query-toggle handling
-async function checkApiHealth(timeoutMs = 3000) {
-  try {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-    const resp = await fetch(`${API_CONFIG.baseUrl}?api=true&action=ping`, { signal: controller.signal, cache: 'no-store' });
-    clearTimeout(id);
-    if (!resp.ok) throw new Error('Non-OK');
-    const data = await resp.json().catch(() => ({}));
-    state.apiAvailable = true;
-    updateStatus('API OK');
-    return true;
-  } catch (err) {
-    state.apiAvailable = false;
-    updateStatus('API unavailable');
-    return false;
-  }
-}
-
-// Inspect URL query for a runtime data override: ?data=mock|live
-function applyRuntimeDataOverride() {
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    const val = params.get('data');
-    if (val === 'mock') {
-      setDataSource('mock');
-      console.log('[App] Runtime override: using mock data (URL param)');
-      return true;
-    }
-    if (val === 'live') {
-      setDataSource('api');
-      console.log('[App] Runtime override: using live API (URL param)');
-      return true;
-    }
-  } catch (e) {
-    /* noop */
-  }
-  return false;
-}
 
 // ========================================
 // LOCAL STORAGE PERSISTENCE
@@ -288,19 +245,14 @@ function loadFromLocalStorage() {
 const THEME_KEY = 'team-manager-theme';
 
 function loadTheme() {
-  try {
-    const savedTheme = (typeof localStorage !== 'undefined') ? localStorage.getItem(THEME_KEY) : null;
-    if (savedTheme) {
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      return;
-    }
-  } catch (e) {
-    console.warn('[App] loadTheme: localStorage unavailable', e && e.message ? e.message : e);
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  } else {
+    // Check system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
   }
-
-  // Check system preference
-  const prefersDark = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) || false;
-  document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
 }
 
 window.toggleTheme = function() {
@@ -359,19 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('[App] Slug/subdomain parsing failed:', e.message || e);
   }
 
-  // Apply runtime override (URL: ?data=mock|live). If none, perform health-check and use live by default.
-  if (!applyRuntimeDataOverride()) {
-    checkApiHealth().then(ok => {
-      if (!ok) {
-        // If API is down, switch data source to mock for safety
-        setDataSource('mock');
-        console.warn('[App] API health-check failed — switched to mock data');
-      }
-    });
-    // Periodic health-check to recover if API comes back
-    setInterval(checkApiHealth, 60 * 1000);
-  }
-
   loadTeams(); // Use cache if valid, fetch fresh otherwise
 });
 
@@ -386,455 +325,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Multi-step wizard state
-  let wizardState = {
-    currentStep: 1,
-    totalSteps: 6,
-    data: {
-      name: '',
-      year: new Date().getFullYear(),
-      competitionType: 'NFNL',
-      season: 'Season 1',
-      coach: '',
-      coachCustom: '',
-      ladderUrl: '',
-      resultsApi: ''
-    }
-  };
-
   window.openAddTeamModal = function() {
-    // Reset wizard state
-    wizardState = {
-      currentStep: 1,
-      totalSteps: 6,
-      data: {
-        name: '',
-        year: new Date().getFullYear(),
-        competitionType: 'NFNL',
-        season: 'Season 1',
-        coach: '',
-        coachCustom: '',
-        ladderUrl: '',
-        resultsApi: ''
-      }
-    };
-
-    renderWizardModal();
-  };
-
-  function renderWizardModal() {
-    const stepTitles = {
-      1: 'Basic Information',
-      2: 'Coach Selection',
-      3: 'Integration Setup',
-      4: 'Summary & Confirmation'
-    };
-
-    const stepContent = getWizardStepContent(wizardState.currentStep);
-    const footerButtons = getWizardFooterButtons(wizardState.currentStep);
-
-    openModal(`Add New Team - ${stepTitles[wizardState.currentStep]}`, stepContent, footerButtons);
-  }
-
-  function getWizardStepContent(step) {
-    const progressBar = `
-      <div class="wizard-progress" style="margin-bottom: 20px;">
-        <div class="progress-steps">
-          ${Array.from({length: wizardState.totalSteps}, (_, i) => {
-            const stepNum = i + 1;
-            const isActive = stepNum === step;
-            const isCompleted = stepNum < step;
-            return `<div class="progress-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}">${stepNum}</div>`;
-          }).join('')}
-        </div>
+    const currentYear = new Date().getFullYear();
+    openModal('Add New Team', `
+      <div class="form-group">
+        <label class="form-label">Team Name</label>
+        <input type="text" class="form-input" id="new-team-name" maxlength="100" placeholder="e.g. U11 Thunder">
       </div>
-    `;
-
-    switch(step) {
-      case 1:
-        return progressBar + `
-          <div class="form-group">
-            <label class="form-label">Team Name</label>
-            <input type="text" class="form-input" id="wizard-team-name" maxlength="100" placeholder="e.g. U11 Thunder" value="${wizardState.data.name}">
-            <div class="form-help">Enter a unique name for your team (2-100 characters)</div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Year</label>
-            <input type="number" class="form-input" id="wizard-team-year" min="2000" max="2100" value="${wizardState.data.year}">
-            <div class="form-help">The competition year for this team</div>
-          </div>
-        `;
-
-      case 2:
-        return progressBar + `
-          <div class="form-group">
-            <label class="form-label">Competition Type</label>
-            <select class="form-select" id="wizard-competition-type" onchange="handleCompetitionTypeChange()">
-              <option value="NFNL" ${wizardState.data.competitionType === 'NFNL' ? 'selected' : ''}>NFNL (Northern Football Netball League)</option>
-              <option value="Nillumbik Force" ${wizardState.data.competitionType === 'Nillumbik Force' ? 'selected' : ''}>Nillumbik Force</option>
-              <option value="Other" ${wizardState.data.competitionType === 'Other' ? 'selected' : ''}>Other</option>
-            </select>
-            <div class="form-help">Select the competition your team participates in</div>
-          </div>
-        `;
-
-      case 3:
-        const showSeason = wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other';
-        if (!showSeason) {
-          // Skip season step for Nillumbik Force - they have different structure
-          setTimeout(() => wizardNavigate(4), 0);
-          return progressBar + `
-            <div class="info-section">
-              <div class="info-icon">⏭️</div>
-              <div class="info-content">
-                <p>Skipping season selection for Nillumbik Force competitions.</p>
-              </div>
-            </div>
-          `;
-        }
-        return progressBar + `
-          <div class="form-group">
-            <label class="form-label">Season</label>
-            <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
-              <option value="Season 1" ${wizardState.data.season === 'Season 1' ? 'selected' : ''}>Season 1</option>
-              <option value="Season 2" ${wizardState.data.season === 'Season 2' ? 'selected' : ''}>Season 2</option>
-              ${wizardState.data.competitionType === 'Other' ? '<option value="Other"' + (wizardState.data.season === 'Other' ? ' selected' : '') + '>Other</option>' : ''}
-            </select>
-            <div class="form-help">Select the competition season</div>
-          </div>
-        `;
-
-      case 4:
-        return progressBar + `
-          <div class="form-group">
-            <label class="form-label">Coach</label>
-            <select class="form-select" id="wizard-team-coach" onchange="handleCoachSelectionChange()">
-              <option value="">— None —</option>
-              ${getUniqueCoachNames().map(c =>
-                `<option value="${escapeAttr(c)}" ${wizardState.data.coach === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
-              ).join('')}
-              <option value="${COACH_OTHER_SENTINEL}">Other...</option>
-            </select>
-            <input type="text" class="form-input" id="wizard-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:${wizardState.data.coach === COACH_OTHER_SENTINEL ? 'block' : 'none'};margin-top:6px;" value="${wizardState.data.coachCustom}">
-            <div class="form-help">Select the coach for this team, or choose "Other..." to enter a custom name</div>
-          </div>
-        `;
-
-      case 5:
-        const isNFNL = wizardState.data.competitionType === 'NFNL';
-        const isForce = wizardState.data.competitionType === 'Nillumbik Force';
-        return progressBar + `
-          ${isNFNL ? `
-          <div class="form-group">
-            <label class="form-label">Ladder URL <span class="form-label-desc">(optional)</span></label>
-            <input type="url" class="form-input" id="wizard-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/..." value="${wizardState.data.ladderUrl}">
-            <div class="form-help">For NFNL teams, enter the ladder URL from MyGameDay to automatically sync results</div>
-          </div>
-          ` : isForce ? `
-          <div class="form-group">
-            <label class="form-label">Fixture Sync Setup <span class="form-label-desc">(optional)</span></label>
-            <select class="form-select" id="wizard-fixture-source" onchange="handleFixtureSourceChange()">
-              <option value="">— No fixture sync —</option>
-              <option value="squadi">Squadi (Competition fixtures)</option>
-              <option value="gameday">GameDay (MyGameDay integration)</option>
-            </select>
-            <div id="fixture-config-section" style="display:none;margin-top:10px;">
-              <!-- Dynamic content will be inserted here -->
-            </div>
-            <div class="form-help">For Nillumbik Force teams, configure automatic fixture syncing from Squadi or GameDay</div>
-          </div>
-          ` : `
-          <div class="info-section">
-            <div class="info-icon">ℹ️</div>
-            <div class="info-content">
-              <h4>Integration Setup</h4>
-              <p>Integration setup is available for NFNL (ladder sync) and Nillumbik Force (fixture sync) competitions.</p>
-            </div>
-          </div>
-          `}
-        `;
-
-      case 6:
-        const coachDisplay = wizardState.data.coach === COACH_OTHER_SENTINEL ? wizardState.data.coachCustom : wizardState.data.coach;
-        const integrationType = wizardState.data.competitionType === 'NFNL' ? 'Ladder' : wizardState.data.competitionType === 'Nillumbik Force' ? 'Fixture Sync' : 'None';
-        const hasIntegration = (wizardState.data.competitionType === 'NFNL' && wizardState.data.ladderUrl) || (wizardState.data.competitionType === 'Nillumbik Force' && wizardState.data.resultsApi);
-        return progressBar + `
-          <div class="summary-section">
-            <h4 style="margin-bottom: 15px; color: var(--text-primary);">Review Your Team Details</h4>
-            <div class="summary-item">
-              <strong>Team Name:</strong> ${wizardState.data.name || 'Not specified'}
-            </div>
-            <div class="summary-item">
-              <strong>Year:</strong> ${wizardState.data.year}
-            </div>
-            <div class="summary-item">
-              <strong>Competition:</strong> ${wizardState.data.competitionType}
-            </div>
-            ${wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other' ? `<div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>` : ''}
-            <div class="summary-item">
-              <strong>Coach:</strong> ${coachDisplay || 'Not specified'}
-            </div>
-            <div class="summary-item">
-              <strong>${integrationType} Integration:</strong> ${hasIntegration ? 'Yes' : 'No'}
-            </div>
-            ${wizardState.data.ladderUrl ? `<div class="summary-item"><strong>Ladder URL:</strong> ${wizardState.data.ladderUrl}</div>` : ''}
-            ${wizardState.data.resultsApi ? `<div class="summary-item"><strong>Fixture Source:</strong> ${JSON.parse(wizardState.data.resultsApi).source || 'Configured'}</div>` : ''}
-          </div>
-        `;
-
-      default:
-        return '';
-    }
-  }
-
-  function getWizardFooterButtons(step) {
-    const prevBtn = step > 1 ? `<button class="btn btn-ghost" onclick="wizardNavigate(${step - 1})">← Back</button>` : '';
-    const nextBtn = step < wizardState.totalSteps ? `<button class="btn btn-primary" onclick="wizardNavigate(${step + 1})">Next →</button>` : '';
-    const createBtn = step === wizardState.totalSteps ? `<button class="btn btn-primary" onclick="addNewTeam()">Create Team</button>` : '';
-    const cancelBtn = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`;
-
-    return `${prevBtn}${cancelBtn}${nextBtn}${createBtn}`;
-  }
-
-  window.wizardNavigate = function(targetStep) {
-    // Validate current step before proceeding
-    if (!validateWizardStep(wizardState.currentStep)) {
-      return;
-    }
-
-    // Save current step data
-    saveWizardStepData(wizardState.currentStep);
-
-    // Navigate to target step
-    wizardState.currentStep = targetStep;
-    renderWizardModal();
-  };
-
-  function validateWizardStep(step) {
-    switch(step) {
-      case 1:
-        const name = document.getElementById('wizard-team-name').value.trim();
-        const year = parseInt(document.getElementById('wizard-team-year').value);
-
-        if (!name) {
-          showToast('Please enter a team name', 'error');
-          document.getElementById('wizard-team-name').focus();
-          return false;
-        }
-        if (name.length < 2 || name.length > 100) {
-          showToast('Team name must be 2-100 characters', 'error');
-          document.getElementById('wizard-team-name').focus();
-          return false;
-        }
-        if (isNaN(year) || year < 2000 || year > 2100) {
-          showToast('Year must be between 2000 and 2100', 'error');
-          document.getElementById('wizard-team-year').focus();
-          return false;
-        }
-        return true;
-
-      case 2:
-        // Competition type is always valid (has defaults)
-        return true;
-
-      case 3:
-        // Season validation only for NFNL and Other competitions
-        if (wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other') {
-          const seasonSelect = document.getElementById('wizard-team-season');
-          if (seasonSelect) {
-            const season = seasonSelect.value;
-            const validSeasons = wizardState.data.competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
-            if (!validSeasons.includes(season)) {
-              showToast('Invalid season selected', 'error');
-              return false;
-            }
-            
-            // Check for duplicate name/year/season
-            const name = wizardState.data.name;
-            const year = wizardState.data.year;
-            if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
-              showToast('A team with this name, year, and season already exists', 'error');
-              return false;
-            }
-          }
-        }
-        return true;
-
-      case 4:
-        // Coach selection is optional, no validation needed
-        return true;
-
-      case 5:
-        // Integration setup validation
-        if (wizardState.data.competitionType === 'NFNL') {
-          const ladderUrl = document.getElementById('wizard-team-ladder-url');
-          if (ladderUrl && ladderUrl.value.trim()) {
-            try {
-              new URL(ladderUrl.value.trim());
-            } catch (e) {
-              showToast('Please enter a valid ladder URL', 'error');
-              ladderUrl.focus();
-              return false;
-            }
-          }
-        } else if (wizardState.data.competitionType === 'Nillumbik Force') {
-          const sourceSelect = document.getElementById('wizard-fixture-source');
-          if (sourceSelect && sourceSelect.value) {
-            const source = sourceSelect.value;
-            if (source === 'squadi') {
-              const compId = document.getElementById('wizard-squadi-competition-id');
-              const divId = document.getElementById('wizard-squadi-division-id');
-              const teamName = document.getElementById('wizard-squadi-team-name');
-              
-              if (!compId.value || !divId.value || !teamName.value.trim()) {
-                showToast('Please fill in all Squadi configuration fields', 'error');
-                return false;
-              }
-            } else if (source === 'gameday') {
-              const compId = document.getElementById('wizard-gameday-comp-id');
-              const client = document.getElementById('wizard-gameday-client');
-              const teamName = document.getElementById('wizard-gameday-team-name');
-              
-              if (!compId.value.trim() || !client.value.trim() || !teamName.value.trim()) {
-                showToast('Please fill in all GameDay configuration fields', 'error');
-                return false;
-              }
-            }
-          }
-        }
-        return true;
-
-      default:
-        return true;
-    }
-  }
-
-  function saveWizardStepData(step) {
-    switch(step) {
-      case 1:
-        wizardState.data.name = document.getElementById('wizard-team-name').value.trim();
-        wizardState.data.year = parseInt(document.getElementById('wizard-team-year').value);
-        break;
-      case 2:
-        wizardState.data.competitionType = document.getElementById('wizard-competition-type').value;
-        break;
-      case 3:
-        // Only save season for NFNL and Other competitions
-        if (wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other') {
-          const seasonSelect = document.getElementById('wizard-team-season');
-          wizardState.data.season = seasonSelect ? seasonSelect.value : 'Season 1';
-        }
-        break;
-      case 4:
-        const coachSelect = document.getElementById('wizard-team-coach');
-        const coachCustom = document.getElementById('wizard-team-coach-custom');
-        wizardState.data.coach = coachSelect.value;
-        wizardState.data.coachCustom = coachCustom.value.trim();
-        break;
-      case 5:
-        // Save integration data based on competition type
-        if (wizardState.data.competitionType === 'NFNL') {
-          const ladderUrlInput = document.getElementById('wizard-team-ladder-url');
-          wizardState.data.ladderUrl = ladderUrlInput ? ladderUrlInput.value.trim() : '';
-          wizardState.data.resultsApi = '';
-        } else if (wizardState.data.competitionType === 'Nillumbik Force') {
-          const sourceSelect = document.getElementById('wizard-fixture-source');
-          const source = sourceSelect ? sourceSelect.value : '';
-          
-          if (source === 'squadi') {
-            const compId = document.getElementById('wizard-squadi-competition-id').value;
-            const divId = document.getElementById('wizard-squadi-division-id').value;
-            const teamName = document.getElementById('wizard-squadi-team-name').value.trim();
-            
-            if (compId && divId && teamName) {
-              wizardState.data.resultsApi = JSON.stringify({
-                source: 'squadi',
-                competitionId: parseInt(compId),
-                divisionId: parseInt(divId),
-                squadiTeamName: teamName
-              });
-            }
-          } else if (source === 'gameday') {
-            const compId = document.getElementById('wizard-gameday-comp-id').value.trim();
-            const client = document.getElementById('wizard-gameday-client').value.trim();
-            const teamName = document.getElementById('wizard-gameday-team-name').value.trim();
-            
-            if (compId && client && teamName) {
-              wizardState.data.resultsApi = JSON.stringify({
-                source: 'gameday',
-                compID: compId,
-                client: client,
-                teamName: teamName
-              });
-            }
-          }
-          wizardState.data.ladderUrl = '';
-        } else {
-          wizardState.data.ladderUrl = '';
-          wizardState.data.resultsApi = '';
-        }
-        break;
-    }
-  }
-
-  window.handleSeasonChange = function() {
-    const seasonSelect = document.getElementById('wizard-team-season');
-    wizardState.data.season = seasonSelect.value;
-    // If changing away from NFNL, clear ladder URL
-    if (wizardState.data.season !== 'NFNL') {
-      wizardState.data.ladderUrl = '';
-    }
-    // Re-render current step to show/hide ladder URL field
-    renderWizardModal();
-  };
-
-  window.handleCoachSelectionChange = function() {
-    const coachSelect = document.getElementById('wizard-team-coach');
-    const coachCustom = document.getElementById('wizard-team-coach-custom');
-
-    if (coachSelect.value === COACH_OTHER_SENTINEL) {
-      coachCustom.style.display = 'block';
-      coachCustom.focus();
-    } else {
-      coachCustom.style.display = 'none';
-    }
+      <div class="form-group">
+        <label class="form-label">Year</label>
+        <input type="number" class="form-input" id="new-team-year" min="2000" max="2100" value="${currentYear}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Season</label>
+        <select class="form-select" id="new-team-season">
+          <option value="Season 1">Season 1</option>
+          <option value="Season 2">Season 2</option>
+          <option value="NFNL">NFNL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Coach</label>
+        <select class="form-select" id="new-team-coach" onchange="if(this.value==='${COACH_OTHER_SENTINEL}'){document.getElementById('new-team-coach-custom').style.display='';this.style.display='none';document.getElementById('new-team-coach-custom').focus();}">
+          <option value="">— None —</option>
+          ${getUniqueCoachNames().map(c =>
+            `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`
+          ).join('')}
+          <option value="${COACH_OTHER_SENTINEL}">Other...</option>
+        </select>
+        <input type="text" class="form-input" id="new-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
+        <input type="url" class="form-input" id="new-team-ladder-url" maxlength="300" placeholder="https://websites.mygameday.app/...">
+      </div>
+    `, `
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addNewTeam()">Add Team</button>
+    `);
   };
 
   window.addNewTeam = async function() {
-    // Use wizard state data
-    const { name, year, competitionType, season, coach, coachCustom, ladderUrl, resultsApi } = wizardState.data;
-    const coachRaw = coach === COACH_OTHER_SENTINEL ? coachCustom : coach;
+    const nameInput = document.getElementById('new-team-name');
+    const yearInput = document.getElementById('new-team-year');
+    const seasonInput = document.getElementById('new-team-season');
+    const ladderUrlInput = document.getElementById('new-team-ladder-url');
+    const coachSelect = document.getElementById('new-team-coach');
+    const coachCustom = document.getElementById('new-team-coach-custom');
+    const name = nameInput.value.trim();
+    const year = parseInt(yearInput.value);
+    const season = seasonInput.value;
+    const ladderUrl = ladderUrlInput.value.trim();
+    const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
+    const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
-    // Validation (should already be done in wizard, but double-check)
+    // Validation
     if (!name) {
       showToast('Please enter a team name', 'error');
+      nameInput.focus();
       return;
     }
     if (name.length < 2 || name.length > 100) {
       showToast('Team name must be 2-100 characters', 'error');
+      nameInput.focus();
       return;
     }
     if (isNaN(year) || year < 2000 || year > 2100) {
       showToast('Year must be between 2000 and 2100', 'error');
+      yearInput.focus();
+      return;
+    }
+    const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+    if (!validSeasons.includes(season)) {
+      showToast('Invalid season selected', 'error');
       return;
     }
 
-    // Season validation depends on competition type
-    let seasonToUse = season;
-    if (competitionType === 'Nillumbik Force') {
-      // For Nillumbik Force, use a default season or empty
-      seasonToUse = 'Nillumbik Force';
-    } else {
-      const validSeasons = competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
-      if (!validSeasons.includes(season)) {
-        showToast('Invalid season selected', 'error');
-        return;
-      }
-    }
-
     // Check for duplicate name/year/season
-    if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === seasonToUse)) {
+    if (state.teams.some(t => t.teamName.toLowerCase() === name.toLowerCase() && t.year === year && t.season === season)) {
       showToast('A team with this name, year, and season already exists', 'error');
+      nameInput.focus();
       return;
     }
 
@@ -848,11 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
       url.searchParams.set('api', 'true');
       url.searchParams.set('action', 'createTeam');
       url.searchParams.set('year', year);
-      url.searchParams.set('season', seasonToUse);
+      url.searchParams.set('season', season);
       url.searchParams.set('name', name);
-      if (coachRaw) url.searchParams.set('coach', coachRaw);
+      if (coach) url.searchParams.set('coach', coach);
       if (ladderUrl) url.searchParams.set('ladderUrl', ladderUrl);
-      if (resultsApi) url.searchParams.set('resultsApi', resultsApi);
 
       const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
       const data = await response.json();
@@ -871,101 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
       hideLoading();
     }
   };
-
-// ========================================
-// SEASON CHANGE HANDLER
-// ========================================
-
-function handleSeasonChange() {
-  const seasonSelect = document.getElementById('wizard-team-season');
-  if (seasonSelect) {
-    wizardState.data.season = seasonSelect.value;
-    // Re-render the current step to show/hide ladder URL field
-    renderWizardModal();
-  }
-};
-
-// ========================================
-// COMPETITION TYPE CHANGE HANDLER
-// ========================================
-
-function handleCompetitionTypeChange() {
-  const competitionSelect = document.getElementById('wizard-competition-type');
-  if (competitionSelect) {
-    wizardState.data.competitionType = competitionSelect.value;
-    // Reset season for Nillumbik Force (they don't use Season 1/2 structure)
-    if (competitionSelect.value === 'Nillumbik Force') {
-      wizardState.data.season = '';
-    } else if (!wizardState.data.season || wizardState.data.season === '') {
-      wizardState.data.season = 'Season 1';
-    }
-    // Re-render the current step
-    renderWizardModal();
-  }
-};
-
-// ========================================
-// FIXTURE SOURCE CHANGE HANDLER
-// ========================================
-
-function handleFixtureSourceChange() {
-  const sourceSelect = document.getElementById('wizard-fixture-source');
-  const configSection = document.getElementById('fixture-config-section');
-  
-  if (!sourceSelect || !configSection) return;
-  
-  const source = sourceSelect.value;
-  
-  if (!source) {
-    configSection.style.display = 'none';
-    wizardState.data.resultsApi = '';
-    return;
-  }
-  
-  configSection.style.display = 'block';
-  
-  if (source === 'squadi') {
-    configSection.innerHTML = `
-      <div class="form-group">
-        <label class="form-label">Competition ID</label>
-        <input type="number" class="form-input" id="wizard-squadi-competition-id" placeholder="e.g. 4640" min="1">
-        <div class="form-help">Squadi competition ID (found in URL or settings)</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Division ID</label>
-        <input type="number" class="form-input" id="wizard-squadi-division-id" placeholder="e.g. 12345" min="1">
-        <div class="form-help">Squadi division ID for your team's division</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Team Name in Squadi</label>
-        <input type="text" class="form-input" id="wizard-squadi-team-name" placeholder="e.g. Hazel Glen 6" maxlength="100">
-        <div class="form-help">Exact team name as it appears in Squadi</div>
-      </div>
-    `;
-  } else if (source === 'gameday') {
-    configSection.innerHTML = `
-      <div class="form-group">
-        <label class="form-label">Competition ID</label>
-        <input type="text" class="form-input" id="wizard-gameday-comp-id" placeholder="e.g. 655969" maxlength="20">
-        <div class="form-help">MyGameDay competition ID (from ladder URL)</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Client Code</label>
-        <input type="text" class="form-input" id="wizard-gameday-client" placeholder="e.g. 0-9074-0-602490-0" maxlength="50">
-        <div class="form-help">MyGameDay client code (from ladder URL)</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Team Name in GameDay</label>
-        <input type="text" class="form-input" id="wizard-gameday-team-name" placeholder="e.g. Hazel Glen 6" maxlength="100">
-        <div class="form-help">Exact team name as it appears in MyGameDay</div>
-      </div>
-    `;
-  }
-};
-
-// Expose handlers to window
-window.handleCompetitionTypeChange = handleCompetitionTypeChange;
-window.handleFixtureSourceChange = handleFixtureSourceChange;
 
 // ========================================
 // VIEW MANAGEMENT
@@ -1188,7 +662,8 @@ async function loadTeams(forceRefresh = false) {
           console.log('[Cache] Background teams revalidation started');
           try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
-          const baseUrl = API_CONFIG.baseUrl;
+          const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+          const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
           const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
@@ -1239,51 +714,10 @@ async function loadTeams(forceRefresh = false) {
       })();
 
     } else {
-      // Check if using mock data
-      if (API_CONFIG.useMockData) {
-        console.log('[App] Using mock data for teams');
-        state.teamSheetMap = state.teamSheetMap || {};
-        state.teams = mockTeams.map(t => {
-          const teamID = t.teamID;
-          const sheetName = `Mock-${teamID}`;
-          state.teamSheetMap[teamID] = sheetName;
-          return {
-            teamID,
-            teamName: t.teamName,
-            playerCount: t.players ? t.players.length : 0,
-            sheetName,
-            year: t.year,
-            season: t.season,
-            archived: false,
-            ladderUrl: '',
-            resultsApi: '',
-            lastModified: new Date().toISOString(),
-            hasPin: false,
-            coach: ''
-          };
-        });
-        // Cache the teams list
-        teamsListCache = {
-          teams: state.teams,
-          teamSheetMap: state.teamSheetMap
-        };
-        teamsListCacheTime = new Date().toISOString();
-        saveToLocalStorage();
-        console.log('[Cache] Loaded mock teams list');
-        // Send teams fetch metric
-        try {
-          sendClientMetric('teams-fetch', 0, (state.teams || []).length);
-        } catch (e) { /* noop */ }
-        try {
-          sendClientMetric('app-load', Math.round((performance && performance.now) ? performance.now() : Date.now()), (state.teams || []).length);
-        } catch (e) { /* noop */ }
-        hideLoading();
-        renderTeamList();
-        return;
-      }
-
-      // Use direct API for both dev and production (browsers handle redirects automatically)
-      const baseUrl = API_CONFIG.baseUrl;
+      // Use proxy for local dev to bypass CORS
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+      const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+      console.log('[App] Fetching teams from:', baseUrl);
       // Measure teams fetch time
       const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
       const response = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
@@ -1375,48 +809,8 @@ async function loadTeams(forceRefresh = false) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
     try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (e) { /* noop */ }
-
-    // If we intended to use live API but it failed, gracefully fall back to
-    // mock data so the UI remains usable and the console isn't spammed.
-    if (!API_CONFIG.useMockData) {
-      console.warn('[App] Live API unavailable — falling back to mock data');
-      try { state.apiAvailable = false; } catch (e) { /* noop */ }
-
-      // Populate teams from mock data
-      state.teamSheetMap = state.teamSheetMap || {};
-      state.teams = mockTeams.map(t => {
-        const teamID = t.teamID;
-        const sheetName = `Mock-${teamID}`;
-        state.teamSheetMap[teamID] = sheetName;
-        return {
-          teamID,
-          teamName: t.teamName,
-          playerCount: t.players ? t.players.length : 0,
-          sheetName,
-          year: t.year,
-          season: t.season,
-          archived: false,
-          ladderUrl: '',
-          resultsApi: '',
-          lastModified: new Date().toISOString(),
-          hasPin: false,
-          coach: ''
-        };
-      });
-
-      // Cache and render
-      teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
-      teamsListCacheTime = new Date().toISOString();
-      saveToLocalStorage();
-
-      try { sendClientMetric('teams-fallback-to-mock', 1, (state.teams || []).length); } catch (e) { /* noop */ }
-      showToast('Live API unavailable — using mock data', 'warning');
-      try { renderTeamList(); } catch (e) { console.warn('[App] renderTeamList after fallback failed', e); }
-
-    } else {
-      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
-      showToast('Failed to load teams', 'error');
-    }
+    try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
+    showToast('Failed to load teams', 'error');
   } finally {
     hideLoading();
 
@@ -1500,12 +894,6 @@ async function loadTeams(forceRefresh = false) {
 // Helper to send a client metric (used for teams-fetch and other small metrics)
 function sendClientMetric(name, value, teams) {
   try {
-    // Skip metric sending when using mock data or when the API is known to be unavailable
-    if (API_CONFIG.useMockData || (typeof state !== 'undefined' && state.apiAvailable === false)) {
-      console.log('[Metric] Skipping metric send (mock/offline mode):', name, value, teams);
-      return;
-    }
-
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
     const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const metricUrl = `${baseUrl}?api=true&action=logClientMetric&name=${encodeURIComponent(name)}&value=${encodeURIComponent(value)}&teams=${encodeURIComponent(teams || '')}`;
@@ -2445,13 +1833,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   html += data.ladder.rows.map(row => {
     const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
     const isCurrent = highlightName && rowTeamName.includes(highlightName.toLowerCase());
-    const logoHtml = row['Logo'] ? `<img src="${escapeAttr(row['Logo'])}" class="team-logo-ladder" alt="${escapeAttr(row['TEAM'] || '')} logo" onerror="this.style.display='none'">` : '';
-    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => {
-      if (h === 'TEAM' && logoHtml) {
-        return `<td data-key="${escapeAttr(h)}">${logoHtml}${escapeHtml(row[h] || '')}</td>`;
-      }
-      return `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`;
-    }).join('') + `</tr>`;
+    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`).join('') + `</tr>`;
   }).join('');
 
   html += `</tbody></table></div>`;
@@ -2575,18 +1957,8 @@ function renderSchedule() {
       <div class="game-item ${resultClass}" onclick="openGameDetail('${escapeAttr(game.gameID)}')">
         <div class="game-round">R${escapeHtml(game.round)}</div>
         <div class="game-info">
-          <div class="game-opponent">
-            ${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}
-            ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" class="team-logo-small" alt="${escapeAttr(game.opponent)} logo" onerror="this.style.display='none'">` : ''}
-            ${difficultyBadge}
-            ${game.lineupConfirmed !== undefined ? `<span class="lineup-status ${game.lineupConfirmed ? 'confirmed' : 'pending'}" title="Your lineup ${game.lineupConfirmed ? 'confirmed' : 'pending'}">📋</span>` : ''}
-            ${game.opponentLineupConfirmed !== undefined ? `<span class="lineup-status ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}" title="Opponent lineup ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}">👥</span>` : ''}
-          </div>
-          <div class="game-meta">
-            ${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}
-            ${game.venueDetails && game.venueDetails.lat ? `<a href="https://maps.google.com/?q=${game.venueDetails.lat},${game.venueDetails.lng}" target="_blank" class="venue-link" title="View on map">📍</a>` : ''}
-            ${game.livestreamUrl ? `<a href="${escapeAttr(game.livestreamUrl)}" target="_blank" class="livestream-link" title="Watch live">📺</a>` : ''}
-          </div>
+          <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}${difficultyBadge}</div>
+          <div class="game-meta">${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}</div>
         </div>
         <div class="game-score">
           ${scoreDisplay}${validationBadge}
@@ -5213,13 +4585,11 @@ function renderGameScoreCard() {
   container.innerHTML = `
     <div class="game-score-display">
       <div class="score-team">
-        ${game.ourLogo ? `<img src="${escapeAttr(game.ourLogo)}" alt="${escapeAttr(state.currentTeamData?.name || 'Us')}" class="team-logo-game home">` : ''}
         <div class="score-label">Us</div>
         <div class="score-value">${escapeHtml(us)}</div>
       </div>
       <div class="score-divider">-</div>
       <div class="score-team">
-        ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" alt="${escapeAttr(game.opponent)}" class="team-logo-game away">` : ''}
         <div class="score-label">${escapeHtml(game.opponent)}</div>
         <div class="score-value">${escapeHtml(opponent)}</div>
       </div>
@@ -8254,17 +7624,17 @@ window.autoDetectSquadi = async function() {
 };
 
 window.pickSquadiOption = function(idx) {
-  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption called with idx:', idx);
+  console.log('[DEBUG] pickSquadiOption called with idx:', idx);
   const options = window._squadiAutoDetectOptions;
   if (!options || !options[idx]) {
-    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: no options or invalid idx');
+    console.log('[DEBUG] pickSquadiOption: no options or invalid idx');
     return;
   }
   const selectedOption = options[idx];
-  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: selected option:', selectedOption);
+  console.log('[DEBUG] pickSquadiOption: selected option:', selectedOption);
 
   // Close the auto-detect modal
-  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: closing auto-detect modal');
+  console.log('[DEBUG] pickSquadiOption: closing auto-detect modal');
   closeModal();
 
   // Build Squadi resultsApi configuration
@@ -8278,10 +7648,10 @@ window.pickSquadiOption = function(idx) {
     config.competitionKey = selectedOption.competitionKey;
   }
   const resultsApi = JSON.stringify(config);
-  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: built resultsApi config:', resultsApi);
+  console.log('[DEBUG] pickSquadiOption: built resultsApi config:', resultsApi);
 
   // Show loading and save directly
-  if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: showing loading and calling updateTeamSettings');
+  console.log('[DEBUG] pickSquadiOption: showing loading and calling updateTeamSettings');
   showLoading();
   showToast('Saving Squadi configuration...', 'info');
 
@@ -8293,7 +7663,7 @@ window.pickSquadiOption = function(idx) {
     resultsApi: resultsApi,
     coach: state.currentTeam.coach
   }).then(() => {
-    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
+    console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
 
     // Update local state
     state.currentTeam.resultsApi = resultsApi;
@@ -8310,9 +7680,9 @@ window.pickSquadiOption = function(idx) {
     saveToLocalStorage();
     renderMainApp();
     showToast('Squadi configuration saved!', 'success');
-    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: completed successfully');
+    console.log('[DEBUG] pickSquadiOption: completed successfully');
   }).catch((error) => {
-    if (API_CONFIG.debug) console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
+    console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
     showToast('Failed to save Squadi config: ' + error.message, 'error');
   }).finally(() => {
     hideLoading();
@@ -8352,35 +7722,35 @@ window.autoDetectSquadiRescan = async function() {
 };
 
 function fillSquadiFields(opt) {
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: called with option:', opt);
+  console.log('[DEBUG] fillSquadiFields: called with option:', opt);
   const compIdEl = document.getElementById('edit-squadi-competition-id');
   const divIdEl = document.getElementById('edit-squadi-division-id');
   const teamNameEl = document.getElementById('edit-squadi-team-name');
   const compKeyEl = document.getElementById('edit-squadi-competition-key');
 
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting compIdEl to:', opt.competitionId);
+  console.log('[DEBUG] fillSquadiFields: setting compIdEl to:', opt.competitionId);
   if (compIdEl) compIdEl.value = opt.competitionId || '';
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting divIdEl to:', opt.divisionId);
+  console.log('[DEBUG] fillSquadiFields: setting divIdEl to:', opt.divisionId);
   if (divIdEl) divIdEl.value = opt.divisionId || '';
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting teamNameEl to:', opt.teamName);
+  console.log('[DEBUG] fillSquadiFields: setting teamNameEl to:', opt.teamName);
   if (teamNameEl) teamNameEl.value = opt.teamName || '';
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: setting compKeyEl to:', opt.competitionKey);
+  console.log('[DEBUG] fillSquadiFields: setting compKeyEl to:', opt.competitionKey);
   if (compKeyEl && opt.competitionKey) compKeyEl.value = opt.competitionKey;
 
   // Make sure Squadi source is selected
   const sourceSelect = document.getElementById('edit-fixture-source');
-  if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: current sourceSelect value:', sourceSelect?.value);
+  console.log('[DEBUG] fillSquadiFields: current sourceSelect value:', sourceSelect?.value);
   if (sourceSelect && sourceSelect.value !== 'squadi') {
-    if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: changing sourceSelect to squadi');
+    console.log('[DEBUG] fillSquadiFields: changing sourceSelect to squadi');
     sourceSelect.value = 'squadi';
     sourceSelect.dispatchEvent(new Event('change'));
   } else {
-    if (API_CONFIG.debug) console.log('[DEBUG] fillSquadiFields: sourceSelect already set to squadi');
+    console.log('[DEBUG] fillSquadiFields: sourceSelect already set to squadi');
   }
 }
 
 window.saveTeamSettings = async function() {
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: starting execution');
+  console.log('[DEBUG] saveTeamSettings: starting execution');
   const nameInput = document.getElementById('edit-team-name');
   const name = nameInput.value.trim();
   const yearInput = document.getElementById('edit-team-year');
@@ -8411,34 +7781,34 @@ window.saveTeamSettings = async function() {
     const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
     const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
     const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Squadi config - compId:', squadiCompId, 'divId:', squadiDivId, 'teamName:', squadiTeamName, 'compKey:', squadiCompKey);
+    console.log('[DEBUG] saveTeamSettings: Squadi config - compId:', squadiCompId, 'divId:', squadiDivId, 'teamName:', squadiTeamName, 'compKey:', squadiCompKey);
     if (squadiCompId && squadiDivId && squadiTeamName) {
       const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
       if (squadiCompKey) config.competitionKey = squadiCompKey;
       resultsApi = JSON.stringify(config);
-      if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Built Squadi resultsApi:', resultsApi);
+      console.log('[DEBUG] saveTeamSettings: Built Squadi resultsApi:', resultsApi);
     } else {
-      if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
+      console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
     }
   }
 
   // Validation
   if (!name) {
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - no name');
+    console.log('[DEBUG] saveTeamSettings: validation failed - no name');
     showToast('Please enter a team name', 'error');
     nameInput.focus();
     return;
   }
 
   if (name.length < 2 || name.length > 100) {
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid name length');
+    console.log('[DEBUG] saveTeamSettings: validation failed - invalid name length');
     showToast('Team name must be 2-100 characters', 'error');
     nameInput.focus();
     return;
   }
 
   if (isNaN(year) || year < 2000 || year > 2100) {
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid year');
+    console.log('[DEBUG] saveTeamSettings: validation failed - invalid year');
     showToast('Year must be between 2000 and 2100', 'error');
     yearInput.focus();
     return;
@@ -8446,13 +7816,13 @@ window.saveTeamSettings = async function() {
 
   const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
   if (!validSeasons.includes(season)) {
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
+    console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
     showToast('Invalid season selected', 'error');
     return;
   }
 
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation passed, proceeding with save');
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: name:', name, 'year:', year, 'season:', season, 'fixtureSource:', fixtureSource, 'resultsApi:', resultsApi);
+  console.log('[DEBUG] saveTeamSettings: validation passed, proceeding with save');
+  console.log('[DEBUG] saveTeamSettings: name:', name, 'year:', year, 'season:', season, 'fixtureSource:', fixtureSource, 'resultsApi:', resultsApi);
 
   // Store old values for rollback
   const oldName = state.currentTeam.teamName;
@@ -8462,9 +7832,9 @@ window.saveTeamSettings = async function() {
   const oldLadderUrl = state.currentTeam.ladderUrl;
   const oldResultsApi = state.currentTeam.resultsApi;
 
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling closeModal()');
+  console.log('[DEBUG] saveTeamSettings: calling closeModal()');
   closeModal();
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling showLoading()');
+  console.log('[DEBUG] saveTeamSettings: calling showLoading()');
   showLoading();
 
   try {
@@ -8496,18 +7866,18 @@ window.saveTeamSettings = async function() {
     }
 
     // Save to backend
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling updateTeamSettings API');
+    console.log('[DEBUG] saveTeamSettings: calling updateTeamSettings API');
     await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, resultsApi, coach });
 
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: API call successful, saving to localStorage');
+    console.log('[DEBUG] saveTeamSettings: API call successful, saving to localStorage');
     saveToLocalStorage();
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling renderMainApp');
+    console.log('[DEBUG] saveTeamSettings: calling renderMainApp');
     renderMainApp();
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: showing success toast');
+    console.log('[DEBUG] saveTeamSettings: showing success toast');
     showToast('Team updated', 'success');
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: completed successfully');
+    console.log('[DEBUG] saveTeamSettings: completed successfully');
   } catch (error) {
-    if (API_CONFIG.debug) console.error('[DEBUG] saveTeamSettings: ERROR -', error);
+    console.error('[DEBUG] saveTeamSettings: ERROR -', error);
     console.error('[App] Failed to save team settings:', error);
     // Rollback
     state.currentTeam.teamName = oldName;
@@ -8531,10 +7901,10 @@ window.saveTeamSettings = async function() {
       rollbackTeam.ladderUrl = oldLadderUrl;
       rollbackTeam.resultsApi = oldResultsApi;
     }
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: showing error toast');
+    console.log('[DEBUG] saveTeamSettings: showing error toast');
     showToast('Failed to save: ' + error.message, 'error');
   } finally {
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling hideLoading');
+    console.log('[DEBUG] saveTeamSettings: calling hideLoading');
     hideLoading();
   }
 };
@@ -9500,9 +8870,6 @@ window.deleteTeam = async function(teamID, teamName) {
 };
 
 // Utility functions are imported from utils.js
-
-// Export state and functions for testing and runtime control
-export { state, loadTeams };
 
 // Export for hot module replacement
 if (import.meta.hot) {

@@ -13,7 +13,8 @@ import {
   validateSeason,
   isDuplicateName,
   generateId,
-  getInitials
+  getInitials,
+  clubSlugFor
 } from '../../../../common/utils.js';
 
 // ========================================
