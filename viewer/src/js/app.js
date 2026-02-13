@@ -50,9 +50,9 @@ function transformTeamDataFromSheet(data, teamID) {
     favPosition: p.favoritePosition || p.favPosition || ''
   }));
 
-  // Debug: Log the incoming data object and its keys to inspect property names
-  console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
-  if (data && typeof data === 'object') {
+  // Debug: Log the incoming data object and its keys to inspect property names (guarded)
+  if (API_CONFIG.debug) console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
+  if (API_CONFIG.debug && data && typeof data === 'object') {
     console.log('[DEBUG] [transformTeamDataFromSheet] data keys:', Object.keys(data));
   }
 
@@ -209,7 +209,7 @@ window.selectTeam = async function(teamID) {
   state.currentTeam = team;
   await loadTeamData(teamID);
   // Debug: Log the raw teamData object as received from API or mock
-  console.log('[DEBUG] Raw teamData (state.currentTeamData):', state.currentTeamData);
+  if (API_CONFIG.debug) console.log('[DEBUG] Raw teamData (state.currentTeamData):', state.currentTeamData);
 
   if (!state.currentTeamData) {
     showToast('Failed to load team data', 'error');
@@ -295,7 +295,7 @@ function renderQuickStats() {
   const { wins, losses, draws, goalsFor, goalsAgainst } = state.stats;
   const gd = goalsFor - goalsAgainst;
 
-  console.log('[DEBUG] Rendering quick stats:', { wins, losses, draws, goalsFor, goalsAgainst, gd });
+  if (API_CONFIG.debug) console.log('[DEBUG] Rendering quick stats:', { wins, losses, draws, goalsFor, goalsAgainst, gd });
 
   document.getElementById('qs-record').textContent = `${wins}-${losses}-${draws}`;
   document.getElementById('qs-gd').textContent = gd >= 0 ? `+${gd}` : `${gd}`;
@@ -304,7 +304,7 @@ function renderQuickStats() {
   const today = new Date().toISOString().split('T')[0];
   const nextGame = state.currentTeamData?.games?.find(g => g.date >= today && g.status !== 'bye');
   document.getElementById('qs-next').textContent = nextGame ? `R${nextGame.round}` : '--';
-  console.log('[DEBUG] Next game:', nextGame);
+  if (API_CONFIG.debug) console.log('[DEBUG] Next game:', nextGame);
 }
 
 // ========================================

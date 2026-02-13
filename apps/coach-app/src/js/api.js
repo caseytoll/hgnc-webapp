@@ -1,10 +1,12 @@
 // API Layer - Switches between mock data and real Apps Script backend
+// Build: 2026-02-13 - Updated to use correct API endpoint
 import { API_CONFIG } from './config.js';
 import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
 import { clubSlugFor } from '../../../../common/utils.js';
+import clubLogos from '../../../../data/club-logos.json';
 
 // Current data source: use API for production, mock for development
-let dataSource = 'api';
+let dataSource = API_CONFIG.useMockData ? 'mock' : 'api';
 
 // Cache for team sheetNames (needed to map teamID to sheetName for API calls)
 const teamSheetMap = new Map();
@@ -49,8 +51,7 @@ async function callAppsScript(action, params = {}) {
     // Use proxy for local dev, direct URL for production
     // Apps Script handles CORS for GET requests when deployed as "Anyone"
 
-    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec' : 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec';
+    const url = new URL(API_CONFIG.baseUrl);
 
     // Add api=true flag for Apps Script to know this is an API request
     url.searchParams.set('api', 'true');
@@ -136,8 +137,7 @@ async function saveTeamDataWithProtection(teamID, sheetName, saveData, freshlyFe
     if (e.message && e.message.startsWith('Read-only view')) throw e;
   }
 
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec' : 'https://script.google.com/macros/s/AKfycbx5g7fIW28ncXoI9SeHDKix7umBtqaTdOm1aM-JdgO2l7esQHxu8jViMRRSN7YGtMnd/exec';
+  const baseUrl = API_CONFIG.baseUrl;
 
   // Use freshly fetched timestamp if provided, otherwise fall back to cached
   const clientLastModified = freshlyFetchedLastModified || teamLastModified.get(teamID) || null;
@@ -227,6 +227,7 @@ export { StaleDataError };
 // ============================================
 
 export async function loadTeams() {
+  console.log('[API] loadTeams called, dataSource:', dataSource, 'API_CONFIG.useMockData:', API_CONFIG.useMockData);
   if (dataSource === 'mock') {
     console.log('[API] Loading mock teams');
     // Simulate network delay
@@ -243,6 +244,7 @@ export async function loadTeams() {
   }
 
   // Real API call
+  console.log('[API] Making real API call for teams');
   const result = await callAppsScript('getTeams');
   const teams = result.teams || [];
 
@@ -271,22 +273,27 @@ export async function loadTeamData(teamID) {
     throw new Error(`No sheetName found for team ${teamID}. Call loadTeams first.`);
   }
 
-  // Try to fetch consolidated team info (logo, nextFixture, ladder) first
-  let serverTeamInfo = null;
-  try {
-    const infoRes = await callAppsScript('getTeamInfo', { teamID });
-    if (infoRes && infoRes.success && infoRes.info) serverTeamInfo = infoRes.info;
-  } catch (e) {
-    // Non-fatal: fall back to sheet-only data
-    console.warn('[API] getTeamInfo failed, falling back to getTeamData:', e.message || e);
-  }
-
-  // Real API call for sheet data
+  // Real API call for sheet data first (avoid an extra API round-trip by default)
   const result = await callAppsScript('getTeamData', { teamID, sheetName });
   const rawData = result.teamData;
 
   // Transform from Google Sheet format to PWA format
   const transformed = transformTeamDataFromSheet(rawData, teamID, teamInfo?.teamName);
+
+  // If server-side consolidated info (getTeamInfo) is required for logos/fixtures,
+  // only fetch it when the transformed data is missing those fields to avoid
+  // performing two sequential calls for every team load.
+  let serverTeamInfo = null;
+  const needsExtraInfo = !transformed.ourLogo || !transformed.nextFixture;
+  if (needsExtraInfo) {
+    try {
+      const infoRes = await callAppsScript('getTeamInfo', { teamID });
+      if (infoRes && infoRes.success && infoRes.info) serverTeamInfo = infoRes.info;
+    } catch (e) {
+      // Non-fatal: proceed with sheet-only data
+      console.warn('[API] getTeamInfo (optional) failed:', e.message || e);
+    }
+  }
 
   // Store the server's last modified timestamp for stale data detection
   if (transformed._lastModified) {
@@ -386,14 +393,7 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
       .replace(/-+/g, '-')
-      .replace(/-/g, '')
       .trim();
-  }
-
-  // Debug: Log the incoming data object and its keys to inspect property names
-  console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);
-  if (data && typeof data === 'object') {
-    console.log('[DEBUG] [transformTeamDataFromSheet] data keys:', Object.keys(data));
   }
 
   // Transform games
@@ -486,10 +486,13 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     try {
       // Opponent logo fallback from opponent name
       if ((!g.opponentDetails || !g.opponentDetails.logoUrl) && g.opponent) {
-        const slug = slugifyTeamName(g.opponent);
-        if (slug) {
+        // Try club-level slug first, then full team slug
+        const clubSlug = clubSlugFor(g.opponent);
+        const teamSlug = slugifyTeamName(g.opponent);
+        const logoPath = clubLogos[clubSlug] || clubLogos[teamSlug] || null;
+        if (logoPath) {
           g.opponentDetails = g.opponentDetails || {};
-          g.opponentDetails.logoUrl = `/assets/team-logos/${slug}.png`;
+          g.opponentDetails.logoUrl = logoPath;
         }
       }
     } catch (e) {
@@ -508,51 +511,19 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     _lastModified: data._lastModified || null
   };
   // Map team-level logo into PWA model (usable as `ourLogo`)
+  // 1) Check if the server data has an explicit logo URL
   result.ourLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
-  console.log('[LOGO DEBUG] Initial ourLogo from data:', result.ourLogo, {
-    logoUrl: data.logoUrl,
-    teamLogo: data.teamLogo,
-    teamLogoUrl: data.teamLogoUrl,
-    logo: data.logo,
-    team: data.team
-  });
-  // Also propagate ourLogo onto each game if not already present (helps header rendering)
-  if (result.ourLogo) {
-    result.games.forEach(g => {
-      if (!g.ourLogo) g.ourLogo = result.ourLogo;
-    });
-  }
-  // If no remote team logo, prefer a club-level logo (derived from team name),
-  // then fall back to a team-named local asset.
-  if (!result.ourLogo && (result.teamName || data.team?.name)) {
+  // 2) Fall back to club-logos.json lookup by club slug then team slug
+  if (!result.ourLogo) {
     const tname = result.teamName || (data.team && data.team.name) || '';
-    console.log('[LOGO DEBUG] No ourLogo found, using team name for fallback:', tname);
-    // 1) Club-level asset (prefer .svg)
-    const club = clubSlugFor(tname);
-    result.ourLogo = `/assets/team-logos/${club}.svg`;
-    console.log('[LOGO DEBUG] Fallback to club logo:', result.ourLogo);
-    // 2) Secondary: team-level png (legacy naming)
-    const tslug = slugifyTeamName(tname);
-    if (!result.ourLogo && tslug) {
-      result.ourLogo = `/assets/team-logos/${tslug}.png`;
-      console.log('[LOGO DEBUG] Fallback to team PNG logo:', result.ourLogo);
-    }
-    // Apply to games
-    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
+    const clubSlug = clubSlugFor(tname);
+    const teamSlug = slugifyTeamName(tname);
+    result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || '/assets/team-logos/hazel-glen.png';
   }
-  console.log('[LOGO DEBUG] Final ourLogo for team:', result.ourLogo);
-
-  // Final fallback: dedicated Hazel Glen SVG (guaranteed)
-  if (!result.ourLogo) {
-    result.ourLogo = '/assets/team-logos/hazel-glen.svg';
-    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
-  }
-
-  // Backstop (shouldn't be reached) — last-resort PNG
-  if (!result.ourLogo) {
-    result.ourLogo = '/assets/team-logos/hg13fury.png';
-    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });
-  }
+  // Propagate ourLogo onto each game if not already present (helps header rendering)
+  result.games.forEach(g => {
+    if (!g.ourLogo) g.ourLogo = result.ourLogo;
+  });
 
   // Preserve team AI insights if present
   if (data.aiInsights) {
