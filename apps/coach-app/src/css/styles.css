@@ -630,26 +630,95 @@
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 8px;
-  overflow: auto;
-  max-height: 48vh;
+  overflow: visible;
+  max-height: none;
 }
+
+/* Compact basic view: reduce wrapping by tightening spacing and font
+   Applied only when NOT expanded (basic view) so expanded view remains roomy */
+.ladder-container:not(.expanded-columns) {
+  font-size: 0.78rem;
+}
+.ladder-container:not(.expanded-columns) .ladder-table th,
+.ladder-container:not(.expanded-columns) .ladder-table td {
+  padding: 4px 6px;
+  white-space: nowrap;          /* keep compact single-line for most columns */
+  overflow: hidden;
+  text-overflow: clip;          /* remove visual ellipsis; clip instead */
+  line-height: 1.05;
+}
+/* Ensure POS and PTS headers are not truncated */
+.ladder-container:not(.expanded-columns) .ladder-table thead th[data-key="POS"],
+.ladder-container:not(.expanded-columns) .ladder-table thead th[data-key="PTS"] {
+  white-space: nowrap;
+  text-overflow: clip;
+  overflow: visible;
+}
+
+/* Allow TEAM column to wrap only (prevent ellipses for long club names like Montmorency) */
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="TEAM"],
+.ladder-container:not(.expanded-columns) .ladder-table td[data-key="TEAM"] {
+  white-space: normal;          /* allow wrapping */
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
+  line-height: 1.1;
+}
+
+/* Give TEAM column more room while keeping numeric columns compact */
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="POS"] { width: 44px; text-align: left; }
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="TEAM"] { min-width: 180px; max-width: 62%; text-align: left; }
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="P"],
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="W"],
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="L"],
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="D"],
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="B"] { width: 30px; text-align: center; }
+.ladder-container:not(.expanded-columns) .ladder-table th[data-key="PTS"] { width: 48px; text-align: left; white-space: nowrap; text-overflow: clip; }
 
 .ladder-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
-  table-layout: auto;
+  font-size: 0.8rem;
+  table-layout: fixed;
+}
+
+/* On narrow screens let the table use auto layout so TEAM column can expand naturally (restores v6 behaviour) */
+@media (max-width: 768px) {
+  .ladder-table { table-layout: auto; }
 }
 
 .ladder-table th,
 .ladder-table td {
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-bottom: 1px solid var(--border-light);
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
+  vertical-align: top;
 }
 
+.ladder-table th[data-key="POS"] { width: 35px; }
+.ladder-table th[data-key="TEAM"] { width: auto; min-width: 140px; }
+.ladder-table th[data-key="P"],
+.ladder-table th[data-key="W"],
+.ladder-table th[data-key="L"],
+.ladder-table th[data-key="D"],
+.ladder-table th[data-key="B"] { width: 30px; text-align: center; }
+.ladder-table th[data-key="%"] { width: 45px; }
+.ladder-table th[data-key="FF"],
+.ladder-table th[data-key="FG"] { width: 35px; }
+.ladder-table th[data-key="For"],
+.ladder-table th[data-key="Agst"] { width: 45px; }
+.ladder-table th[data-key="% Won"] { width: 55px; }
+
+/* Center small stat columns (headers + values) */
+.ladder-table td[data-key="P"],
+.ladder-table td[data-key="W"],
+.ladder-table td[data-key="L"],
+.ladder-table td[data-key="D"],
+.ladder-table td[data-key="PTS"] { text-align: left; }
+
 .ladder-table th.numeric,
-.ladder-table td.numeric { text-align: right; }
+.ladder-table td.numeric { text-align: left; }
 
 .ladder-table thead th {
   position: sticky;
@@ -675,11 +744,17 @@
 .ladder-table thead th[data-key="FG"],
 .ladder-table thead th[data-key="For"],
 .ladder-table thead th[data-key="Agst"],
+.ladder-table thead th[data-key="GD"],
+.ladder-table thead th[data-key="PPG"],
+.ladder-table thead th[data-key="%"],
 .ladder-table thead th[data-key="% Won"],
 .ladder-table tbody td[data-key="FF"],
 .ladder-table tbody td[data-key="FG"],
 .ladder-table tbody td[data-key="For"],
 .ladder-table tbody td[data-key="Agst"],
+.ladder-table tbody td[data-key="GD"],
+.ladder-table tbody td[data-key="PPG"],
+.ladder-table tbody td[data-key="%"],
 .ladder-table tbody td[data-key="% Won"] {
   display: none;
 }
@@ -689,13 +764,74 @@
 .ladder-container.expanded-columns .ladder-table thead th[data-key="FG"],
 .ladder-container.expanded-columns .ladder-table thead th[data-key="For"],
 .ladder-container.expanded-columns .ladder-table thead th[data-key="Agst"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="GD"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="PPG"],
+.ladder-container.expanded-columns .ladder-table thead th[data-key="%"],
 .ladder-container.expanded-columns .ladder-table thead th[data-key="% Won"],
 .ladder-container.expanded-columns .ladder-table tbody td[data-key="FF"],
 .ladder-container.expanded-columns .ladder-table tbody td[data-key="FG"],
 .ladder-container.expanded-columns .ladder-table tbody td[data-key="For"],
 .ladder-container.expanded-columns .ladder-table tbody td[data-key="Agst"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="GD"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="PPG"],
+.ladder-container.expanded-columns .ladder-table tbody td[data-key="%"],
 .ladder-container.expanded-columns .ladder-table tbody td[data-key="% Won"] {
   display: table-cell;
+}
+
+/* Mobile responsiveness for ladder */
+@media (max-width: 768px) {
+  .ladder-container {
+    font-size: 0.75rem;
+    padding: 4px;
+    max-height: none;
+  }
+
+  .ladder-table th,
+  .ladder-table td {
+    padding: 3px 4px;
+    font-size: 0.7rem;
+    text-align: left;      /* default left alignment for data */
+    vertical-align: middle;/* vertically center all table cells */
+  }
+
+  /* Keep numeric headers/cells right-aligned even on small screens */
+  .ladder-table th.numeric,
+  .ladder-table td.numeric { text-align: left; }
+
+/* Ensure headers are not transformed or clipped */
+.ladder-table thead th { white-space: nowrap; text-overflow: clip; overflow: visible; }
+
+  /* Compact basic-view on small screens — prefer clipping (no visual ellipsis) so TEAM can wrap cleanly */
+  .ladder-container:not(.expanded-columns) .ladder-table th,
+  .ladder-container:not(.expanded-columns) .ladder-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    padding: 2px 4px;
+    font-size: 0.68rem;
+  }
+
+  /* TEAM column should be able to wrap on small screens (avoid ellipses for long names) */
+  .ladder-container:not(.expanded-columns) .ladder-table th[data-key="TEAM"],
+  .ladder-container:not(.expanded-columns) .ladder-table td[data-key="TEAM"] {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+    font-size: 0.72rem;
+    line-height: 1.05;
+    max-width: 62%;
+  }
+
+  .ladder-table th[data-key="POS"] { width: 30px; }
+  .ladder-table th[data-key="TEAM"] { min-width: 140px; }
+  .ladder-table th[data-key="P"],
+  .ladder-table th[data-key="W"],
+  .ladder-table th[data-key="L"],
+  .ladder-table th[data-key="D"],
+  .ladder-table th[data-key="B"] { width: 25px; text-align: center; }
+  .ladder-table th[data-key="%"] { width: 40px; }
 }
 
 /* Landscape: show all columns automatically */
@@ -2000,10 +2136,41 @@
 }
 
 .team-logo-ladder {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   vertical-align: middle;
-  margin-right: 8px;
+  display: inline-block;
   object-fit: cover;
 }
+
+/* Dedicated logo column */
+.ladder-table th.logo-col {
+  width: 56px;                /* slightly smaller so TEAM gets more room (v6-like) */
+  text-align: center;         /* center the TEAM label above the icon */
+  padding: 4px 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+  text-overflow: clip;
+  overflow: visible;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.ladder-table td.logo-col {
+  width: 30px;
+  text-align: center; /* icon centered in its column */
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+/* Ensure team-cell wraps and never sits under the logo */
+.ladder-table td.team-cell {
+  padding-left: 6px;
+  word-break: break-word;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip !important;
+  vertical-align: middle; /* ensure team name lines up with logo */
+  text-align: left;
+}
+

@@ -67,7 +67,7 @@ async function handleApiBody(body) {
     if (!['png','jpg','jpeg','svg','webp'].includes(ext)) ext = 'png';
     const filename = `${slug(team)}.${ext}`;
     const outPath = path.join(outDir, filename);
-    if (fs.existsSync(outPath)) { console.log('Skipping existing:', filename); continue; }
+    // if (fs.existsSync(outPath)) { console.log('Skipping existing:', filename); continue; }
     console.log('Downloading', team, '->', filename);
     tasks.push(download(logo, outPath).catch(err => { console.error('Failed', logo, err.message); }));
   }

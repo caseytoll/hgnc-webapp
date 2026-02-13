@@ -62,7 +62,9 @@ import {
 } from '../../../../common/utils.js';
 import { calculateAllAnalytics } from '../../../../common/stats-calculations.js';
 import { calculateTeamStats, mockTeams } from '../../../../common/mock-data.js';
-import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess, setDataSource } from './api.js';
+import { clubSlugFor } from '../../../../common/utils.js';
+import clubLogos from '../../../../data/club-logos.json';
+import { transformTeamDataFromSheet, transformTeamDataToSheet, validateTeamPIN, setTeamPIN as apiSetTeamPIN, revokeTeamAccess as apiRevokeTeamAccess, setDataSource, updateStatus } from './api.js';
 import {
   formatGameShareText,
   formatLineupText,
@@ -2427,8 +2429,10 @@ function fetchSquadiLadder(teamID) {
 }
 
 function renderLadderTable(ladderDiv, data, team, highlightName) {
-  const headers = data.ladder.headers;
-  const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|%|% Won|PTS)$/i.test(h));
+  const allHeaders = data.ladder.headers;
+  // Filter out Logo columns
+  const headers = allHeaders.filter(h => h !== 'Logo' && h.toLowerCase() !== 'logo');
+  const numericHeaders = headers.map(h => /^(POS|P|W|L|D|B|FF|FG|For|Agst|GD|PPG|%|% Won|PTS)$/i.test(h));
 
   let formatted = formatDateTime(data.lastUpdated || '');
 
@@ -2440,18 +2444,60 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   html += ` <button class="btn btn-ghost btn-xs ladder-refresh-btn" aria-label="Refresh ladder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Refresh</button>`;
   html += `</div>`;
 
-  html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>` + headers.map((h, idx) => `<th data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
+  // Render headers in the desired order: POS, logo, TEAM, then remaining headers
+  // Keep `TEAM` in the orderedHeaders so its header cell lines up above the team-name column
+  const orderedHeaders = headers.filter(h => h !== 'POS'); // we'll render POS separately
+  html += `<div class="ladder-container ${showExtra ? 'expanded-columns' : ''}" role="region" aria-label="Ladder" data-teamid="${escapeAttr(team.teamID)}"><table class="ladder-table"><thead><tr>`;
+  // POS first
+  html += `<th data-key="POS" class="numeric">POS</th>`;
+  // logo column next — keep header empty (icon-only column) so 'TEAM' header lines up above the team name cell
+  html += `<th class="logo-col" aria-hidden="true"></th>`;
+  // render the TEAM header in its normal column (preserve order in `headers`)
+  html += orderedHeaders.map((h, idx) => {
+    if (h === 'Logo' || h.toLowerCase() === 'logo') return '';
+    return `<th data-key="${escapeAttr(h)}" class="${numericHeaders[headers.indexOf(h)] ? 'numeric' : ''}">${escapeHtml(h)}</th>`;
+  }).join('') + `</tr></thead><tbody>`;
 
   html += data.ladder.rows.map(row => {
     const rowTeamName = String(row['TEAM'] || row['Team'] || '').toLowerCase();
     const isCurrent = highlightName && rowTeamName.includes(highlightName.toLowerCase());
-    const logoHtml = row['Logo'] ? `<img src="${escapeAttr(row['Logo'])}" class="team-logo-ladder" alt="${escapeAttr(row['TEAM'] || '')} logo" onerror="this.style.display='none'">` : '';
-    return `<tr class="${isCurrent ? 'highlight' : ''}">` + headers.map((h, idx) => {
-      if (h === 'TEAM' && logoHtml) {
-        return `<td data-key="${escapeAttr(h)}">${logoHtml}${escapeHtml(row[h] || '')}</td>`;
+
+    // Generate logo HTML - use external logo if available, otherwise check for club logo
+    let logoSrc = row['Logo'];
+    if (!logoSrc) {
+      const clubSlug = clubSlugFor(row['TEAM'] || '');
+      logoSrc = clubLogos[clubSlug] || null;
+    }
+    const logoHtml = logoSrc ? `<img src="${escapeAttr(logoSrc)}" class="team-logo-ladder" alt="${escapeAttr(row['TEAM'] || '')} logo" onerror="this.style.display='none'">` : '';
+
+    // Build row: logo cell first, then the rest of the (filtered) headers
+    let rowHtml = `<tr class="${isCurrent ? 'highlight' : ''}">`;
+
+    // POS cell first (numeric)
+    rowHtml += `<td data-key="POS" class="numeric">${escapeHtml(row['POS'] || row['Pos'] || '')}</td>`;
+
+    // Logo column (separate cell) — keeps team name wrapping clear of the icon
+    rowHtml += `<td class="logo-col">${logoHtml}</td>`;
+
+    headers.forEach((h, idx) => {
+        // Skip POS (rendered earlier) and any Logo column from the data source
+      if (h === 'POS' || h === 'Logo' || h.toLowerCase() === 'logo') return;
+
+      let cellValue = row[h] || '';
+      if (h === 'TEAM') {
+        // Clean TEAM value (avoid showing URLs)
+        if (cellValue && (cellValue.match(/^https?:\/\//) || /\.png|\.jpe?g|\.svg/i.test(cellValue))) {
+          cellValue = '';
+        }
+        // TEAM cell should contain only the name (logo is in its own column)
+        rowHtml += `<td data-key="${escapeAttr(h)}" class="team-cell">${escapeHtml(cellValue)}</td>`;
+      } else {
+        rowHtml += `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(cellValue)}</td>`;
       }
-      return `<td data-key="${escapeAttr(h)}" class="${numericHeaders[idx] ? 'numeric' : ''}">${escapeHtml(row[h] || '')}</td>`;
-    }).join('') + `</tr>`;
+    });
+
+    rowHtml += `</tr>`;
+    return rowHtml;
   }).join('');
 
   html += `</tbody></table></div>`;
