@@ -723,14 +723,50 @@
 /* Ensure header and cell box model & padding match exactly to avoid visual misalignment */
 .ladder-table thead th,
 .ladder-table tbody td {
-  box-sizing: border-box;
-  padding: 4px 6px;   /* explicitly match header/cell padding */
+  box-sizing: border-box !important;
+  padding: 4px 6px !important;   /* force identical padding for header and cells */
+  margin: 0 !important;
 }
+
+/* Explicit per-column widths on both header AND cells to guarantee alignment */
+.ladder-table th[data-key="POS"],
+.ladder-table td[data-key="POS"] { width: 36px; text-align: left; }
+.ladder-table th.logo-col, .ladder-table td.logo-col { width: 36px; text-align: center; }
+.ladder-table th[data-key="TEAM"],
+.ladder-table td[data-key="TEAM"] { min-width: 180px; max-width: 62%; text-align: left; }
+.ladder-table th[data-key="P"], .ladder-table td[data-key="P"],
+.ladder-table th[data-key="W"], .ladder-table td[data-key="W"],
+.ladder-table th[data-key="L"], .ladder-table td[data-key="L"],
+.ladder-table th[data-key="D"], .ladder-table td[data-key="D"] { width: 28px; text-align: left; }
+
+
+.ladder-table th[data-key="PTS"], .ladder-table td[data-key="PTS"] { width: 48px; text-align: left; }
+
+/* Ensure sticky header cells use same alignment */
+.ladder-table thead th[data-key="POS"],
+.ladder-table thead th[data-key="TEAM"],
+.ladder-table thead th[data-key="P"],
+.ladder-table thead th[data-key="W"],
+.ladder-table thead th[data-key="L"],
+.ladder-table thead th[data-key="D"],
+.ladder-table thead th[data-key="PTS"] { text-align: inherit; }
+
+/* Remove temporary debug visuals */
+.ladder-table thead th { outline: none; background: transparent; }
+.ladder-table tbody td { outline: none; background: transparent; }
 
 /* Keep mobile padding consistent too */
 @media (max-width: 768px) {
   .ladder-table thead th,
   .ladder-table tbody td { padding: 3px 4px; box-sizing: border-box; }
+  /* mirror widths on mobile too */
+  .ladder-table th[data-key="POS"], .ladder-table td[data-key="POS"] { width: 30px; }
+  .ladder-table th.logo-col, .ladder-table td.logo-col { width: 30px; }
+  .ladder-table th[data-key="P"], .ladder-table td[data-key="P"],
+  .ladder-table th[data-key="W"], .ladder-table td[data-key="W"],
+  .ladder-table th[data-key="L"], .ladder-table td[data-key="L"],
+  .ladder-table th[data-key="D"], .ladder-table td[data-key="D"] { width: 24px; }
+  .ladder-table th[data-key="PTS"], .ladder-table td[data-key="PTS"] { width: 40px; }
 }
 
 .ladder-table thead th {
