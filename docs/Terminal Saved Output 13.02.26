@@ -1,0 +1,534 @@
+Last login: Tue Feb 10 20:07:00 on ttys001
+casey-work@Toll-Mac-mini ~ % cd webapp-local-dev
+casey-work@Toll-Mac-mini webapp-local-dev % claude
+
+▗ ▗   ▖ ▖  Claude Code v2.1.39                                                                                                                                                                                                                                                     
+           Opus 4.6 · Claude Pro                                                                                                                                                                                                                                                   
+  ▘▘ ▝▝    ~/webapp-local-dev                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                   
+❯ review the entire project code and structure. I've been having a lot of issues with deploying and google script api endpoints, and issues getting the correct logos assigned                                                                                                     
+  ⎿  You've hit your limit · resets Feb 14 at 2pm (Australia/Melbourne)                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                   
+❯ /rate-limit-options                                                                                                                                                                                                                                                              
+  ⎿  Login successful                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   
+❯ review the entire project code and structure. I've been having a lot of issues with deploying and google script api endpoints, and issues getting the correct logos assigned                                                                                                     
+  ⎿  You've hit your limit · resets Feb 14 at 2pm (Australia/Melbourne)                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                   
+❯ I've paid for extra usage                                                                                                                                                                                                                                                        
+  ⎿  You've hit your limit · resets Feb 14 at 2pm (Australia/Melbourne)                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                   
+❯ /rate-limit-options                                                                                                                                                                                                                                                              
+  ⎿  Login successful                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   
+❯ review the entire project code and structure. I've been having a lot of issues with deploying and google script api endpoints, and issues getting the correct logos assigned                                                                                                     
+                                                                                                                                                                                                                                                                                   
+⏺ I'll run a comprehensive review focusing on your three pain points: deployment, API endpoints, and logo assignment. Let me investigate all areas in parallel.                                                                                                                    
+                                                                                                                                                                                                                                                                                   
+⏺ Explore(Review deployment configuration)                                                                                                                                                                                                                                         
+  ⎿  Backgrounded agent (shift+↑ to manage · ctrl+o to expand)                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                   
+⏺ Explore(Review API endpoint handling)                                                                                                                                                                                                                                            
+  ⎿  Backgrounded agent (shift+↑ to manage · ctrl+o to expand)                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                   
+⏺ Explore(Review logo assignment system)                                                                                                                                                                                                                                           
+  ⎿  Backgrounded agent (shift+↑ to manage · ctrl+o to expand)                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                   
+⏺ All three review agents are running in parallel. Let me also check the current git diff to understand what's been changed recently — this will help contextualize the issues.
+                                                                                                                                                                                                                                                                                   
+⏺ Bash(git diff --stat HEAD)                                                                                                                                                                                                                                                       
+  ⎿   CLAUDE.md                                |   2 +-                                                                                                                                                                                                                            
+      DEPLOYMENT_AUTOMATION.md                 |  10 +-                                                                                                                                                                                                                            
+      apps-script/.clasp.json                  |   1 +                                                                                                                                                                                                                           
+     … +18 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ Bash(git diff HEAD -- apps/coach-app/src/js/config.js apps/parent-portal/src/js/config.js apps-script/.clasp.json)
+  ⎿  diff --git a/apps-script/.clasp.json b/apps-script/.clasp.json                                                                                                                                                                                                                
+     index f895a10..5550ae0 100644                                                                                                                                                                                                                                                 
+     --- a/apps-script/.clasp.json                   
+     … +38 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ Good — I can see the API endpoints have been updated recently. Let me wait for the agents to complete their deep analysis.
+                                                                                                                                                                                                                                                                                   
+⏺ Task Output ae620ee                                                                                                                                                                                                                                                              
+  ⎿  Read output (ctrl+o to expand)
+                                                                                                                                                                                                                                                                                   
+⏺ Task Output a53276a                                                                                                                                                                                                                                                            
+  ⎿  Read output (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ Task Output a37e9a2                                                                                                                                                                                                                                                              
+  ⎿  Read output (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ Now let me read the critical files that the agents flagged to verify the most important issues.                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                   
+⏺ Searched for 2 patterns, read 3 files (ctrl+o to expand)                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                   
+⏺ Now let me also check the getTeamInfo backend handler.                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                   
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                 
+⏺ Now I have a clear picture. Let me compile the full review.                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                   
+  ---                                                                                                                                                                                                                                                                              
+  Here's my comprehensive review, organized by your three pain points:                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                                                   
+  1. Deployment Issues                                                                                                                                                                                                                                                             
+
+  a) Stale API URL in api.js callAppsScript() — FIXED in working tree but was the root cause
+
+  The git diff shows api.js:53 was recently changed from a hardcoded old URL to API_CONFIG.baseUrl. Good — this is now correct. However, the old version had the baseUrl on line 50 hardcoded to AKfycbwss...NWo (stale deployment), completely ignoring config.js. This was almost
+   certainly your main API issues.
+
+  b) src/js/app.js is a ghost codebase (src/js/app.js:600 etc.)
+
+  There's a separate src/js/app.js (NOT inside apps/coach-app/) that uses localhost:3002 as its proxy base. It has 11 occurrences of isLocalDev ? 'http://localhost:3002'. This appears to be a legacy/orphan version of the app. If it's not actively used, it's a maintenance
+  trap and source of confusion.
+
+  c) .clasp.json has projectId: "gen-lang-client-0364455293" added
+
+  This maps to a Gemini/AI Studio project, not the Apps Script project. While clasp may ignore it, it's unusual and could cause confusion during clasp push if it interferes with project resolution.
+
+  d) Three near-duplicate deployment scripts
+
+  - scripts/deploy-parent-portals.js (.js, CJS-style despite extension)
+  - scripts/deploy-parent-portals.cjs
+  - scripts/deploy-parent-portals-deploy.cjs
+
+  All have the same API URL now, but different PARENT_PORTAL_BASE values:
+  - .js: https://hgnc-gameday- (subdomain prefix)
+  - .cjs: https://4d3c21c0.hgnc-gameday.pages.dev/teams/ (specific deployment hash)
+  - -deploy.cjs: Uses hgnc-gameday- prefix with wrangler
+
+  Problem: The .cjs version hardcodes a specific Cloudflare Pages deployment hash (4d3c21c0), which becomes stale on every deploy.
+
+  ---
+  2. Google Script API Endpoint Issues
+
+  a) Duplicate case handler for autoDetectSquadi (Code.js:669-687)
+
+  The backend has two case handlers:
+  - case 'autoDetectSquadi': (line 669)
+  - case 'autodetectsquadi': (line 679)
+
+  This suggests there was a case-sensitivity bug. The correct fix would be to normalize action to lowercase once at the top of the switch, not duplicate handlers.
+
+  b) POST Content-Type inconsistency between save paths
+
+  - api.js:159 → saveTeamDataWithProtection() sends Content-Type: application/json
+  - app.js:1975 → syncToGoogleSheets() sends Content-Type: text/plain
+  - app.js:3062 → fetchAIInsights() sends Content-Type: text/plain
+
+  Apps Script's doPost(e) parses e.postData.contents regardless, so this works, but the inconsistency is a code smell and could break if you add content-type validation.
+
+  c) getTeamInfo adds latency to every team load
+
+  In api.js:271-277, loadTeamData() now calls getTeamInfo (a separate API round-trip) before getTeamData. This means every team load makes 2 sequential API calls instead of 1. The getTeamInfo call loads the full team sheet data, fixture data, AND ladder data on the backend —
+   it's heavy.
+
+  d) Debug console.log statements left in production code
+
+  api.js:394-398, api.js:513-519, api.js:530, api.js:534, api.js:539, api.js:544 — all have [DEBUG] or [LOGO DEBUG] console.log statements that should be removed before production.
+
+  ---
+  3. Logo Assignment Issues
+
+  This is the biggest mess. Here's the chain of problems:
+
+  a) Logo data never exists in the sheet — so the primary lookup always fails
+
+  api.js:512 tries: data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo
+
+  But the Google Sheet team data JSON (A1 cell) never contains these fields. Logos aren't stored in the backend. So result.ourLogo is always null after the primary lookup.
+
+  b) Fallback always produces .svg path, but only ONE .svg exists
+
+  api.js:533: result.ourLogo = '/assets/team-logos/${club}.svg'
+
+  The fallback uses clubSlugFor() which returns slugs like hazel-glen, dcgarnets, montmorency, titans. But the only .svg file on disk is hazel-glen.svg. So:
+  - HG teams → /assets/team-logos/hazel-glen.svg (exists)
+  - DC teams → /assets/team-logos/dcgarnets.svg (does NOT exist)
+  - Montmorency → /assets/team-logos/montmorency.svg (does NOT exist)
+  - Titans → /assets/team-logos/titans.svg (does NOT exist)
+
+  c) The secondary PNG fallback is dead code
+
+  api.js:537: if (!result.ourLogo && tslug) — but result.ourLogo was just set on line 533 to the .svg path. It's never null at this point, so the PNG fallback never executes.
+
+  d) slugifyTeamName() strips ALL hyphens, making mismatched filenames
+
+  api.js:390: .replace(/-/g, '') — this means "HG 13 Fury" becomes hg13fury, but the actual filename on disk is hg-13-fury.png. The function produces hg13fury which only works because there happens to be a duplicate hg13fury.png file.
+
+  e) Opponent logos use slugifyTeamName() which strips hyphens
+
+  api.js:490-494: Opponent logos are assigned as /assets/team-logos/${slug}.png where slug comes from slugifyTeamName(). So "DC Amber" → dcamber.png (doesn't exist), "Eltham Pearls" → elthamPearls.png (doesn't exist — actual file is eltham-pearls.png).
+
+  f) club-logos.json is never imported or used at runtime
+
+  The data/club-logos.json file has the correct mapping of slugs to file paths, but no code imports or reads this file. It's generated by the scripts but never consumed by the app.
+
+  g) getTeamInfo backend also fails the same way
+
+  Code.js:2006 tries the same nonexistent fields (teamData.logoUrl, etc.), falls back to .svg (line 2030), and the .svg files don't exist for most teams.
+
+  ---
+  Summary of Recommended Fixes (Priority Order)
+  ┌─────┬──────────────────────────────────────────────────────┬───────────────────────────────────┬─────────────────────────────────────────────────────────────────────────┐
+  │  #  │                        Issue                         │              Impact               │                                   Fix                                   │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 1   │ Logo fallback always produces nonexistent .svg paths │ Logos broken for all non-HG teams │ Change fallback to use .png and fix slugifyTeamName to preserve hyphens │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 2   │ PNG fallback is dead code (line 537)                 │ Unreachable code                  │ Remove the if (!result.ourLogo) check or restructure fallback chain     │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 3   │ club-logos.json never used                           │ Wasted data file                  │ Import and use it as the logo lookup source instead of guessing paths   │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 4   │ slugifyTeamName strips hyphens                       │ Opponent logos always wrong       │ Remove .replace(/-/g, '') — keep hyphens to match filenames             │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 5   │ getTeamInfo extra API call per team load             │ 2x latency                        │ Either consolidate into getTeamData or make it a lazy/background fetch  │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 6   │ Debug console.logs in production                     │ Console spam                      │ Remove all [DEBUG] and [LOGO DEBUG] statements                          │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 7   │ Duplicate autodetectsquadi handlers                  │ Code smell                        │ Normalize action to lowercase once                                      │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 8   │ Ghost src/js/app.js codebase                         │ Confusion                         │ Delete if unused                                                        │
+  ├─────┼──────────────────────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────────────────┤
+  │ 9   │ Hardcoded deployment hash in .cjs                    │ Stale deploy URLs                 │ Use dynamic resolution                                                  │
+  └─────┴──────────────────────────────────────────────────────┴───────────────────────────────────┴─────────────────────────────────────────────────────────────────────────┘
+  Want me to fix any or all of these?
+
+✻ Churned for 3m 47s                                     
+
+⏺ Agent "Review deployment configuration" completed                                                                                                                                                                                                                                
+  
+⏺ The deployment agent confirmed my findings and added a few more. Let me check one more thing the agent flagged — the parent portal config:                                                                                                                                       
+                                                                                                                                                                                                                                                                                 
+⏺ Read 1 file (ctrl+o to expand)                                                                                                                                                                                                                                                   
+  
+⏺ Good - the parent portal URL is now aligned with the coach app. The debug console.log on lines 13-14 and debug: true on line 9 should be cleaned up for production, but they're not breaking anything.                                                                           
+                                                                                                                                                                                                                                                                                 
+  My review above covers all the critical findings. The logo system is clearly the most broken area — it has a cascading chain of fallback logic that never reaches the right files. The API endpoint issues appear to have been recently fixed in your working tree (the URLs now 
+  match), and the deployment scripts just need cleanup.                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                   
+  Want me to fix these issues? I'd suggest starting with the logo system since that's the most impactful broken functionality.                                                                                                                                                     
+
+⏺ Agent "Review API endpoint handling" completed
+
+⏺ The API agent flagged a potentially critical issue about url being undefined. Let me verify that:
+
+⏺ Read 1 file (ctrl+o to expand)                                                                                                                                                                                                                                                   
+  
+⏺ I see — the function starts at line 35 and by line 53 it sets const baseUrl = API_CONFIG.baseUrl. But the agent says url is used on line 56. Let me see if there's a url variable created from baseUrl:                                                                          
+                                                                                                                                                                                                                                                                                 
+⏺ Searched for 1 pattern (ctrl+o to expand)                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                 
+⏺ That confirms it — url is never defined as a URL object. The code does:                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                   
+  const baseUrl = API_CONFIG.baseUrl;  // a string                                                                                                                                                                                                                                 
+  url.searchParams.set('api', 'true'); // url is undefined!                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                   
+  This is indeed a critical bug — callAppsScript() cannot work as written. But the app clearly functions to some degree, so there must be something else going on. Let me check if the uncommitted diff changed this:                                                              
+
+⏺ Bash(git diff HEAD -- apps/coach-app/src/js/api.js | head -80)
+  ⎿  diff --git a/apps/coach-app/src/js/api.js b/apps/coach-app/src/js/api.js
+     index 2c08474..eddb1c5 100644                                                                                                                                                                                                                                                 
+     --- a/apps/coach-app/src/js/api.js
+     … +49 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ So the working tree changed baseUrl from the hardcoded URL to API_CONFIG.baseUrl, but didn't fix the missing url variable. The url.searchParams.set(...) calls on line 56+ reference an undefined url.
+                                                                                                                                                                                                                                                                                   
+  Let me check the committed version to see if this was broken before too:                                                                                                                                                                                                         
+  
+⏺ Bash(git show HEAD:apps/coach-app/src/js/api.js | head -75 | tail -30)                                                                                                                                                                                                           
+  ⎿    }                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                   
+       try {                   
+     … +27 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ It was broken in the committed version too — url is never defined. This means all GET API calls through callAppsScript() should be crashing. Yet the app works somehow... Let me check if there's a global url variable or if this code path is somehow bypassed:
+                                                                                                                                                                                                                                                                                   
+⏺ Searched for 1 pattern (ctrl+o to expand)                                                                                                                                                                                                                                        
+  
+⏺ Bash(npm run build 2>&1 | tail -20)                                                                                                                                                                                                                                              
+  ⎿  > hgnc-team-manager@1.0.0 build                                                                                                                                                                                                                                             
+     > cd apps/coach-app && npm run build && cp -r dist/* ../../dist/                                                                                                                                                                                                              
+     … +16 lines (ctrl+o to expand)                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   
+⏺ It builds without errors because Vite/esbuild doesn't check for runtime undefined references. This is definitely crashing at runtime.                                                                                                                                            
+  
+  Let me update my review with this additional critical finding:                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                 
+  Additional Critical Bug: api.js:56 — url is undefined, ALL GET API calls crash at runtime. The code does const baseUrl = API_CONFIG.baseUrl (a string) but then calls url.searchParams.set(...) where url was never created as a URL object. This needs const url = new          
+  URL(baseUrl); before line 56.                                                                                                                                                                                                                                                  
+
+  This is likely the root cause of your API endpoint issues — every GET call through callAppsScript() throws a ReferenceError. The app may partially work if loadTeams/loadTeamData fall back to mock data or cached localStorage, masking the crash.
+
+  Want me to go ahead and fix all the issues? I'd prioritize:
+  1. Fix the url undefined crash in api.js
+  2. Fix the logo fallback chain
+  3. Clean up debug logs
+  4. Normalize the autodetectsquadi duplicate handlers
+
+✻ Worked for 43s
+
+⏺ Agent "Review logo assignment system" completed
+
+⏺ All three review agents have completed. The logo agent confirmed the same findings and added one more detail I missed — the slugifyTeamName() bug on line 390 strips ALL hyphens after creating them (.replace(/-/g, '')), which is why opponent logos also fail.
+
+  To summarize the full picture across all three reviews:                                                                                                                                                                                                                          
+  
+  Showstoppers (app is currently broken):                                                                                                                                                                                                                                          
+  1. api.js:56 — url is undefined (new URL(baseUrl) never created), all GET API calls crash                                                                                                                                                                                      
+  2. Logo fallback chain produces paths to nonexistent .svg files for non-HG teams
+  3. slugifyTeamName() strips all hyphens, so opponent logo paths never match filenames
+
+  High priority:
+  4. club-logos.json generated but never used — should be the logo lookup source
+  5. getTeamInfo adds a second sequential API call per team load (latency)
+  6. Debug console.log statements throughout production code
+
+  Cleanup:
+  7. Duplicate autodetectsquadi handlers in Code.js
+  8. Content-Type inconsistency between save paths
+  9. Stale deployment hash in deploy-parent-portals.cjs
+  10. Ghost src/js/app.js codebase with localhost:3002 references
+
+  Ready to fix whenever you give the word.
+
+❯ fix one at a time                                                                                                                                                                                                                                                                
+                    
+⏺ Starting with #1 — the url undefined crash in api.js.                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                 
+⏺ Read 1 file (ctrl+o to expand)                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                 
+⏺ Update(apps/coach-app/src/js/api.js)                                                                                                                                                                                                                                             
+  ⎿  Added 1 line, removed 1 line                                                                                                                                                                                                                                                
+      50      // Use proxy for local dev, direct URL for production                                                                                                                                                                                                                
+      51      // Apps Script handles CORS for GET requests when deployed as "Anyone"                                                                                                                                                                                               
+      52                                                                                                                                                                                                                                                                           
+      53 -    const baseUrl = API_CONFIG.baseUrl;                                                                                                                                                                                                                                  
+      53 +    const url = new URL(API_CONFIG.baseUrl);                                                                                                                                                                                                                             
+      54                                                                                                                                                                                                                                                                           
+      55      // Add api=true flag for Apps Script to know this is an API request                                                                                                                                                                                                  
+      56      url.searchParams.set('api', 'true');                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                   
+⏺ Let me verify the build still works:                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                   
+⏺ Bash(npm run build 2>&1 | tail -10)                                                                                                                                                                                                                                              
+  ⎿  ✓ 12 modules transformed.                                                                                                                                                                                                                                                     
+     rendering chunks...                                                                                                                                                                                                                                                           
+     [Build] Transforming HTML, replacing __APP_VERSION__ with 2026-02-13w                                                                                                                                                                                                         
+     … +7 lines (ctrl+o to expand)                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                   
+⏺ Fix #1 done. Changed const baseUrl = API_CONFIG.baseUrl to const url = new URL(API_CONFIG.baseUrl) at api.js:53. All the downstream url.searchParams.set(...) calls now work against a proper URL object instead of crashing with ReferenceError: url is not defined.            
+                                                                                                                                                                                                                                                                                   
+  Ready for #2 (logo fallback chain)?                                                                                                                                                                                                                                              
+   
+❯ yes, use gemini cli where possible to save claude tokens                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                 
+⏺ Bash(gemini -p "@apps/coach-app/src/js/api.js @common/utils.js @data/club-logos.json…)                                                                                                                                                                                           
+  ⎿  Running in the background (↓ to manage)                                                                                                                                                                                                                                     
+  ⎿  (timeout 1m)                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                   
+⏺ Task Output b45d80e                                                                                                                                                                                                                                                              
+  ⎿  (No output)                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                   
+⏺ Task Output b45d80e                                                                                                                                                                                                                                                              
+  ⎿  Loaded cached credentials.                                                                                                                                                                                                                                                    
+     Hook registry initialized with 0 hook entries                                                                                                                                                                                                                                 
+     Attempt 1 failed with status 429. Retrying with backoff... GaxiosError: [{                                                                                                                                                                                                    
+     … +54 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                   
+⏺ Gemini is rate-limited (429). I'll do this directly — I already have all the context from the review. Let me stop that background task and make the fixes.                                                                                                                       
+                                                                                                                                                                                                                                                                                 
+⏺ Stop Task                                                                                                                                                                                                                                                                        
+  ⎿  gemini -p "@apps/coach-app/src/js/api.js @common/utils.js @data/club-logos.json… · stopped                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                   
+⏺ Now let me read the full logo section to make precise edits.                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                   
+⏺ Read 1 file (ctrl+o to expand)                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                   
+⏺ Good, I have the full picture. Now let me make the fixes. The plan:                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                 
+  1. Import club-logos.json as the logo lookup map                                                                                                                                                                                                                                 
+  2. Fix slugifyTeamName() — remove the hyphen-stripping line                                                                                                                                                                                                                    
+  3. Replace the broken fallback chain with a simple lookup against club-logos.json                                                                                                                                                                                                
+  4. Fix opponent logos to use the same lookup                                                                                                                                                                                                                                     
+  5. Remove debug console.logs
+
+⏺ Good, I have the full picture. Now let me make the fixes. The plan:
+
+  1. Import club-logos.json as the logo lookup map                                                                                                                                                                                                                                 
+  2. Fix slugifyTeamName() — remove the hyphen-stripping line
+  3. Replace the broken fallback chain with a simple lookup against club-logos.json                                                                                                                                                                                                
+  4. Fix opponent logos to use the same lookup                                                                                                                                                                                                                                   
+  5. Remove debug console.logs
+
+⏺ Update(apps/coach-app/src/js/api.js)   
+  ⎿  Added 1 line
+      3  import { API_CONFIG } from './config.js';                                                                                                                                                                                                                                 
+      4  import { mockTeams, calculateTeamStats } from '../../../../common/mock-data.js';
+      5  import { clubSlugFor } from '../../../../common/utils.js';                                                                                                                                                                                                                
+      6 +import clubLogos from '../../../../data/club-logos.json';                                                                                                                                                                                                               
+      7  
+      8  // Current data source: use API for production, mock for development
+      9  let dataSource = API_CONFIG.useMockData ? 'mock' : 'api';
+
+⏺ Now fix slugifyTeamName() — remove the line that strips all hyphens:
+
+⏺ Update(apps/coach-app/src/js/api.js)                                                                                                                                                                                                                                             
+  ⎿  Removed 1 line
+      388        .replace(/[^a-z0-9]+/g, '-')                                                                                                                                                                                                                                      
+      389        .replace(/(^-|-$)/g, '')                                                                                                                                                                                                                                        
+      390        .replace(/-+/g, '-')                                                                                                                                                                                                                                              
+      391 -      .replace(/-/g, '')                                                                                                                                                                                                                                              
+      391        .trim();
+      392    }
+      393  
+
+⏺ Remove the debug console.logs:         
+
+⏺ Update(apps/coach-app/src/js/api.js)                                                                                                                                                                                                                                             
+  ⎿  Removed 6 lines
+      391        .trim();                                                                                                                                                                                                                                                          
+      392    }                                                                                                                                                                                                                                                                   
+      393                                                                                                                                                                                                                                                                          
+      394 -  // Debug: Log the incoming data object and its keys to inspect property names                                                                                                                                                                                       
+      395 -  console.log('[DEBUG] [transformTeamDataFromSheet] incoming data:', data);                                                                                                                                                                                      
+      396 -  if (data && typeof data === 'object') {                                                                                                                                                                                                                        
+      397 -    console.log('[DEBUG] [transformTeamDataFromSheet] data keys:', Object.keys(data));                                                                                                                                                                           
+      398 -  }                                                                                                                                                                                                                                                              
+      399 -                                                                                                                                                                                                                                                                 
+      394    // Transform games
+      395    const games = (data.games || []).map(g => {
+      396      // Convert quarters array to lineup object
+
+⏺ Now fix the opponent logo lookup to use club-logos.json:
+
+⏺ Update(apps/coach-app/src/js/api.js)                                                                                                                                                                                                                                             
+  ⎿  Added 6 lines, removed 3 lines
+      481      try {                                                                                                                                                                                                                                                               
+      482        // Opponent logo fallback from opponent name                                                                                                                                                                                                                    
+      483        if ((!g.opponentDetails || !g.opponentDetails.logoUrl) && g.opponent) {                                                                                                                                                                                           
+      484 -        const slug = slugifyTeamName(g.opponent);                                                                                                                                                                                                                     
+      485 -        if (slug) {                                                                                                                                                                                                                                              
+      484 +        // Try club-level slug first, then full team slug                                                                                                                                                                                                        
+      485 +        const clubSlug = clubSlugFor(g.opponent);                                                                                                                                                                                                                
+      486 +        const teamSlug = slugifyTeamName(g.opponent);                                                                                                                                                                                                            
+      487 +        const logoPath = clubLogos[clubSlug] || clubLogos[teamSlug] || null;                                                                                                                                                                                     
+      488 +        if (logoPath) {                                                                                                                                                                                                                                          
+      489            g.opponentDetails = g.opponentDetails || {};
+      487 -          g.opponentDetails.logoUrl = `/assets/team-logos/${slug}.png`;                                                                                                                                                                                          
+      490 +          g.opponentDetails.logoUrl = logoPath;                                                                                                                                                                                                                  
+      491          }
+      492        }
+      493      } catch (e) {
+
+⏺ Now replace the broken team logo fallback chain:
+
+⏺ Update(apps/coach-app/src/js/api.js)                                                                                                                                                                                                                                             
+  ⎿  Added 10 lines, removed 42 lines
+      506      _lastModified: data._lastModified || null                                                                                                                                                                                                                           
+      507    };                                                                                                                                                                                                                                                                  
+      508    // Map team-level logo into PWA model (usable as `ourLogo`)                                                                                                                                                                                                           
+      509 +  // 1) Check if the server data has an explicit logo URL                                                                                                                                                                                                             
+      510    result.ourLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
+      510 -  console.log('[LOGO DEBUG] Initial ourLogo from data:', result.ourLogo, {                                                                                                                                                                                       
+      511 -    logoUrl: data.logoUrl,                                                                                                                                                                                                                                       
+      512 -    teamLogo: data.teamLogo,                                                                                                                                                                                                                                     
+      513 -    teamLogoUrl: data.teamLogoUrl,                                                                                                                                                                                                                               
+      514 -    logo: data.logo,                                                                                                                                                                                                                                             
+      515 -    team: data.team                                                                                                                                                                                                                                              
+      516 -  });                                                                                                                                                                                                                                                            
+      517 -  // Also propagate ourLogo onto each game if not already present (helps header rendering)                                                                                                                                                                       
+      518 -  if (result.ourLogo) {                                                                                                                                                                                                                                          
+      519 -    result.games.forEach(g => {                                                                                                                                                                                                                                  
+      520 -      if (!g.ourLogo) g.ourLogo = result.ourLogo;                                                                                                                                                                                                                
+      521 -    });                                                                                                                                                                                                                                                          
+      522 -  }                                                                                                                                                                                                                                                              
+      523 -  // If no remote team logo, prefer a club-level logo (derived from team name),                                                                                                                                                                                  
+      524 -  // then fall back to a team-named local asset.                                                                                                                                                                                                                 
+      525 -  if (!result.ourLogo && (result.teamName || data.team?.name)) {                                                                                                                                                                                                 
+      511 +  // 2) Fall back to club-logos.json lookup by club slug then team slug                                                                                                                                                                                          
+      512 +  if (!result.ourLogo) {                                                                                                                                                                                                                                         
+      513      const tname = result.teamName || (data.team && data.team.name) || '';
+      527 -    console.log('[LOGO DEBUG] No ourLogo found, using team name for fallback:', tname);                                                                                                                                                                          
+      528 -    // 1) Club-level asset (prefer .svg)                                                                                                                                                                                                                         
+      529 -    const club = clubSlugFor(tname);                                                                                                                                                                                                                             
+      530 -    result.ourLogo = `/assets/team-logos/${club}.svg`;                                                                                                                                                                                                           
+      531 -    console.log('[LOGO DEBUG] Fallback to club logo:', result.ourLogo);                                                                                                                                                                                          
+      532 -    // 2) Secondary: team-level png (legacy naming)                                                                                                                                                                                                              
+      533 -    const tslug = slugifyTeamName(tname);                                                                                                                                                                                                                        
+      534 -    if (!result.ourLogo && tslug) {                                                                                                                                                                                                                              
+      535 -      result.ourLogo = `/assets/team-logos/${tslug}.png`;                                                                                                                                                                                                        
+      536 -      console.log('[LOGO DEBUG] Fallback to team PNG logo:', result.ourLogo);                                                                                                                                                                                    
+      537 -    }                                                                                                                                                                                                                                                            
+      538 -    // Apply to games                                                                                                                                                                                                                                            
+      539 -    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });                                                                                                                                                                                  
+      514 +    const clubSlug = clubSlugFor(tname);                                                                                                                                                                                                                         
+      515 +    const teamSlug = slugifyTeamName(tname);                                                                                                                                                                                                                     
+      516 +    result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || '/assets/team-logos/hazel-glen.svg';                                                                                                                                                          
+      517    }
+      541 -  console.log('[LOGO DEBUG] Final ourLogo for team:', result.ourLogo);                                                                                                                                                                                           
+      518 +  // Propagate ourLogo onto each game if not already present (helps header rendering)                                                                                                                                                                            
+      519 +  result.games.forEach(g => {                                                                                                                                                                                                                                    
+      520 +    if (!g.ourLogo) g.ourLogo = result.ourLogo;                                                                                                                                                                                                                  
+      521 +  });                                                                                                                                                                                                                                                            
+      522  
+      543 -  // Final fallback: dedicated Hazel Glen SVG (guaranteed)                                                                                                                                                                                                       
+      544 -  if (!result.ourLogo) {                                                                                                                                                                                                                                         
+      545 -    result.ourLogo = '/assets/team-logos/hazel-glen.svg';                                                                                                                                                                                                        
+      546 -    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });                                                                                                                                                                                  
+      547 -  }                                                                                                                                                                                                                                                              
+      548 -                                                                                                                                                                                                                                                                 
+      549 -  // Backstop (shouldn't be reached) — last-resort PNG                                                                                                                                                                                                           
+      550 -  if (!result.ourLogo) {                                                                                                                                                                                                                                         
+      551 -    result.ourLogo = '/assets/team-logos/hg13fury.png';                                                                                                                                                                                                          
+      552 -    result.games.forEach(g => { if (!g.ourLogo) g.ourLogo = result.ourLogo; });                                                                                                                                                                                  
+      553 -  }                                                                                                                                                                                                                                                              
+      554 -                                                                                                                                                                                                                                                                 
+      523    // Preserve team AI insights if present
+      524    if (data.aiInsights) {
+      525      result.aiInsights = data.aiInsights;
+
+⏺ Now verify the build:                  
+
+⏺ Bash(npm run build 2>&1 | tail -15)                                                                                                                                                                                                                                              
+  ⎿  > hgnc-team-manager@1.0.0 build
+     > vite build                                                                                                                                                                                                                                                                  
+     … +12 lines (ctrl+o to expand)                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   
+⏺ Build passes. Note it now has 13 modules (was 12) because club-logos.json is now imported. Let me also run the tests:                                                                                                                                                            
+  
+⏺ Bash(cd /Users/casey-work/webapp-local-dev/apps/coach-app && npx vitest run 2>&1 | tail -20)                                                                                                                                                                                     
+  ⎿        teamID: 't1',                                                                                                                                                                                                                                                         
+           teamName: 'Live Team',                                                                                                                                                                                                                                                  
+           sheetName: 's1',                                                                                                                                                                                                                                                      
+     … +16 lines (ctrl+o to expand)                                                                                                                                                                                                                                                
+  ⎿  (timeout 30s)                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                   
+⏺ All 179 tests pass.                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   
+  Fix #2 done. Here's what changed in api.js:                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                 
+  1. Imported club-logos.json — the logo map is now used at runtime                                                                                                                                                                                                                
+  2. Fixed slugifyTeamName() — removed .replace(/-/g, '') so hyphens are preserved (e.g., "DC Garnets" → dc-garnets instead of dcgarnets)                                                                                                                                          
+  3. Replaced broken team logo fallback chain — now does: check server data → look up club-logos.json by club slug → look up by team slug → fall back to hazel-glen.svg. No more dead code or nonexistent .svg paths.
+  4. Fixed opponent logo lookup — uses clubSlugFor() + club-logos.json instead of broken slugifyTeamName() → guessed .png path
+  5. Removed all [DEBUG] and [LOGO DEBUG] console.log statements
+
+  Ready for #3 (remove debug logs from other files)?
+
+✻ Brewed for 4m 38s
+
+❯ deploy                                                                                                                                                                                                                                                                           
+  ⎿  You're out of extra usage · resets Feb 14 at 2pm (Australia/Melbourne)
+                                                                                                                                                                                                                                                                                   
+❯ /rate-limit-options                                                                                                                                                                                                                                                            
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ What do you want to do?                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                   
+ ❯ 1. Stop and wait for limit to reset                                                                                                                                                                                                                                             
+   2. Add funds to continue with extra usage
+   3. Upgrade your plan
+
+ Enter to confirm · Esc to cancel
+

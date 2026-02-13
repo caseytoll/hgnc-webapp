@@ -1,3 +1,41 @@
+/**
+ * Bulk clears all logo fields from every team's data sheet in production.
+ * Removes: logo, logoUrl, teamLogo, teamLogoUrl from each team's JSON in cell A1.
+ * Run this once to reset all team logos to use club-level fallback.
+ */
+function clearAllTeamLogosInProduction() {
+  var ss = getSpreadsheet();
+  var teamsSheet = ss.getSheetByName('Teams');
+  var data = teamsSheet.getDataRange().getValues();
+  data.shift(); // Remove header
+  var updatedCount = 0;
+  data.forEach(function(row) {
+    var sheetName = row[4]; // Sheet name is column E (index 4)
+    if (!sheetName) return;
+    var teamSheet = ss.getSheetByName(sheetName);
+    if (!teamSheet) return;
+    var teamDataJSON = teamSheet.getRange('A1').getValue();
+    if (!teamDataJSON) return;
+    var teamData;
+    try {
+      teamData = JSON.parse(teamDataJSON);
+    } catch (e) {
+      Logger.log('Could not parse team data for ' + sheetName + ': ' + e);
+      return;
+    }
+    // Remove all logo fields
+    delete teamData.logo;
+    delete teamData.logoUrl;
+    delete teamData.teamLogo;
+    delete teamData.teamLogoUrl;
+    // Optionally update last modified timestamp
+    teamData._lastModified = Date.now();
+    teamSheet.getRange('A1').setValue(JSON.stringify(teamData));
+    updatedCount++;
+  });
+  Logger.log('Cleared logo fields for ' + updatedCount + ' teams.');
+  return updatedCount;
+}
 // Spreadsheet ID for the HGNC data - update this if the spreadsheet changes
 var SPREADSHEET_ID = '13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88';
 
@@ -227,7 +265,8 @@ function getSpreadsheet() {
    * Call with: ?api=true&action=getTeams
    */
   function handleApiRequest(e) {
-    var action = e.parameter.action || '';
+    // Normalize action to lowercase to avoid duplicate case-handling
+    var action = (e.parameter.action || '').toLowerCase();
     var result = { success: false, error: 'Unknown action' };
 
     Logger.log('API Request: ' + action + ' | Params: ' + JSON.stringify(e.parameter));
@@ -235,7 +274,6 @@ function getSpreadsheet() {
     try {
       switch (action) {
 
-        case 'autoDetectSquadi':
         case 'autodetectsquadi':
           try {
             var forceRescanParam = e.parameter.forceRescan === 'true';
@@ -1986,13 +2024,12 @@ function getTeamInfo(teamID, forceRefresh) {
 
     info.clubSlug = _deriveClubSlug(team.teamName || teamData.teamName || 'hazel-glen');
 
-    // If no explicit team logo, prefer club-level asset (server-side fallback)
+    // If no explicit team logo, prefer club-level PNG asset (server-side fallback)
     if (!info.ourLogo) {
-      try {
-        info.ourLogo = '/assets/team-logos/' + info.clubSlug + '.svg';
-      } catch (e) {
-        info.ourLogo = '/assets/team-logos/hg13fury.png';
-      }
+      // Prefer PNG filenames — the client now uses `data/club-logos.json` for exact mapping.
+      info.ourLogo = '/assets/team-logos/' + info.clubSlug + '.png';
+      // Last-resort fallback kept for legacy filenames
+      if (!info.ourLogo) info.ourLogo = '/assets/team-logos/hg13fury.png';
     }
 
     // If we have a Squadi config, try to enrich with fixture and ladder info

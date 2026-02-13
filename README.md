@@ -1,5 +1,7 @@
 # HGNC Team Manager
 
+[![Deploy Pages Site](https://github.com/caseytoll/hgnc-webapp/actions/workflows/deploy-pages.yml/badge.svg?branch=master)](https://github.com/caseytoll/hgnc-webapp/actions/workflows/deploy-pages.yml)
+
 Team management PWA for Hazel Glen Netball Club coaches, with read-only parent portal.
 
 ## Apps

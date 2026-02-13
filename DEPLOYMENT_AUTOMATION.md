@@ -6,7 +6,7 @@
 |-----------|--------|-----|
 | Coach's App | ✅ Live | https://hgnc-team-manager.pages.dev |
 | Parent Portal | ✅ Live | https://hgnc-gameday.pages.dev |
-| Google Apps Script API | ✅ Live (v@10) | https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec |
+| Google Apps Script API | ✅ Live (v@10) | https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec |
 
 **Last Updated:** February 12, 2026  
 **Latest Version:** v2026-02-12 - Team creation wizard restructuring, Squadi auto-detect fixes  
@@ -51,7 +51,7 @@ clasp deploy -d "Description"                 # Create new versioned deployment
 ```
 
 **Scripts location:** [apps-script/Code.js](apps-script/Code.js)  
-**Current API URL:** https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec  
+**Current API URL:** https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec  
 **Config location:** [apps/coach-app/src/js/config.js](apps/coach-app/src/js/config.js)
 
 **Important:** After deploying a new version, Google may cache the web app URL. If testing fails:
@@ -108,13 +108,13 @@ npm run test:coverage        # Generate coverage report
 
 ```bash
 # Health check
-curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=ping"
+curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=ping"
 
 # Get teams
-curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=getTeams"
+curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=getTeams"
 
 # Get Squadi teams
-curl "https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=autoDetectSquadi"
+curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=autoDetectSquadi"
 ```
 
 ---
