@@ -29,6 +29,14 @@ When the Apps Script API (getTeams / ping / diagnostics) is failing or returning
 - Add a short post-mortem to the incident ticket including root cause and remediation steps.
 - Consider adding an automated smoke test (already provided by `monitor-api.yml`).
 
+6) Additional Preventive Measures (from 2026-02-13 learnings)
+- **Merge Conflict Resolution**: Before deploying, run `git status` and search for `<<<<<<<`, `=======`, `>>>>>>>` in source files. Resolve all conflicts and test builds locally.
+- **API URL Validation**: Always verify `API_CONFIG.baseUrl` is defined and reachable before constructing URLs.
+- **Asset Mapping Checks**: Run logo-check scripts (e.g., `scripts/check-team-logos.js`) after changes to ensure no missing assets.
+- **Build Validation**: Run full builds (`npm run build` for both apps) before deploying to catch parse errors early.
+- **Monitoring Alerts**: Ensure GitHub Actions notifications are enabled for monitor failures, including HTTP status codes.
+
 Notes
 - The app has an explicit runtime fallback to mock data when `getTeams` fails; user-facing outages should be minimal if the fallback is healthy.
 - The GitHub monitor workflow will create issues when `getTeams` fails or latency spikes. Ensure Slack/GitHub notifications are delivered to the on-call.
+- For merge conflicts: Use `git mergetool` or manually edit; never commit markers. Add a pre-commit hook: `grep -r "<<<<<<<" . && exit 1`.

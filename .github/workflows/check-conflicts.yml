@@ -1,0 +1,30 @@
+name: Check for Merge Conflicts
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  conflict-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for merge conflict markers
+        run: |
+          if grep -r "<<<<<<<" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
+            echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
+            exit 1
+          fi
+          if grep -r "=======" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
+            echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
+            exit 1
+          fi
+          if grep -r ">>>>>>>" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
+            echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
+            exit 1
+          fi
+          echo "✅ No merge conflict markers detected."
