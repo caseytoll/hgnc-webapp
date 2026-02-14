@@ -8,7 +8,7 @@ Deploy the Coach's App to Cloudflare Pages. $ARGUMENTS
 
 2. **Build**: Run `npm run build` from the project root. Verify the build completes without errors.
 
-3. **Deploy**: Run `cd apps/coach-app && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true`
+3. **Deploy**: Run `cd apps/coach-app && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=master --commit-dirty=true`
 
 4. **Verify**: Confirm the deploy URL is returned and accessible.
 

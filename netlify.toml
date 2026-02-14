@@ -6,7 +6,7 @@
 # Query params are passed through automatically
 [[redirects]]
   from = "/api"
-  to = "https://script.google.com/macros/s/AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V/exec"
+  to = "https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec"
   status = 200
   force = true
 

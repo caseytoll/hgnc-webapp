@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=getTeams';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=getTeams';
 const PARENT_PORTAL_PREFIX = 'hgnc-gameday-';
 const DIST_PATH = path.resolve(__dirname, '../dist');
 

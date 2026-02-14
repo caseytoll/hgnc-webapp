@@ -33,5 +33,5 @@ Notes
 
 - The generated files are `public/ladder-<teamID>.json` and contain a `lastUpdated` ISO timestamp and a `ladder` array.
 - For automation, set the Apps Script URL as a repository secret named `GS_API_URL` and use the provided GitHub Action (`.github/workflows/daily-ladder.yml`).
-- The GitHub Action runs on Node 20 and will **fetch ladders for all teams** returned by `getTeams`, commit changed `public/ladder-*.json` to `master`, and trigger a Cloudflare Pages redeploy. Ensure the repository secret `GS_API_URL` points at your current Apps Script deployment (the latest at time of writing is deployment @56: `AKfycbx5g7fIW28n...`).
+- The GitHub Action runs on Node 20 and will **fetch ladders for all teams** returned by `getTeams`, commit changed `public/ladder-*.json` to `master`, and trigger a Cloudflare Pages redeploy. Ensure the repository secret `GS_API_URL` points at your current Apps Script deployment.
 - The scraper logs HTTP errors and parser errors per-team and continues processing other teams; use the `--only-*` flags for focused debugging.

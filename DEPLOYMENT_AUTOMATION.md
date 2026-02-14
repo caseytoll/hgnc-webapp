@@ -6,11 +6,7 @@
 |-----------|--------|-----|
 | Coach's App | ✅ Live | https://hgnc-team-manager.pages.dev |
 | Parent Portal | ✅ Live | https://hgnc-gameday.pages.dev |
-| Google Apps Script API | ✅ Live (v@10) | https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec |
-
-**Last Updated:** February 12, 2026  
-**Latest Version:** v2026-02-12 - Team creation wizard restructuring, Squadi auto-detect fixes  
-**Tests:** 173/173 passing
+| Google Apps Script API | ✅ Live | https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec |
 
 ---
 
@@ -21,15 +17,15 @@
 ```bash
 cd /Users/casey-work/webapp-local-dev
 npm run build
-wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
+cd apps/coach-app && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=master --commit-dirty=true
 ```
 
-**Build Output:** `dist/` directory  
-**Hosted on:** Cloudflare Pages  
-**Features:** Full PWA with editing, offline support, service worker auto-updates  
+**Build Output:** `dist/` directory
+**Hosted on:** Cloudflare Pages (production branch: `master`)
+**Features:** Full PWA with editing, offline support, service worker auto-updates
 **Version marker:** `REVISION` in [apps/coach-app/vite.config.js](apps/coach-app/vite.config.js)
 
-### Parent Portal Deployment  
+### Parent Portal Deployment
 
 ```bash
 cd /Users/casey-work/webapp-local-dev/apps/parent-portal
@@ -37,9 +33,9 @@ npm run build
 wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
 ```
 
-**Build Output:** `dist/` directory  
-**Hosted on:** Cloudflare Pages  
-**Features:** Read-only SPA, team-specific routing, no editing controls  
+**Build Output:** `dist/` directory
+**Hosted on:** Cloudflare Pages (production branch: `main`)
+**Features:** Read-only SPA, team-specific routing, no editing controls
 **Routing:** SPA handles `/teams/{slug}/` URLs via client-side router
 
 ### Google Apps Script Deployment
@@ -47,11 +43,12 @@ wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-di
 ```bash
 cd /Users/casey-work/webapp-local-dev/apps-script
 clasp push                                    # Push code changes to HEAD
-clasp deploy -d "Description"                 # Create new versioned deployment
+clasp deploy -i AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj -d "Description"
 ```
 
-**Scripts location:** [apps-script/Code.js](apps-script/Code.js)  
-**Current API URL:** https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec  
+**Scripts location:** [apps-script/Code.js](apps-script/Code.js)
+**Apps Script project:** `18WnCpSMg2dfyNCVQIuu57bGS20w0J9AqdC7b4Zly1O7LhxKJNfJ2J-eV`
+**Current API URL:** https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec
 **Config location:** [apps/coach-app/src/js/config.js](apps/coach-app/src/js/config.js)
 
 **Important:** After deploying a new version, Google may cache the web app URL. If testing fails:
@@ -63,11 +60,11 @@ clasp deploy -d "Description"                 # Create new versioned deployment
 
 ## Pre-Deployment Checklist
 
-- [ ] All tests pass: `npm run test:run` (must be 173/173 passing)
+- [ ] All tests pass: `npm run test:run` (Coach App) and `cd apps/parent-portal && npm run test:run` (Parent Portal)
 - [ ] Build succeeds: `npm run build` (creates `dist/`)
 - [ ] Version bumped: Check `REVISION` in `apps/coach-app/vite.config.js`
 - [ ] No console errors: `npm run dev` then check browser DevTools
-- [ ] API responding: `curl https://script.google.com/macros/s/.../exec?api=true&action=ping`
+- [ ] API responding: `curl -L "https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=ping"`
 
 ---
 
@@ -76,16 +73,15 @@ clasp deploy -d "Description"                 # Create new versioned deployment
 ### Unit Tests
 
 ```bash
-npm run test:run              # Run all tests once
+npm run test:run              # Run all coach app tests once
+cd apps/parent-portal && npm run test:run  # Run parent portal tests
 npm run test                  # Run tests in watch mode
 npm run test:coverage        # Generate coverage report
 ```
 
-**Current status:** 173/173 tests passing  
 **Test files:**
 - `apps/coach-app/src/js/*.test.js` - Unit tests for coach app
 - `apps/parent-portal/src/js/*.test.js` - Unit tests for parent portal
-- `apps/coach-app/vitest.config.js` - Test configuration
 
 ### Manual Testing
 
@@ -108,13 +104,13 @@ npm run test:coverage        # Generate coverage report
 
 ```bash
 # Health check
-curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=ping"
+curl -L "https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=ping"
 
 # Get teams
-curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=getTeams"
+curl -L "https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=getTeams"
 
 # Get Squadi teams
-curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec?api=true&action=autoDetectSquadi"
+curl -L "https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=autoDetectSquadi"
 ```
 
 ---
@@ -124,7 +120,7 @@ curl "https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFv
 If a deployment causes issues:
 
 1. **Coach's App:** Deploy previous `dist/` commit via Cloudflare Pages
-2. **Parent Portal:** Deploy previous `dist/` commit via Cloudflare Pages  
+2. **Parent Portal:** Deploy previous `dist/` commit via Cloudflare Pages
 3. **Apps Script:** Revert to previous deployment version via clasp or Google Console
 
 ```bash
@@ -147,26 +143,12 @@ cd apps-script && clasp deployments
 
 ---
 
-## Recent Changes (v2026-02-12)
+## Key Configuration
 
-### Team Creation Wizard
-- Restructured from 4 to 6 steps
-- Added competition type selection (NFNL, Nillumbik Force, Other)
-- Conditional season selection
-- Integrated fixture sync setup
-
-### Squadi Integration
-- Auto-detect teams from Squadi/Netball Connect competitions
-- Detects both "HG" and "Hazel Glen" team name prefixes
-- Automatic configuration for fixture sync
-
-### API Updates
-- `createTeam` now accepts `ladderUrl` and `resultsApi` parameters
-- Backend properly stores integration config
-- Maintains backward compatibility with existing teams
-
-### Deployment Status
-- ✅ All tests passing (173/173)
-- ✅ Both apps building successfully
-- ✅ Apps Script deployed (v@10)
-- ✅ Squadi auto-detect working end-to-end
+| Config | Value |
+|--------|-------|
+| Apps Script Project | `18WnCpSMg2dfyNCVQIuu57bGS20w0J9AqdC7b4Zly1O7LhxKJNfJ2J-eV` |
+| Google Sheet | `13Dxn41HZnClcpMeIzDXtxbhH-gDFtaIJsz5LV3hrE88` |
+| Deployment ID | `AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj` |
+| Coach App CF branch | `master` |
+| Parent Portal CF branch | `main` |
