@@ -9,7 +9,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=getTeams';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=getTeams';
 const PARENT_PORTAL_BASE = 'https://hgnc-gameday-'; // subdomain prefix
 const PARENT_PORTAL_SUFFIX = '.pages.dev';
 const SYSTEM_PAGE_PATH = path.join(__dirname, '../public/parent-portals.html');

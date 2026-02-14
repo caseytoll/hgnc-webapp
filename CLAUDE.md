@@ -57,7 +57,7 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch
 ```bash
 cd apps-script && clasp push && clasp deploy -i <DEPLOYMENT_ID> -d "Description"
 ```
-Current production API: https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec
+Current production API: https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec
 
 ### Versioning
 

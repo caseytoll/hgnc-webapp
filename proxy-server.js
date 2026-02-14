@@ -8,7 +8,7 @@ app.use((req, res) => {
   console.log(`[Proxy] ${req.method} ${req.url}`);
 
   // Construct the target URL
-  const targetUrl = `https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec${req.url}`;
+  const targetUrl = `https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec${req.url}`;
 
   console.log(`[Proxy] Forwarding to: ${targetUrl}`);
 

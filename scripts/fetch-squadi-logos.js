@@ -5,7 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec?api=true&action=getTeamInfo&teamID=team_1770421147222&forceRefresh=true';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec?api=true&action=getTeamInfo&teamID=team_1770421147222&forceRefresh=true';
 const outDir = path.join(__dirname, '..', 'apps', 'coach-app', 'public', 'assets', 'team-logos');
 fs.mkdirSync(outDir, { recursive: true });
 

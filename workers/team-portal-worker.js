@@ -18,7 +18,7 @@ async function handleRequest(request) {
     const apiMatch = pathname.match(/^\/api(?:\/.*)?$/i);
     if (apiMatch) {
       // Map incoming request to Apps Script endpoint, preserve query string and ensure api=true
-      const targetBase = 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec';
+      const targetBase = 'https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec';
       const targetUrl = new URL(targetBase);
       // Copy original query params
       for (const [k, v] of url.searchParams.entries()) targetUrl.searchParams.append(k, v);
