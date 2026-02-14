@@ -304,58 +304,9 @@ export async function loadTeamData(teamID) {
     // Transform from Google Sheet format to PWA format
     const transformed = transformTeamDataFromSheet(rawData, teamID, teamInfo?.teamName);
 
-    // If server-side consolidated info (getTeamInfo) is required for logos/fixtures,
-    // only fetch it when the transformed data is missing those fields to avoid
-    // performing two sequential calls for every team load.
-    let serverTeamInfo = null;
-    const needsExtraInfo = !transformed.ourLogo || !transformed.nextFixture;
-    if (needsExtraInfo) {
-      try {
-        const infoRes = await callAppsScript('getTeamInfo', { teamID });
-        if (infoRes && infoRes.success && infoRes.info) serverTeamInfo = infoRes.info;
-      } catch (e) {
-        // Non-fatal: proceed with sheet-only data
-        console.warn('[API] getTeamInfo (optional) failed:', e.message || e);
-      }
-    }
-
     // Store the server's last modified timestamp for stale data detection
     if (transformed._lastModified) {
       teamLastModified.set(teamID, transformed._lastModified);
-      console.log(`[API] Stored _lastModified for ${teamID}:`, transformed._lastModified);
-    }
-
-    // Merge server-provided teamInfo (logos/fixtures) when available
-    if (teamInfo) {
-      try {
-        if (teamInfo.ourLogo && !transformed.ourLogo) {
-          transformed.ourLogo = teamInfo.ourLogo;
-          transformed.games.forEach(g => { if (!g.ourLogo) g.ourLogo = transformed.ourLogo; });
-        }
-        if (teamInfo.nextFixture) {
-          // attach top-level nextFixture for convenience
-          transformed.nextFixture = teamInfo.nextFixture;
-          // try to merge into matching game by matchId
-          const mid = teamInfo.nextFixture.matchId || teamInfo.nextFixture.matchID || teamInfo.nextFixture.id || null;
-          if (mid) {
-            const matchGame = transformed.games.find(g => String(g.matchId || g.gameID || g.gameId || g.gameID) === String(mid) || String(g.fixtureMatchId) === String(mid));
-            if (matchGame) {
-              // Merge opponentDetails and flags
-              if (teamInfo.nextFixture.opponentDetails) {
-                matchGame.opponentDetails = matchGame.opponentDetails || {};
-                matchGame.opponentDetails.logoUrl = matchGame.opponentDetails.logoUrl || teamInfo.nextFixture.opponentDetails.logoUrl || teamInfo.nextFixture.opponentDetails.logo || matchGame.opponentDetails.logoUrl;
-                matchGame.opponentDetails.id = matchGame.opponentDetails.id || teamInfo.nextFixture.opponentDetails.id;
-              }
-              if (teamInfo.nextFixture.lineupConfirmed !== undefined) matchGame.lineupConfirmed = teamInfo.nextFixture.lineupConfirmed;
-              if (teamInfo.nextFixture.opponentLineupConfirmed !== undefined) matchGame.opponentLineupConfirmed = teamInfo.nextFixture.opponentLineupConfirmed;
-              if (teamInfo.nextFixture.livestreamUrl) matchGame.livestreamUrl = matchGame.livestreamUrl || teamInfo.nextFixture.livestreamUrl;
-              if (teamInfo.nextFixture.venueDetails) matchGame.venueDetails = matchGame.venueDetails || teamInfo.nextFixture.venueDetails;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('[API] Failed to merge teamInfo:', e.message || e);
-      }
     }
 
     return transformed;
@@ -515,43 +466,25 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
   });
 
   // Apply local asset fallbacks for logos when external URLs are not provided
-  console.log(`[LOGO] Processing ${games.length} games for team "${teamName}"`);
   games.forEach(g => {
     try {
-      console.log(`[LOGO] Game: "${g.opponent}" vs "${teamName}" - opponentDetails:`, g.opponentDetails);
       // Opponent logo fallback from opponent name
       if ((!g.opponentDetails || !g.opponentDetails.logoUrl) && g.opponent) {
         const opponentName = g.opponent.trim();
-        // Skip logo lookup for opponents with no name
-        if (!opponentName) {
-          console.log(`[LOGO] Opponent has no name, skipping logo lookup for game vs "${teamName}"`);
-        } else {
+        if (opponentName) {
           // Try club-level slug first, then full team slug
           const clubSlug = clubSlugFor(opponentName);
           const teamSlug = slugifyTeamName(opponentName);
           const logoPath = clubLogos[clubSlug] || clubLogos[teamSlug] || null;
-
-          console.log(`[LOGO] Opponent "${opponentName}" for game vs "${teamName}" - Fallback lookup:`, {
-            opponentName: opponentName,
-            clubSlug: clubSlug,
-            teamSlug: teamSlug,
-            clubLogoPath: clubLogos[clubSlug],
-            teamLogoPath: clubLogos[teamSlug],
-            finalLogoPath: logoPath,
-            applied: !!logoPath
-          });
 
           if (logoPath) {
             g.opponentDetails = g.opponentDetails || {};
             g.opponentDetails.logoUrl = logoPath;
           }
         }
-      } else {
-        console.log(`[LOGO] Opponent "${g.opponent}" already has logo:`, g.opponentDetails?.logoUrl);
       }
     } catch (e) {
-      console.log(`[LOGO] Error processing opponent logo for "${g.opponent}":`, e.message);
-      // ignore
+      // ignore logo lookup errors
     }
   });
 
@@ -568,48 +501,21 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
   // Map team-level logo into PWA model (usable as `ourLogo`)
   // 1) Check if the server data has an explicit logo URL
   const serverLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
-  console.log(`[LOGO] Team "${result.teamName}" - Server logo fields:`, {
-    logoUrl: data.logoUrl,
-    teamLogo: data.teamLogo,
-    teamLogoUrl: data.teamLogoUrl,
-    logo: data.logo,
-    'data.team.logoUrl': data.team && data.team.logoUrl,
-    serverLogo: serverLogo
-  });
   result.ourLogo = serverLogo;
 
   // 2) Fall back to club-logos.json lookup by club slug then team slug
   if (!result.ourLogo) {
     const tname = result.teamName || (data.team && data.team.name) || '';
-    // Skip logo lookup for teams with no name (likely data error)
-    if (!tname.trim()) {
-      console.log(`[LOGO] Team has no name, skipping logo lookup`);
-      result.ourLogo = null; // No logo for unnamed teams
-    } else {
+    if (tname.trim()) {
       const clubSlug = clubSlugFor(tname);
       const teamSlug = slugifyTeamName(tname);
-      const clubLogoPath = clubLogos[clubSlug];
-      const teamLogoPath = clubLogos[teamSlug];
-      const fallbackPath = '/assets/team-logos/hazel-glen.png';
-
-      console.log(`[LOGO] Team "${tname}" - Fallback lookup:`, {
-        teamName: tname,
-        clubSlug: clubSlug,
-        teamSlug: teamSlug,
-        clubLogoPath: clubLogoPath,
-        teamLogoPath: teamLogoPath,
-        fallbackPath: fallbackPath,
-        finalChoice: clubLogoPath || teamLogoPath || fallbackPath
-      });
-
-      result.ourLogo = clubLogoPath || teamLogoPath || fallbackPath;
+      const fallbackPath = '/assets/team-logos/hazel-glen.svg';
+      result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || fallbackPath;
     }
   }
   // Propagate ourLogo onto each game if not already present (helps header rendering)
-  console.log(`[LOGO] Team "${teamName}" final ourLogo:`, result.ourLogo);
   result.games.forEach(g => {
     if (!g.ourLogo) g.ourLogo = result.ourLogo;
-    console.log(`[LOGO] Game "${g.opponent}" ourLogo set to:`, g.ourLogo);
   });
 
   // Preserve team AI insights if present

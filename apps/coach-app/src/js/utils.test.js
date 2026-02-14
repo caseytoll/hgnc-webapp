@@ -271,9 +271,11 @@ describe('clubSlugFor', () => {
     expect(clubSlugFor('Hazel Glen 6')).toBe('hazel-glen');
   });
 
-  it('maps DC / Dandenong to dcgarnets', () => {
-    expect(clubSlugFor('DC Garnets')).toBe('dcgarnets');
-    expect(clubSlugFor('Dandenong City U14')).toBe('dcgarnets');
+  it('maps DC teams to per-team slugs (not collapsed to one club)', () => {
+    expect(clubSlugFor('DC Garnets')).toBe('dc-garnets');
+    expect(clubSlugFor('DC Amber')).toBe('dc-amber');
+    expect(clubSlugFor('DC Diamonds')).toBe('dc-diamonds');
+    expect(clubSlugFor('Dandenong City U14')).toBe('dandenong-city');
   });
 
   it('returns sensible slugs for unknown names', () => {

@@ -411,23 +411,39 @@
 }
 .game-score-display .score-team {
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* logo left of label */
   align-items: center;
-  min-width: 80px;
+  gap: 10px;
+  min-width: 120px;
+  justify-content: center;
 }
 .game-score-display .team-logo-game {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   object-fit: contain;
-  margin-bottom: 6px;
+  margin-bottom: 0; /* reset — now inline */
   background: #fff;
   padding: 4px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+.game-score-display .score-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.game-score-display .score-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
 }
 @media (max-width: 480px) {
   .game-score-display .team-logo-game { width: 36px; height: 36px; }
   .game-score-display { gap: 8px; }
+  .game-score-display .score-team { min-width: 92px; gap: 8px; }
+  .game-score-display .score-value { font-size: 1rem; }
 }
 
 .notes-modal-textarea::placeholder {
@@ -634,10 +650,10 @@
   max-height: none;
 }
 
-/* Compact basic view: reduce wrapping by tightening spacing and font
-   Applied only when NOT expanded (basic view) so expanded view remains roomy */
-.ladder-container:not(.expanded-columns) {
-  font-size: 0.78rem;
+/* When expanded allow horizontal scrolling so additional columns are reachable on narrow screens */
+.ladder-container.expanded-columns {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .ladder-container:not(.expanded-columns) .ladder-table th,
 .ladder-container:not(.expanded-columns) .ladder-table td {
@@ -680,6 +696,12 @@
   border-collapse: collapse;
   font-size: 0.8rem;
   table-layout: fixed;
+}
+
+/* When expanded, allow the table to grow horizontally so container can scroll */
+.ladder-container.expanded-columns .ladder-table {
+  width: auto;
+  min-width: max-content;
 }
 
 /* On narrow screens let the table use auto layout so TEAM column can expand naturally (restores v6 behaviour) */
@@ -774,6 +796,54 @@
   top: 0;
   background: linear-gradient(0deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02));
   z-index: 2;
+}
+
+/* --- Sticky / frozen left columns: POS, logo, TEAM ---
+   - keep these columns opaque and above the scrolling cells so content cannot show through
+   - left offsets mirror the explicit widths declared above (desktop & mobile)
+*/
+.ladder-table th[data-key="POS"],
+.ladder-table td[data-key="POS"] {
+  position: sticky;
+  left: 0;
+  z-index: 40; /* must sit above all scrolling cells */
+  background: var(--bg-card); /* opaque background prevents see-through */
+  border-right: 1px solid var(--border-light);
+}
+
+.ladder-table th.logo-col,
+.ladder-table td.logo-col {
+  position: sticky;
+  left: 36px; /* matches .logo-col width */
+  z-index: 39;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-light);
+}
+
+.ladder-table th[data-key="TEAM"],
+.ladder-table td[data-key="TEAM"] {
+  position: sticky;
+  left: 72px; /* POS (36) + logo (36) */
+  z-index: 38;
+  background: var(--bg-card);
+  border-right: 1px solid rgba(255,255,255,0.03); /* subtle divider */
+}
+
+/* If header cell is sticky it should also be opaque (override earlier transparent rule) */
+.ladder-table thead th[data-key="POS"],
+.ladder-table thead th.logo-col,
+.ladder-table thead th[data-key="TEAM"] {
+  background: linear-gradient(0deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02));
+  background-color: var(--bg-card);
+  z-index: 50; /* headers above body sticky cells */
+}
+
+/* Mobile adjustments — widths are smaller there so sticky offsets must match */
+@media (max-width: 768px) {
+  .ladder-table th.logo-col,
+  .ladder-table td.logo-col { left: 30px; }
+  .ladder-table th[data-key="TEAM"],
+  .ladder-table td[data-key="TEAM"] { left: 60px; }
 }
 
 .ladder-table tr.highlight {
@@ -891,6 +961,52 @@
 /* Smaller font on narrow screens */
 @media (max-width: 480px) {
   .ladder-table { font-size: 0.78rem; }
+}
+
+/* Mobile optimisations for narrow screens (phones) */
+@media (max-width: 420px) {
+  .ladder-container {
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+
+  .ladder-table {
+    font-size: 0.72rem;
+    table-layout: auto; /* let columns size naturally */
+    width: 100%;
+  }
+
+  .ladder-table th,
+  .ladder-table td {
+    padding: 4px 6px;     /* compact but readable */
+    font-size: 0.72rem;
+    vertical-align: middle;
+  }
+
+  /* Reduce logo size so TEAM can take more room */
+  .team-logo-ladder { width: 16px; height: 16px; }
+
+  /* Make TEAM column slightly narrower but allow wrapping */
+  .ladder-table th[data-key="TEAM"],
+  .ladder-table td[data-key="TEAM"] { min-width: 120px; max-width: 55%; }
+
+  /* Keep headers compact and prevent unintended stacking */
+  .ladder-table thead th { white-space: nowrap; font-size: 0.68rem; }
+
+  /* Slightly reduce POS width and tighten numeric columns */
+  .ladder-table th[data-key="POS"], .ladder-table td[data-key="POS"] { width: 30px; }
+  .ladder-table th[data-key="P"], .ladder-table td[data-key="P"],
+  .ladder-table th[data-key="W"], .ladder-table td[data-key="W"],
+  .ladder-table th[data-key="L"], .ladder-table td[data-key="L"],
+  .ladder-table th[data-key="D"], .ladder-table td[data-key="D"] { width: 26px; }
+  .ladder-table th[data-key="PTS"], .ladder-table td[data-key="PTS"] { width: 42px; }
+
+  /* Reduce gap between rows */
+  .ladder-table tr { height: 36px; }
+
+  /* Reduce header paddings to keep header aligned with cells */
+  .ladder-container:not(.expanded-columns) .ladder-table thead th,
+  .ladder-container:not(.expanded-columns) .ladder-table td { padding: 3px 6px; }
 }
 
 /* Transition / animation for ladder panel */
