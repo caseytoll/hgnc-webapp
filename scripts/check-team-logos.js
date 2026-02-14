@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
 
-const API_BASE = 'https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec';
+const API_BASE = 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec';
 const assetsDir = path.join(process.cwd(), 'apps', 'coach-app', 'public', 'assets', 'team-logos');
 const clubLogosPath = path.join(process.cwd(), 'data', 'club-logos.json');
 
