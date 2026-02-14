@@ -43,14 +43,14 @@ npm run test:run         # Run tests once
 
 **Coach's App:**
 ```bash
-git add -A && git commit -m "feat: Description" && git push origin main
-npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
+git add -A && git commit -m "feat: Description" && git push origin master
+npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --branch=master --commit-dirty=true
 ```
 
 **Parent Portal:**
 ```bash
 cd apps/parent-portal
-npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
+npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=master --commit-dirty=true
 ```
 
 **Backend (Apps Script):**
