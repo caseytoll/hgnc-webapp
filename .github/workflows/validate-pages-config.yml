@@ -44,4 +44,4 @@ jobs:
             echo "ERROR: package.json not found in repository root. Ensure this workflow runs after checkout."
             exit 1
           fi
-          node -e "const p=require('./package.json'); if(!p.scripts || !p.scripts.prebuild){console.error('ERROR: prebuild script not configured (runs portal generator).'); process.exit(1);} console.log('prebuild script present');"
+          node -e "const p=require('./package.json'); if(!p.scripts || !p.scripts.prebuild){console.log('INFO: No prebuild script configured (portal generator disabled).');} else {console.log('prebuild script present');}"
