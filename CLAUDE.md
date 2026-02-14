@@ -50,7 +50,7 @@ npm run build && wrangler pages deploy dist --project-name=hgnc-team-manager --b
 **Parent Portal:**
 ```bash
 cd apps/parent-portal
-npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=master --commit-dirty=true
+npm run build && wrangler pages deploy dist --project-name=hgnc-gameday --branch=main --commit-dirty=true
 ```
 
 **Backend (Apps Script):**

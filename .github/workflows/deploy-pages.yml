@@ -42,4 +42,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: |
           echo "Deploying Pages site 'hgnc-team-manager' from dist/ ..."
-          wrangler pages deploy dist --project-name=hgnc-team-manager --branch=main --commit-dirty=true
+          wrangler pages deploy dist --project-name=hgnc-team-manager --branch=master --commit-dirty=true
