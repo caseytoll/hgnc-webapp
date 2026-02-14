@@ -267,13 +267,13 @@ export function clubSlugFor(teamName) {
   const normalized = teamName.trim().toLowerCase();
 
   // Known aliases (map common prefixes/abbreviations to canonical club slugs)
+  // Note: DC (Diamond Creek) teams intentionally NOT aliased here — each DC
+  // variant (DC Amber, DC Diamonds, etc.) has its own logo in club-logos.json,
+  // so we let them fall through to the slugify fallback for per-team matching.
   const aliases = {
     'hg': 'hazel-glen',
     'hazel': 'hazel-glen',
     'hazel-glen': 'hazel-glen',
-    'dc': 'dcgarnets',
-    'dandenong': 'dcgarnets',
-    'dcgarnets': 'dcgarnets',
     'titans': 'titans',
     'montmorency': 'montmorency'
   };

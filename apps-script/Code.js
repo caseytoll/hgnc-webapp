@@ -559,10 +559,11 @@ function getSpreadsheet() {
           var createName = e.parameter.name || '';
           var createCoach = e.parameter.coach || '';
           var createLadderUrl = e.parameter.ladderUrl || '';
+          var createResultsApi = e.parameter.resultsApi || '';
           if (!createName) {
             result = { success: false, error: 'Team name is required' };
           } else {
-            var createResult = createNewTeam(createYear, createSeason, createName, '', createLadderUrl, '', createCoach);
+            var createResult = createNewTeam(createYear, createSeason, createName, '', createLadderUrl, createResultsApi, createCoach);
             if (createResult.error) {
               result = { success: false, error: createResult.error };
             } else {

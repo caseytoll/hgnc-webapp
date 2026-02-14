@@ -5,7 +5,7 @@ Full deployment pipeline: backend, Coach App, and Parent Portal. $ARGUMENTS
 ## Steps
 
 ### 1. Backend
-- Run `cd apps-script && clasp push && clasp deploy -i AKfycbyBxhOJDfNBZuZ65St-Qt3UmmeAD57M0Jr1Q0MsoKGbHFxzu8rIvarJOOnB4sLeJZ-V -d "deploy-all"`
+- Run `cd apps-script && clasp push && clasp deploy -i AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES -d "deploy-all"`
 
 ### 2. Coach App
 - Bump `REVISION` in `apps/coach-app/vite.config.js` line 8 (a→b→c for same day, reset to 'a' on new day)

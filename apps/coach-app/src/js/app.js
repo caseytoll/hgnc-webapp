@@ -2503,6 +2503,18 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   html += `</tbody></table></div>`;
   ladderDiv.innerHTML = html;
 
+  // Runtime DOM sanity check: ensure thead <th> count matches first tbody row <td> count
+  try {
+    const theadCount = ladderDiv.querySelectorAll('.ladder-table thead th').length;
+    const firstRow = ladderDiv.querySelector('.ladder-table tbody tr');
+    const rowTdCount = firstRow ? firstRow.querySelectorAll('td').length : 0;
+    if (theadCount !== rowTdCount) {
+      console.warn('LADDER DOM MISMATCH: thead th count=%d != first row td count=%d', theadCount, rowTdCount, { theadCount, rowTdCount });
+    } else {
+      console.debug('LADDER DOM OK: header cells match row cells', theadCount);
+    }
+  } catch (e) { console.error(e); }
+
   // Animate in (respect prefers-reduced-motion)
   const container = ladderDiv.querySelector('.ladder-container');
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -5259,9 +5271,11 @@ function renderGameScoreCard() {
   container.innerHTML = `
     <div class="game-score-display">
       <div class="score-team">
-        ${game.ourLogo ? `<img src="${escapeAttr(game.ourLogo)}" alt="${escapeAttr(state.currentTeamData?.name || 'Us')}" class="team-logo-game home">` : ''}
-        <div class="score-label">Us</div>
-        <div class="score-value">${escapeHtml(us)}</div>
+        ${ (game.ourLogo || state.currentTeamData?.ourLogo) ? `<img src="${escapeAttr(game.ourLogo || state.currentTeamData?.ourLogo)}" alt="${escapeAttr(state.currentTeamData?.name || 'Us')}" class="team-logo-game home">` : '' }
+        <div>
+          <div class="score-label">Us</div>
+          <div class="score-value">${escapeHtml(us)}</div>
+        </div>
       </div>
       <div class="score-divider">-</div>
       <div class="score-team">

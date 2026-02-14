@@ -10,6 +10,6 @@ export const API_CONFIG = {
   // implements a runtime fallback to mock data if the live API is unavailable.
   useMockData: false,
 
-  // Enable debug logging
-  debug: import.meta.env.VITE_DEBUG ? import.meta.env.VITE_DEBUG === 'true' : true
+  // Enable debug logging (default off in production; set VITE_DEBUG=true to enable)
+  debug: import.meta.env.VITE_DEBUG === 'true'
 };
