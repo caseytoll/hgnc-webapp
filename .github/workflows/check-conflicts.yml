@@ -15,15 +15,18 @@ jobs:
 
       - name: Check for merge conflict markers
         run: |
-          if grep -r "<<<<<<<" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
-            echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
-            exit 1
+          # Only match actual conflict markers (7+ chars at start of line), excluding docs that mention them
+          FOUND=0
+          if grep -rn "^<<<<<<<" . --exclude-dir=.git --exclude-dir=node_modules --include="*.js" --include="*.ts" --include="*.json" --include="*.css" --include="*.html" --include="*.yml" --include="*.yaml" --include="*.md"; then
+            FOUND=1
           fi
-          if grep -r "=======" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
-            echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
-            exit 1
+          if grep -rn "^=======$" . --exclude-dir=.git --exclude-dir=node_modules --include="*.js" --include="*.ts" --include="*.json" --include="*.css" --include="*.html" --include="*.yml" --include="*.yaml" --include="*.md"; then
+            FOUND=1
           fi
-          if grep -r ">>>>>>>" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.github; then
+          if grep -rn "^>>>>>>>" . --exclude-dir=.git --exclude-dir=node_modules --include="*.js" --include="*.ts" --include="*.json" --include="*.css" --include="*.html" --include="*.yml" --include="*.yaml" --include="*.md"; then
+            FOUND=1
+          fi
+          if [ "$FOUND" -eq 1 ]; then
             echo "❌ Merge conflict markers found! Please resolve conflicts before merging."
             exit 1
           fi
