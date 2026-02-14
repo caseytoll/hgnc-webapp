@@ -2,7 +2,7 @@
 // Change this to your deployed Apps Script URL
 export const API_CONFIG = {
   // Use the same Apps Script URL as the coach app
-  baseUrl: import.meta.env.VITE_GS_API_URL || 'https://script.google.com/macros/s/AKfycbwZm-gIyWPg2LvS-PYcPQBGjWXA86tddFvg_10A0TDLNQZdo-B9JZ7a3EKdoA24cyES/exec',
+  baseUrl: import.meta.env.VITE_GS_API_URL || 'https://script.google.com/macros/s/AKfycbwss2trWP44QVCxMdvNzk89sXQaCnhyFbUty22s_dXIg0NOA94Heqagt_bndZYR1NWo/exec',
   useMockData: false, // Use real API data
   debug: import.meta.env.VITE_DEBUG === 'true'
 };

@@ -265,8 +265,7 @@ function getSpreadsheet() {
    * Call with: ?api=true&action=getTeams
    */
   function handleApiRequest(e) {
-    // Normalize action to lowercase to avoid duplicate case-handling
-    var action = (e.parameter.action || '').toLowerCase();
+    var action = e.parameter.action || '';
     var result = { success: false, error: 'Unknown action' };
 
     Logger.log('API Request: ' + action + ' | Params: ' + JSON.stringify(e.parameter));
