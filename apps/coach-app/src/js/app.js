@@ -3392,6 +3392,9 @@ function buildGameAnalysisPayload(game) {
     .filter(q => q.notes && q.notes.trim())
     .map(q => ({ quarter: q.quarter, notes: q.notes.trim() }));
 
+  // Opponent ladder difficulty (if available)
+  const opponentDifficulty = getOpponentDifficulty(game.opponent);
+
   return {
     teamName,
     round: game.round,
@@ -3405,7 +3408,8 @@ function buildGameAnalysisPayload(game) {
     quarterBreakdown,
     playerContributions: Object.values(playerContributions).sort((a, b) => b.goalsScored - a.goalsScored || b.quarters - a.quarters),
     rosterSize: players.length,
-    coachNotes: coachNotes
+    coachNotes: coachNotes,
+    opponentDifficulty: opponentDifficulty
   };
 }
 

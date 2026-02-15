@@ -2811,23 +2811,37 @@ function getGameSummaryExample() {
 ## EXAMPLE OUTPUT (for reference - adapt to actual data above)
 
 **Match Summary**
-A hard-fought Round 5 win against the Eagles (22-18), with the Thunder controlling Q1 and Q2 before the Eagles clawed back in Q3. A strong Q4 defensive effort sealed the result. The +4 margin flatters slightly — the game was tied at 14-14 going into the final quarter.
+A Round 5 win against the Eagles (22-18, +4), with the Thunder winning Q1 7-4 (+3) and Q2 5-4 (+1), before the Eagles took Q3 6-4 (-2). The Thunder closed with a strong Q4, winning 6-4 to seal it. The cumulative scores at the end of each quarter were 7-4, 12-8, 16-14, 22-18 — so what looked comfortable was actually level at 16-14 heading into Q4. Against a 3rd-placed opponent, this is a quality win.
+
+**Scoring Breakdown**
+- **Lily** (GS all 4 quarters): 10 goals total — Q1: 4, Q2: 2, Q3: 1, Q4: 3. Scored 45% of the team's total output
+- **Sophie** (GA Q1-Q2, WA Q3-Q4): 5 goals in her 2 quarters at GA — Q1: 2, Q2: 3. Moved to WA for Q3-Q4 and didn't score (as expected)
+- **Emma** (GA Q3-Q4): 7 goals after coming in at GA — Q3: 3, Q4: 4. Her best output of the season
+- GS-GA pair Lily+Sophie produced 9 goals in Q1-Q2; Lily+Emma produced 8 in Q3-Q4. Both pairs were effective, with Emma's pairing slightly more balanced (Lily 4, Emma 7 vs Lily 6, Sophie 5)
+
+**Quarter-by-Quarter Analysis**
+- **Q1 (7-4, +3):** Lineup: GS Lily, GA Sophie, WA Chloe, C Ava, WD Ruby, GD Mia, GK Zara. Strongest quarter — Lily (4 goals) and Sophie (2) combined for 6 of 7. Defence conceded 4 with the Mia-Zara GD-GK pairing
+- **Q2 (5-4, +1):** Same lineup. Scoring dipped to 5 but defence held at 4 conceded. Sophie outscored Lily 3-2 this quarter
+- **Q3 (4-6, -2):** Lineup changes — Sophie moved to WA, Emma came in at GA, Ruby to GD, Mia to WD. This was the weakest quarter. Defence conceded 6 with the new GD-GK configuration (Ruby-Zara). The Mia-to-WD move disrupted the defensive structure
+- **Q4 (6-4, +2):** Emma stayed at GA, Mia moved back to GD. Defensive improvement (4 conceded vs 6 in Q3). Emma scored 4 goals — her strongest quarter. Lily added 3 at GS
 
 **Key Performers**
-- **Lily (GS, Q1-Q4):** 10 goals across 4 quarters — her most consistent game. Particularly strong in Q4 with 4 goals under pressure when the team needed composure
-- **Mia (GK, Q1-Q3 then GD Q4):** Anchored the defence, conceding only 2 goals/quarter in her GK stint. Moving to GD in Q4 showed versatility
-- **Chloe (WA Q1-Q2, C Q3-Q4):** Adapted well to the Centre switch mid-game. The attacking unit scored 6 goals in Q1 with Chloe feeding
+- **Lily (GS, 4 quarters):** 10 goals and played the full game. Consistent across all quarters except Q3 (only 1 goal when the new GA was settling in). Backbone of the scoring output
+- **Emma (GA, Q3-Q4):** 7 goals in 2 quarters (3.5/quarter). Outscored Sophie's GA rate (2.5/quarter). Her introduction re-energised the attack in Q4
+- **Zara (GK, 4 quarters):** Played the full game at GK. Goals against: Q1 4, Q2 4, Q3 6, Q4 4. The Q3 spike coincided with Ruby replacing Mia at GD, not Zara's own performance
+- **Chloe (WA Q1-Q2, C Q3-Q4):** Played 4 quarters across 2 positions. The attacking unit scored 12 in her WA quarters vs 10 in her C quarters
 
-**Quarter Analysis**
-Q1 was the strongest (7-4, +3) with the starting lineup firing. Q2 maintained control (5-4) but the rotations in Q3 disrupted rhythm, and the Eagles dominated (4-6, -2). The coaching decision to restore the best defensive pair in Q4 paid off with an 6-4 finish.
-
-**Tactical Observations**
-- The GS-GA combination of Lily-Sophie worked well in Q1-Q2 but Sophie's move to WA in Q3 weakened the shooting circle. Consider keeping scoring pairs together for longer stretches
-- Defensive structure was excellent when Mia and Zara were paired but wobbled when they were separated in Q3
+**Lineup & Rotation Analysis**
+Lily, Zara, and Chloe played all 4 quarters. Sophie played 4 quarters but changed position at half-time (GA → WA). The biggest impact was the defensive reshuffle in Q3: moving Mia from GD to WD and bringing Ruby in at GD correlated with conceding 6 goals (vs 4 in every other quarter). Restoring Mia to GD in Q4 immediately dropped conceded goals back to 4. Emma played 2 quarters and was highly productive.
 
 **Player Development Notes**
-- Emma played her first quarter at GA (Q3) and scored 1 goal — a promising start. She drove well into the circle but needs to work on positioning under the post
-- Ruby's debut at WD showed strong instincts for reading the play, though her 3-feet distance needs attention
+- **Emma** played GA for the first time in Q3-Q4 and scored 7 goals. Her 3.5 goals/quarter at GA outperformed Sophie's 2.5/quarter. Worth trialling from the start in future games
+- **Ruby** had her first quarter at GD (Q3) but the defensive unit conceded 6 goals that quarter. The pairing of Ruby-Zara needs more time to develop communication
+
+**Areas to Work On**
+- **Q3 defensive vulnerability:** Conceded 6 goals in Q3, the only quarter lost. Directly linked to the GD change (Ruby replacing Mia). If Ruby is to develop at GD, consider pairing her with Mia at GK rather than disrupting the established Mia-Zara pairing
+- **GS scoring consistency:** Lily's Q3 dip (1 goal vs 2-4 in other quarters) coincided with Emma's first quarter at GA. Allow a settling-in period when introducing a new GA alongside Lily
+- **Midcourt transition:** Chloe's move from WA to C at half-time didn't noticeably affect scoring, but track this over more games to see if she's more effective feeding from WA
 `;
 }
 
@@ -3143,6 +3157,10 @@ function getGameAIInsights(gameData) {
   prompt += 'Final Score: ' + finalScore.us + ' - ' + finalScore.them + ' (' + result + ', diff: ' + (gameData.scoreDiff >= 0 ? '+' : '') + gameData.scoreDiff + ')\n';
   if (location) prompt += 'Location: ' + location + '\n';
   if (captain) prompt += 'Captain: ' + captain + '\n';
+  var oppDiff = gameData.opponentDifficulty;
+  if (oppDiff) {
+    prompt += 'Opponent ladder position: ' + oppDiff.position + ' of ' + oppDiff.totalTeams + ' teams (' + oppDiff.tier + ' tier)\n';
+  }
   prompt += '\n';
 
   // Quarter-by-Quarter Breakdown
@@ -3200,20 +3218,22 @@ function getGameAIInsights(gameData) {
 
   // Instructions
   prompt += '---\n';
-  prompt += 'Provide a game summary in this exact format (be specific with player names):\n\n';
-  prompt += '**Match Summary**\n[2-3 sentences summarizing the game flow - who controlled early, any momentum shifts, how it finished]\n\n';
-  prompt += '**Key Performers**\n[2-3 bullet points highlighting standout players by name with specific stats - goals scored, defensive efforts, versatility]\n\n';
-  prompt += '**Quarter Analysis**\n[Brief analysis of which quarters were strongest/weakest and why based on lineups]\n\n';
-  prompt += '**Tactical Observations**\n[2-3 observations about what worked well or could improve - specific to this game\'s lineup decisions]\n\n';
-  prompt += '**Player Development Notes**\n[1-2 notes about players who showed growth, tried new positions, or could be developed further]';
+  prompt += 'Provide a detailed game summary in this exact format. EVERY statement must reference specific data from above (player names, goal tallies, quarter scores, positions played, lineup changes). Do NOT make general statements or assumptions beyond the data provided.\n\n';
+  prompt += '**Match Summary**\n[3-4 sentences covering: the final scoreline and margin, which quarters each team won/lost (cite the scores), any momentum shifts visible in the quarter-by-quarter scores, and the overall flow of the game. Reference specific quarter differentials.]\n\n';
+  prompt += '**Scoring Breakdown**\n[For each player who scored goals: name, how many goals, which position(s) they scored from, and in which quarters. Compare GS vs GA goal contribution. Note if any scorer played multiple shooting positions. Identify which shooting pair(s) were used and their combined output per quarter.]\n\n';
+  prompt += '**Quarter-by-Quarter Analysis**\n[Analyze EACH quarter separately (Q1, Q2, Q3, Q4): the score for that quarter, the full lineup used, who scored the goals, and how the defensive unit performed (goals conceded). Note any lineup changes between quarters and whether those changes correlated with scoring improvements or drops.]\n\n';
+  prompt += '**Key Performers**\n[3-4 bullet points. For scorers: cite exact goal tallies and positions. For midcourt/defence: cite quarters played, positions covered, and goals conceded by the defensive unit when they were on court. Highlight versatility (multiple positions) with specifics.]\n\n';
+  prompt += '**Lineup & Rotation Analysis**\n[Which players played all 4 quarters vs fewer? Which positions had the same player throughout vs rotations? Did any position changes between quarters correlate with changes in scoring or defensive performance? Cite the specific quarters and scores.]\n\n';
+  prompt += '**Player Development Notes**\n[2-3 notes about players who tried new positions (name the position and quarter), played limited minutes, or showed notable contributions. Cite the data.]\n\n';
+  prompt += '**Areas to Work On**\n[2-3 specific observations grounded in the data: e.g., weakest quarter and what happened in the lineup, goal distribution imbalances between GS/GA, or defensive vulnerabilities in specific quarters. Cite quarter scores and lineups.]';
 
   if (coachNotes.length > 0) {
-    prompt += '\n\n**Important:** Incorporate the coach\'s notes into your analysis where relevant. Reference specific observations the coach made and connect them to the stats and lineup data.';
+    prompt += '\n\n**Coach\'s Notes Integration:** The coach recorded observations during the game (shown above). Weave these into the relevant sections — connect the coach\'s observations to the statistical data. For example, if the coach noted "stepping" in Q2 and the team conceded more goals in Q2, connect those dots.';
   }
 
   prompt += getGameSummaryExample();
 
-  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 1500 });
+  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 2500 });
 }
 
 /**
