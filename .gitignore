@@ -20,3 +20,11 @@ coverage/
 # Logs
 *.log
 .aider*
+
+# Build artifacts in public
+public/assets/
+
+# Legacy directories (removed, prevent re-creation)
+backups/
+viewer/
+src/
