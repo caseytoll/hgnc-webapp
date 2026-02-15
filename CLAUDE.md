@@ -89,6 +89,7 @@ webapp-local-dev/
 │   │   ├── src/js/app.js    # Main app logic, global state object
 │   │   ├── src/js/api.js    # Data transformation (sheet ↔ PWA format)
 │   │   ├── src/js/config.js # API endpoint, useMockData toggle
+│   │   ├── src/js/help.js   # Help system (help page, walkthrough, contextual help)
 │   │   └── src/js/*.test.js # Test files
 │   └── parent-portal/       # Parent Portal (Read-Only)
 │       ├── src/js/app.js    # Read-only app logic
@@ -153,10 +154,11 @@ webapp-local-dev/
 
 - **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner
 - **Offline support:** Data saved to localStorage first, synced when online
-- **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Stale-while-revalidate for teams list. `lastModified` version check for team data
+- **Caching:** True stale-while-revalidate — cached data (teams list and team data) served instantly from localStorage regardless of age, with background revalidation fetching fresh data every time. UI re-renders if `_lastModified` or team signature changes. `TEAM_CACHE_TTL_MS` (5 min) only controls whether to skip the background revalidation for the teams list (i.e., suppress redundant fetches within 5 min)
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
 - **Lineup Planner:** Desktop-optimized full-screen 4-quarter view. Uses `position: fixed` to break out of `#app`'s 430px max-width. Features drag-and-drop, auto-fill, copy quarter, undo stack
-- **Team Creation Wizard:** 6-step wizard (Info, Competition Type, Season, Coach, Integration, Review). Competition type determines season label and integration options. Validates per step with duplicate detection
+- **Team Creation Wizard:** 6-step wizard (Info, Competition Type, Season, Coach, Integration, Review). Season options vary by competition: NFNL → Season 1/2, Nillumbik Force → Autumn (Feb–Jun) / Spring (Jul–Dec) with auto-detect, Other → Season 1/2/Other. Validates per step with duplicate detection
+- **Help system** (`help.js`): Three layers — (1) Help page with 7 accordion sections via `?` button in headers, (2) First-time walkthrough (5 slides, tracked via `localStorage('hgnc.helpWalkthroughSeen')`), (3) Contextual `?` icons on scoring, stats, training, PIN, and planner sections
 - **Squadi Auto-Discovery:** "Auto-Detect from Squadi" in Team Settings scans Squadi API for HG teams, caches in `Squadi_Lookup` sheet (6-month TTL). Force rescan available
 
 ### AI Features (Gemini-powered)
