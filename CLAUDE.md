@@ -163,11 +163,21 @@ webapp-local-dev/
 
 ### AI Features (Gemini-powered)
 
-Gemini API via Apps Script. API key in Apps Script properties. Four AI endpoints:
+Uses `gemini-2.5-flash` via Apps Script. API key in Apps Script properties.
+
+**Architecture:**
+- `callGeminiAPI(systemPrompt, userPrompt, options)` — shared helper handles API calls, errors, response extraction
+- `systemInstruction` field carries stable netball knowledge preamble; `contents` field carries per-request data
+- `getNetballKnowledgePreamble()` — ~250-line shared knowledge base covering position roles, +/- analysis, pair chemistry, quarter patterns, junior benchmarks, common mistakes, game management tactics, and coaching drills
+- Each endpoint has a few-shot example function (`getSeasonInsightsExample()`, etc.) appended to its instructions
+
+**Four AI endpoints:**
 - **AI Insights** (`getAIInsights`): Season analysis with opponent difficulty context. Cached in `state.currentTeamData.aiInsights`
 - **Game AI Summary** (`getGameAIInsights`): Per-game analysis with player contributions
 - **Player AI Insights** (`getPlayerAIInsights`): Individual player analysis
 - **AI Training Focus** (`getTrainingFocus`): Rolling window of last 3 games with notes as primary focus. Correlates with training session attendance. History in `trainingFocusHistory[]` (max 5, newest first)
+
+**Feedback loop:** All AI-rendered content shows thumbs up/down buttons. Feedback logged via `logClientMetric` with `name: 'ai_feedback'`, `extra: '{type}:{teamName}'`
 
 ### Opponent Difficulty Ratings
 
