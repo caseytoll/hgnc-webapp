@@ -11,7 +11,7 @@ import {
   generateLineupCardHTML,
   shareImageBlob,
   validateImportedTeamData
-} from '../../../../common/share-utils.js';
+} from './share-utils.js';
 
 // ========================================
 // FORMAT GAME SHARE TEXT TESTS

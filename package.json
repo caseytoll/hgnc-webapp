@@ -21,6 +21,7 @@
     "deploy:readonly-viewer:team": "npm run build:readonly:team && node scripts/copy-index-to-viewer.cjs && cd apps/parent-portal && wrangler pages deploy dist --project-name=hgnc-gameday",
     "test": "cd apps/coach-app && npm run test",
     "test:run": "cd apps/coach-app && npm run test:run",
+    "test:common": "cd common && npx vitest run",
     "test:coverage": "cd apps/coach-app && npm run test:coverage"
   },
   "keywords": [],

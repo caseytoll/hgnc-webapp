@@ -13,8 +13,9 @@ import {
   validateSeason,
   isDuplicateName,
   generateId,
-  getInitials
-} from '../../../common/utils.js';
+  getInitials,
+  clubSlugFor
+} from './utils.js';
 
 // ========================================
 // XSS PREVENTION TESTS
@@ -150,6 +151,17 @@ describe('validatePlayerName', () => {
     expect(validatePlayerName('AB')).toEqual({ valid: true });
     expect(validatePlayerName('A'.repeat(100))).toEqual({ valid: true });
   });
+
+  it('should reject names with no letters', () => {
+    expect(validatePlayerName('!@#$%')).toEqual({
+      valid: false,
+      error: 'Name must contain at least one letter'
+    });
+    expect(validatePlayerName('123')).toEqual({
+      valid: false,
+      error: 'Name must contain at least one letter'
+    });
+  });
 });
 
 describe('validateTeamName', () => {
@@ -249,10 +261,51 @@ describe('validateLocation', () => {
   });
 });
 
+// ----------------------------------------
+// Club slug extraction tests
+// ----------------------------------------
+
+describe('clubSlugFor', () => {
+  it('maps HG and Hazel Glen to hazel-glen', () => {
+    expect(clubSlugFor('HG 11 Fire')).toBe('hazel-glen');
+    expect(clubSlugFor('Hazel Glen 6')).toBe('hazel-glen');
+  });
+
+  it('maps DC and Diamond Creek teams to club-level slug', () => {
+    expect(clubSlugFor('DC Garnets')).toBe('dc');
+    expect(clubSlugFor('DC Amber')).toBe('dc');
+    expect(clubSlugFor('DC Diamonds')).toBe('dc');
+    expect(clubSlugFor('Diamond Creek U14')).toBe('dc');
+    expect(clubSlugFor('Dandenong City U14')).toBe('dandenong-city');
+  });
+
+  it('maps Eltham teams to club-level slug', () => {
+    expect(clubSlugFor('Eltham Pearls')).toBe('eltham');
+    expect(clubSlugFor('Eltham 5')).toBe('eltham');
+  });
+
+  it('maps Titans and Montmorency to club-level slugs', () => {
+    expect(clubSlugFor('Titans Teal')).toBe('titans');
+    expect(clubSlugFor('Montmorency 4')).toBe('montmorency');
+  });
+
+  it('returns sensible slugs for unknown names', () => {
+    expect(clubSlugFor('Montmorency Titans')).toBe('montmorency');
+    expect(clubSlugFor('Some Club 12')).toBe('some-club');
+  });
+
+  it('defaults to hazel-glen when input is falsy', () => {
+    expect(clubSlugFor('')).toBe('hazel-glen');
+    expect(clubSlugFor(null)).toBe('hazel-glen');
+  });
+});
+
 describe('validateSeason', () => {
   it('should accept valid seasons', () => {
     expect(validateSeason('Season 1')).toEqual({ valid: true });
     expect(validateSeason('Season 2')).toEqual({ valid: true });
+    expect(validateSeason('Autumn')).toEqual({ valid: true });
+    expect(validateSeason('Spring')).toEqual({ valid: true });
     expect(validateSeason('NFNL')).toEqual({ valid: true });
   });
 

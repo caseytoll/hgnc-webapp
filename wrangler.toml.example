@@ -1,9 +1,0 @@
-name = "hgnc-team-portals-worker"
-main = "workers/team-portal-worker.js"
-type = "javascript"
-
-# Replace these with your Cloudflare account details
-# account_id = "<CF_ACCOUNT_ID>"
-# route = "<your-domain.com/teams/*>"  # optional: set in dashboard or here
-
-compatibility_date = "2026-01-01"
