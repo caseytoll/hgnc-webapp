@@ -2635,7 +2635,6 @@ function renderSchedule() {
         <div class="game-info">
           <div class="game-opponent">
             ${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}
-            ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" class="team-logo-small" alt="${escapeAttr(game.opponent)} logo" onerror="this.style.display='none'">` : ''}
             ${difficultyBadge}
             ${game.lineupConfirmed !== undefined ? `<span class="lineup-status ${game.lineupConfirmed ? 'confirmed' : 'pending'}" title="Your lineup ${game.lineupConfirmed ? 'confirmed' : 'pending'}">📋</span>` : ''}
             ${game.opponentLineupConfirmed !== undefined ? `<span class="lineup-status ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}" title="Opponent lineup ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}">👥</span>` : ''}
