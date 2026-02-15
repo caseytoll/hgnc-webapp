@@ -1233,7 +1233,7 @@ h4 { font-size: 1rem; }
 
 .game-score-card {
   background: linear-gradient(135deg, var(--primary-700), var(--primary-900));
-  padding: var(--space-lg) var(--space-md);
+  padding: 20px var(--space-md) 16px;
   text-align: center;
 }
 
@@ -1241,18 +1241,29 @@ h4 { font-size: 1rem; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-lg);
+  gap: 20px;
   margin-bottom: var(--space-md);
 }
 
 .score-team {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
+  flex: 1;
+  max-width: 160px;
 }
 
-.score-label {
-  font-size: 0.75rem;
-  color: var(--primary-200);
-  margin-bottom: var(--space-xs);
+.score-team .team-logo-game {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: #fff;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-bottom: 4px;
 }
 
 .score-value {
@@ -1260,12 +1271,27 @@ h4 { font-size: 1rem; }
   font-weight: 800;
   color: white;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 0.7rem;
+  color: var(--primary-200);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .score-divider {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   color: var(--primary-300);
   font-weight: 300;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .game-result-badge {

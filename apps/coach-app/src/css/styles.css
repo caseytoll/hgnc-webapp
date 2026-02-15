@@ -401,49 +401,12 @@
 }
 
 /* ========================================
-   GAME HEADER TEAM LOGOS
+   GAME HEADER TEAM LOGOS (extends shared.css)
    ======================================== */
-.game-score-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-.game-score-display .score-team {
-  display: flex;
-  flex-direction: row; /* logo left of label */
-  align-items: center;
-  gap: 10px;
-  min-width: 120px;
-  justify-content: center;
-}
-.game-score-display .team-logo-game {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: contain;
-  margin-bottom: 0; /* reset — now inline */
-  background: #fff;
-  padding: 4px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-  flex-shrink: 0;
-}
-.game-score-display .score-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1;
-}
-.game-score-display .score-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-@media (max-width: 480px) {
-  .game-score-display .team-logo-game { width: 36px; height: 36px; }
-  .game-score-display { gap: 8px; }
-  .game-score-display .score-team { min-width: 92px; gap: 8px; }
-  .game-score-display .score-value { font-size: 1rem; }
+@media (max-width: 380px) {
+  .game-score-display .team-logo-game { width: 40px; height: 40px; }
+  .game-score-display { gap: 12px; }
+  .game-score-display .score-value { font-size: 1.75rem; }
 }
 
 .notes-modal-textarea::placeholder {

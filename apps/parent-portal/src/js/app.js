@@ -708,16 +708,18 @@ function renderGameScoreCard() {
   if (us > opponent) { resultClass = 'win'; resultText = 'Win'; }
   if (us < opponent) { resultClass = 'loss'; resultText = 'Loss'; }
 
+  const ourName = state.currentTeam?.teamName || 'Us';
+
   container.innerHTML = `
     <div class="game-score-display">
       <div class="score-team">
-        <div class="score-label">Us</div>
         <div class="score-value">${us}</div>
+        <div class="score-label">${escapeHtml(ourName)}</div>
       </div>
-      <div class="score-divider">-</div>
+      <div class="score-divider">&ndash;</div>
       <div class="score-team">
-        <div class="score-label">${escapeHtml(game.opponent)}</div>
         <div class="score-value">${opponent}</div>
+        <div class="score-label">${escapeHtml(game.opponent)}</div>
       </div>
     </div>
     <div class="game-result-badge ${resultClass}">${resultText}</div>

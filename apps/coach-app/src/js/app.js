@@ -5268,20 +5268,22 @@ function renderGameScoreCard() {
   if (us > opponent) { resultClass = 'win'; resultText = 'Win'; }
   if (us < opponent) { resultClass = 'loss'; resultText = 'Loss'; }
 
+  const ourLogo = game.ourLogo || state.currentTeamData?.ourLogo;
+  const oppLogo = game.opponentDetails && game.opponentDetails.logoUrl;
+  const ourName = state.currentTeam?.teamName || 'Us';
+
   container.innerHTML = `
     <div class="game-score-display">
       <div class="score-team">
-        ${ (game.ourLogo || state.currentTeamData?.ourLogo) ? `<img src="${escapeAttr(game.ourLogo || state.currentTeamData?.ourLogo)}" alt="${escapeAttr(state.currentTeamData?.name || 'Us')}" class="team-logo-game home">` : '' }
-        <div>
-          <div class="score-label">Us</div>
-          <div class="score-value">${escapeHtml(us)}</div>
-        </div>
+        ${ ourLogo ? `<img src="${escapeAttr(ourLogo)}" alt="${escapeAttr(ourName)}" class="team-logo-game">` : '' }
+        <div class="score-value">${escapeHtml(us)}</div>
+        <div class="score-label">${escapeHtml(ourName)}</div>
       </div>
-      <div class="score-divider">-</div>
+      <div class="score-divider">&ndash;</div>
       <div class="score-team">
-        ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" alt="${escapeAttr(game.opponent)}" class="team-logo-game away">` : ''}
-        <div class="score-label">${escapeHtml(game.opponent)}</div>
+        ${ oppLogo ? `<img src="${escapeAttr(oppLogo)}" alt="${escapeAttr(game.opponent)}" class="team-logo-game">` : '' }
         <div class="score-value">${escapeHtml(opponent)}</div>
+        <div class="score-label">${escapeHtml(game.opponent)}</div>
       </div>
     </div>
     <div class="game-result-badge ${escapeAttr(resultClass)}">${escapeHtml(resultText)}</div>
