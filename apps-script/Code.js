@@ -2014,7 +2014,11 @@ function getTeamInfo(teamID, forceRefresh) {
       if (!name) return 'hazel-glen';
       var n = String(name).toLowerCase().trim();
       if (n.indexOf('hg ') === 0 || n.indexOf('hazel') === 0) return 'hazel-glen';
-      if (n.indexOf('dc') === 0 || n.indexOf('dandenong') === 0) return 'dcgarnets';
+      if (n.indexOf('dc') === 0 || n.indexOf('diamond') === 0 || n.indexOf('dandenong') === 0) return 'diamond-creek';
+      if (n.indexOf('eltham') === 0) return 'eltham';
+      if (n.indexOf('heat') === 0) return 'heat';
+      if (n.indexOf('hurstbridge') === 0) return 'hurstbridge';
+      if (n.indexOf('kilmore') === 0) return 'kilmore';
       if (n.indexOf('montmorency') === 0) return 'montmorency';
       if (n.indexOf('titans') === 0) return 'titans';
       // fallback: slugify first two words
@@ -2029,7 +2033,7 @@ function getTeamInfo(teamID, forceRefresh) {
       // Prefer PNG filenames — the client now uses `data/club-logos.json` for exact mapping.
       info.ourLogo = '/assets/team-logos/' + info.clubSlug + '.png';
       // Last-resort fallback kept for legacy filenames
-      if (!info.ourLogo) info.ourLogo = '/assets/team-logos/hg13fury.png';
+      if (!info.ourLogo) info.ourLogo = '/assets/team-logos/hazel-glen.png';
     }
 
     // If we have a Squadi config, try to enrich with fixture and ladder info
