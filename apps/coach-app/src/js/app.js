@@ -3026,7 +3026,8 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     container.innerHTML = staleWarning + '<div class="ai-insights-content">' + html + '</div>' +
       '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + escapeHtml(cachedDate) + ' (after ' + gameCountAtGen + ' games)</div>' +
       '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
-      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
+      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
+      renderAIFeedback('season');
     return;
   }
 
@@ -3190,7 +3191,8 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
         '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
         '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
-        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
+        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
+        renderAIFeedback('season');
 
       showToast('AI insights saved', 'success');
     } else {
@@ -3305,6 +3307,7 @@ function displayGameAISummary(text, generatedDate) {
     <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
       Generated: ${escapeHtml(generatedDate)}
     </div>
+    ${renderAIFeedback('game')}
   `;
   modalFooter.innerHTML = `
     <button class="btn btn-secondary" onclick="showGameAISummary(true)">Regenerate</button>
@@ -4064,6 +4067,7 @@ function renderTrainingFocus() {
         Generated: ${escapeHtml(selectedDate)} (from ${selected.noteCount || 0} notes across ${selected.gameCount || 0} games)
         ${selected.recentGames ? ` • Focused on last ${selected.recentGames} games` : ''}
       </div>
+      ${renderAIFeedback('training')}
       <div id="training-focus-container"></div>
     </div>
   `;
@@ -7182,6 +7186,7 @@ window.openPlayerDetail = function(playerID) {
               <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
               <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
             </div>
+            ${renderAIFeedback('player')}
           ` : `
             <div class="empty-state" style="padding: 20px 0;">
               <p style="margin-bottom: 16px;">Get AI-powered insights on ${escapeHtml(player.name)}'s performance, strengths, and development areas.</p>
@@ -7247,6 +7252,28 @@ function formatAIContent(text) {
     .replace(/\n- /g, '\n• ')
     .replace(/\n/g, '<br>');
 }
+
+function renderAIFeedback(type) {
+  return `<div class="ai-feedback" id="ai-feedback-${type}">
+    <span>Was this helpful?</span>
+    <button onclick="rateAIInsights('${type}', 'up', this)">&#128077;</button>
+    <button onclick="rateAIInsights('${type}', 'down', this)">&#128078;</button>
+  </div>`;
+}
+
+window.rateAIInsights = function(type, rating, btn) {
+  const container = document.getElementById('ai-feedback-' + type);
+  if (!container) return;
+
+  // Log via existing logClientMetric
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+  const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+  const teamName = state.currentTeam?.teamName || 'unknown';
+  const url = baseUrl + '?action=logClientMetric&name=ai_feedback&value=' + encodeURIComponent(rating === 'up' ? 1 : 0) + '&teams=1&extra=' + encodeURIComponent(type + ':' + teamName);
+  fetch(url).catch(() => {});
+
+  container.innerHTML = '<span class="ai-feedback-thanks">Thanks for your feedback!</span>';
+};
 
 // Share AI report text via native share sheet or clipboard
 window.shareAIReport = async function(type) {
@@ -7431,6 +7458,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
           <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
           <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
         </div>
+        ${renderAIFeedback('player')}
       `;
 
       showToast('AI report saved', 'success');

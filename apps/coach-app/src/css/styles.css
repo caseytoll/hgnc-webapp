@@ -1130,6 +1130,37 @@
   margin: 0 0 12px 0;
 }
 
+.ai-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+.ai-feedback span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.ai-feedback button {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.ai-feedback button:hover {
+  background: var(--bg-secondary);
+}
+.ai-feedback-thanks {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 
 /* Training Focus Tab */
 .training-intro {
