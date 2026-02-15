@@ -80,6 +80,7 @@ import {
   validateImportedTeamData
 } from '../../../../common/share-utils.js';
 import html2canvas from 'html2canvas';
+import { openHelpView, showWalkthrough, showContextHelp, helpButtonHtml, contextHelpIcon } from './help.js';
 
 // Performance mark: earliest practical marker for app start
 try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop */ }
@@ -375,6 +376,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadTeams(); // Use cache if valid, fetch fresh otherwise
+
+  // Show first-time walkthrough (after a brief delay so the UI is ready)
+  if (!state.readOnly) {
+    setTimeout(() => showWalkthrough(), 800);
+  }
 });
 
   // ========================================
@@ -2816,6 +2822,7 @@ function renderStatsOverview(container) {
   container.innerHTML = `
     <!-- Hero Stats -->
     <div class="stats-hero">
+      <div class="stats-hero-help">${contextHelpIcon('stats')}</div>
       <div class="stats-record">${advanced.wins}-${advanced.losses}-${advanced.draws}</div>
       <div class="stats-record-label">${advanced.winRate}% Win Rate</div>
       <div class="stats-metrics">
@@ -3865,6 +3872,10 @@ function renderTraining() {
 
   // Build both sections: Training Sessions + AI Training Focus
   container.innerHTML = `
+    <div class="training-header-row">
+      <span>Training</span>
+      ${contextHelpIcon('training')}
+    </div>
     ${renderTrainingSessions()}
     ${renderTrainingFocus()}
   `;
@@ -6331,6 +6342,10 @@ function renderScoringInputs() {
   const expandedQuarter = state.expandedScoringQuarter || 'Q1';
 
   container.innerHTML = `
+    <div class="scoring-panel-header">
+      <span class="scoring-panel-title">Score by Quarter</span>
+      ${contextHelpIcon('scoring')}
+    </div>
     ${['Q1', 'Q2', 'Q3', 'Q4'].map((q, index) => {
       const qData = lineup[q] || {};
       const qTotal = calcQuarterTotal(qData);
@@ -7966,7 +7981,7 @@ window.openTeamSettings = function() {
     </div>
     <div class="settings-divider"></div>
     <div class="form-group">
-      <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span></label>
+      <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span> ${contextHelpIcon('security')}</label>
       ${team.hasPin ? `
         <p class="form-hint">PIN is set. Only devices with the PIN can access this team.</p>
         <div class="pin-actions">
