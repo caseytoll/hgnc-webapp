@@ -257,7 +257,7 @@ export function getInitials(name) {
 
 /**
  * Derive a club slug from a team name.
- * - Recognises common abbreviations (e.g. "HG" -> "hazel-glen", "DC" -> "dcgarnets")
+ * - Recognises common abbreviations (e.g. "HG" -> "hazel-glen", "DC" -> "dc")
  * - Falls back to the first one or two words slugified
  * @param {string} teamName
  * @returns {string} club slug (suitable for `/assets/team-logos/{slug}.svg`)
@@ -267,15 +267,19 @@ export function clubSlugFor(teamName) {
   const normalized = teamName.trim().toLowerCase();
 
   // Known aliases (map common prefixes/abbreviations to canonical club slugs)
-  // Note: DC (Diamond Creek) teams intentionally NOT aliased here — each DC
-  // variant (DC Amber, DC Diamonds, etc.) has its own logo in club-logos.json,
-  // so we let them fall through to the slugify fallback for per-team matching.
   const aliases = {
     'hg': 'hazel-glen',
     'hazel': 'hazel-glen',
     'hazel-glen': 'hazel-glen',
-    'titans': 'titans',
-    'montmorency': 'montmorency'
+    'dc': 'dc',
+    'diamond': 'dc',
+    'eltham': 'eltham',
+    'heat': 'heat',
+    'hurstbridge': 'hurstbridge',
+    'kilmore': 'kilmore',
+    'kilmore10': 'kilmore',
+    'montmorency': 'montmorency',
+    'titans': 'titans'
   };
 
   const words = normalized.split(/\s+/);

@@ -271,11 +271,22 @@ describe('clubSlugFor', () => {
     expect(clubSlugFor('Hazel Glen 6')).toBe('hazel-glen');
   });
 
-  it('maps DC teams to per-team slugs (not collapsed to one club)', () => {
-    expect(clubSlugFor('DC Garnets')).toBe('dc-garnets');
-    expect(clubSlugFor('DC Amber')).toBe('dc-amber');
-    expect(clubSlugFor('DC Diamonds')).toBe('dc-diamonds');
+  it('maps DC and Diamond Creek teams to club-level slug', () => {
+    expect(clubSlugFor('DC Garnets')).toBe('dc');
+    expect(clubSlugFor('DC Amber')).toBe('dc');
+    expect(clubSlugFor('DC Diamonds')).toBe('dc');
+    expect(clubSlugFor('Diamond Creek U14')).toBe('dc');
     expect(clubSlugFor('Dandenong City U14')).toBe('dandenong-city');
+  });
+
+  it('maps Eltham teams to club-level slug', () => {
+    expect(clubSlugFor('Eltham Pearls')).toBe('eltham');
+    expect(clubSlugFor('Eltham 5')).toBe('eltham');
+  });
+
+  it('maps Titans and Montmorency to club-level slugs', () => {
+    expect(clubSlugFor('Titans Teal')).toBe('titans');
+    expect(clubSlugFor('Montmorency 4')).toBe('montmorency');
   });
 
   it('returns sensible slugs for unknown names', () => {

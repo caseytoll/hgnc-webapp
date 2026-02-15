@@ -509,7 +509,7 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     if (tname.trim()) {
       const clubSlug = clubSlugFor(tname);
       const teamSlug = slugifyTeamName(tname);
-      const fallbackPath = '/assets/team-logos/hazel-glen.svg';
+      const fallbackPath = '/assets/team-logos/hazel-glen.png';
       result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || fallbackPath;
     }
   }
