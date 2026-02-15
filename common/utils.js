@@ -209,7 +209,7 @@ export function validateLocation(location) {
  * @returns {{ valid: boolean, error?: string }}
  */
 export function validateSeason(season) {
-  const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+  const validSeasons = ['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'];
 
   if (!validSeasons.includes(season)) {
     return { valid: false, error: 'Invalid season' };

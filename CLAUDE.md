@@ -184,7 +184,7 @@ Coach-app only. `getOpponentDifficulty(opponentName)` reads cached ladder from l
 // Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
 { teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach, competitionType }
 // competitionType: Not stored in backend, inferred from resultsApi/ladderUrl (NFNL, Nillumbik Force, or Other)
-// season: 'Season 1', 'Season 2', 'Nillumbik Force', 'Other', or 'NFNL' (legacy)
+// season: 'Season 1', 'Season 2', 'Autumn', 'Spring', 'Other', or 'NFNL' (legacy)
 
 // Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
 {

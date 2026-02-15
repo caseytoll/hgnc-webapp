@@ -304,6 +304,8 @@ describe('validateSeason', () => {
   it('should accept valid seasons', () => {
     expect(validateSeason('Season 1')).toEqual({ valid: true });
     expect(validateSeason('Season 2')).toEqual({ valid: true });
+    expect(validateSeason('Autumn')).toEqual({ valid: true });
+    expect(validateSeason('Spring')).toEqual({ valid: true });
     expect(validateSeason('NFNL')).toEqual({ valid: true });
   });
 

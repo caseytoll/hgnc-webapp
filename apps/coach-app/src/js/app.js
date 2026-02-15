@@ -487,16 +487,15 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
       case 3:
-        const showSeason = wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other';
-        if (!showSeason) {
-          // Skip season step for Nillumbik Force - they have different structure
-          setTimeout(() => wizardNavigate(4), 0);
+        if (wizardState.data.competitionType === 'Nillumbik Force') {
           return progressBar + `
-            <div class="info-section">
-              <div class="info-icon">⏭️</div>
-              <div class="info-content">
-                <p>Skipping season selection for Nillumbik Force competitions.</p>
-              </div>
+            <div class="form-group">
+              <label class="form-label">Season</label>
+              <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
+                <option value="Autumn" ${wizardState.data.season === 'Autumn' ? 'selected' : ''}>Autumn (Feb–Jun)</option>
+                <option value="Spring" ${wizardState.data.season === 'Spring' ? 'selected' : ''}>Spring (Jul–Dec)</option>
+              </select>
+              <div class="form-help">Nillumbik Force runs two seasons per year</div>
             </div>
           `;
         }
@@ -578,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="summary-item">
               <strong>Competition:</strong> ${wizardState.data.competitionType}
             </div>
-            ${wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other' ? `<div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>` : ''}
+            <div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>
             <div class="summary-item">
               <strong>Coach:</strong> ${coachDisplay || 'Not specified'}
             </div>
@@ -829,15 +828,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Season validation depends on competition type
     let seasonToUse = season;
-    if (competitionType === 'Nillumbik Force') {
-      // For Nillumbik Force, use a default season or empty
-      seasonToUse = 'Nillumbik Force';
-    } else {
-      const validSeasons = competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
-      if (!validSeasons.includes(season)) {
-        showToast('Invalid season selected', 'error');
-        return;
-      }
+    const validSeasonsMap = {
+      'NFNL': ['Season 1', 'Season 2'],
+      'Nillumbik Force': ['Autumn', 'Spring'],
+      'Other': ['Season 1', 'Season 2', 'Other']
+    };
+    const validSeasons = validSeasonsMap[competitionType] || validSeasonsMap['Other'];
+    if (!validSeasons.includes(season)) {
+      showToast('Invalid season selected', 'error');
+      return;
     }
 
     // Check for duplicate name/year/season
@@ -901,10 +900,12 @@ function handleCompetitionTypeChange() {
   const competitionSelect = document.getElementById('wizard-competition-type');
   if (competitionSelect) {
     wizardState.data.competitionType = competitionSelect.value;
-    // Reset season for Nillumbik Force (they don't use Season 1/2 structure)
+    // Set appropriate default season for the competition type
     if (competitionSelect.value === 'Nillumbik Force') {
-      wizardState.data.season = '';
-    } else if (!wizardState.data.season || wizardState.data.season === '') {
+      // Auto-detect: Autumn (Feb-Jun) or Spring (Jul-Dec)
+      const month = new Date().getMonth(); // 0-indexed
+      wizardState.data.season = month >= 6 ? 'Spring' : 'Autumn';
+    } else if (!wizardState.data.season || wizardState.data.season === '' || wizardState.data.season === 'Autumn' || wizardState.data.season === 'Spring') {
       wizardState.data.season = 'Season 1';
     }
     // Re-render the current step
@@ -1182,69 +1183,74 @@ async function loadTeams(forceRefresh = false) {
   }
 
   try {
-    // Determine if cache is usable (invalid if empty)
-    const cacheUsable = !forceRefresh && isTeamsListCacheValid() && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
+    // Stale-while-revalidate: serve cached data immediately (any age), refresh in background
+    const hasCachedTeams = !forceRefresh && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
 
-    if (cacheUsable) {
-      console.log('[Cache] Using cached teams list');
+    if (hasCachedTeams) {
+      const cacheAge = teamsListCacheTime ? Date.now() - new Date(teamsListCacheTime).getTime() : Infinity;
+      console.log('[Cache] Using cached teams list (age:', Math.round(cacheAge / 1000), 's)');
       state.teams = teamsListCache.teams;
       state.teamSheetMap = teamsListCache.teamSheetMap;
 
-      // Background revalidation: fetch latest teams and update if changed
-      (async () => {
-        try {
-          console.log('[Cache] Background teams revalidation started');
-          try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+      // Background revalidation: always refresh unless cache was just fetched (within TTL)
+      if (cacheAge > TEAM_CACHE_TTL_MS) {
+        (async () => {
+          try {
+            console.log('[Cache] Background teams revalidation started');
+            try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
 
-          const baseUrl = API_CONFIG.baseUrl;
-          const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
-          if (!resp.ok) {
-            console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
-            try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-            return;
-          }
-          const data = await resp.json();
-          if (data && data.success === false) {
-            console.warn('[Cache] Background revalidation server returned error:', data.error);
+            const baseUrl = API_CONFIG.baseUrl;
+            const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
+            if (!resp.ok) {
+              console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
+              try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+              return;
+            }
+            const data = await resp.json();
+            if (data && data.success === false) {
+              console.warn('[Cache] Background revalidation server returned error:', data.error);
+              try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+              return;
+            }
+            const freshTeams = (data.teams || []).map(t => ({
+              teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
+              year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
+              resultsApi: t.resultsApi || '',
+              lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
+            }));
+
+            // Lightweight comparison by teamID + playerCount + name + coach + hasPin
+            const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+            const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+
+            if (oldSig !== newSig) {
+              console.log('[Cache] Teams list updated on server; refreshing UI');
+              // Update state and caches
+              state.teams = freshTeams.map(t => ({ ...t }));
+              state.teamSheetMap = {};
+              state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
+              teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+              teamsListCacheTime = new Date().toISOString();
+              saveToLocalStorage();
+
+              try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
+              try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
+
+              try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
+            } else {
+              // Refresh cache timestamp to avoid immediate revalidation
+              teamsListCacheTime = new Date().toISOString();
+              try { saveToLocalStorage(); } catch (e) { /* noop */ }
+              try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            }
+          } catch (err) {
+            console.warn('[Cache] Background teams revalidation failed:', err.message || err);
             try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-            return;
           }
-          const freshTeams = (data.teams || []).map(t => ({
-            teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
-            year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
-            resultsApi: t.resultsApi || '',
-            lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
-          }));
-
-          // Lightweight comparison by teamID + playerCount + name + coach + hasPin
-          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
-          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
-
-          if (oldSig !== newSig) {
-            console.log('[Cache] Teams list updated on server; refreshing UI');
-            // Update state and caches
-            state.teams = freshTeams.map(t => ({ ...t }));
-            state.teamSheetMap = {};
-            state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
-            teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
-            teamsListCacheTime = new Date().toISOString();
-            saveToLocalStorage();
-
-            try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
-            try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
-
-            try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
-          } else {
-            // Refresh cache timestamp to avoid immediate revalidation
-            teamsListCacheTime = new Date().toISOString();
-            try { saveToLocalStorage(); } catch (e) { /* noop */ }
-            try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-          }
-        } catch (err) {
-          console.warn('[Cache] Background teams revalidation failed:', err.message || err);
-          try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-        }
-      })();
+        })();
+      } else {
+        console.log('[Cache] Skipping revalidation (cache is fresh)');
+      }
 
     } else {
       // Check if using mock data
@@ -1850,53 +1856,93 @@ async function loadTeamData(teamID) {
   renderStatsSkeleton();
 
   try {
-    if (navigator.onLine) {
-      // Get server's lastModified from the teams list (already fetched)
-      const serverTeam = state.teams.find(t => t.teamID === teamID);
-      const serverLastModified = serverTeam?.lastModified || 0;
-      const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
+    // Stale-while-revalidate: show cached data instantly, refresh in background if needed
+    const hasCachedData = !!apiTeamCache[teamID];
 
-      // Version check: only fetch if server has newer data or no cache exists
-      // Also use cache if within TTL and no version info available
-      if (apiTeamCache[teamID] && (
-        (cachedLastModified && serverLastModified && serverLastModified === cachedLastModified) ||
-        (!serverLastModified && isTeamCacheValid(teamID))
-      )) {
-        console.log('[Cache] Version match - using cached data (lastModified:', cachedLastModified, ')');
-        state.currentTeamData = apiTeamCache[teamID];
-      } else {
-        showLoading();
-        // Use proxy for local dev to bypass CORS
-        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-        const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-        const sheetName = state.teamSheetMap?.[teamID] || '';
-        console.log('[App] Fetching fresh team data (server:', serverLastModified, 'cached:', cachedLastModified, ')');
-        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
-        const data = await response.json();
-        if (data.success === false) {
-          throw new Error(data.error || 'API request failed');
+    if (hasCachedData) {
+      // Serve cached data immediately (any age) for instant render
+      console.log('[Cache] Serving cached team data instantly');
+      state.currentTeamData = apiTeamCache[teamID];
+      state.currentTeam = state.teams.find(t => t.teamID === teamID);
+      state.stats = calculateTeamStats(state.currentTeamData);
+      state.analytics = calculateAllAnalytics(state.currentTeamData);
+      renderMainApp();
+
+      // Auto-populate from fixtures (non-blocking)
+      syncFixtureData(state.currentTeam, state.currentTeamData);
+
+      // Background revalidation: check if server has newer data
+      if (navigator.onLine) {
+        const serverTeam = state.teams.find(t => t.teamID === teamID);
+        const serverLastModified = serverTeam?.lastModified || 0;
+        const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
+
+        // Skip background fetch if version matches (no changes on server)
+        const versionMatch = cachedLastModified && serverLastModified && serverLastModified === cachedLastModified;
+        if (!versionMatch) {
+          (async () => {
+            try {
+              const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+              const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+              const sheetName = state.teamSheetMap?.[teamID] || '';
+              console.log('[Cache] Background team data revalidation (server:', serverLastModified, 'cached:', cachedLastModified, ')');
+              const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
+              const data = await response.json();
+              if (data.success === false) return;
+
+              const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+              const freshData = transformTeamDataFromSheet(teamDataObj, teamID);
+
+              // Compare: only update UI if data actually changed
+              const oldMod = state.currentTeamData?._lastModified || 0;
+              const newMod = freshData._lastModified || 0;
+              if (newMod && newMod !== oldMod) {
+                console.log('[Cache] Team data updated on server; refreshing UI');
+                state.currentTeamData = freshData;
+                updateTeamCache(teamID, freshData);
+                saveToLocalStorage();
+                state.stats = calculateTeamStats(state.currentTeamData);
+                state.analytics = calculateAllAnalytics(state.currentTeamData);
+                renderMainApp();
+                syncFixtureData(state.currentTeam, state.currentTeamData);
+              } else {
+                // Data unchanged but refresh cache timestamp
+                updateTeamCache(teamID, freshData);
+                saveToLocalStorage();
+                console.log('[Cache] Team data unchanged, refreshed cache timestamp');
+              }
+            } catch (err) {
+              console.warn('[Cache] Background team data revalidation failed:', err.message || err);
+            }
+          })();
+        } else {
+          console.log('[Cache] Version match - skipping background fetch');
         }
-        // Parse teamData if it's a string (API returns JSON string)
-        const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
-        // Transform data from Sheet format to PWA format
-        state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
-
-        // Update localStorage cache for offline fallback
-        updateTeamCache(teamID, state.currentTeamData);
-        saveToLocalStorage();
-        console.log('[App] Fetched fresh team data, updated localStorage cache');
-
-        hideLoading();
       }
+      return; // Already rendered from cache above
+    }
+
+    // No cached data: blocking fetch required
+    if (navigator.onLine) {
+      showLoading();
+      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+      const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+      const sheetName = state.teamSheetMap?.[teamID] || '';
+      console.log('[App] No cache - fetching team data');
+      const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
+      const data = await response.json();
+      if (data.success === false) {
+        throw new Error(data.error || 'API request failed');
+      }
+      const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+      state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
+
+      updateTeamCache(teamID, state.currentTeamData);
+      saveToLocalStorage();
+      console.log('[App] Fetched and cached team data');
+      hideLoading();
     } else {
-      // Offline: use cached data from localStorage
-      if (apiTeamCache[teamID]) {
-        console.log('[Cache] Offline - using cached data for team', teamID);
-        state.currentTeamData = apiTeamCache[teamID];
-        showToast('Offline mode - showing cached data', 'info');
-      } else {
-        throw new Error('No cached data available for offline use');
-      }
+      throw new Error('No cached data available for offline use');
     }
 
     state.currentTeam = state.teams.find(t => t.teamID === teamID);
@@ -1905,7 +1951,7 @@ async function loadTeamData(teamID) {
       throw new Error('Team data not found');
     }
 
-    // Auto-populate from Squadi fixtures (non-blocking)
+    // Auto-populate from fixtures (non-blocking)
     syncFixtureData(state.currentTeam, state.currentTeamData);
 
     state.stats = calculateTeamStats(state.currentTeamData);
@@ -7887,7 +7933,7 @@ window.openTeamSettings = function() {
     <div class="form-group">
       <label class="form-label">Season</label>
       <select class="form-select" id="edit-team-season">
-        ${['Season 1', 'Season 2', 'NFNL'].map(s =>
+        ${['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'].map(s =>
           `<option value="${escapeAttr(s)}" ${team.season === s ? 'selected' : ''}>${escapeHtml(s)}</option>`
         ).join('')}
       </select>
@@ -8520,7 +8566,7 @@ window.saveTeamSettings = async function() {
     return;
   }
 
-  const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
+  const validSeasons = ['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'];
   if (!validSeasons.includes(season)) {
     if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
     showToast('Invalid season selected', 'error');
