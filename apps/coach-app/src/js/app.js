@@ -1871,53 +1871,43 @@ async function loadTeamData(teamID) {
       // Auto-populate from fixtures (non-blocking)
       syncFixtureData(state.currentTeam, state.currentTeamData);
 
-      // Background revalidation: check if server has newer data
+      // Background revalidation: always fetch fresh data to ensure we have the latest
       if (navigator.onLine) {
-        const serverTeam = state.teams.find(t => t.teamID === teamID);
-        const serverLastModified = serverTeam?.lastModified || 0;
-        const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
+        (async () => {
+          try {
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+            const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+            const sheetName = state.teamSheetMap?.[teamID] || '';
+            console.log('[Cache] Background team data revalidation');
+            const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
+            const data = await response.json();
+            if (data.success === false) return;
 
-        // Skip background fetch if version matches (no changes on server)
-        const versionMatch = cachedLastModified && serverLastModified && serverLastModified === cachedLastModified;
-        if (!versionMatch) {
-          (async () => {
-            try {
-              const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-              const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-              const sheetName = state.teamSheetMap?.[teamID] || '';
-              console.log('[Cache] Background team data revalidation (server:', serverLastModified, 'cached:', cachedLastModified, ')');
-              const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
-              const data = await response.json();
-              if (data.success === false) return;
+            const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+            const freshData = transformTeamDataFromSheet(teamDataObj, teamID);
 
-              const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
-              const freshData = transformTeamDataFromSheet(teamDataObj, teamID);
-
-              // Compare: only update UI if data actually changed
-              const oldMod = state.currentTeamData?._lastModified || 0;
-              const newMod = freshData._lastModified || 0;
-              if (newMod && newMod !== oldMod) {
-                console.log('[Cache] Team data updated on server; refreshing UI');
-                state.currentTeamData = freshData;
-                updateTeamCache(teamID, freshData);
-                saveToLocalStorage();
-                state.stats = calculateTeamStats(state.currentTeamData);
-                state.analytics = calculateAllAnalytics(state.currentTeamData);
-                renderMainApp();
-                syncFixtureData(state.currentTeam, state.currentTeamData);
-              } else {
-                // Data unchanged but refresh cache timestamp
-                updateTeamCache(teamID, freshData);
-                saveToLocalStorage();
-                console.log('[Cache] Team data unchanged, refreshed cache timestamp');
-              }
-            } catch (err) {
-              console.warn('[Cache] Background team data revalidation failed:', err.message || err);
+            // Compare: only update UI if data actually changed
+            const oldMod = state.currentTeamData?._lastModified || 0;
+            const newMod = freshData._lastModified || 0;
+            if (newMod && newMod !== oldMod) {
+              console.log('[Cache] Team data updated on server; refreshing UI');
+              state.currentTeamData = freshData;
+              updateTeamCache(teamID, freshData);
+              saveToLocalStorage();
+              state.stats = calculateTeamStats(state.currentTeamData);
+              state.analytics = calculateAllAnalytics(state.currentTeamData);
+              renderMainApp();
+              syncFixtureData(state.currentTeam, state.currentTeamData);
+            } else {
+              // Data unchanged but refresh cache timestamp
+              updateTeamCache(teamID, freshData);
+              saveToLocalStorage();
+              console.log('[Cache] Team data unchanged, refreshed cache timestamp');
             }
-          })();
-        } else {
-          console.log('[Cache] Version match - skipping background fetch');
-        }
+          } catch (err) {
+            console.warn('[Cache] Background team data revalidation failed:', err.message || err);
+          }
+        })();
       }
       return; // Already rendered from cache above
     }
