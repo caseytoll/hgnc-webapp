@@ -165,6 +165,7 @@ When modifying UI in one app, check if the other needs the same change:
 | Player cards | `.player-card`, `.player-avatar`, `.player-info` | Clickable to show stats modal |
 | Stats hero | `.stats-hero`, `.stats-record`, `.stats-metrics` | Purple banner with W-L-D |
 | Stats tabs | Overview, Leaders, Positions, Combos, Attendance | Same tab structure |
+| Score card | `.game-score-card`, `.game-score-display`, `.score-team`, `.score-value`, `.score-label`, `.team-logo-game` | Column layout: logo, score (2.25rem), team name. Uses `state.currentTeam.teamName` (not "Us"). Coach app has logos, portal text-only |
 | Scoring display | `.scoring-accordion`, `.scoring-quarter`, `.position-badge` | Accordion with GS/GA badges |
 | Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
 | Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
