@@ -82,7 +82,7 @@ import {
 import html2canvas from 'html2canvas';
 
 // Performance mark: earliest practical marker for app start
-try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop */ }
+try { performance.mark && performance.mark('app-start'); } catch (_e) { /* noop */ }
 
 // ========================================
 // STATE MANAGEMENT
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       // 2. Fallback: /teams/<slug>/ path (for local dev)
-      const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
+      const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9-]+)\/?$/i);
       if (m && m.groups && m.groups.slug) {
         foundSlug = m.groups.slug.toLowerCase();
         state.readOnly = true;
@@ -1060,7 +1060,7 @@ window.ensureNotReadOnly = function(action = '') {
   try {
     if (typeof window !== 'undefined' && window.isReadOnlyView) {
       // Friendly notification for parents
-      try { showToast('Read-only view: action disabled', 'info'); } catch (e) { /* noop */ }
+      try { showToast('Read-only view: action disabled', 'info'); } catch (_e) { /* noop */ }
       console.warn('[Read-only] blocked action:', action);
       return false;
     }
@@ -1188,19 +1188,19 @@ async function loadTeams(forceRefresh = false) {
       (async () => {
         try {
           console.log('[Cache] Background teams revalidation started');
-          try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+          try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
 
           const baseUrl = API_CONFIG.baseUrl;
           const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
-            try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
             return;
           }
           const data = await resp.json();
           if (data && data.success === false) {
             console.warn('[Cache] Background revalidation server returned error:', data.error);
-            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
             return;
           }
           const freshTeams = (data.teams || []).map(t => ({
@@ -1231,8 +1231,8 @@ async function loadTeams(forceRefresh = false) {
           } else {
             // Refresh cache timestamp to avoid immediate revalidation
             teamsListCacheTime = new Date().toISOString();
-            try { saveToLocalStorage(); } catch (e) { /* noop */ }
-            try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+            try { saveToLocalStorage(); } catch (_e) { /* noop */ }
+            try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
           }
         } catch (err) {
           console.warn('[Cache] Background teams revalidation failed:', err.message || err);
@@ -1363,7 +1363,7 @@ async function loadTeams(forceRefresh = false) {
           console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
           window.isReadOnlyView = true;
           document.body.classList.add('read-only');
-          try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
+          try { showReadOnlyPill(matched.teamName); } catch (_e) { /* noop */ }
           selectTeam(matched.teamID);
         } else {
           console.warn('[App] No team matched canonical slug:', slug);
@@ -1376,13 +1376,13 @@ async function loadTeams(forceRefresh = false) {
   } catch (error) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
-    try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (e) { /* noop */ }
+    try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (_e) { /* noop */ }
 
     // If we intended to use live API but it failed, gracefully fall back to
     // mock data so the UI remains usable and the console isn't spammed.
     if (!API_CONFIG.useMockData) {
       console.warn('[App] Live API unavailable — falling back to mock data');
-      try { state.apiAvailable = false; } catch (e) { /* noop */ }
+      try { state.apiAvailable = false; } catch (_e) { /* noop */ }
 
       // Populate teams from mock data
       state.teamSheetMap = state.teamSheetMap || {};
@@ -1416,7 +1416,7 @@ async function loadTeams(forceRefresh = false) {
       try { renderTeamList(); } catch (e) { console.warn('[App] renderTeamList after fallback failed', e); }
 
     } else {
-      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
+      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (_e) { /* noop */ }
       showToast('Failed to load teams', 'error');
     }
   } finally {
@@ -2414,9 +2414,9 @@ function getCachedLadder(teamID, fetchFn) {
     if (cached && cached.date === today && cached.data) {
       return Promise.resolve(cached.data);
     }
-  } catch (e) { /* corrupt cache, refetch */ }
+  } catch (_e) { /* corrupt cache, refetch */ }
   return fetchFn().then(data => {
-    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (e) { /* quota */ }
+    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (_e) { /* quota */ }
     return data;
   });
 }
@@ -2535,7 +2535,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
       const expanded = container.classList.toggle('expanded-columns');
       toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
       toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-      try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
+      try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (_e) { /* ignore */ }
     });
   }
 
@@ -2544,7 +2544,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
       // Clear cache and re-fetch
-      try { localStorage.removeItem(`ladder.cache.${team.teamID}`); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(`ladder.cache.${team.teamID}`); } catch (_e) { /* ignore */ }
       ladderDiv.innerHTML = `<div class="ladder-loading">Refreshing ladder...</div>`;
       const fixCfg = parseFixtureConfig(team.resultsApi);
       const squadiCfg = fixCfg && fixCfg.source === 'squadi' ? fixCfg : null;
@@ -4962,7 +4962,7 @@ window.openGameDetail = function(gameID) {
 
   // Ensure the Read-only pill is visible on game detail for parents
   if (window.isReadOnlyView) {
-    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (e) { /* noop */ }
+    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (_e) { /* noop */ }
   }
 };
 
@@ -6172,7 +6172,7 @@ function renderAvailabilityList() {
 window.toggleAvailability = function(playerID, available) {
   if (!ensureNotReadOnly('toggleAvailability')) {
     // If blocked, re-render to reset any transient UI changes (checkbox flip from click)
-    try { renderAvailabilityList(); } catch (e) { /* noop */ }
+    try { renderAvailabilityList(); } catch (_e) { /* noop */ }
     return;
   }
   const game = state.currentGame;
