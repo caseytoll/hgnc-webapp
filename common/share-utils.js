@@ -538,11 +538,15 @@ export function generateLineupCardPrintableHTML(game, teamName) {
     .lineup-card-team { font-weight: 700; font-size: 18px; color: #7c3aed; }
     .lineup-card-match { font-size: 16px; margin-top: 4px; }
     .lineup-card-date, .lineup-card-captain { font-size: 12px; color: #6b7280; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; text-align: left; }
     th { font-weight: 600; color: #374151; }
     .player-name-cell { width: 35%; }
     .pos-cell { width: 9%; text-align: center; }
+    /* shooter table matching widths for alignment */
+    .shooter-table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+    .shooter-table th, .shooter-table td { width: calc((100% - 35%)/4); }
+    .shooter-table td:first-child, .shooter-table th:first-child { width: 35%; text-align: left; }
     .manual-section { margin-top: 18px; border-top: 2px dashed #e5e7eb; padding-top: 12px; }
     .manual-scores { display:flex; gap:12px; align-items:center; font-weight:600; margin-bottom:8px; }
     .manual-score-box { width: 80px; height: 28px; border-bottom: 2px solid #111827; display:inline-block; }
@@ -568,22 +572,17 @@ export function generateLineupCardPrintableHTML(game, teamName) {
     });
 
     const header = `<thead><tr><th></th>${qCols.map(c => `<th>${c.q}</th>`).join('')}</tr></thead>`;
-    const ourRow = `<tr><td style="font-weight:600">Our GS / GA</td>${qCols.map(c => `<td style="text-align:center">${c.our || '&nbsp;'}</td>`).join('')}</tr>`;
-    const oppRow = `<tr><td style="font-weight:600">Opp GS / GA</td>${qCols.map(c => `<td style="text-align:center">${c.opp || '&nbsp;'}</td>`).join('')}</tr>`;
+    const ourRow = `<tr><td style="font-weight:600">${escapeHtml(teamName)}</td>${qCols.map(c => `<td style="text-align:center">${c.our || '&nbsp;'}</td>`).join('')}</tr>`;
+    const oppRow = `<tr><td style="font-weight:600">${escapeHtml(game.opponent || '')}</td>${qCols.map(c => `<td style="text-align:center">${c.opp || '&nbsp;'}</td>`).join('')}</tr>`;
 
     return `<div class="shooter-scoring"><table class="shooter-table">${header}<tbody>${ourRow}${oppRow}</tbody></table></div>`;
   })();
 
   const manualFields = `
     <div class="manual-section">
-      <div class="manual-scores">
-        <div>Our score: <span class="manual-score-box"></span></div>
-        <div>Opponent score: <span class="manual-score-box"></span></div>
-        <div style="margin-left:auto;font-weight:400;color:#6b7280;">Date/Time: _____________________</div>
-      </div>
       <div style="font-weight:600;margin-bottom:8px;">Notes (coach/assistant):</div>
       <div class="manual-notes">
-        ${Array.from({ length: 6 }).map(() => '<div class="note-line">&nbsp;</div>').join('')}
+        ${Array.from({ length: 8 }).map(() => '<div class="note-line">&nbsp;</div>').join('')}
       </div>
     </div>
   `;

@@ -198,6 +198,7 @@ describe('formatLineupText', () => {
       lineup: {
         Q1: { GS: 'Emma' },
         Q2: {},
+
         Q3: {},
         Q4: {},
       },
@@ -205,6 +206,37 @@ describe('formatLineupText', () => {
     const result = formatLineupText(partialLineup);
 
     expect(result).toContain('-');
+  });
+});
+
+// ========================================
+// PRINTABLE LINEUP CARD TESTS
+// ========================================
+describe('generateLineupCardPrintableHTML', () => {
+  const sampleGame = {
+    round: 3,
+    opponent: 'Tigers',
+    lineup: {
+      Q1: { ourGsGoals: 2, ourGaGoals: 1, oppGsGoals: 3, oppGaGoals: 2 },
+      Q2: {},
+      Q3: {},
+      Q4: {},
+    },
+  };
+
+  it('includes both team names and no generic labels', () => {
+    const html = generateLineupCardPrintableHTML(sampleGame, 'Lions');
+    expect(html).toContain('Lions');
+    expect(html).toContain('Tigers');
+    expect(html).not.toContain('Our GS');
+    expect(html).not.toContain('Opp GS');
+  });
+
+  it('omits manual score boxes/date section', () => {
+    const html = generateLineupCardPrintableHTML(sampleGame, 'Lions');
+    expect(html).not.toContain('Our score');
+    expect(html).not.toContain('Opponent score');
+    expect(html).not.toContain('Date/Time');
   });
 });
 
@@ -621,12 +653,14 @@ describe('generateLineupCardHTML', () => {
     expect(generateLineupCardPrintableHTML(null, 'Team')).toBe('');
   });
 
-  it('generateLineupCardPrintableHTML should include manual score and notes area', () => {
+  it('generateLineupCardPrintableHTML should include notes area and team names', () => {
     const html = generateLineupCardPrintableHTML(mockGame, 'U11 Thunder');
     expect(html).toContain('<!doctype html>');
-    expect(html).toContain('Our score:');
     expect(html).toContain('Notes (coach/assistant)');
-    // Shooter scoring should show our GS/GA numbers (from lineup) and opponent placeholders
+    // confirm team names used in shooter table header rows
+    expect(html).toContain('U11 Thunder');
+    expect(html).toContain('Lightning');
+    // Shooter scoring should still show our GS/GA numbers (from lineup)
     expect(html).toContain('GS: 4');
     expect(html).toContain('GA: 2');
     expect(html).toContain('Round 1 - U11 Thunder vs Lightning');
