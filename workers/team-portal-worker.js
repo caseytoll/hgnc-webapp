@@ -8,7 +8,7 @@ async function handleRequest(request) {
     const pathname = url.pathname.replace(/\/+/g, '/');
 
     // /p/<slug>/ -> redirect to /teams/<slug>/ on same origin
-    const pMatch = pathname.match(/^\/p\/(?<slug>[a-z0-9\-]+)(?:\/.*)?$/i);
+    const pMatch = pathname.match(/^\/p\/(?<slug>[a-z0-9-]+)(?:\/.*)?$/i);
     if (pMatch) {
       const slug = pMatch.groups.slug;
       return Response.redirect(`${url.origin}/teams/${slug}/`, 302);
@@ -73,7 +73,7 @@ async function handleRequest(request) {
     }
 
     // /teams/<slug>/ -> proxy static HTML from CDN and return it under same origin
-    const tMatch = pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)(?:\/.*)?$/i);
+    const tMatch = pathname.match(/^\/teams\/(?<slug>[a-z0-9-]+)(?:\/.*)?$/i);
     if (tMatch) {
       const slug = tMatch.groups.slug;
 
