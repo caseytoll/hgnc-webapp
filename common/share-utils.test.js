@@ -9,8 +9,9 @@ import {
   isFullscreen,
   haptic,
   generateLineupCardHTML,
+  generateLineupCardPrintableHTML,
   shareImageBlob,
-  validateImportedTeamData
+  validateImportedTeamData,
 } from './share-utils.js';
 
 // ========================================
@@ -26,8 +27,8 @@ describe('formatGameShareText', () => {
       Q1: { ourGsGoals: 3, ourGaGoals: 1, opponentScore: 2 },
       Q2: { ourGsGoals: 3, ourGaGoals: 1, opponentScore: 2 },
       Q3: { ourGsGoals: 2, ourGaGoals: 2, opponentScore: 3 },
-      Q4: { ourGsGoals: 0, ourGaGoals: 0, opponentScore: 1 }
-    }
+      Q4: { ourGsGoals: 0, ourGaGoals: 0, opponentScore: 1 },
+    },
   };
 
   it('should format a winning game correctly', () => {
@@ -41,7 +42,7 @@ describe('formatGameShareText', () => {
   it('should format a losing game correctly', () => {
     const losingGame = {
       ...mockGame,
-      scores: { us: 8, opponent: 12 }
+      scores: { us: 8, opponent: 12 },
     };
     const result = formatGameShareText(losingGame, 'U11 Thunder');
 
@@ -51,7 +52,7 @@ describe('formatGameShareText', () => {
   it('should format a draw correctly', () => {
     const drawGame = {
       ...mockGame,
-      scores: { us: 10, opponent: 10 }
+      scores: { us: 10, opponent: 10 },
     };
     const result = formatGameShareText(drawGame, 'U11 Thunder');
 
@@ -73,7 +74,7 @@ describe('formatGameShareText', () => {
     const gameWithoutLineup = {
       round: 1,
       opponent: 'Lightning',
-      scores: { us: 12, opponent: 8 }
+      scores: { us: 12, opponent: 8 },
     };
     const result = formatGameShareText(gameWithoutLineup, 'U11 Thunder');
 
@@ -107,11 +108,43 @@ describe('formatLineupText', () => {
     round: 1,
     opponent: 'Lightning',
     lineup: {
-      Q1: { GS: 'Emma Wilson', GA: 'Sophia Chen', WA: 'Olivia Taylor', C: 'Ava Johnson', WD: 'Isabella Brown', GD: 'Mia Davis', GK: 'Charlotte Miller' },
-      Q2: { GS: 'Sophia Chen', GA: 'Emma Wilson', WA: 'Mia Davis', C: 'Harper Martinez', WD: 'Olivia Taylor', GD: 'Ava Johnson', GK: 'Isabella Brown' },
-      Q3: { GS: 'Emma Wilson', GA: 'Sophia Chen', WA: 'Olivia Taylor', C: 'Ava Johnson', WD: 'Isabella Brown', GD: 'Mia Davis', GK: 'Charlotte Miller' },
-      Q4: { GS: 'Sophia Chen', GA: 'Mia Davis', WA: 'Harper Martinez', C: 'Charlotte Miller', WD: 'Isabella Brown', GD: 'Ava Johnson', GK: 'Olivia Taylor' }
-    }
+      Q1: {
+        GS: 'Emma Wilson',
+        GA: 'Sophia Chen',
+        WA: 'Olivia Taylor',
+        C: 'Ava Johnson',
+        WD: 'Isabella Brown',
+        GD: 'Mia Davis',
+        GK: 'Charlotte Miller',
+      },
+      Q2: {
+        GS: 'Sophia Chen',
+        GA: 'Emma Wilson',
+        WA: 'Mia Davis',
+        C: 'Harper Martinez',
+        WD: 'Olivia Taylor',
+        GD: 'Ava Johnson',
+        GK: 'Isabella Brown',
+      },
+      Q3: {
+        GS: 'Emma Wilson',
+        GA: 'Sophia Chen',
+        WA: 'Olivia Taylor',
+        C: 'Ava Johnson',
+        WD: 'Isabella Brown',
+        GD: 'Mia Davis',
+        GK: 'Charlotte Miller',
+      },
+      Q4: {
+        GS: 'Sophia Chen',
+        GA: 'Mia Davis',
+        WA: 'Harper Martinez',
+        C: 'Charlotte Miller',
+        WD: 'Isabella Brown',
+        GD: 'Ava Johnson',
+        GK: 'Olivia Taylor',
+      },
+    },
   };
 
   it('should format lineup with header', () => {
@@ -166,8 +199,8 @@ describe('formatLineupText', () => {
         Q1: { GS: 'Emma' },
         Q2: {},
         Q3: {},
-        Q4: {}
-      }
+        Q4: {},
+      },
     };
     const result = formatLineupText(partialLineup);
 
@@ -184,10 +217,10 @@ describe('copyToClipboard', () => {
     // Mock clipboard API
     Object.defineProperty(navigator, 'clipboard', {
       value: {
-        writeText: vi.fn().mockResolvedValue(undefined)
+        writeText: vi.fn().mockResolvedValue(undefined),
       },
       writable: true,
-      configurable: true
+      configurable: true,
     });
   });
 
@@ -242,13 +275,10 @@ describe('shareData', () => {
     Object.defineProperty(navigator, 'share', {
       value: mockShare,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
-    const result = await shareData(
-      { title: 'Test', text: 'Test text' },
-      mockShowToast
-    );
+    const result = await shareData({ title: 'Test', text: 'Test text' }, mockShowToast);
 
     expect(mockShare).toHaveBeenCalledWith({ title: 'Test', text: 'Test text' });
     expect(result).toBe(true);
@@ -261,13 +291,10 @@ describe('shareData', () => {
     Object.defineProperty(navigator, 'share', {
       value: mockShare,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
-    const result = await shareData(
-      { title: 'Test', text: 'Test text' },
-      mockShowToast
-    );
+    const result = await shareData({ title: 'Test', text: 'Test text' }, mockShowToast);
 
     expect(result).toBe(false);
     expect(mockShowToast).not.toHaveBeenCalled();
@@ -277,18 +304,15 @@ describe('shareData', () => {
     Object.defineProperty(navigator, 'share', {
       value: undefined,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
-    const result = await shareData(
-      { title: 'Test', text: 'Test text' },
-      mockShowToast
-    );
+    const result = await shareData({ title: 'Test', text: 'Test text' }, mockShowToast);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Test text');
     expect(mockShowToast).toHaveBeenCalledWith('Copied to clipboard', 'success');
@@ -304,7 +328,7 @@ describe('isFullscreenSupported', () => {
     Object.defineProperty(document, 'fullscreenEnabled', {
       value: true,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     expect(isFullscreenSupported()).toBe(true);
@@ -314,12 +338,12 @@ describe('isFullscreenSupported', () => {
     Object.defineProperty(document, 'fullscreenEnabled', {
       value: undefined,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(document, 'webkitFullscreenEnabled', {
       value: true,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     expect(isFullscreenSupported()).toBe(true);
@@ -331,7 +355,7 @@ describe('isFullscreen', () => {
     Object.defineProperty(document, 'fullscreenElement', {
       value: document.body,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     expect(isFullscreen()).toBe(true);
@@ -341,22 +365,22 @@ describe('isFullscreen', () => {
     Object.defineProperty(document, 'fullscreenElement', {
       value: null,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(document, 'webkitFullscreenElement', {
       value: null,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(document, 'mozFullScreenElement', {
       value: null,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(document, 'msFullscreenElement', {
       value: null,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     expect(isFullscreen()).toBe(false);
@@ -373,7 +397,7 @@ describe('haptic', () => {
     Object.defineProperty(navigator, 'vibrate', {
       value: mockVibrate,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     haptic(50);
@@ -386,7 +410,7 @@ describe('haptic', () => {
     Object.defineProperty(navigator, 'vibrate', {
       value: mockVibrate,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     haptic([50, 100, 50]);
@@ -398,7 +422,7 @@ describe('haptic', () => {
     Object.defineProperty(navigator, 'vibrate', {
       value: undefined,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     expect(() => haptic()).not.toThrow();
@@ -421,7 +445,7 @@ describe('downloadJson', () => {
     mockLink = {
       href: '',
       download: '',
-      click: mockClick
+      click: mockClick,
     };
     mockCreateElement = vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
     mockAppendChild = vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
@@ -466,11 +490,43 @@ describe('generateLineupCardHTML', () => {
     opponent: 'Lightning',
     date: '2025-03-15',
     lineup: {
-      Q1: { GS: 'Emma Wilson', GA: 'Sophia Chen', WA: 'Olivia Taylor', C: 'Ava Johnson', WD: 'Isabella Brown', GD: 'Mia Davis', GK: 'Charlotte Miller' },
-      Q2: { GS: 'Sophia Chen', GA: 'Emma Wilson', WA: 'Mia Davis', C: 'Harper Martinez', WD: 'Olivia Taylor', GD: 'Ava Johnson', GK: 'Isabella Brown' },
-      Q3: { GS: 'Emma Wilson', GA: 'Sophia Chen', WA: 'Olivia Taylor', C: 'Ava Johnson', WD: 'Isabella Brown', GD: 'Mia Davis', GK: 'Charlotte Miller' },
-      Q4: { GS: 'Sophia Chen', GA: 'Mia Davis', WA: 'Harper Martinez', C: 'Charlotte Miller', WD: 'Isabella Brown', GD: 'Ava Johnson', GK: 'Olivia Taylor' }
-    }
+      Q1: {
+        GS: 'Emma Wilson',
+        GA: 'Sophia Chen',
+        WA: 'Olivia Taylor',
+        C: 'Ava Johnson',
+        WD: 'Isabella Brown',
+        GD: 'Mia Davis',
+        GK: 'Charlotte Miller',
+      },
+      Q2: {
+        GS: 'Sophia Chen',
+        GA: 'Emma Wilson',
+        WA: 'Mia Davis',
+        C: 'Harper Martinez',
+        WD: 'Olivia Taylor',
+        GD: 'Ava Johnson',
+        GK: 'Isabella Brown',
+      },
+      Q3: {
+        GS: 'Emma Wilson',
+        GA: 'Sophia Chen',
+        WA: 'Olivia Taylor',
+        C: 'Ava Johnson',
+        WD: 'Isabella Brown',
+        GD: 'Mia Davis',
+        GK: 'Charlotte Miller',
+      },
+      Q4: {
+        GS: 'Sophia Chen',
+        GA: 'Mia Davis',
+        WA: 'Harper Martinez',
+        C: 'Charlotte Miller',
+        WD: 'Isabella Brown',
+        GD: 'Ava Johnson',
+        GK: 'Olivia Taylor',
+      },
+    },
   };
 
   it('should return empty string for null game', () => {
@@ -523,8 +579,8 @@ describe('generateLineupCardHTML', () => {
         Q1: { GS: 'Alexandria Smith' },
         Q2: {},
         Q3: {},
-        Q4: {}
-      }
+        Q4: {},
+      },
     };
     const result = generateLineupCardHTML(gameWithLongName, 'Team');
     expect(result).toContain('Alexandria');
@@ -538,8 +594,8 @@ describe('generateLineupCardHTML', () => {
         Q1: { GS: 'Emma' },
         Q2: {},
         Q3: {},
-        Q4: {}
-      }
+        Q4: {},
+      },
     };
     const result = generateLineupCardHTML(partialLineup, 'Team');
     // Emma plays GS in Q1, Off in other quarters
@@ -547,6 +603,21 @@ describe('generateLineupCardHTML', () => {
     expect(result).toContain('>Off<');
   });
 
+  // ========================================
+  // PRINTABLE LINEUP CARD HTML
+  // ========================================
+
+  it('generateLineupCardPrintableHTML should return empty for invalid input', () => {
+    expect(generateLineupCardPrintableHTML(null, 'Team')).toBe('');
+  });
+
+  it('generateLineupCardPrintableHTML should include manual score and notes area', () => {
+    const html = generateLineupCardPrintableHTML(mockGame, 'U11 Thunder');
+    expect(html).toContain('<!doctype html>');
+    expect(html).toContain('Our score:');
+    expect(html).toContain('Notes (coach/assistant)');
+    expect(html).toContain('Round 1 - U11 Thunder vs Lightning');
+  });
 });
 
 // ========================================
@@ -567,12 +638,12 @@ describe('shareImageBlob', () => {
     Object.defineProperty(navigator, 'canShare', {
       value: vi.fn().mockReturnValue(true),
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(navigator, 'share', {
       value: mockShare,
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     const result = await shareImageBlob(mockBlob, 'test.png', 'Test Title', mockShowToast);
@@ -587,12 +658,12 @@ describe('shareImageBlob', () => {
     Object.defineProperty(navigator, 'canShare', {
       value: vi.fn().mockReturnValue(true),
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(navigator, 'share', {
       value: vi.fn().mockRejectedValue(abortError),
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     const result = await shareImageBlob(mockBlob, 'test.png', 'Test Title', mockShowToast);
@@ -605,7 +676,7 @@ describe('shareImageBlob', () => {
     Object.defineProperty(navigator, 'canShare', {
       value: vi.fn().mockReturnValue(false),
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     const mockClick = vi.fn();
@@ -637,11 +708,9 @@ describe('validateImportedTeamData', () => {
     season: 'Season 1',
     players: [
       { id: 'p1', name: 'Emma Wilson', fillIn: false },
-      { id: 'p2', name: 'Sophia Chen', fillIn: false }
+      { id: 'p2', name: 'Sophia Chen', fillIn: false },
     ],
-    games: [
-      { round: 1, opponent: 'Lightning', date: '2025-03-15' }
-    ]
+    games: [{ round: 1, opponent: 'Lightning', date: '2025-03-15' }],
   };
 
   it('should return valid for correct team data', () => {
@@ -667,48 +736,48 @@ describe('validateImportedTeamData', () => {
     const data = { ...validTeamData, teamName: undefined };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('team name'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('team name'))).toBe(true);
   });
 
   it('should require valid year', () => {
     const data = { ...validTeamData, year: 1999 };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('year'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('year'))).toBe(true);
   });
 
   it('should require valid season', () => {
     const data = { ...validTeamData, season: 'Invalid Season' };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('season'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('season'))).toBe(true);
   });
 
   it('should require players array', () => {
     const data = { ...validTeamData, players: 'not an array' };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('players'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('players'))).toBe(true);
   });
 
   it('should validate player objects', () => {
     const data = {
       ...validTeamData,
-      players: [{ id: 'p1' }] // missing name
+      players: [{ id: 'p1' }], // missing name
     };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('Player 1'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('Player 1'))).toBe(true);
   });
 
   it('should validate game objects when present', () => {
     const data = {
       ...validTeamData,
-      games: [{ opponent: 'Team' }] // missing round
+      games: [{ opponent: 'Team' }], // missing round
     };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('Game 1'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('Game 1'))).toBe(true);
   });
 
   it('should allow empty games array', () => {
@@ -728,7 +797,7 @@ describe('validateImportedTeamData', () => {
       teamName: '',
       year: 'not a number',
       season: 'Bad',
-      players: 'not array'
+      players: 'not array',
     };
     const result = validateImportedTeamData(data);
     expect(result.valid).toBe(false);

@@ -3,6 +3,8 @@
 // Pure functions for sharing and exporting data
 // ========================================
 
+import { escapeHtml } from './utils.js';
+
 /**
  * Format a game result for sharing.
  * @param {Object} game - Game object with scores, lineup, etc.
@@ -48,14 +50,16 @@ export function formatGameShareText(game, teamName, location = '') {
   // Add quarter breakdown if lineup exists
   if (lineup) {
     const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const quarterScores = quarters.map(q => {
-      if (lineup[q]) {
-        const qFor = (lineup[q].ourGsGoals || 0) + (lineup[q].ourGaGoals || 0);
-        const qAgainst = lineup[q].opponentScore || 0;
-        return `${q}: ${qFor}-${qAgainst}`;
-      }
-      return null;
-    }).filter(Boolean);
+    const quarterScores = quarters
+      .map((q) => {
+        if (lineup[q]) {
+          const qFor = (lineup[q].ourGsGoals || 0) + (lineup[q].ourGaGoals || 0);
+          const qAgainst = lineup[q].opponentScore || 0;
+          return `${q}: ${qFor}-${qAgainst}`;
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     if (quarterScores.length > 0) {
       text += '\n\n' + quarterScores.join(' | ');
@@ -83,12 +87,12 @@ export function formatLineupText(game) {
   let text = `Round ${round} vs ${opponent} - Lineup\n\n`;
 
   // Column headers
-  text += '     ' + quarters.map(q => q.padEnd(6)).join('') + '\n';
+  text += '     ' + quarters.map((q) => q.padEnd(6)).join('') + '\n';
 
   // Each position row
-  positions.forEach(pos => {
+  positions.forEach((pos) => {
     let row = pos.padEnd(5);
-    quarters.forEach(q => {
+    quarters.forEach((q) => {
       const playerName = lineup[q]?.[pos] || '-';
       // Get first name only, truncate to 5 chars
       const shortName = playerName.split(' ')[0].substring(0, 5);
@@ -157,7 +161,7 @@ export async function shareData(shareData, showToast) {
       await navigator.share({
         title,
         text,
-        ...(url && { url })
+        ...(url && { url }),
       });
       return true;
     } catch (err) {
@@ -286,7 +290,7 @@ export function validateImportedTeamData(data) {
   return {
     valid: errors.length === 0,
     errors,
-    data: errors.length === 0 ? data : undefined
+    data: errors.length === 0 ? data : undefined,
   };
 }
 
@@ -432,9 +436,9 @@ export function generateLineupCardHTML(game, teamName) {
 
   // Collect all unique players from the lineup
   const playersSet = new Set();
-  quarters.forEach(q => {
+  quarters.forEach((q) => {
     if (lineup[q]) {
-      positions.forEach(pos => {
+      positions.forEach((pos) => {
         const player = lineup[q][pos];
         if (player) {
           playersSet.add(player);
@@ -473,21 +477,23 @@ export function generateLineupCardHTML(game, teamName) {
   };
 
   // Build player rows (players down the side, positions under each quarter)
-  const playerRows = players.map(player => `
+  const playerRows = players
+    .map(
+      (player) => `
     <tr>
       <td class="player-name-cell">${getFirstName(player)}</td>
-      ${quarters.map(q => `<td class="pos-cell">${getPlayerPosition(player, q)}</td>`).join('')}
+      ${quarters.map((q) => `<td class="pos-cell">${getPlayerPosition(player, q)}</td>`).join('')}
     </tr>
-  `).join('');
+  `
+    )
+    .join('');
 
   const captainName = getCaptainName();
 
   // Build game details line (date, time, location)
-  const gameDetails = [
-    date ? formatDateForDisplay(date) : null,
-    time || null,
-    location || null
-  ].filter(Boolean).join(' • ');
+  const gameDetails = [date ? formatDateForDisplay(date) : null, time || null, location || null]
+    .filter(Boolean)
+    .join(' • ');
 
   return `
     <div class="lineup-card-header">
@@ -500,13 +506,78 @@ export function generateLineupCardHTML(game, teamName) {
       <thead>
         <tr>
           <th>Name</th>
-          ${quarters.map(q => `<th>${q}</th>`).join('')}
+          ${quarters.map((q) => `<th>${q}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
         ${playerRows}
       </tbody>
     </table>
+  `;
+}
+
+/**
+ * Generate a printable HTML document for a lineup card with manual score/notes fields.
+ * This returns a full HTML string that can be opened in a new window for printing.
+ * @param {Object} game
+ * @param {string} teamName
+ * @returns {string} Full HTML document string
+ */
+export function generateLineupCardPrintableHTML(game, teamName) {
+  const fragment = generateLineupCardHTML(game, teamName);
+  if (!fragment) return '';
+
+  // Minimal inline styles to ensure print fidelity when opened in a new window
+  const styles = `
+    body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #111827; padding: 20px; }
+    .lineup-card-header { text-align: left; margin-bottom: 8px; }
+    .lineup-card-team { font-weight: 700; font-size: 18px; color: #7c3aed; }
+    .lineup-card-match { font-size: 16px; margin-top: 4px; }
+    .lineup-card-date, .lineup-card-captain { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; text-align: left; }
+    th { font-weight: 600; color: #374151; }
+    .player-name-cell { width: 35%; }
+    .pos-cell { width: 9%; text-align: center; }
+    .manual-section { margin-top: 18px; border-top: 2px dashed #e5e7eb; padding-top: 12px; }
+    .manual-scores { display:flex; gap:12px; align-items:center; font-weight:600; margin-bottom:8px; }
+    .manual-score-box { width: 80px; height: 28px; border-bottom: 2px solid #111827; display:inline-block; }
+    .manual-notes { min-height: 120px; }
+    .note-line { border-bottom: 1px dashed #9ca3af; height: 20px; margin-bottom:10px; }
+    @media print { @page { size: A4; margin: 15mm; } }
+  `;
+
+  const manualFields = `
+    <div class="manual-section">
+      <div class="manual-scores">
+        <div>Our score: <span class="manual-score-box"></span></div>
+        <div>Opponent score: <span class="manual-score-box"></span></div>
+        <div style="margin-left:auto;font-weight:400;color:#6b7280;">Date/Time: _____________________</div>
+      </div>
+      <div style="font-weight:600;margin-bottom:8px;">Notes (coach/assistant):</div>
+      <div class="manual-notes">
+        ${Array.from({ length: 6 }).map(() => '<div class="note-line">&nbsp;</div>').join('')}
+      </div>
+    </div>
+  `;
+
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>${escapeHtml(teamName)} - Lineup Sheet</title>
+        <style>${styles}</style>
+      </head>
+      <body>
+        <div class="lineup-card-printable">
+          ${fragment}
+          ${manualFields}
+        </div>
+        <script>window.focus(); window.print();</script>
+      </body>
+    </html>
   `;
 }
 
@@ -525,7 +596,7 @@ export async function shareImageBlob(blob, filename, title, showToast) {
       const file = new File([blob], filename, { type: 'image/png' });
       await navigator.share({
         title,
-        files: [file]
+        files: [file],
       });
       return true;
     } catch (err) {
