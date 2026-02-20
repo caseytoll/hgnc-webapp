@@ -75,6 +75,7 @@ import {
   isFullscreen,
   haptic,
   generateLineupCardHTML,
+  generateLineupCardPrintableHTML,
   shareImageBlob,
   triggerJsonImport,
   validateImportedTeamData
@@ -5088,6 +5089,31 @@ window.copyLineup = async function() {
       showToast('Failed to generate lineup image', 'error');
     }
   }
+};
+
+// Print a printable lineup sheet (includes manual score/notes fields for printing)
+window.printLineupSheet = function() {
+  if (!state.currentGame || !state.currentGame.lineup) {
+    showToast('No lineup available to print', 'info');
+    return;
+  }
+
+  haptic(40);
+  const teamName = state.currentTeam?.teamName || state.currentTeamData?.teamName || 'Team';
+  const html = generateLineupCardPrintableHTML(state.currentGame, teamName);
+  if (!html) {
+    showToast('Unable to generate printable lineup', 'error');
+    return;
+  }
+
+  // Open in a new window and trigger print
+  const w = window.open('', '_blank');
+  if (!w) {
+    showToast('Unable to open print window', 'error');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
 };
 
 window.exportTeamData = function() {
