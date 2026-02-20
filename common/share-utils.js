@@ -547,6 +547,29 @@ export function generateLineupCardPrintableHTML(game, teamName) {
     @media print { @page { size: A4; margin: 15mm; } }
   `;
 
+  // Shooter scoring table (GS/GA per quarter) — show our team values if present and provide opponent placeholders
+  const shooterRows = (() => {
+    const qCols = quarters.map((q) => {
+      const qdata = (lineup && lineup[q]) || {};
+      const ourGs = qdata.ourGsGoals != null ? String(qdata.ourGsGoals) : '';
+      const ourGa = qdata.ourGaGoals != null ? String(qdata.ourGaGoals) : '';
+      const oppGs = qdata.oppGsGoals != null ? String(qdata.oppGsGoals) : (qdata.opponentGsGoals != null ? String(qdata.opponentGsGoals) : '');
+      const oppGa = qdata.oppGaGoals != null ? String(qdata.oppGaGoals) : (qdata.opponentGaGoals != null ? String(qdata.opponentGaGoals) : '');
+
+      return {
+        q,
+        our: `GS: ${ourGs}${ourGs && ourGa ? ' ' : ''}${ourGa ? '<br>GA: ' + ourGa : ''}`.trim(),
+        opp: `GS: ${oppGs}${oppGs && oppGa ? ' ' : ''}${oppGa ? '<br>GA: ' + oppGa : ''}`.trim(),
+      };
+    });
+
+    const header = `<thead><tr><th></th>${qCols.map(c => `<th>${c.q}</th>`).join('')}</tr></thead>`;
+    const ourRow = `<tr><td style="font-weight:600">Our GS / GA</td>${qCols.map(c => `<td style="text-align:center">${c.our || '&nbsp;'}</td>`).join('')}</tr>`;
+    const oppRow = `<tr><td style="font-weight:600">Opp GS / GA</td>${qCols.map(c => `<td style="text-align:center">${c.opp || '&nbsp;'}</td>`).join('')}</tr>`;
+
+    return `<div class="shooter-scoring"><table class="shooter-table">${header}<tbody>${ourRow}${oppRow}</tbody></table></div>`;
+  })();
+
   const manualFields = `
     <div class="manual-section">
       <div class="manual-scores">
@@ -568,11 +591,17 @@ export function generateLineupCardPrintableHTML(game, teamName) {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <title>${escapeHtml(teamName)} - Lineup Sheet</title>
-        <style>${styles}</style>
+        <style>${styles}
+          .shooter-scoring { margin-top: 12px; }
+          .shooter-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+          .shooter-table th, .shooter-table td { border-bottom: 1px solid #e5e7eb; padding: 6px; }
+          .shooter-table th { text-align: center; font-weight:600; }
+        </style>
       </head>
       <body>
         <div class="lineup-card-printable">
           ${fragment}
+          ${shooterRows}
           ${manualFields}
         </div>
         <script>window.focus(); window.print();</script>
