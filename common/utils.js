@@ -21,10 +21,10 @@ export function escapeHtml(str) {
     "'": '&#39;',
     '/': '&#x2F;',
     '`': '&#x60;',
-    '=': '&#x3D;'
+    '=': '&#x3D;',
   };
 
-  return str.replace(/[&<>"'`=/]/g, char => htmlEscapes[char]);
+  return str.replace(/[&<>"'`=/]/g, (char) => htmlEscapes[char]);
 }
 
 /**
@@ -45,7 +45,7 @@ export function escapeAttr(str) {
  * @returns {Promise<void>}
  */
 export function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -72,8 +72,15 @@ export function formatDateTime(dateStr) {
   const locale = navigator.language || 'en-AU';
   // Use compact date and time style
   try {
-    return d.toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
+    return d.toLocaleString(locale, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (_e) {
     return d.toISOString();
   }
 }
@@ -230,7 +237,7 @@ export function isDuplicateName(name, list, excludeId = null) {
 
   const normalizedName = name.toLowerCase().trim();
 
-  return list.some(item => {
+  return list.some((item) => {
     if (excludeId && item.id === excludeId) return false;
     return item.name && item.name.toLowerCase().trim() === normalizedName;
   });
@@ -252,7 +259,11 @@ export function generateId(prefix = 'id') {
  */
 export function getInitials(name) {
   if (!name || typeof name !== 'string') return '';
-  return name.split(' ').map(n => n[0] || '').join('').toUpperCase();
+  return name
+    .split(' ')
+    .map((n) => n[0] || '')
+    .join('')
+    .toUpperCase();
 }
 
 /**
@@ -268,23 +279,23 @@ export function clubSlugFor(teamName) {
 
   // Known aliases (map common prefixes/abbreviations to canonical club slugs)
   const aliases = {
-    'hg': 'hazel-glen',
-    'hazel': 'hazel-glen',
+    hg: 'hazel-glen',
+    hazel: 'hazel-glen',
     'hazel-glen': 'hazel-glen',
-    'dc': 'dc',
-    'diamond': 'dc',
-    'eltham': 'eltham',
-    'heat': 'heat',
-    'hurstbridge': 'hurstbridge',
-    'kilmore': 'kilmore',
-    'kilmore10': 'kilmore',
-    'montmorency': 'montmorency',
-    'titans': 'titans'
+    dc: 'dc',
+    diamond: 'dc',
+    eltham: 'eltham',
+    heat: 'heat',
+    hurstbridge: 'hurstbridge',
+    kilmore: 'kilmore',
+    kilmore10: 'kilmore',
+    montmorency: 'montmorency',
+    titans: 'titans',
   };
 
   const words = normalized.split(/\s+/);
   const first = words[0];
-  const firstTwo = (words.length > 1) ? `${words[0]} ${words[1]}` : first;
+  const firstTwo = words.length > 1 ? `${words[0]} ${words[1]}` : first;
 
   if (aliases[first]) return aliases[first];
   if (aliases[firstTwo]) return aliases[firstTwo.replace(/\s+/g, '-')] || aliases[firstTwo];
@@ -328,7 +339,7 @@ export function isGameInPast(game) {
     }
 
     return gameDateTime < new Date();
-  } catch (e) {
+  } catch (_e) {
     // If date parsing fails, assume it's a past game
     return true;
   }
