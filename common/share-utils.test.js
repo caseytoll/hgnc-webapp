@@ -498,6 +498,10 @@ describe('generateLineupCardHTML', () => {
         WD: 'Isabella Brown',
         GD: 'Mia Davis',
         GK: 'Charlotte Miller',
+        ourGsGoals: 4,
+        ourGaGoals: 2,
+        oppGsGoals: 1,
+        oppGaGoals: 0,
       },
       Q2: {
         GS: 'Sophia Chen',
@@ -507,6 +511,8 @@ describe('generateLineupCardHTML', () => {
         WD: 'Olivia Taylor',
         GD: 'Ava Johnson',
         GK: 'Isabella Brown',
+        ourGsGoals: 4,
+        ourGaGoals: 2,
       },
       Q3: {
         GS: 'Emma Wilson',
@@ -516,6 +522,8 @@ describe('generateLineupCardHTML', () => {
         WD: 'Isabella Brown',
         GD: 'Mia Davis',
         GK: 'Charlotte Miller',
+        ourGsGoals: 3,
+        ourGaGoals: 3,
       },
       Q4: {
         GS: 'Sophia Chen',
@@ -525,6 +533,8 @@ describe('generateLineupCardHTML', () => {
         WD: 'Isabella Brown',
         GD: 'Ava Johnson',
         GK: 'Olivia Taylor',
+        ourGsGoals: 1,
+        ourGaGoals: 0,
       },
     },
   };
@@ -616,6 +626,9 @@ describe('generateLineupCardHTML', () => {
     expect(html).toContain('<!doctype html>');
     expect(html).toContain('Our score:');
     expect(html).toContain('Notes (coach/assistant)');
+    // Shooter scoring should show our GS/GA numbers (from lineup) and opponent placeholders
+    expect(html).toContain('GS: 4');
+    expect(html).toContain('GA: 2');
     expect(html).toContain('Round 1 - U11 Thunder vs Lightning');
   });
 });
