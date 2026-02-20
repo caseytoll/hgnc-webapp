@@ -7,5 +7,8 @@ main = "workers/team-portal-worker.js"
 
 compatibility_date = "2026-01-01"
 
-# Output dir for Cloudflare Pages deployments
-pages_build_output_dir = "dist"
+# NOTE: This project serves a Cloudflare Worker (main) and also deploys Pages
+# from the `dist/` directory via CI scripts. `wrangler.toml` must not include
+# `pages_build_output_dir` alongside `main` (Pages validation will fail).
+# Leaving `pages_build_output_dir` out prevents that conflict; Pages deploys
+# continue to run from CI scripts which explicitly pass the output dir.
