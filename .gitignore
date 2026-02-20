@@ -25,6 +25,6 @@ coverage/
 public/assets/
 
 # Legacy directories (removed, prevent re-creation)
-backups/
-viewer/
-src/
+/backups/
+/viewer/
+/src/

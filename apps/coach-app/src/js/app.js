@@ -80,10 +80,9 @@ import {
   validateImportedTeamData
 } from '../../../../common/share-utils.js';
 import html2canvas from 'html2canvas';
-import { openHelpView, showWalkthrough, showContextHelp, helpButtonHtml, contextHelpIcon } from './help.js';
 
 // Performance mark: earliest practical marker for app start
-try { performance.mark && performance.mark('app-start'); } catch (e) { /* noop */ }
+try { performance.mark && performance.mark('app-start'); } catch (_e) { /* noop */ }
 
 // ========================================
 // STATE MANAGEMENT
@@ -346,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       // 2. Fallback: /teams/<slug>/ path (for local dev)
-      const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9\-]+)\/?$/i);
+      const m = window.location.pathname.match(/^\/teams\/(?<slug>[a-z0-9-]+)\/?$/i);
       if (m && m.groups && m.groups.slug) {
         foundSlug = m.groups.slug.toLowerCase();
         state.readOnly = true;
@@ -376,11 +375,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   loadTeams(); // Use cache if valid, fetch fresh otherwise
-
-  // Show first-time walkthrough (after a brief delay so the UI is ready)
-  if (!state.readOnly) {
-    setTimeout(() => showWalkthrough(), 800);
-  }
 });
 
   // ========================================
@@ -487,15 +481,16 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
       case 3:
-        if (wizardState.data.competitionType === 'Nillumbik Force') {
+        const showSeason = wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other';
+        if (!showSeason) {
+          // Skip season step for Nillumbik Force - they have different structure
+          setTimeout(() => wizardNavigate(4), 0);
           return progressBar + `
-            <div class="form-group">
-              <label class="form-label">Season</label>
-              <select class="form-select" id="wizard-team-season" onchange="handleSeasonChange()">
-                <option value="Autumn" ${wizardState.data.season === 'Autumn' ? 'selected' : ''}>Autumn (Feb–Jun)</option>
-                <option value="Spring" ${wizardState.data.season === 'Spring' ? 'selected' : ''}>Spring (Jul–Dec)</option>
-              </select>
-              <div class="form-help">Nillumbik Force runs two seasons per year</div>
+            <div class="info-section">
+              <div class="info-icon">⏭️</div>
+              <div class="info-content">
+                <p>Skipping season selection for Nillumbik Force competitions.</p>
+              </div>
             </div>
           `;
         }
@@ -577,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="summary-item">
               <strong>Competition:</strong> ${wizardState.data.competitionType}
             </div>
-            <div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>
+            ${wizardState.data.competitionType === 'NFNL' || wizardState.data.competitionType === 'Other' ? `<div class="summary-item"><strong>Season:</strong> ${wizardState.data.season}</div>` : ''}
             <div class="summary-item">
               <strong>Coach:</strong> ${coachDisplay || 'Not specified'}
             </div>
@@ -828,15 +823,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Season validation depends on competition type
     let seasonToUse = season;
-    const validSeasonsMap = {
-      'NFNL': ['Season 1', 'Season 2'],
-      'Nillumbik Force': ['Autumn', 'Spring'],
-      'Other': ['Season 1', 'Season 2', 'Other']
-    };
-    const validSeasons = validSeasonsMap[competitionType] || validSeasonsMap['Other'];
-    if (!validSeasons.includes(season)) {
-      showToast('Invalid season selected', 'error');
-      return;
+    if (competitionType === 'Nillumbik Force') {
+      // For Nillumbik Force, use a default season or empty
+      seasonToUse = 'Nillumbik Force';
+    } else {
+      const validSeasons = competitionType === 'NFNL' ? ['Season 1', 'Season 2'] : ['Season 1', 'Season 2', 'Other'];
+      if (!validSeasons.includes(season)) {
+        showToast('Invalid season selected', 'error');
+        return;
+      }
     }
 
     // Check for duplicate name/year/season
@@ -900,12 +895,10 @@ function handleCompetitionTypeChange() {
   const competitionSelect = document.getElementById('wizard-competition-type');
   if (competitionSelect) {
     wizardState.data.competitionType = competitionSelect.value;
-    // Set appropriate default season for the competition type
+    // Reset season for Nillumbik Force (they don't use Season 1/2 structure)
     if (competitionSelect.value === 'Nillumbik Force') {
-      // Auto-detect: Autumn (Feb-Jun) or Spring (Jul-Dec)
-      const month = new Date().getMonth(); // 0-indexed
-      wizardState.data.season = month >= 6 ? 'Spring' : 'Autumn';
-    } else if (!wizardState.data.season || wizardState.data.season === '' || wizardState.data.season === 'Autumn' || wizardState.data.season === 'Spring') {
+      wizardState.data.season = '';
+    } else if (!wizardState.data.season || wizardState.data.season === '') {
       wizardState.data.season = 'Season 1';
     }
     // Re-render the current step
@@ -1067,7 +1060,7 @@ window.ensureNotReadOnly = function(action = '') {
   try {
     if (typeof window !== 'undefined' && window.isReadOnlyView) {
       // Friendly notification for parents
-      try { showToast('Read-only view: action disabled', 'info'); } catch (e) { /* noop */ }
+      try { showToast('Read-only view: action disabled', 'info'); } catch (_e) { /* noop */ }
       console.warn('[Read-only] blocked action:', action);
       return false;
     }
@@ -1183,74 +1176,69 @@ async function loadTeams(forceRefresh = false) {
   }
 
   try {
-    // Stale-while-revalidate: serve cached data immediately (any age), refresh in background
-    const hasCachedTeams = !forceRefresh && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
+    // Determine if cache is usable (invalid if empty)
+    const cacheUsable = !forceRefresh && isTeamsListCacheValid() && teamsListCache && Array.isArray(teamsListCache.teams) && teamsListCache.teams.length > 0;
 
-    if (hasCachedTeams) {
-      const cacheAge = teamsListCacheTime ? Date.now() - new Date(teamsListCacheTime).getTime() : Infinity;
-      console.log('[Cache] Using cached teams list (age:', Math.round(cacheAge / 1000), 's)');
+    if (cacheUsable) {
+      console.log('[Cache] Using cached teams list');
       state.teams = teamsListCache.teams;
       state.teamSheetMap = teamsListCache.teamSheetMap;
 
-      // Background revalidation: always refresh unless cache was just fetched (within TTL)
-      if (cacheAge > TEAM_CACHE_TTL_MS) {
-        (async () => {
-          try {
-            console.log('[Cache] Background teams revalidation started');
-            try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+      // Background revalidation: fetch latest teams and update if changed
+      (async () => {
+        try {
+          console.log('[Cache] Background teams revalidation started');
+          try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
 
-            const baseUrl = API_CONFIG.baseUrl;
-            const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
-            if (!resp.ok) {
-              console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
-              try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-              return;
-            }
-            const data = await resp.json();
-            if (data && data.success === false) {
-              console.warn('[Cache] Background revalidation server returned error:', data.error);
-              try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-              return;
-            }
-            const freshTeams = (data.teams || []).map(t => ({
-              teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
-              year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
-              resultsApi: t.resultsApi || '',
-              lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
-            }));
-
-            // Lightweight comparison by teamID + playerCount + name + coach + hasPin
-            const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
-            const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
-
-            if (oldSig !== newSig) {
-              console.log('[Cache] Teams list updated on server; refreshing UI');
-              // Update state and caches
-              state.teams = freshTeams.map(t => ({ ...t }));
-              state.teamSheetMap = {};
-              state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
-              teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
-              teamsListCacheTime = new Date().toISOString();
-              saveToLocalStorage();
-
-              try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
-              try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
-
-              try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
-            } else {
-              // Refresh cache timestamp to avoid immediate revalidation
-              teamsListCacheTime = new Date().toISOString();
-              try { saveToLocalStorage(); } catch (e) { /* noop */ }
-              try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
-            }
-          } catch (err) {
-            console.warn('[Cache] Background teams revalidation failed:', err.message || err);
-            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+          const baseUrl = API_CONFIG.baseUrl;
+          const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
+          if (!resp.ok) {
+            console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
+            try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
+            return;
           }
-        })();
-      } else {
-        console.log('[Cache] Skipping revalidation (cache is fresh)');
-      }
+          const data = await resp.json();
+          if (data && data.success === false) {
+            console.warn('[Cache] Background revalidation server returned error:', data.error);
+            try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
+            return;
+          }
+          const freshTeams = (data.teams || []).map(t => ({
+            teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
+            year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
+            resultsApi: t.resultsApi || '',
+            lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
+          }));
+
+          // Lightweight comparison by teamID + playerCount + name + coach + hasPin
+          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+
+          if (oldSig !== newSig) {
+            console.log('[Cache] Teams list updated on server; refreshing UI');
+            // Update state and caches
+            state.teams = freshTeams.map(t => ({ ...t }));
+            state.teamSheetMap = {};
+            state.teams.forEach(t => { state.teamSheetMap[t.teamID] = t.sheetName; });
+            teamsListCache = { teams: state.teams, teamSheetMap: state.teamSheetMap };
+            teamsListCacheTime = new Date().toISOString();
+            saveToLocalStorage();
+
+            try { renderTeamList(); } catch (e) { console.warn('[Cache] Failed to re-render team list after update', e); }
+            try { if (typeof showToast === 'function') showToast('Teams updated', 'success'); } catch (e) { /* noop */ }
+
+            try { sendClientMetric('background-revalidate-update', (state.teams || []).length); } catch (e) { /* noop */ }
+          } else {
+            // Refresh cache timestamp to avoid immediate revalidation
+            teamsListCacheTime = new Date().toISOString();
+            try { saveToLocalStorage(); } catch (_e) { /* noop */ }
+            try { sendClientMetric('background-revalidate-hit', (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
+          }
+        } catch (err) {
+          console.warn('[Cache] Background teams revalidation failed:', err.message || err);
+          try { sendClientMetric('background-revalidate-failed', 1, (teamsListCache.teams || []).length); } catch (e) { /* noop */ }
+        }
+      })();
 
     } else {
       // Check if using mock data
@@ -1287,10 +1275,10 @@ async function loadTeams(forceRefresh = false) {
         // Send teams fetch metric
         try {
           sendClientMetric('teams-fetch', 0, (state.teams || []).length);
-        } catch (e) { /* noop */ }
+        } catch (e) { void e; }
         try {
           sendClientMetric('app-load', Math.round((performance && performance.now) ? performance.now() : Date.now()), (state.teams || []).length);
-        } catch (e) { /* noop */ }
+        } catch (e) { void e; }
         hideLoading();
         renderTeamList();
         return;
@@ -1306,7 +1294,7 @@ async function loadTeams(forceRefresh = false) {
       const data = await response.json();
       console.log('[App] API response:', data);
       // Quick visible metric for teams fetch
-      try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch(e) {}
+      try { console.log('[Metric] teamsFetchMs:', teamsFetchMs + 'ms'); } catch (e) { void e; }
       if (data.success === false) {
         throw new Error(data.error || 'API request failed');
       }
@@ -1375,7 +1363,7 @@ async function loadTeams(forceRefresh = false) {
           console.log('[App] Auto-selecting team for read-only view:', matched.teamID, matched.teamName);
           window.isReadOnlyView = true;
           document.body.classList.add('read-only');
-          try { showReadOnlyPill(matched.teamName); } catch (e) { /* noop */ }
+          try { showReadOnlyPill(matched.teamName); } catch (_e) { /* noop */ }
           selectTeam(matched.teamID);
         } else {
           console.warn('[App] No team matched canonical slug:', slug);
@@ -1388,13 +1376,13 @@ async function loadTeams(forceRefresh = false) {
   } catch (error) {
     console.error('[App] Failed to load teams:', error);
     // Persist a short diagnostic for debugging on devices
-    try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (e) { /* noop */ }
+    try { window.lastTeamsFetchError = (error && error.message) ? error.message : String(error); } catch (_e) { /* noop */ }
 
     // If we intended to use live API but it failed, gracefully fall back to
     // mock data so the UI remains usable and the console isn't spammed.
     if (!API_CONFIG.useMockData) {
       console.warn('[App] Live API unavailable — falling back to mock data');
-      try { state.apiAvailable = false; } catch (e) { /* noop */ }
+      try { state.apiAvailable = false; } catch (_e) { /* noop */ }
 
       // Populate teams from mock data
       state.teamSheetMap = state.teamSheetMap || {};
@@ -1428,7 +1416,7 @@ async function loadTeams(forceRefresh = false) {
       try { renderTeamList(); } catch (e) { console.warn('[App] renderTeamList after fallback failed', e); }
 
     } else {
-      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (e) { /* noop */ }
+      try { sendClientMetric('teams-load-failed', window.lastTeamsFetchError || 'unknown'); } catch (_e) { /* noop */ }
       showToast('Failed to load teams', 'error');
     }
   } finally {
@@ -1856,83 +1844,53 @@ async function loadTeamData(teamID) {
   renderStatsSkeleton();
 
   try {
-    // Stale-while-revalidate: show cached data instantly, refresh in background if needed
-    const hasCachedData = !!apiTeamCache[teamID];
-
-    if (hasCachedData) {
-      // Serve cached data immediately (any age) for instant render
-      console.log('[Cache] Serving cached team data instantly');
-      state.currentTeamData = apiTeamCache[teamID];
-      state.currentTeam = state.teams.find(t => t.teamID === teamID);
-      state.stats = calculateTeamStats(state.currentTeamData);
-      state.analytics = calculateAllAnalytics(state.currentTeamData);
-      renderMainApp();
-
-      // Auto-populate from fixtures (non-blocking)
-      syncFixtureData(state.currentTeam, state.currentTeamData);
-
-      // Background revalidation: always fetch fresh data to ensure we have the latest
-      if (navigator.onLine) {
-        (async () => {
-          try {
-            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-            const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-            const sheetName = state.teamSheetMap?.[teamID] || '';
-            console.log('[Cache] Background team data revalidation');
-            const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
-            const data = await response.json();
-            if (data.success === false) return;
-
-            const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
-            const freshData = transformTeamDataFromSheet(teamDataObj, teamID);
-
-            // Compare: only update UI if data actually changed
-            const oldMod = state.currentTeamData?._lastModified || 0;
-            const newMod = freshData._lastModified || 0;
-            if (newMod && newMod !== oldMod) {
-              console.log('[Cache] Team data updated on server; refreshing UI');
-              state.currentTeamData = freshData;
-              updateTeamCache(teamID, freshData);
-              saveToLocalStorage();
-              state.stats = calculateTeamStats(state.currentTeamData);
-              state.analytics = calculateAllAnalytics(state.currentTeamData);
-              renderMainApp();
-              syncFixtureData(state.currentTeam, state.currentTeamData);
-            } else {
-              // Data unchanged but refresh cache timestamp
-              updateTeamCache(teamID, freshData);
-              saveToLocalStorage();
-              console.log('[Cache] Team data unchanged, refreshed cache timestamp');
-            }
-          } catch (err) {
-            console.warn('[Cache] Background team data revalidation failed:', err.message || err);
-          }
-        })();
-      }
-      return; // Already rendered from cache above
-    }
-
-    // No cached data: blocking fetch required
     if (navigator.onLine) {
-      showLoading();
-      const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-      const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-      const sheetName = state.teamSheetMap?.[teamID] || '';
-      console.log('[App] No cache - fetching team data');
-      const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
-      const data = await response.json();
-      if (data.success === false) {
-        throw new Error(data.error || 'API request failed');
-      }
-      const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
-      state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
+      // Get server's lastModified from the teams list (already fetched)
+      const serverTeam = state.teams.find(t => t.teamID === teamID);
+      const serverLastModified = serverTeam?.lastModified || 0;
+      const cachedLastModified = teamCacheMetadata[teamID]?.lastModified || 0;
 
-      updateTeamCache(teamID, state.currentTeamData);
-      saveToLocalStorage();
-      console.log('[App] Fetched and cached team data');
-      hideLoading();
+      // Version check: only fetch if server has newer data or no cache exists
+      // Also use cache if within TTL and no version info available
+      if (apiTeamCache[teamID] && (
+        (cachedLastModified && serverLastModified && serverLastModified === cachedLastModified) ||
+        (!serverLastModified && isTeamCacheValid(teamID))
+      )) {
+        console.log('[Cache] Version match - using cached data (lastModified:', cachedLastModified, ')');
+        state.currentTeamData = apiTeamCache[teamID];
+      } else {
+        showLoading();
+        // Use proxy for local dev to bypass CORS
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+        const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+        const sheetName = state.teamSheetMap?.[teamID] || '';
+        console.log('[App] Fetching fresh team data (server:', serverLastModified, 'cached:', cachedLastModified, ')');
+        const response = await fetch(`${baseUrl}?api=true&action=getTeamData&teamID=${teamID}&sheetName=${encodeURIComponent(sheetName)}&_t=${Date.now()}`);
+        const data = await response.json();
+        if (data.success === false) {
+          throw new Error(data.error || 'API request failed');
+        }
+        // Parse teamData if it's a string (API returns JSON string)
+        const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+        // Transform data from Sheet format to PWA format
+        state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
+
+        // Update localStorage cache for offline fallback
+        updateTeamCache(teamID, state.currentTeamData);
+        saveToLocalStorage();
+        console.log('[App] Fetched fresh team data, updated localStorage cache');
+
+        hideLoading();
+      }
     } else {
-      throw new Error('No cached data available for offline use');
+      // Offline: use cached data from localStorage
+      if (apiTeamCache[teamID]) {
+        console.log('[Cache] Offline - using cached data for team', teamID);
+        state.currentTeamData = apiTeamCache[teamID];
+        showToast('Offline mode - showing cached data', 'info');
+      } else {
+        throw new Error('No cached data available for offline use');
+      }
     }
 
     state.currentTeam = state.teams.find(t => t.teamID === teamID);
@@ -1941,7 +1899,7 @@ async function loadTeamData(teamID) {
       throw new Error('Team data not found');
     }
 
-    // Auto-populate from fixtures (non-blocking)
+    // Auto-populate from Squadi fixtures (non-blocking)
     syncFixtureData(state.currentTeam, state.currentTeamData);
 
     state.stats = calculateTeamStats(state.currentTeamData);
@@ -2456,9 +2414,9 @@ function getCachedLadder(teamID, fetchFn) {
     if (cached && cached.date === today && cached.data) {
       return Promise.resolve(cached.data);
     }
-  } catch (e) { /* corrupt cache, refetch */ }
+  } catch (_e) { /* corrupt cache, refetch */ }
   return fetchFn().then(data => {
-    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (e) { /* quota */ }
+    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (_e) { /* quota */ }
     return data;
   });
 }
@@ -2577,7 +2535,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
       const expanded = container.classList.toggle('expanded-columns');
       toggle.textContent = expanded ? 'Hide extra columns' : 'Show extra columns';
       toggle.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-      try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (e) { /* ignore */ }
+      try { localStorage.setItem(showKey, expanded ? 'true' : 'false'); } catch (_e) { /* ignore */ }
     });
   }
 
@@ -2586,7 +2544,7 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
       // Clear cache and re-fetch
-      try { localStorage.removeItem(`ladder.cache.${team.teamID}`); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(`ladder.cache.${team.teamID}`); } catch (_e) { /* ignore */ }
       ladderDiv.innerHTML = `<div class="ladder-loading">Refreshing ladder...</div>`;
       const fixCfg = parseFixtureConfig(team.resultsApi);
       const squadiCfg = fixCfg && fixCfg.source === 'squadi' ? fixCfg : null;
@@ -2677,6 +2635,7 @@ function renderSchedule() {
         <div class="game-info">
           <div class="game-opponent">
             ${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent)}`}
+            ${game.opponentDetails && game.opponentDetails.logoUrl ? `<img src="${escapeAttr(game.opponentDetails.logoUrl)}" class="team-logo-small" alt="${escapeAttr(game.opponent)} logo" onerror="this.style.display='none'">` : ''}
             ${difficultyBadge}
             ${game.lineupConfirmed !== undefined ? `<span class="lineup-status ${game.lineupConfirmed ? 'confirmed' : 'pending'}" title="Your lineup ${game.lineupConfirmed ? 'confirmed' : 'pending'}">📋</span>` : ''}
             ${game.opponentLineupConfirmed !== undefined ? `<span class="lineup-status ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}" title="Opponent lineup ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}">👥</span>` : ''}
@@ -2858,7 +2817,6 @@ function renderStatsOverview(container) {
   container.innerHTML = `
     <!-- Hero Stats -->
     <div class="stats-hero">
-      <div class="stats-hero-help">${contextHelpIcon('stats')}</div>
       <div class="stats-record">${advanced.wins}-${advanced.losses}-${advanced.draws}</div>
       <div class="stats-record-label">${advanced.winRate}% Win Rate</div>
       <div class="stats-metrics">
@@ -3026,8 +2984,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     container.innerHTML = staleWarning + '<div class="ai-insights-content">' + html + '</div>' +
       '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + escapeHtml(cachedDate) + ' (after ' + gameCountAtGen + ' games)</div>' +
       '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
-      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
-      renderAIFeedback('season');
+      '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
     return;
   }
 
@@ -3191,8 +3148,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
         '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
         '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
-        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
-        renderAIFeedback('season');
+        '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>';
 
       showToast('AI insights saved', 'success');
     } else {
@@ -3307,7 +3263,6 @@ function displayGameAISummary(text, generatedDate) {
     <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
       Generated: ${escapeHtml(generatedDate)}
     </div>
-    ${renderAIFeedback('game')}
   `;
   modalFooter.innerHTML = `
     <button class="btn btn-secondary" onclick="showGameAISummary(true)">Regenerate</button>
@@ -3392,9 +3347,6 @@ function buildGameAnalysisPayload(game) {
     .filter(q => q.notes && q.notes.trim())
     .map(q => ({ quarter: q.quarter, notes: q.notes.trim() }));
 
-  // Opponent ladder difficulty (if available)
-  const opponentDifficulty = getOpponentDifficulty(game.opponent);
-
   return {
     teamName,
     round: game.round,
@@ -3408,8 +3360,7 @@ function buildGameAnalysisPayload(game) {
     quarterBreakdown,
     playerContributions: Object.values(playerContributions).sort((a, b) => b.goalsScored - a.goalsScored || b.quarters - a.quarters),
     rosterSize: players.length,
-    coachNotes: coachNotes,
-    opponentDifficulty: opponentDifficulty
+    coachNotes: coachNotes
   };
 }
 
@@ -3915,10 +3866,6 @@ function renderTraining() {
 
   // Build both sections: Training Sessions + AI Training Focus
   container.innerHTML = `
-    <div class="training-header-row">
-      <span>Training</span>
-      ${contextHelpIcon('training')}
-    </div>
     ${renderTrainingSessions()}
     ${renderTrainingFocus()}
   `;
@@ -4071,7 +4018,6 @@ function renderTrainingFocus() {
         Generated: ${escapeHtml(selectedDate)} (from ${selected.noteCount || 0} notes across ${selected.gameCount || 0} games)
         ${selected.recentGames ? ` • Focused on last ${selected.recentGames} games` : ''}
       </div>
-      ${renderAIFeedback('training')}
       <div id="training-focus-container"></div>
     </div>
   `;
@@ -5016,7 +4962,7 @@ window.openGameDetail = function(gameID) {
 
   // Ensure the Read-only pill is visible on game detail for parents
   if (window.isReadOnlyView) {
-    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (e) { /* noop */ }
+    try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (_e) { /* noop */ }
   }
 };
 
@@ -6226,7 +6172,7 @@ function renderAvailabilityList() {
 window.toggleAvailability = function(playerID, available) {
   if (!ensureNotReadOnly('toggleAvailability')) {
     // If blocked, re-render to reset any transient UI changes (checkbox flip from click)
-    try { renderAvailabilityList(); } catch (e) { /* noop */ }
+    try { renderAvailabilityList(); } catch (_e) { /* noop */ }
     return;
   }
   const game = state.currentGame;
@@ -6386,10 +6332,6 @@ function renderScoringInputs() {
   const expandedQuarter = state.expandedScoringQuarter || 'Q1';
 
   container.innerHTML = `
-    <div class="scoring-panel-header">
-      <span class="scoring-panel-title">Score by Quarter</span>
-      ${contextHelpIcon('scoring')}
-    </div>
     ${['Q1', 'Q2', 'Q3', 'Q4'].map((q, index) => {
       const qData = lineup[q] || {};
       const qTotal = calcQuarterTotal(qData);
@@ -7190,7 +7132,6 @@ window.openPlayerDetail = function(playerID) {
               <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
               <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
             </div>
-            ${renderAIFeedback('player')}
           ` : `
             <div class="empty-state" style="padding: 20px 0;">
               <p style="margin-bottom: 16px;">Get AI-powered insights on ${escapeHtml(player.name)}'s performance, strengths, and development areas.</p>
@@ -7256,28 +7197,6 @@ function formatAIContent(text) {
     .replace(/\n- /g, '\n• ')
     .replace(/\n/g, '<br>');
 }
-
-function renderAIFeedback(type) {
-  return `<div class="ai-feedback" id="ai-feedback-${type}">
-    <span>Was this helpful?</span>
-    <button onclick="rateAIInsights('${type}', 'up', this)">&#128077;</button>
-    <button onclick="rateAIInsights('${type}', 'down', this)">&#128078;</button>
-  </div>`;
-}
-
-window.rateAIInsights = function(type, rating, btn) {
-  const container = document.getElementById('ai-feedback-' + type);
-  if (!container) return;
-
-  // Log via existing logClientMetric
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
-  const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-  const teamName = state.currentTeam?.teamName || 'unknown';
-  const url = baseUrl + '?action=logClientMetric&name=ai_feedback&value=' + encodeURIComponent(rating === 'up' ? 1 : 0) + '&teams=1&extra=' + encodeURIComponent(type + ':' + teamName);
-  fetch(url).catch(() => {});
-
-  container.innerHTML = '<span class="ai-feedback-thanks">Thanks for your feedback!</span>';
-};
 
 // Share AI report text via native share sheet or clipboard
 window.shareAIReport = async function(type) {
@@ -7462,7 +7381,6 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
           <button class="btn btn-secondary" onclick="shareAIReport('player')">Share</button>
           <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
         </div>
-        ${renderAIFeedback('player')}
       `;
 
       showToast('AI report saved', 'success');
@@ -7955,7 +7873,7 @@ window.openTeamSettings = function() {
     <div class="form-group">
       <label class="form-label">Season</label>
       <select class="form-select" id="edit-team-season">
-        ${['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'].map(s =>
+        ${['Season 1', 'Season 2', 'NFNL'].map(s =>
           `<option value="${escapeAttr(s)}" ${team.season === s ? 'selected' : ''}>${escapeHtml(s)}</option>`
         ).join('')}
       </select>
@@ -7977,8 +7895,8 @@ window.openTeamSettings = function() {
     </div>
     ${(() => {
       let sc = {};
-      try { sc = team.resultsApi ? JSON.parse(team.resultsApi) : {}; } catch(e) {}
-      const currentSource = sc.source || '';
+      try { sc = team.resultsApi ? JSON.parse(team.resultsApi) : {}; } catch (e) { void e; }
+      const currentSource = sc.source || ''; 
       return `
     <div class="form-group">
       <label class="form-label">Fixture Sync <span class="form-label-desc">(optional)</span></label>
@@ -8049,7 +7967,7 @@ window.openTeamSettings = function() {
     </div>
     <div class="settings-divider"></div>
     <div class="form-group">
-      <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span> ${contextHelpIcon('security')}</label>
+      <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span></label>
       ${team.hasPin ? `
         <p class="form-hint">PIN is set. Only devices with the PIN can access this team.</p>
         <div class="pin-actions">
@@ -8588,7 +8506,7 @@ window.saveTeamSettings = async function() {
     return;
   }
 
-  const validSeasons = ['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'];
+  const validSeasons = ['Season 1', 'Season 2', 'NFNL'];
   if (!validSeasons.includes(season)) {
     if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
     showToast('Invalid season selected', 'error');
@@ -9436,7 +9354,7 @@ function renderSystemSettings() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     storageUsed = data ? (data.length / 1024).toFixed(1) : 0;
-  } catch (e) {}
+  } catch (e) { void e; }
 
   // Calculate last sync time from teams list cache
   const lastSyncTime = teamsListCacheTime ? formatCacheAge(teamsListCacheTime) + ' ago' : 'Never';

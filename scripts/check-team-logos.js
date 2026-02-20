@@ -7,7 +7,7 @@ const assetsDir = path.join(process.cwd(), 'apps', 'coach-app', 'public', 'asset
 const clubLogosPath = path.join(process.cwd(), 'data', 'club-logos.json');
 
 function localFileExists(p) {
-  try { return fs.existsSync(p); } catch (e) { return false; }
+  try { return fs.existsSync(p); } catch (_e) { return false; }
 }
 
 async function getJson(url) {
