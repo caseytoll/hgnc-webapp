@@ -50,7 +50,7 @@ import {
   toggleFullscreen,
   isFullscreen,
   haptic,
-  generateLineupCardHTML,
+  generateLineupCardHTML, generateLineupCardPrintableHTML,
   shareImageBlob,
   triggerJsonImport,
   validateImportedTeamData
@@ -995,6 +995,30 @@ window.copyLineup = async function() {
     const success = await copyToClipboard(lineupText);
     showToast(success ? 'Lineup copied as text' : 'Failed to share lineup', success ? 'info' : 'error');
   }
+};
+
+// Print a printable lineup sheet for offline/manual notes
+window.printLineupSheet = function() {
+  if (!state.currentGame || !state.currentGame.lineup) {
+    showToast('No lineup available to print', 'info');
+    return;
+  }
+
+  haptic(40);
+  const teamName = state.currentTeamData?.teamName || 'Team';
+  const html = generateLineupCardPrintableHTML(state.currentGame, teamName);
+  if (!html) {
+    showToast('Unable to generate printable lineup', 'error');
+    return;
+  }
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    showToast('Unable to open print window', 'error');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
 };
 
 // Helper for multiple favourite positions
