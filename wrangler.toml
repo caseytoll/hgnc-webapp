@@ -6,3 +6,6 @@ main = "workers/team-portal-worker.js"
 # route = "<your-domain.com/teams/*>"  # optional: set in dashboard or here
 
 compatibility_date = "2026-01-01"
+
+# Output dir for Cloudflare Pages deployments
+pages_build_output_dir = "dist"
