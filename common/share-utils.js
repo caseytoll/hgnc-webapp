@@ -527,6 +527,10 @@ export function generateLineupCardPrintableHTML(game, teamName) {
   const fragment = generateLineupCardHTML(game, teamName);
   if (!fragment) return '';
 
+  // local helpers for printable builder
+  const lineup = (game && game.lineup) || {};
+  const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+
   // Minimal inline styles to ensure print fidelity when opened in a new window
   const styles = `
     body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #111827; padding: 20px; }
