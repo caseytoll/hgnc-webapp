@@ -81,6 +81,7 @@ import {
   validateImportedTeamData
 } from '../../../../common/share-utils.js';
 import html2canvas from 'html2canvas';
+import './help.js';
 
 // Performance mark: earliest practical marker for app start
 try { performance.mark && performance.mark('app-start'); } catch (_e) { /* noop */ }
