@@ -506,7 +506,7 @@ export function generateLineupCardHTML(game, teamName) {
       <thead>
         <tr>
           <th>Name</th>
-          ${quarters.map((q) => `<th>${q}</th>`).join('')}
+          ${quarters.map((q) => `<th class="pos-cell">${q}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -539,6 +539,8 @@ export function generateLineupCardPrintableHTML(game, teamName) {
     .lineup-card-match { font-size: 16px; margin-top: 4px; }
     .lineup-card-date, .lineup-card-captain { font-size: 12px; color: #6b7280; margin-top: 2px; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
+    /* ensure header columns follow fixed layout widths */
+    table th.pos-cell { width: calc((100% - 35%)/4); }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; text-align: left; }
     th { font-weight: 600; color: #374151; }
     .player-name-cell { width: 35%; }
