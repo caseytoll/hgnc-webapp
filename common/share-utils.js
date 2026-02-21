@@ -542,7 +542,8 @@ export function generateLineupCardPrintableHTML(game, teamName) {
     th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; text-align: left; }
     th { font-weight: 600; color: #374151; }
     .player-name-cell { width: 35%; }
-    .pos-cell { width: 9%; text-align: center; }
+    /* distribute remainder evenly across four quarters */
+    .pos-cell { width: calc((100% - 35%)/4); text-align: center; }
     /* shooter table matching widths for alignment */
     .shooter-table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
     .shooter-table th, .shooter-table td { width: calc((100% - 35%)/4); }
