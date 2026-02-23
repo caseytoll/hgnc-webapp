@@ -1881,6 +1881,18 @@ function fetchSquadiFixtureData(config) {
     return { success: false, error: apiResult.error, message: apiResult.message || apiResult.error };
   }
 
+  // Log the full division object so we can discover what fields Squadi returns
+  // (particularly any UUID / competitionKey field we can use for the ladder API)
+  if (apiResult.division) {
+    Logger.log('[Fixture] data.division keys: ' + JSON.stringify(Object.keys(apiResult.division)));
+    Logger.log('[Fixture] data.division: ' + JSON.stringify(apiResult.division));
+  }
+  // Also log first match to see all available fields
+  var firstMatch = apiResult.rounds && apiResult.rounds[0] && apiResult.rounds[0].matches && apiResult.rounds[0].matches[0];
+  if (firstMatch) {
+    Logger.log('[Fixture] first match keys: ' + JSON.stringify(Object.keys(firstMatch)));
+  }
+
   var teamFixtures = [];
   var divisionResults = [];
   var squadiName = config.squadiTeamName.toLowerCase();
@@ -2353,6 +2365,72 @@ function extractGameDayMatches(html) {
 }
 
 /**
+ * Organisation keys for HGNC-affiliated competitions.
+ * organisationKey is stable — it identifies the club/association, not the season.
+ * competitionUniqueKey changes each season; this map helps discover it via the API.
+ */
+var SQUADI_ORG_KEYS = [
+  '7a628258-a707-4196-917f-4faf87cbb124' // Nillumbik Force
+];
+
+/**
+ * Resolve the Squadi competitionUniqueKey (UUID) for a given numeric competitionId.
+ * Calls the Squadi competitions API for each known org key until the competition is found.
+ * Returns the UUID string or null if not found.
+ */
+function resolveSquadiCompetitionKey(competitionId) {
+  var AUTH_TOKEN = loadAuthToken();
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') return null;
+
+  var headers = {
+    'Authorization': AUTH_TOKEN,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Origin': 'https://registration.netballconnect.com',
+    'Referer': 'https://registration.netballconnect.com/'
+  };
+
+  for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
+    var orgKey = SQUADI_ORG_KEYS[i];
+    try {
+      var resp = UrlFetchApp.fetch('https://api-netball.squadi.com/livescores/competitions', {
+        method: 'post',
+        payload: JSON.stringify({ organisationKey: orgKey }),
+        headers: headers,
+        muteHttpExceptions: true
+      });
+      if (resp.getResponseCode() !== 200) {
+        Logger.log('[CompKey] competitions API returned ' + resp.getResponseCode() + ' for org ' + orgKey);
+        continue;
+      }
+      var body = JSON.parse(resp.getContentText());
+      // Response may be an array directly, or wrapped in competitions/data key
+      var list = Array.isArray(body) ? body : (body.competitions || body.data || []);
+      Logger.log('[CompKey] org ' + orgKey + ' returned ' + list.length + ' competitions');
+
+      for (var c = 0; c < list.length; c++) {
+        var comp = list[c];
+        var cId = comp.id || comp.competitionId || comp.competition_id || '';
+        if (String(cId) === String(competitionId)) {
+          var key = comp.uniqueKey || comp.competitionUniqueKey || comp.key || comp.unique_key || '';
+          if (key) {
+            Logger.log('[CompKey] Resolved competitionId ' + competitionId + ' → ' + key);
+            return key;
+          }
+        }
+      }
+      // Log first item to help debug response shape
+      if (list.length > 0) {
+        Logger.log('[CompKey] competitionId ' + competitionId + ' not matched; sample comp keys: ' + JSON.stringify(Object.keys(list[0])));
+      }
+    } catch (e) {
+      Logger.log('[CompKey] Error for org ' + orgKey + ': ' + e.message);
+    }
+  }
+  return null;
+}
+
+/**
  * Get ladder data for a specific team, using its ResultsApi config.
  * Supports both Squadi (API) and GameDay (computed from fixture results).
  * Caches results in CacheService for 1 hour.
@@ -2399,7 +2477,29 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     if (!config.divisionId) {
       throw new Error('Squadi config missing divisionId');
     }
-    // competitionKey is optional — ladder API will be tried without it if absent
+    // If competitionKey is missing, resolve it dynamically via the Squadi competitions API
+    if (!config.competitionKey && config.competitionId) {
+      var resolvedKey = resolveSquadiCompetitionKey(config.competitionId);
+      if (resolvedKey) {
+        config.competitionKey = resolvedKey;
+        // Self-heal: write the discovered key back to the Teams sheet so future fetches don't need to resolve it
+        try {
+          var healSs = getSpreadsheet();
+          var healSheet = healSs.getSheetByName('Teams');
+          var healData = healSheet.getDataRange().getValues();
+          for (var hi = 1; hi < healData.length; hi++) {
+            if (String(healData[hi][0]) === String(teamID)) {
+              healSheet.getRange(hi + 1, 8).setValue(JSON.stringify(config));
+              try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (_e) {}
+              Logger.log('[Ladder] Self-healed competitionKey for team ' + teamID + ': ' + resolvedKey);
+              break;
+            }
+          }
+        } catch (healErr) {
+          Logger.log('[Ladder] Self-heal write failed: ' + healErr.message);
+        }
+      }
+    }
     result = fetchSquadiLadderData(config);
   } else {
     throw new Error('Unknown ladder source: ' + config.source);
