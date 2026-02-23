@@ -2404,19 +2404,32 @@ function resolveSquadiCompetitionKey(competitionId, divisionId, debugOut) {
   for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
     var orgKey = SQUADI_ORG_KEYS[i];
     try {
-      var resp = UrlFetchApp.fetch('https://api-netball.squadi.com/livescores/competitions', {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify({ organisationKey: orgKey }),
+      var compUrl = 'https://api-netball.squadi.com/livescores/competitions';
+      var compPayload = JSON.stringify({ organisationKey: orgKey });
+      var resp = UrlFetchApp.fetch(compUrl, {
+        method: 'post', contentType: 'application/json', payload: compPayload,
         headers: { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json',
                    'Origin': 'https://registration.netballconnect.com',
                    'Referer': 'https://registration.netballconnect.com/' },
         muteHttpExceptions: true
       });
       var code = resp.getResponseCode();
+      // Retry without auth if server error
+      if (code === 500 || code === 401) {
+        Logger.log('[CompKey] competitions → ' + code + ', retrying without auth');
+        resp = UrlFetchApp.fetch(compUrl, {
+          method: 'post', contentType: 'application/json', payload: compPayload,
+          headers: { 'Accept': 'application/json',
+                     'Origin': 'https://registration.netballconnect.com',
+                     'Referer': 'https://registration.netballconnect.com/' },
+          muteHttpExceptions: true
+        });
+        code = resp.getResponseCode();
+        Logger.log('[CompKey] public retry → ' + code);
+      }
       if (code !== 200) {
         Logger.log('[CompKey] competitions → ' + code);
-        if (debugOut) debugOut.push({ endpoint: 'livescores/competitions', status: code });
+        if (debugOut) debugOut.push({ endpoint: 'livescores/competitions', status: code, retried: true });
         continue;
       }
       var rawText = resp.getContentText();
@@ -2641,9 +2654,18 @@ function fetchSquadiLadderData(config) {
     var response = UrlFetchApp.fetch(url, options);
     var responseCode = response.getResponseCode();
 
-    if (responseCode === 401) {
-      return { success: false, error: 'AUTH_TOKEN_EXPIRED' };
+    // If authenticated request fails, retry without auth (API may be publicly accessible)
+    if (responseCode === 500 || responseCode === 401) {
+      Logger.log('[Ladder] Got ' + responseCode + ' with auth, retrying without auth headers');
+      var publicOpts = { 'method': 'get', 'muteHttpExceptions': true,
+        'headers': { 'Accept': 'application/json',
+                     'Origin': 'https://registration.netballconnect.com',
+                     'Referer': 'https://registration.netballconnect.com/' } };
+      response = UrlFetchApp.fetch(url, publicOpts);
+      responseCode = response.getResponseCode();
+      Logger.log('[Ladder] Public retry: ' + responseCode);
     }
+
     if (responseCode !== 200) {
       return { success: false, error: 'Squadi API Error: ' + responseCode };
     }
