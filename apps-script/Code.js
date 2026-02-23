@@ -2569,6 +2569,11 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     var resolveDebug = [];
     if (!candidateKey) {
       candidateKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId, resolveDebug) || '';
+      // Fallback: use hardcoded map keyed by divisionId
+      if (!candidateKey && SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)]) {
+        candidateKey = SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)];
+        Logger.log('[Ladder] Using hardcoded key for divisionId ' + config.divisionId + ': ' + candidateKey);
+      }
       if (candidateKey) Logger.log('[Ladder] Resolved candidate key: ' + candidateKey);
     }
 
