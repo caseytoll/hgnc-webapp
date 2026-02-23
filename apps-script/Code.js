@@ -2403,11 +2403,10 @@ function resolveSquadiCompetitionKey(competitionId, divisionId) {
   for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
     var orgKey = SQUADI_ORG_KEYS[i];
 
-    // Try multiple endpoints — different Squadi/WSA API versions expose different fields
+    // Only use the Squadi live scores API — WSA/comp-api endpoints return different UUID spaces
+    // that are incompatible with the Squadi live scores ladder API
     var endpoints = [
-      { url: 'https://api-netball.squadi.com/livescores/competitions', method: 'post', payload: JSON.stringify({ organisationKey: orgKey }) },
-      { url: 'https://netball-comp-api.worldsportaction.com/api/competitions?organisationUniqueKey=' + orgKey, method: 'get' },
-      { url: 'https://api-netball.squadi.com/api/organisation/' + orgKey + '/competitions', method: 'get' }
+      { url: 'https://api-netball.squadi.com/livescores/competitions', method: 'post', payload: JSON.stringify({ organisationKey: orgKey }) }
     ];
 
     for (var e = 0; e < endpoints.length; e++) {
@@ -2427,8 +2426,7 @@ function resolveSquadiCompetitionKey(competitionId, divisionId) {
         var list = Array.isArray(body) ? body : (body.competitions || body.data || []);
         Logger.log('[CompKey] ' + ep.url.split('/').slice(-1)[0] + ' → ' + list.length + ' items');
         if (list.length > 0) {
-          Logger.log('[CompKey] first item keys: ' + JSON.stringify(Object.keys(list[0])));
-          Logger.log('[CompKey] first item: ' + JSON.stringify(list[0]).substring(0, 400));
+          Logger.log('[CompKey] first item (full): ' + JSON.stringify(list[0]));
         }
 
         for (var c = 0; c < list.length; c++) {
@@ -2516,35 +2514,66 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
       throw new Error('Squadi config missing divisionId');
     }
     Logger.log('[Ladder] config for team ' + teamID + ': ' + JSON.stringify(config));
-    // If competitionKey is missing, resolve it dynamically via the Squadi competitions API
-    if (!config.competitionKey) {
-      var resolvedKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId);
-      // Fallback: use hardcoded map keyed by divisionId
-      if (!resolvedKey && config.divisionId && SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)]) {
-        resolvedKey = SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)];
-        Logger.log('[Ladder] Using hardcoded competitionKey for divisionId ' + config.divisionId + ': ' + resolvedKey);
-      }
-      if (resolvedKey) {
-        config.competitionKey = resolvedKey;
-        // Self-heal: write the discovered key back to the Teams sheet so future fetches don't need to resolve it
+
+    // If competitionKey is missing, try to resolve it (but don't self-heal until key is verified)
+    var candidateKey = config.competitionKey || '';
+    if (!candidateKey) {
+      candidateKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId) || '';
+      if (candidateKey) Logger.log('[Ladder] Resolved candidate key: ' + candidateKey);
+    }
+
+    // Try fetch with whatever key we have (possibly empty)
+    var tryConfig = { source: config.source, divisionId: config.divisionId,
+                      competitionId: config.competitionId, squadiTeamName: config.squadiTeamName,
+                      competitionKey: candidateKey };
+    result = fetchSquadiLadderData(tryConfig);
+
+    // If the key caused a server error, retry without it and clear any bad stored key
+    if (!result.success && candidateKey) {
+      Logger.log('[Ladder] Key caused error (' + result.error + '), retrying without competitionKey');
+      var noKeyConfig = { source: config.source, divisionId: config.divisionId,
+                          competitionId: config.competitionId, squadiTeamName: config.squadiTeamName,
+                          competitionKey: '' };
+      result = fetchSquadiLadderData(noKeyConfig);
+      // Clear bad key from sheet so next request tries resolve again
+      if (config.competitionKey) {
         try {
-          var healSs = getSpreadsheet();
-          var healSheet = healSs.getSheetByName('Teams');
-          var healData = healSheet.getDataRange().getValues();
-          for (var hi = 1; hi < healData.length; hi++) {
-            if (String(healData[hi][0]) === String(teamID)) {
-              healSheet.getRange(hi + 1, 8).setValue(JSON.stringify(config));
+          var clearSs = getSpreadsheet();
+          var clearSheet = clearSs.getSheetByName('Teams');
+          var clearData = clearSheet.getDataRange().getValues();
+          for (var ci = 1; ci < clearData.length; ci++) {
+            if (String(clearData[ci][0]) === String(teamID)) {
+              var cleared = JSON.parse(clearData[ci][7] || '{}');
+              cleared.competitionKey = '';
+              clearSheet.getRange(ci + 1, 8).setValue(JSON.stringify(cleared));
               try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (_e) {}
-              Logger.log('[Ladder] Self-healed competitionKey for team ' + teamID + ': ' + resolvedKey);
+              Logger.log('[Ladder] Cleared bad competitionKey from sheet for team ' + teamID);
               break;
             }
           }
-        } catch (healErr) {
-          Logger.log('[Ladder] Self-heal write failed: ' + healErr.message);
-        }
+        } catch (clearErr) { Logger.log('[Ladder] Clear key failed: ' + clearErr.message); }
       }
     }
-    result = fetchSquadiLadderData(config);
+
+    // Self-heal: write verified key back to sheet only after successful fetch with rows
+    if (result.success && result.ladder && result.ladder.rows && result.ladder.rows.length > 0
+        && candidateKey && candidateKey !== config.competitionKey) {
+      try {
+        var healSs = getSpreadsheet();
+        var healSheet = healSs.getSheetByName('Teams');
+        var healData = healSheet.getDataRange().getValues();
+        for (var hi = 1; hi < healData.length; hi++) {
+          if (String(healData[hi][0]) === String(teamID)) {
+            var healed = JSON.parse(healData[hi][7] || '{}');
+            healed.competitionKey = candidateKey;
+            healSheet.getRange(hi + 1, 8).setValue(JSON.stringify(healed));
+            try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (_e) {}
+            Logger.log('[Ladder] Self-healed competitionKey for team ' + teamID + ': ' + candidateKey);
+            break;
+          }
+        }
+      } catch (healErr) { Logger.log('[Ladder] Self-heal write failed: ' + healErr.message); }
+    }
   } else {
     throw new Error('Unknown ladder source: ' + config.source);
   }
