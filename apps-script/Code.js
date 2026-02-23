@@ -637,6 +637,37 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'testLadderPublic':
+          // Diagnostic: test if Squadi ladder API works without auth
+          try {
+            var testDiv = e.parameter.divisionId || '26942';
+            var testKey = e.parameter.competitionKey || 'b8acc87f-8a28-4de7-b7b8-36209d56ace9';
+            var testUrl = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
+              + '?divisionIds=' + testDiv
+              + '&competitionKey=' + testKey
+              + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
+
+            // Test 1: without auth
+            var noAuthResp = UrlFetchApp.fetch(testUrl, { method: 'get', muteHttpExceptions: true,
+              headers: { 'Accept': 'application/json', 'Origin': 'https://registration.netballconnect.com', 'Referer': 'https://registration.netballconnect.com/' } });
+            var noAuthCode = noAuthResp.getResponseCode();
+            var noAuthSnippet = noAuthResp.getContentText().substring(0, 300);
+
+            // Test 2: with auth
+            var authToken = loadAuthToken();
+            var authResp = UrlFetchApp.fetch(testUrl, { method: 'get', muteHttpExceptions: true,
+              headers: { 'Authorization': authToken, 'Accept': 'application/json', 'Origin': 'https://registration.netballconnect.com', 'Referer': 'https://registration.netballconnect.com/' } });
+            var authCode = authResp.getResponseCode();
+            var authSnippet = authResp.getContentText().substring(0, 300);
+
+            result = { success: true, testUrl: testUrl,
+              noAuth: { status: noAuthCode, snippet: noAuthSnippet },
+              withAuth: { status: authCode, snippet: authSnippet } };
+          } catch (testErr) {
+            result = { success: false, error: testErr.message };
+          }
+          break;
+
         case 'getTeamInfo':
           var infoTeamID = e.parameter.teamID || '';
           var infoForce = e.parameter.forceRefresh === 'true';
@@ -2379,7 +2410,9 @@ var SQUADI_ORG_KEYS = [
  * Update each season when competition UUIDs change.
  * NOTE: these keys are from the Squadi live scores API, NOT from NetballConnect registration URLs.
  */
-var SQUADI_KNOWN_COMP_KEYS = {};
+var SQUADI_KNOWN_COMP_KEYS = {
+  '29572': '75e568d0-565e-41e6-82e0-f57b9654e3d2' // NF Autumn 2026 — U15 Fury (15&U Div 4)
+};
 
 /**
  * Resolve the Squadi live scores competitionUniqueKey for a given competitionId + divisionId.
@@ -2395,37 +2428,34 @@ var SQUADI_KNOWN_COMP_KEYS = {};
  * @returns {string|null}
  */
 function resolveSquadiCompetitionKey(competitionId, divisionId, debugOut) {
-  var AUTH_TOKEN = loadAuthToken();
-  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
-    if (debugOut) debugOut.push({ error: 'AUTH_TOKEN_MISSING' });
-    return null;
-  }
-
   for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
     var orgKey = SQUADI_ORG_KEYS[i];
     try {
       var compUrl = 'https://api-netball.squadi.com/livescores/competitions';
       var compPayload = JSON.stringify({ organisationKey: orgKey });
+      var publicHeaders = { 'Accept': 'application/json',
+        'Origin': 'https://registration.netballconnect.com',
+        'Referer': 'https://registration.netballconnect.com/' };
+
+      // Try without auth first (API is publicly accessible)
       var resp = UrlFetchApp.fetch(compUrl, {
         method: 'post', contentType: 'application/json', payload: compPayload,
-        headers: { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json',
-                   'Origin': 'https://registration.netballconnect.com',
-                   'Referer': 'https://registration.netballconnect.com/' },
-        muteHttpExceptions: true
+        headers: publicHeaders, muteHttpExceptions: true
       });
       var code = resp.getResponseCode();
-      // Retry without auth if server error
-      if (code === 500 || code === 401) {
-        Logger.log('[CompKey] competitions → ' + code + ', retrying without auth');
-        resp = UrlFetchApp.fetch(compUrl, {
-          method: 'post', contentType: 'application/json', payload: compPayload,
-          headers: { 'Accept': 'application/json',
-                     'Origin': 'https://registration.netballconnect.com',
-                     'Referer': 'https://registration.netballconnect.com/' },
-          muteHttpExceptions: true
-        });
-        code = resp.getResponseCode();
-        Logger.log('[CompKey] public retry → ' + code);
+
+      // Fall back to auth if public returns 401
+      if (code === 401) {
+        var AUTH_TOKEN = loadAuthToken();
+        if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
+          Logger.log('[CompKey] public → 401, retrying with auth');
+          publicHeaders['Authorization'] = AUTH_TOKEN;
+          resp = UrlFetchApp.fetch(compUrl, {
+            method: 'post', contentType: 'application/json', payload: compPayload,
+            headers: publicHeaders, muteHttpExceptions: true
+          });
+          code = resp.getResponseCode();
+        }
       }
       if (code !== 200) {
         Logger.log('[CompKey] competitions → ' + code);
@@ -2627,43 +2657,33 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
  * Fetch Squadi ladder from API.
  */
 function fetchSquadiLadderData(config) {
-  var AUTH_TOKEN = loadAuthToken();
-  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
-    return { success: false, error: 'AUTH_TOKEN_MISSING' };
-  }
-
   var url = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
     + '?divisionIds=' + config.divisionId
     + (config.competitionKey ? ('&competitionKey=' + config.competitionKey) : '')
     + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
   Logger.log('[Ladder] Fetching URL: ' + url);
 
-  var options = {
-    'method': 'get',
-    'headers': {
-      'Authorization': AUTH_TOKEN,
-      'Accept': 'application/json',
-      'Origin': 'https://registration.netballconnect.com',
-      'Referer': 'https://registration.netballconnect.com/',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15'
-    },
-    'muteHttpExceptions': true
-  };
+  // Try without auth first — Squadi ladder API is publicly accessible.
+  // Sending a mismatched org token actually causes 500, so public-first is safer.
+  var publicHeaders = { 'Accept': 'application/json',
+    'Origin': 'https://registration.netballconnect.com',
+    'Referer': 'https://registration.netballconnect.com/' };
 
   try {
-    var response = UrlFetchApp.fetch(url, options);
+    var response = UrlFetchApp.fetch(url, { method: 'get', headers: publicHeaders, muteHttpExceptions: true });
     var responseCode = response.getResponseCode();
 
-    // If authenticated request fails, retry without auth (API may be publicly accessible)
-    if (responseCode === 500 || responseCode === 401) {
-      Logger.log('[Ladder] Got ' + responseCode + ' with auth, retrying without auth headers');
-      var publicOpts = { 'method': 'get', 'muteHttpExceptions': true,
-        'headers': { 'Accept': 'application/json',
-                     'Origin': 'https://registration.netballconnect.com',
-                     'Referer': 'https://registration.netballconnect.com/' } };
-      response = UrlFetchApp.fetch(url, publicOpts);
-      responseCode = response.getResponseCode();
-      Logger.log('[Ladder] Public retry: ' + responseCode);
+    // If public access fails (401), retry with auth token
+    if (responseCode === 401) {
+      var AUTH_TOKEN = loadAuthToken();
+      if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
+        Logger.log('[Ladder] Public returned 401, retrying with auth');
+        var authHeaders = { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json',
+          'Origin': 'https://registration.netballconnect.com',
+          'Referer': 'https://registration.netballconnect.com/' };
+        response = UrlFetchApp.fetch(url, { method: 'get', headers: authHeaders, muteHttpExceptions: true });
+        responseCode = response.getResponseCode();
+      }
     }
 
     if (responseCode !== 200) {
