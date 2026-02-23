@@ -7,16 +7,16 @@ import { mockTeams } from '../../../../common/mock-data.js';
 // PLAYERS (Career Stats Tracking)
 // ========================================
 
-function updateLibraryCount() {
+window.updateLibraryCount = function () {
   // No longer needed with segmented control, but keep for compatibility
-}
+};
 
 // Current sort preference for players list
 let playersSortOrder = 'recent';
 const sortOptions = ['recent', 'games', 'name'];
 const sortLabels = { recent: 'Recent', games: 'Games', name: 'A-Z' };
 
-window.cyclePlayerSort = function() {
+window.cyclePlayerSort = function () {
   const currentIndex = sortOptions.indexOf(playersSortOrder);
   playersSortOrder = sortOptions[(currentIndex + 1) % sortOptions.length];
 
@@ -45,9 +45,9 @@ function renderPlayerLibrary() {
   }
 
   // Calculate stats for each player
-  const playersWithStats = players.map(p => ({
+  const playersWithStats = players.map((p) => ({
     ...p,
-    stats: calculateLibraryPlayerStats(p)
+    stats: calculateLibraryPlayerStats(p),
   }));
 
   // Sort based on current preference
@@ -69,28 +69,29 @@ function renderPlayerLibrary() {
     }
   });
 
-  container.innerHTML = playersWithStats.map(player => {
-    const stats = player.stats;
-    const primaryPosition = getPrimaryPosition(stats.allTime.positionsPlayed);
-    const hasAttacking = stats.allTime.attackingQuarters > 0;
-    const hasDefensive = stats.allTime.defensiveQuarters > 0;
+  container.innerHTML = playersWithStats
+    .map((player) => {
+      const stats = player.stats;
+      const primaryPosition = getPrimaryPosition(stats.allTime.positionsPlayed);
+      const hasAttacking = stats.allTime.attackingQuarters > 0;
+      const hasDefensive = stats.allTime.defensiveQuarters > 0;
 
-    // Build stat line showing both if applicable
-    const statParts = [];
-    if (hasAttacking) {
-      const avg = (stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1);
-      statParts.push(`${stats.allTime.goalsScored} goals (${avg}/q)`);
-    }
-    if (hasDefensive) {
-      const avg = (stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1);
-      statParts.push(`${stats.allTime.goalsAgainst} GA (${avg}/q)`);
-    }
-    if (statParts.length === 0) {
-      statParts.push(`${stats.allTime.quartersPlayed} quarters played`);
-    }
-    const statLine = statParts.join(' · ');
+      // Build stat line showing both if applicable
+      const statParts = [];
+      if (hasAttacking) {
+        const avg = (stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1);
+        statParts.push(`${stats.allTime.goalsScored} goals (${avg}/q)`);
+      }
+      if (hasDefensive) {
+        const avg = (stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1);
+        statParts.push(`${stats.allTime.goalsAgainst} GA (${avg}/q)`);
+      }
+      if (statParts.length === 0) {
+        statParts.push(`${stats.allTime.quartersPlayed} quarters played`);
+      }
+      const statLine = statParts.join(' · ');
 
-    return `
+      return `
       <div class="library-player-card" onclick="openLibraryPlayerDetail('${escapeAttr(player.globalId)}')">
         <div class="library-player-avatar">${escapeHtml(getInitials(player.name))}</div>
         <div class="library-player-info">
@@ -104,7 +105,8 @@ function renderPlayerLibrary() {
         <div class="library-player-arrow">→</div>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 function calculateLibraryPlayerStats(libraryPlayer) {
@@ -117,16 +119,16 @@ function calculateLibraryPlayerStats(libraryPlayer) {
       attackingQuarters: 0,
       defensiveQuarters: 0,
       positionsPlayed: {},
-      lastActivityDate: null
+      lastActivityDate: null,
     },
-    seasons: []
+    seasons: [],
   };
 
   const gamesSet = new Set();
 
-  libraryPlayer.linkedInstances.forEach(instance => {
+  libraryPlayer.linkedInstances.forEach((instance) => {
     // Check mockTeams, apiTeamCache, and current loaded team for the team data
-    let team = mockTeams.find(t => t.teamID === instance.teamID);
+    let team = mockTeams.find((t) => t.teamID === instance.teamID);
     if (!team && apiTeamCache[instance.teamID]) {
       team = apiTeamCache[instance.teamID];
     }
@@ -135,7 +137,7 @@ function calculateLibraryPlayerStats(libraryPlayer) {
     }
     if (!team) return;
 
-    const player = team.players.find(p => p.id === instance.playerID);
+    const player = team.players.find((p) => p.id === instance.playerID);
     if (!player) return;
 
     const seasonStats = {
@@ -148,21 +150,21 @@ function calculateLibraryPlayerStats(libraryPlayer) {
       goalsAgainst: 0,
       attackingQuarters: 0,
       defensiveQuarters: 0,
-      positionsPlayed: {}
+      positionsPlayed: {},
     };
 
     // Iterate through all games for this team
-    team.games.forEach(game => {
+    team.games.forEach((game) => {
       if (!game.lineup || game.status === 'bye' || game.status === 'abandoned') return;
 
       let playedInGame = false;
 
-      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
         const quarter = game.lineup[q];
         if (!quarter) return;
 
         // Check all positions for this player
-        ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+        ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach((pos) => {
           const assignedPlayer = quarter[pos];
           if (assignedPlayer === player.name || assignedPlayer === player.id) {
             playedInGame = true;
@@ -213,7 +215,7 @@ function calculateLibraryPlayerStats(libraryPlayer) {
     stats.allTime.attackingQuarters += seasonStats.attackingQuarters;
     stats.allTime.defensiveQuarters += seasonStats.defensiveQuarters;
 
-    Object.keys(seasonStats.positionsPlayed).forEach(pos => {
+    Object.keys(seasonStats.positionsPlayed).forEach((pos) => {
       stats.allTime.positionsPlayed[pos] = (stats.allTime.positionsPlayed[pos] || 0) + seasonStats.positionsPlayed[pos];
     });
 
@@ -238,8 +240,8 @@ function getPrimaryPosition(positionsPlayed) {
   return entries[0][0];
 }
 
-window.openLibraryPlayerDetail = function(globalId) {
-  const player = state.playerLibrary.players.find(p => p.globalId === globalId);
+window.openLibraryPlayerDetail = function (globalId) {
+  const player = state.playerLibrary.players.find((p) => p.globalId === globalId);
   if (!player) return;
 
   const stats = calculateLibraryPlayerStats(player);
@@ -254,47 +256,54 @@ window.openLibraryPlayerDetail = function(globalId) {
     .map(([pos, count]) => ({
       pos,
       count,
-      pct: Math.round((count / totalQuarters) * 100)
+      pct: Math.round((count / totalQuarters) * 100),
     }));
 
   // Build seasons HTML - show both offensive and defensive stats if they played those positions
-  const seasonsHtml = stats.seasons.length > 0 ? stats.seasons.map((s, i) => {
-    const seasonPositions = Object.keys(s.positionsPlayed).join('/');
-    const seasonHasAttacking = s.attackingQuarters > 0;
-    const seasonHasDefensive = s.defensiveQuarters > 0;
+  const seasonsHtml =
+    stats.seasons.length > 0
+      ? stats.seasons
+          .map((s, i) => {
+            const seasonPositions = Object.keys(s.positionsPlayed).join('/');
+            const seasonHasAttacking = s.attackingQuarters > 0;
+            const seasonHasDefensive = s.defensiveQuarters > 0;
 
-    // Build stat items based on what positions they played this season
-    const statItems = [`${s.gamesPlayed} games`, `${s.quartersPlayed} qtrs`];
+            // Build stat items based on what positions they played this season
+            const statItems = [`${s.gamesPlayed} games`, `${s.quartersPlayed} qtrs`];
 
-    if (seasonHasAttacking) {
-      const avg = (s.goalsScored / s.attackingQuarters).toFixed(1);
-      statItems.push(`${s.goalsScored} goals (${avg}/q)`);
-    }
-    if (seasonHasDefensive) {
-      const avg = (s.goalsAgainst / s.defensiveQuarters).toFixed(1);
-      statItems.push(`${s.goalsAgainst} GA (${avg}/q)`);
-    }
+            if (seasonHasAttacking) {
+              const avg = (s.goalsScored / s.attackingQuarters).toFixed(1);
+              statItems.push(`${s.goalsScored} goals (${avg}/q)`);
+            }
+            if (seasonHasDefensive) {
+              const avg = (s.goalsAgainst / s.defensiveQuarters).toFixed(1);
+              statItems.push(`${s.goalsAgainst} GA (${avg}/q)`);
+            }
 
-    return `
+            return `
       <div class="season-row">
         <div class="season-header">
           <span class="season-name">${escapeHtml(s.year)} ${escapeHtml(s.season)}</span>
           <span class="season-team">${escapeHtml(s.teamName)}</span>
         </div>
         <div class="season-stats">
-          ${statItems.map(item => `<span>${item}</span>`).join('')}
+          ${statItems.map((item) => `<span>${item}</span>`).join('')}
           <span>${seasonPositions}</span>
         </div>
       </div>
     `;
-  }).join('') : '<p class="text-muted">No game data yet.</p>';
+          })
+          .join('')
+      : '<p class="text-muted">No game data yet.</p>';
 
   // Show offensive stats if they've played GS/GA
   const hasAttackingStats = stats.allTime.attackingQuarters > 0;
   // Show defensive stats if they've played GK/GD
   const hasDefensiveStats = stats.allTime.defensiveQuarters > 0;
 
-  openModal(escapeHtml(player.name), `
+  openModal(
+    escapeHtml(player.name),
+    `
     <div class="library-detail">
       <div class="library-detail-section">
         <div class="library-detail-title">All-Time Stats</div>
@@ -307,28 +316,44 @@ window.openLibraryPlayerDetail = function(globalId) {
             <span class="library-stat-value">${stats.allTime.quartersPlayed}</span>
             <span class="library-stat-label">Quarters</span>
           </div>
-          ${hasAttackingStats ? `
+          ${
+            hasAttackingStats
+              ? `
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsScored}</span>
             <span class="library-stat-label">Goals Scored</span>
             <span class="library-stat-avg">${(stats.allTime.goalsScored / stats.allTime.attackingQuarters).toFixed(1)}/qtr (${stats.allTime.attackingQuarters} qtrs)</span>
           </div>
-          ` : ''}
-          ${hasDefensiveStats ? `
+          `
+              : ''
+          }
+          ${
+            hasDefensiveStats
+              ? `
           <div class="library-stat">
             <span class="library-stat-value">${stats.allTime.goalsAgainst}</span>
             <span class="library-stat-label">Goals Against</span>
             <span class="library-stat-avg">${(stats.allTime.goalsAgainst / stats.allTime.defensiveQuarters).toFixed(1)}/qtr (${stats.allTime.defensiveQuarters} qtrs)</span>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
-        ${positionBreakdown.length > 0 ? `
+        ${
+          positionBreakdown.length > 0
+            ? `
         <div class="library-positions">
-          ${positionBreakdown.map(p => `
+          ${positionBreakdown
+            .map(
+              (p) => `
             <span class="position-chip">${escapeHtml(p.pos)} <small>${p.pct}%</small></span>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
 
       <div class="library-detail-section">
@@ -338,26 +363,33 @@ window.openLibraryPlayerDetail = function(globalId) {
         </div>
       </div>
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal()">Close</button>
     <button class="btn btn-outline btn-danger" onclick="removeFromLibrary('${escapeAttr(globalId)}')">Remove from Library</button>
-  `);
+  `
+  );
 };
 
-window.filterLibraryPlayers = function(query) {
+window.filterLibraryPlayers = function (query) {
   const cards = document.querySelectorAll('.library-player-card');
   const lowerQuery = query.toLowerCase();
 
-  cards.forEach(card => {
+  cards.forEach((card) => {
     const name = card.querySelector('.library-player-name')?.textContent.toLowerCase() || '';
     card.style.display = name.includes(lowerQuery) ? '' : 'none';
   });
 };
 
-window.removeFromLibrary = async function(globalId) {
-  if (!confirm('Remove from career tracking? This only removes them from the Players library - their stats and history in each team will not be affected.')) return;
+window.removeFromLibrary = async function (globalId) {
+  if (
+    !confirm(
+      'Remove from career tracking? This only removes them from the Players library - their stats and history in each team will not be affected.'
+    )
+  )
+    return;
 
-  state.playerLibrary.players = state.playerLibrary.players.filter(p => p.globalId !== globalId);
+  state.playerLibrary.players = state.playerLibrary.players.filter((p) => p.globalId !== globalId);
   saveToLocalStorage();
   closeModal();
   renderPlayerLibrary();
@@ -378,18 +410,18 @@ window.removeFromLibrary = async function(globalId) {
 };
 
 // Add player to library (called from player detail modal)
-window.addToPlayerLibrary = function(teamID, playerID) {
-  let team = mockTeams.find(t => t.teamID === teamID);
+window.addToPlayerLibrary = function (teamID, playerID) {
+  let team = mockTeams.find((t) => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
   if (!team) return;
 
-  const player = team.players.find(p => p.id === playerID);
+  const player = team.players.find((p) => p.id === playerID);
   if (!player) return;
 
   // Check if already linked
-  const existingLink = state.playerLibrary.players.find(lp =>
-    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  const existingLink = state.playerLibrary.players.find((lp) =>
+    lp.linkedInstances.some((li) => li.teamID === teamID && li.playerID === playerID)
   );
   if (existingLink) {
     showToast('Player already tracked', 'info');
@@ -397,9 +429,7 @@ window.addToPlayerLibrary = function(teamID, playerID) {
   }
 
   // Check for name matches
-  const nameMatches = state.playerLibrary.players.filter(lp =>
-    lp.name.toLowerCase() === player.name.toLowerCase()
-  );
+  const nameMatches = state.playerLibrary.players.filter((lp) => lp.name.toLowerCase() === player.name.toLowerCase());
 
   if (nameMatches.length > 0) {
     // Ask to link to existing
@@ -411,14 +441,20 @@ window.addToPlayerLibrary = function(teamID, playerID) {
 };
 
 function openLinkPlayerModal(player, team, matches) {
-  const matchesHtml = matches.map(m => `
+  const matchesHtml = matches
+    .map(
+      (m) => `
     <div class="link-option" onclick="linkToExistingPlayer('${escapeAttr(m.globalId)}', '${escapeAttr(team.teamID)}', '${escapeAttr(player.id)}')">
       <div class="link-option-name">${escapeHtml(m.name)}</div>
       <div class="link-option-meta">${m.linkedInstances.length} season${m.linkedInstances.length !== 1 ? 's' : ''}</div>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
-  openModal('Link Player', `
+  openModal(
+    'Link Player',
+    `
     <p>A player named "${escapeHtml(player.name)}" already exists. Link to existing or create new?</p>
     <div class="link-options">
       ${matchesHtml}
@@ -427,17 +463,19 @@ function openLinkPlayerModal(player, team, matches) {
     <button class="btn btn-outline btn-block" onclick="createLibraryEntry(null, null, '${escapeAttr(team.teamID)}', '${escapeAttr(player.id)}')">
       Create New Entry
     </button>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-  `);
+  `
+  );
 }
 
-window.linkToExistingPlayer = async function(globalId, teamID, playerID) {
-  let team = mockTeams.find(t => t.teamID === teamID);
+window.linkToExistingPlayer = async function (globalId, teamID, playerID) {
+  let team = mockTeams.find((t) => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
-  const player = team?.players.find(p => p.id === playerID);
-  const libraryPlayer = state.playerLibrary.players.find(p => p.globalId === globalId);
+  const player = team?.players.find((p) => p.id === playerID);
+  const libraryPlayer = state.playerLibrary.players.find((p) => p.globalId === globalId);
 
   if (!libraryPlayer || !team || !player) return;
 
@@ -446,7 +484,7 @@ window.linkToExistingPlayer = async function(globalId, teamID, playerID) {
     playerID,
     teamName: team.teamName,
     year: team.year,
-    season: team.season
+    season: team.season,
   });
 
   saveToLocalStorage();
@@ -467,13 +505,13 @@ window.linkToExistingPlayer = async function(globalId, teamID, playerID) {
   }
 };
 
-window.createLibraryEntry = async function(player, team, teamID, playerID) {
+window.createLibraryEntry = async function (player, team, teamID, playerID) {
   // Handle being called from modal with string params
   if (!player && teamID && playerID) {
-    team = mockTeams.find(t => t.teamID === teamID);
+    team = mockTeams.find((t) => t.teamID === teamID);
     if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
     if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
-    player = team?.players.find(p => p.id === playerID);
+    player = team?.players.find((p) => p.id === playerID);
   }
 
   if (!player || !team) return;
@@ -481,14 +519,16 @@ window.createLibraryEntry = async function(player, team, teamID, playerID) {
   const newEntry = {
     globalId: `gp_${Date.now()}`,
     name: player.name,
-    linkedInstances: [{
-      teamID: team.teamID,
-      playerID: player.id,
-      teamName: team.teamName,
-      year: team.year,
-      season: team.season
-    }],
-    createdAt: new Date().toISOString()
+    linkedInstances: [
+      {
+        teamID: team.teamID,
+        playerID: player.id,
+        teamName: team.teamName,
+        year: team.year,
+        season: team.season,
+      },
+    ],
+    createdAt: new Date().toISOString(),
   };
 
   state.playerLibrary.players.push(newEntry);
@@ -512,18 +552,16 @@ window.createLibraryEntry = async function(player, team, teamID, playerID) {
 
 // Direct add to library (from checkbox, no modal prompts)
 function addToPlayerLibraryDirect(teamID, playerID) {
-  let team = mockTeams.find(t => t.teamID === teamID);
+  let team = mockTeams.find((t) => t.teamID === teamID);
   if (!team && apiTeamCache[teamID]) team = apiTeamCache[teamID];
   if (!team && state.currentTeamData?.teamID === teamID) team = state.currentTeamData;
   if (!team) return;
 
-  const player = team.players.find(p => p.id === playerID);
+  const player = team.players.find((p) => p.id === playerID);
   if (!player) return;
 
   // Check for existing player with same name to link to
-  const existingPlayer = state.playerLibrary.players.find(lp =>
-    lp.name.toLowerCase() === player.name.toLowerCase()
-  );
+  const existingPlayer = state.playerLibrary.players.find((lp) => lp.name.toLowerCase() === player.name.toLowerCase());
 
   if (existingPlayer) {
     // Link to existing
@@ -532,37 +570,35 @@ function addToPlayerLibraryDirect(teamID, playerID) {
       playerID,
       teamName: team.teamName,
       year: team.year,
-      season: team.season
+      season: team.season,
     });
   } else {
     // Create new entry
     state.playerLibrary.players.push({
       globalId: `gp_${Date.now()}`,
       name: player.name,
-      linkedInstances: [{
-        teamID,
-        playerID,
-        teamName: team.teamName,
-        year: team.year,
-        season: team.season
-      }],
-      createdAt: new Date().toISOString()
+      linkedInstances: [
+        {
+          teamID,
+          playerID,
+          teamName: team.teamName,
+          year: team.year,
+          season: team.season,
+        },
+      ],
+      createdAt: new Date().toISOString(),
     });
   }
 }
 
 // Remove player from library (from checkbox)
 function removePlayerFromLibrary(teamID, playerID) {
-  state.playerLibrary.players.forEach(lp => {
-    lp.linkedInstances = lp.linkedInstances.filter(
-      li => !(li.teamID === teamID && li.playerID === playerID)
-    );
+  state.playerLibrary.players.forEach((lp) => {
+    lp.linkedInstances = lp.linkedInstances.filter((li) => !(li.teamID === teamID && li.playerID === playerID));
   });
 
   // Clean up any library entries with no linked instances
-  state.playerLibrary.players = state.playerLibrary.players.filter(
-    lp => lp.linkedInstances.length > 0
-  );
+  state.playerLibrary.players = state.playerLibrary.players.filter((lp) => lp.linkedInstances.length > 0);
 }
 
 // ========================================
@@ -586,11 +622,11 @@ async function loadPlayerLibraryFromAPI() {
       const localPlayers = state.playerLibrary.players || [];
 
       // Create a map of API players by globalId
-      const apiPlayerMap = new Map(apiPlayers.map(p => [p.globalId, p]));
+      const apiPlayerMap = new Map(apiPlayers.map((p) => [p.globalId, p]));
 
       // Merge: API players + any local players not in API
       const mergedPlayers = [...apiPlayers];
-      localPlayers.forEach(lp => {
+      localPlayers.forEach((lp) => {
         if (!apiPlayerMap.has(lp.globalId)) {
           mergedPlayers.push(lp);
         }
@@ -619,7 +655,7 @@ async function syncPlayerLibrary() {
     // Use POST for potentially large data
     const postBody = {
       action: 'savePlayerLibrary',
-      playerLibrary: JSON.stringify(state.playerLibrary)
+      playerLibrary: JSON.stringify(state.playerLibrary),
     };
 
     console.log('[syncPlayerLibrary] Using POST, body size:', JSON.stringify(postBody).length);
@@ -628,7 +664,7 @@ async function syncPlayerLibrary() {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(postBody),
-      redirect: 'follow'
+      redirect: 'follow',
     });
 
     const data = await response.json();

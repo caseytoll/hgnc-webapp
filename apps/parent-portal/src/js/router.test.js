@@ -3,7 +3,7 @@ import { resolveTeamParamFromLocation, slugify } from './router.js';
 
 const teams = [
   { teamID: 'team_1', teamName: 'Hazel Glen 6' },
-  { teamID: 'team_2', teamName: 'U11 Flames' }
+  { teamID: 'team_2', teamName: 'U11 Flames' },
 ];
 
 describe('router helpers', () => {

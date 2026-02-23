@@ -1,5 +1,10 @@
 export function slugify(s) {
-  return (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return (s || '')
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 export function resolveTeamParamFromLocation(teams, pathname, searchString) {
@@ -21,16 +26,16 @@ export function resolveTeamParamFromLocation(teams, pathname, searchString) {
   if (!teamParam) return null;
 
   // Direct ID match
-  let match = teams.find(t => t.teamID === teamParam);
+  let match = teams.find((t) => t.teamID === teamParam);
   if (match) return match.teamID;
 
   // Match by slug property if present
   const target = decodeURIComponent(teamParam).toLowerCase();
-  match = teams.find(t => (t.slug && slugify(t.slug) === slugify(target)));
+  match = teams.find((t) => t.slug && slugify(t.slug) === slugify(target));
   if (match) return match.teamID;
 
   // Try full slug match: teamName-year-season format
-  match = teams.find(t => {
+  match = teams.find((t) => {
     if (!t.teamName || !t.year || !t.season) return false;
     const expectedSlug = [slugify(t.teamName), String(t.year), slugify(t.season)].filter(Boolean).join('-');
     return slugify(expectedSlug) === slugify(target);
@@ -38,6 +43,6 @@ export function resolveTeamParamFromLocation(teams, pathname, searchString) {
   if (match) return match.teamID;
 
   // Try slugified teamName (fallback)
-  match = teams.find(t => slugify(t.teamName) === slugify(target));
+  match = teams.find((t) => slugify(t.teamName) === slugify(target));
   return match ? match.teamID : null;
 }

@@ -499,17 +499,19 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     _lastModified: data._lastModified || null
   };
   // Map team-level logo into PWA model (usable as `ourLogo`)
-  // 1) Prefer club-logos.json lookup (local assets, always up to date)
-  const tname = result.teamName || (data.team && data.team.name) || '';
-  if (tname.trim()) {
-    const clubSlug = clubSlugFor(tname);
-    const teamSlug = slugifyTeamName(tname);
-    result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || null;
-  }
-  // 2) Fall back to server-provided logo URL, then default HG logo
+  // 1) Check if the server data has an explicit logo URL
+  const serverLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
+  result.ourLogo = serverLogo;
+
+  // 2) Fall back to club-logos.json lookup by club slug then team slug
   if (!result.ourLogo) {
-    const serverLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
-    result.ourLogo = serverLogo || '/assets/team-logos/hazel-glen.png';
+    const tname = result.teamName || (data.team && data.team.name) || '';
+    if (tname.trim()) {
+      const clubSlug = clubSlugFor(tname);
+      const teamSlug = slugifyTeamName(tname);
+      const fallbackPath = '/assets/team-logos/hazel-glen.svg';
+      result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || fallbackPath;
+    }
   }
   // Propagate ourLogo onto each game if not already present (helps header rendering)
   result.games.forEach(g => {

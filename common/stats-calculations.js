@@ -13,17 +13,31 @@ import { isGameInPast } from './utils.js';
 export function calculateAdvancedStats(team) {
   if (!team || !team.games) {
     return {
-      gameCount: 0, wins: 0, losses: 0, draws: 0,
-      goalsFor: 0, goalsAgainst: 0, goalDiff: 0, winRate: 0,
-      avgFor: 0, avgAgainst: 0, form: [], bestQuarter: null,
+      gameCount: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDiff: 0,
+      winRate: 0,
+      avgFor: 0,
+      avgAgainst: 0,
+      form: [],
+      bestQuarter: null,
       bestQuarterDiff: 0,
-      quarterStats: { Q1: { for: 0, against: 0 }, Q2: { for: 0, against: 0 }, Q3: { for: 0, against: 0 }, Q4: { for: 0, against: 0 } },
-      gameResults: []
+      quarterStats: {
+        Q1: { for: 0, against: 0 },
+        Q2: { for: 0, against: 0 },
+        Q3: { for: 0, against: 0 },
+        Q4: { for: 0, against: 0 },
+      },
+      gameResults: [],
     };
   }
 
   const games = team.games
-    .filter(g => g.status === 'normal' && g.scores && isGameInPast(g))
+    .filter((g) => g.status === 'normal' && g.scores && isGameInPast(g))
     .sort((a, b) => a.round - b.round);
 
   if (games.length === 0) {
@@ -40,31 +54,46 @@ export function calculateAdvancedStats(team) {
       avgAgainst: 0,
       form: [],
       bestQuarter: null,
-      quarterStats: { Q1: { for: 0, against: 0 }, Q2: { for: 0, against: 0 }, Q3: { for: 0, against: 0 }, Q4: { for: 0, against: 0 } },
-      gameResults: []
+      quarterStats: {
+        Q1: { for: 0, against: 0 },
+        Q2: { for: 0, against: 0 },
+        Q3: { for: 0, against: 0 },
+        Q4: { for: 0, against: 0 },
+      },
+      gameResults: [],
     };
   }
 
-  let wins = 0, losses = 0, draws = 0;
-  let goalsFor = 0, goalsAgainst = 0;
+  let wins = 0,
+    losses = 0,
+    draws = 0;
+  let goalsFor = 0,
+    goalsAgainst = 0;
   const quarterStats = {
     Q1: { for: 0, against: 0, diff: 0, games: 0 },
     Q2: { for: 0, against: 0, diff: 0, games: 0 },
     Q3: { for: 0, against: 0, diff: 0, games: 0 },
-    Q4: { for: 0, against: 0, diff: 0, games: 0 }
+    Q4: { for: 0, against: 0, diff: 0, games: 0 },
   };
   const gameResults = [];
 
-  games.forEach(game => {
+  games.forEach((game) => {
     const us = game.scores.us;
     const them = game.scores.opponent;
     goalsFor += us;
     goalsAgainst += them;
 
     let result;
-    if (us > them) { wins++; result = 'W'; }
-    else if (us < them) { losses++; result = 'L'; }
-    else { draws++; result = 'D'; }
+    if (us > them) {
+      wins++;
+      result = 'W';
+    } else if (us < them) {
+      losses++;
+      result = 'L';
+    } else {
+      draws++;
+      result = 'D';
+    }
 
     gameResults.push({
       round: game.round,
@@ -72,19 +101,19 @@ export function calculateAdvancedStats(team) {
       us,
       them,
       result,
-      diff: us - them
+      diff: us - them,
     });
 
     // Quarter-by-quarter analysis
     if (game.lineup) {
-      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
         const quarter = game.lineup[q];
         if (quarter) {
           const qFor = (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
           const qAgainst = (quarter.oppGsGoals || 0) + (quarter.oppGaGoals || 0);
           quarterStats[q].for += qFor;
           quarterStats[q].against += qAgainst;
-          quarterStats[q].diff += (qFor - qAgainst);
+          quarterStats[q].diff += qFor - qAgainst;
           quarterStats[q].games++;
         }
       });
@@ -94,7 +123,7 @@ export function calculateAdvancedStats(team) {
   // Calculate best quarter (highest average differential)
   let bestQuarter = null;
   let bestDiff = -Infinity;
-  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
     if (quarterStats[q].games > 0) {
       const avgDiff = quarterStats[q].diff / quarterStats[q].games;
       if (avgDiff > bestDiff) {
@@ -105,7 +134,10 @@ export function calculateAdvancedStats(team) {
   });
 
   // Form - last 5 games (most recent first)
-  const form = gameResults.slice(-5).reverse().map(g => g.result);
+  const form = gameResults
+    .slice(-5)
+    .reverse()
+    .map((g) => g.result);
 
   return {
     gameCount: games.length,
@@ -122,7 +154,7 @@ export function calculateAdvancedStats(team) {
     bestQuarter,
     bestQuarterDiff: bestDiff !== -Infinity ? Math.round(bestDiff * 10) / 10 : 0,
     quarterStats,
-    gameResults
+    gameResults,
   };
 }
 
@@ -134,13 +166,23 @@ export function calculateAdvancedStats(team) {
 export function calculateLeaderboards(team) {
   if (!team || !team.games) {
     return {
-      offensive: { topScorersByTotal: [], topScorersByEfficiency: [], topScoringPairsByTotal: [], topScoringPairsByEfficiency: [] },
-      defensive: { topDefendersByTotal: [], topDefendersByEfficiency: [], topDefensivePairsByTotal: [], topDefensivePairsByEfficiency: [] },
-      minQuarters: 3
+      offensive: {
+        topScorersByTotal: [],
+        topScorersByEfficiency: [],
+        topScoringPairsByTotal: [],
+        topScoringPairsByEfficiency: [],
+      },
+      defensive: {
+        topDefendersByTotal: [],
+        topDefendersByEfficiency: [],
+        topDefensivePairsByTotal: [],
+        topDefensivePairsByEfficiency: [],
+      },
+      minQuarters: 3,
     };
   }
 
-  const games = team.games.filter(g => g.status === 'normal' && g.scores && g.lineup && isGameInPast(g));
+  const games = team.games.filter((g) => g.status === 'normal' && g.scores && g.lineup && isGameInPast(g));
 
   // Individual scorers
   const scorers = {};
@@ -151,8 +193,8 @@ export function calculateLeaderboards(team) {
   // GD-GK pairs
   const defensivePairs = {};
 
-  games.forEach(game => {
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  games.forEach((game) => {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       const quarter = game.lineup[q];
       if (!quarter) return;
 
@@ -182,7 +224,7 @@ export function calculateLeaderboards(team) {
         if (!scoringPairs[pairKey]) {
           scoringPairs[pairKey] = { players: [gs, ga], goals: 0, quarters: 0 };
         }
-        scoringPairs[pairKey].goals += (gsGoals + gaGoals);
+        scoringPairs[pairKey].goals += gsGoals + gaGoals;
         scoringPairs[pairKey].quarters++;
       }
 
@@ -219,7 +261,7 @@ export function calculateLeaderboards(team) {
       name,
       goals: data.goals,
       quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goals / data.quarters) * 10) / 10 : 0
+      avg: data.quarters > 0 ? Math.round((data.goals / data.quarters) * 10) / 10 : 0,
     }))
     .sort((a, b) => b.goals - a.goals);
 
@@ -230,28 +272,28 @@ export function calculateLeaderboards(team) {
       name,
       goals: data.goals,
       quarters: data.quarters,
-      avg: Math.round((data.goals / data.quarters) * 10) / 10
+      avg: Math.round((data.goals / data.quarters) * 10) / 10,
     }))
     .sort((a, b) => b.avg - a.avg);
 
   // Top scoring pairs by total
   const topScoringPairsByTotal = Object.values(scoringPairs)
-    .map(data => ({
+    .map((data) => ({
       players: data.players,
       goals: data.goals,
       quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goals / data.quarters) * 10) / 10 : 0
+      avg: data.quarters > 0 ? Math.round((data.goals / data.quarters) * 10) / 10 : 0,
     }))
     .sort((a, b) => b.goals - a.goals);
 
   // Top scoring pairs by efficiency (min quarters)
   const topScoringPairsByEfficiency = Object.values(scoringPairs)
-    .filter(data => data.quarters >= MIN_QUARTERS)
-    .map(data => ({
+    .filter((data) => data.quarters >= MIN_QUARTERS)
+    .map((data) => ({
       players: data.players,
       goals: data.goals,
       quarters: data.quarters,
-      avg: Math.round((data.goals / data.quarters) * 10) / 10
+      avg: Math.round((data.goals / data.quarters) * 10) / 10,
     }))
     .sort((a, b) => b.avg - a.avg);
 
@@ -261,7 +303,7 @@ export function calculateLeaderboards(team) {
       name,
       goalsAgainst: data.goalsAgainst,
       quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0
+      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0,
     }))
     .sort((a, b) => b.quarters - a.quarters); // Most quarters played first
 
@@ -272,28 +314,28 @@ export function calculateLeaderboards(team) {
       name,
       goalsAgainst: data.goalsAgainst,
       quarters: data.quarters,
-      avg: Math.round((data.goalsAgainst / data.quarters) * 10) / 10
+      avg: Math.round((data.goalsAgainst / data.quarters) * 10) / 10,
     }))
     .sort((a, b) => a.avg - b.avg); // Lower is better
 
   // Top defensive pairs by total (no minimum)
   const topDefensivePairsByTotal = Object.values(defensivePairs)
-    .map(data => ({
+    .map((data) => ({
       players: data.players,
       goalsAgainst: data.goalsAgainst,
       quarters: data.quarters,
-      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0
+      avg: data.quarters > 0 ? Math.round((data.goalsAgainst / data.quarters) * 10) / 10 : 0,
     }))
     .sort((a, b) => b.quarters - a.quarters); // Most quarters together first
 
   // Top defensive pairs by efficiency (min quarters)
   const topDefensivePairsByEfficiency = Object.values(defensivePairs)
-    .filter(data => data.quarters >= MIN_QUARTERS)
-    .map(data => ({
+    .filter((data) => data.quarters >= MIN_QUARTERS)
+    .map((data) => ({
       players: data.players,
       goalsAgainst: data.goalsAgainst,
       quarters: data.quarters,
-      avg: Math.round((data.goalsAgainst / data.quarters) * 10) / 10
+      avg: Math.round((data.goalsAgainst / data.quarters) * 10) / 10,
     }))
     .sort((a, b) => a.avg - b.avg); // Lower is better
 
@@ -302,7 +344,7 @@ export function calculateLeaderboards(team) {
       topScorersByTotal,
       topScorersByEfficiency,
       topScoringPairsByTotal,
-      topScoringPairsByEfficiency
+      topScoringPairsByEfficiency,
     },
     defensive: {
       topDefendersByTotal,
@@ -310,9 +352,9 @@ export function calculateLeaderboards(team) {
       topDefenders: topDefendersByEfficiency, // Alias for backward compatibility
       topDefensivePairsByTotal,
       topDefensivePairsByEfficiency,
-      topDefensivePairs: topDefensivePairsByEfficiency // Alias for backward compatibility
+      topDefensivePairs: topDefensivePairsByEfficiency, // Alias for backward compatibility
     },
-    minQuarters: MIN_QUARTERS
+    minQuarters: MIN_QUARTERS,
   };
 }
 
@@ -327,11 +369,11 @@ export function calculateCombinations(team) {
       attackingUnits: [],
       defensiveUnits: [],
       pairings: { offensive: [], defensive: [], transition: [] },
-      minQuarters: 2
+      minQuarters: 2,
     };
   }
 
-  const games = team.games.filter(g => g.status === 'normal' && g.scores && g.lineup && isGameInPast(g));
+  const games = team.games.filter((g) => g.status === 'normal' && g.scores && g.lineup && isGameInPast(g));
 
   // 4-player units
   const attackingUnits = {}; // GS-GA-WA-C
@@ -341,11 +383,11 @@ export function calculateCombinations(team) {
   const pairings = {
     offensive: {}, // GS-GA, GA-WA, WA-C
     defensive: {}, // GK-GD, GD-WD, WD-C
-    transition: {} // WD-WA, C connections
+    transition: {}, // WD-WA, C connections
   };
 
-  games.forEach(game => {
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  games.forEach((game) => {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       const quarter = game.lineup[q];
       if (!quarter) return;
 
@@ -369,7 +411,7 @@ export function calculateCombinations(team) {
             players: { GS: gs, GA: ga, WA: wa, C: c },
             goalsFor: 0,
             goalsAgainst: 0,
-            quarters: 0
+            quarters: 0,
           };
         }
         attackingUnits[key].goalsFor += ourGoals;
@@ -385,7 +427,7 @@ export function calculateCombinations(team) {
             players: { GK: gk, GD: gd, WD: wd, C: c },
             goalsFor: 0,
             goalsAgainst: 0,
-            quarters: 0
+            quarters: 0,
           };
         }
         defensiveUnits[key].goalsFor += ourGoals;
@@ -397,7 +439,7 @@ export function calculateCombinations(team) {
       const offensivePairDefs = [
         { pos1: 'GS', pos2: 'GA', p1: gs, p2: ga },
         { pos1: 'GA', pos2: 'WA', p1: ga, p2: wa },
-        { pos1: 'WA', pos2: 'C', p1: wa, p2: c }
+        { pos1: 'WA', pos2: 'C', p1: wa, p2: c },
       ];
 
       offensivePairDefs.forEach(({ pos1, pos2, p1, p2 }) => {
@@ -409,7 +451,7 @@ export function calculateCombinations(team) {
               players: [p1, p2],
               goalsFor: 0,
               goalsAgainst: 0,
-              quarters: 0
+              quarters: 0,
             };
           }
           pairings.offensive[key].goalsFor += ourGoals;
@@ -422,7 +464,7 @@ export function calculateCombinations(team) {
       const defensivePairDefs = [
         { pos1: 'GK', pos2: 'GD', p1: gk, p2: gd },
         { pos1: 'GD', pos2: 'WD', p1: gd, p2: wd },
-        { pos1: 'WD', pos2: 'C', p1: wd, p2: c }
+        { pos1: 'WD', pos2: 'C', p1: wd, p2: c },
       ];
 
       defensivePairDefs.forEach(({ pos1, pos2, p1, p2 }) => {
@@ -434,7 +476,7 @@ export function calculateCombinations(team) {
               players: [p1, p2],
               goalsFor: 0,
               goalsAgainst: 0,
-              quarters: 0
+              quarters: 0,
             };
           }
           pairings.defensive[key].goalsFor += ourGoals;
@@ -452,7 +494,7 @@ export function calculateCombinations(team) {
             players: [wd, wa],
             goalsFor: 0,
             goalsAgainst: 0,
-            quarters: 0
+            quarters: 0,
           };
         }
         pairings.transition[key].goalsFor += ourGoals;
@@ -466,35 +508,35 @@ export function calculateCombinations(team) {
 
   // Process attacking units
   const attackingUnitsList = Object.values(attackingUnits)
-    .filter(u => u.quarters >= MIN_QUARTERS)
-    .map(u => ({
+    .filter((u) => u.quarters >= MIN_QUARTERS)
+    .map((u) => ({
       ...u,
       avgFor: Math.round((u.goalsFor / u.quarters) * 10) / 10,
       avgAgainst: Math.round((u.goalsAgainst / u.quarters) * 10) / 10,
-      plusMinus: Math.round(((u.goalsFor - u.goalsAgainst) / u.quarters) * 10) / 10
+      plusMinus: Math.round(((u.goalsFor - u.goalsAgainst) / u.quarters) * 10) / 10,
     }))
     .sort((a, b) => b.avgFor - a.avgFor);
 
   // Process defensive units
   const defensiveUnitsList = Object.values(defensiveUnits)
-    .filter(u => u.quarters >= MIN_QUARTERS)
-    .map(u => ({
+    .filter((u) => u.quarters >= MIN_QUARTERS)
+    .map((u) => ({
       ...u,
       avgFor: Math.round((u.goalsFor / u.quarters) * 10) / 10,
       avgAgainst: Math.round((u.goalsAgainst / u.quarters) * 10) / 10,
-      plusMinus: Math.round(((u.goalsFor - u.goalsAgainst) / u.quarters) * 10) / 10
+      plusMinus: Math.round(((u.goalsFor - u.goalsAgainst) / u.quarters) * 10) / 10,
     }))
     .sort((a, b) => a.avgAgainst - b.avgAgainst); // Lower GA is better
 
   // Process pairings
   const processPairings = (pairingObj, sortBy) => {
     return Object.values(pairingObj)
-      .filter(p => p.quarters >= MIN_QUARTERS)
-      .map(p => ({
+      .filter((p) => p.quarters >= MIN_QUARTERS)
+      .map((p) => ({
         ...p,
         avgFor: Math.round((p.goalsFor / p.quarters) * 10) / 10,
         avgAgainst: Math.round((p.goalsAgainst / p.quarters) * 10) / 10,
-        plusMinus: Math.round(((p.goalsFor - p.goalsAgainst) / p.quarters) * 10) / 10
+        plusMinus: Math.round(((p.goalsFor - p.goalsAgainst) / p.quarters) * 10) / 10,
       }))
       .sort(sortBy);
   };
@@ -505,9 +547,9 @@ export function calculateCombinations(team) {
     pairings: {
       offensive: processPairings(pairings.offensive, (a, b) => b.avgFor - a.avgFor),
       defensive: processPairings(pairings.defensive, (a, b) => a.avgAgainst - b.avgAgainst),
-      transition: processPairings(pairings.transition, (a, b) => b.plusMinus - a.plusMinus)
+      transition: processPairings(pairings.transition, (a, b) => b.plusMinus - a.plusMinus),
     },
-    minQuarters: MIN_QUARTERS
+    minQuarters: MIN_QUARTERS,
   };
 }
 
@@ -520,6 +562,6 @@ export function calculateAllAnalytics(team) {
   return {
     advanced: calculateAdvancedStats(team),
     leaderboards: calculateLeaderboards(team),
-    combinations: calculateCombinations(team)
+    combinations: calculateCombinations(team),
   };
 }

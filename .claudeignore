@@ -1,0 +1,14 @@
+# Build output
+dist/
+*.lock
+
+# Generated data
+public/ladder-*.json
+public/teams.json
+
+# Binary/docs
+docs/examples/
+RELEASE_NOTES/
+
+# CI
+.github/

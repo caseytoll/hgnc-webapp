@@ -14,7 +14,7 @@ import {
   isDuplicateName,
   generateId,
   getInitials,
-  clubSlugFor
+  clubSlugFor,
 } from './utils.js';
 
 // ========================================
@@ -77,9 +77,7 @@ describe('escapeHtml', () => {
 
 describe('escapeAttr', () => {
   it('should escape attribute values', () => {
-    expect(escapeAttr('onclick="alert(1)"')).toBe(
-      'onclick&#x3D;&quot;alert(1)&quot;'
-    );
+    expect(escapeAttr('onclick="alert(1)"')).toBe('onclick&#x3D;&quot;alert(1)&quot;');
   });
 
   it('should handle null input', () => {
@@ -135,7 +133,7 @@ describe('validatePlayerName', () => {
   it('should reject names that are too short', () => {
     expect(validatePlayerName('A')).toEqual({
       valid: false,
-      error: 'Name must be at least 2 characters'
+      error: 'Name must be at least 2 characters',
     });
   });
 
@@ -143,7 +141,7 @@ describe('validatePlayerName', () => {
     const longName = 'A'.repeat(101);
     expect(validatePlayerName(longName)).toEqual({
       valid: false,
-      error: 'Name is too long (max 100 characters)'
+      error: 'Name is too long (max 100 characters)',
     });
   });
 
@@ -155,11 +153,11 @@ describe('validatePlayerName', () => {
   it('should reject names with no letters', () => {
     expect(validatePlayerName('!@#$%')).toEqual({
       valid: false,
-      error: 'Name must contain at least one letter'
+      error: 'Name must contain at least one letter',
     });
     expect(validatePlayerName('123')).toEqual({
       valid: false,
-      error: 'Name must contain at least one letter'
+      error: 'Name must contain at least one letter',
     });
   });
 });
@@ -176,7 +174,7 @@ describe('validateOpponentName', () => {
     expect(validateOpponentName('Lightning')).toEqual({ valid: true });
     expect(validateOpponentName('A')).toEqual({
       valid: false,
-      error: 'Name must be at least 2 characters'
+      error: 'Name must be at least 2 characters',
     });
   });
 });
@@ -323,7 +321,7 @@ describe('isDuplicateName', () => {
   const players = [
     { id: 'p1', name: 'Emma Wilson' },
     { id: 'p2', name: 'Sophia Chen' },
-    { id: 'p3', name: 'Olivia Taylor' }
+    { id: 'p3', name: 'Olivia Taylor' },
   ];
 
   it('should detect duplicate names (case insensitive)', () => {

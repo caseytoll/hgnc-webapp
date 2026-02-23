@@ -20,9 +20,7 @@ function getPlannerAvailablePlayers() {
   const game = state.currentGame;
   if (!game) return [];
   const availableSet = game.availablePlayerIDs ? new Set(game.availablePlayerIDs) : null;
-  return state.currentTeamData.players.filter(p =>
-    !availableSet || availableSet.has(p.id)
-  );
+  return state.currentTeamData.players.filter((p) => !availableSet || availableSet.has(p.id));
 }
 
 // Build position stats from history (cached per render cycle)
@@ -31,38 +29,42 @@ function getPlannerPositionStats() {
   if (_plannerPositionStatsCache) return _plannerPositionStatsCache;
   const team = state.currentTeamData;
   if (!team || !team.players || !team.games) return [];
-  const players = team.players.filter(p => !p.fillIn);
+  const players = team.players.filter((p) => !p.fillIn);
   const currentGameID = state.currentGame?.gameID;
-  const games = team.games.filter(g => g.lineup && (g.status === 'normal' || g.gameID === currentGameID));
+  const games = team.games.filter((g) => g.lineup && (g.status === 'normal' || g.gameID === currentGameID));
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-  _plannerPositionStatsCache = players.map(player => {
-    const counts = { GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0 };
-    let offQuarters = 0;
-    let captainCount = 0;
-    games.forEach(game => {
-      let quartersOnCourt = 0;
-      let playedInGame = false;
-      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
-        const qData = game.lineup[quarter];
-        if (!qData) return;
-        positions.forEach(pos => {
-          if (qData[pos] === player.name) {
-            counts[pos]++;
-            quartersOnCourt++;
-            playedInGame = true;
-          }
+  _plannerPositionStatsCache = players
+    .map((player) => {
+      const counts = { GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0 };
+      let offQuarters = 0;
+      let captainCount = 0;
+      games.forEach((game) => {
+        let quartersOnCourt = 0;
+        let playedInGame = false;
+        ['Q1', 'Q2', 'Q3', 'Q4'].forEach((quarter) => {
+          const qData = game.lineup[quarter];
+          if (!qData) return;
+          positions.forEach((pos) => {
+            if (qData[pos] === player.name) {
+              counts[pos]++;
+              quartersOnCourt++;
+              playedInGame = true;
+            }
+          });
         });
+        if (playedInGame) offQuarters += 4 - quartersOnCourt;
+        if (game.captain === player.name) captainCount++;
       });
-      if (playedInGame) offQuarters += (4 - quartersOnCourt);
-      if (game.captain === player.name) captainCount++;
-    });
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    return { name: player.name, counts, offQuarters, captainCount, total };
-  }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      const favPositions = new Set(normalizeFavPositions(player.favPosition));
+      return { name: player.name, counts, offQuarters, captainCount, total, favPositions };
+    })
+    .filter((p) => p.total > 0)
+    .sort((a, b) => b.total - a.total);
   return _plannerPositionStatsCache;
 }
 
-window.openPlannerView = function() {
+window.openPlannerView = function () {
   const game = state.currentGame;
   if (!game) return;
 
@@ -81,7 +83,7 @@ window.openPlannerView = function() {
   showView('planner-view');
 };
 
-window.closePlannerView = function() {
+window.closePlannerView = function () {
   state.selectedPlayer = null;
   state._plannerDragPlayer = null;
   renderLineupBuilder();
@@ -105,7 +107,7 @@ function renderPlannerQuarters() {
   const activeQ = state._plannerActiveQuarter;
   const availablePlayers = getPlannerAvailablePlayers();
 
-  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
     const qData = lineup[q] || {};
     const container = document.getElementById(`planner-court-${q}`);
     const card = container.closest('.planner-quarter-card');
@@ -115,7 +117,9 @@ function renderPlannerQuarters() {
 
     // Count filled positions
     let filledCount = 0;
-    positions.forEach(pos => { if (qData[pos]) filledCount++; });
+    positions.forEach((pos) => {
+      if (qData[pos]) filledCount++;
+    });
 
     // Update header (fill count + copy button)
     const headerRight = card.querySelector('.planner-quarter-header-right');
@@ -139,15 +143,16 @@ function renderPlannerQuarters() {
     }
 
     // Render position slots with color coding + drag-and-drop
-    container.innerHTML = positions.map(pos => {
-      const playerName = qData[pos] || '';
-      const filled = playerName.length > 0;
-      const isCaptain = filled && game.captain === playerName;
-      const firstName = filled ? escapeHtml(playerName.split(' ')[0]) : '';
-      const captainBadge = isCaptain ? '<span class="captain-badge">C</span>' : '';
-      const posGroup = getPosGroup(pos);
+    container.innerHTML = positions
+      .map((pos) => {
+        const playerName = qData[pos] || '';
+        const filled = playerName.length > 0;
+        const isCaptain = filled && game.captain === playerName;
+        const firstName = filled ? escapeHtml(playerName.split(' ')[0]) : '';
+        const captainBadge = isCaptain ? '<span class="captain-badge">C</span>' : '';
+        const posGroup = getPosGroup(pos);
 
-      return `
+        return `
         <div class="planner-slot ${filled ? 'filled' : ''}"
              data-quarter="${escapeAttr(q)}" data-position="${escapeAttr(pos)}"
              ${filled ? `draggable="true" ondragstart="plannerDragStart(event, '${escapeAttr(playerName)}', '${escapeAttr(q)}', '${escapeAttr(pos)}')"` : ''}
@@ -156,23 +161,25 @@ function renderPlannerQuarters() {
              ondrop="plannerDrop(event, '${escapeAttr(q)}', '${escapeAttr(pos)}')"
              onclick="plannerPositionClick('${escapeAttr(q)}', '${escapeAttr(pos)}', '${filled ? escapeAttr(playerName) : ''}')">
           <span class="planner-slot-label ${posGroup}">${escapeHtml(pos)}</span>
-          ${filled
-            ? `<span class="planner-slot-player">${firstName}${captainBadge}</span>`
-            : `<span class="planner-slot-empty">—</span>`
+          ${
+            filled
+              ? `<span class="planner-slot-player">${firstName}${captainBadge}</span>`
+              : `<span class="planner-slot-empty">—</span>`
           }
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     // Off indicator: show who's sitting out this quarter
-    const assignedNames = new Set(positions.map(pos => qData[pos]).filter(Boolean));
-    const offPlayers = availablePlayers.filter(p => !assignedNames.has(p.name));
+    const assignedNames = new Set(positions.map((pos) => qData[pos]).filter(Boolean));
+    const offPlayers = availablePlayers.filter((p) => !assignedNames.has(p.name));
     const existingOff = card.querySelector('.planner-quarter-off');
     if (existingOff) existingOff.remove();
     if (offPlayers.length > 0 && filledCount > 0) {
       const offDiv = document.createElement('div');
       offDiv.className = 'planner-quarter-off';
-      offDiv.innerHTML = `<span class="planner-quarter-off-label">Off:</span>${offPlayers.map(p => escapeHtml(p.name.split(' ')[0])).join(', ')}`;
+      offDiv.innerHTML = `<span class="planner-quarter-off-label">Off:</span>${offPlayers.map((p) => escapeHtml(p.name.split(' ')[0])).join(', ')}`;
       card.appendChild(offDiv);
     }
   });
@@ -188,34 +195,41 @@ function renderPlannerBench() {
 
   // Render quarter tabs
   const tabsContainer = document.getElementById('planner-bench-tabs');
-  tabsContainer.innerHTML = ['Q1', 'Q2', 'Q3', 'Q4'].map(q =>
-    `<button class="planner-bench-tab ${q === activeQ ? 'active' : ''}"
+  tabsContainer.innerHTML = ['Q1', 'Q2', 'Q3', 'Q4']
+    .map(
+      (q) =>
+        `<button class="planner-bench-tab ${q === activeQ ? 'active' : ''}"
             onclick="setPlannerActiveQuarter('${escapeAttr(q)}')">${escapeHtml(q)}</button>`
-  ).join('');
+    )
+    .join('');
 
   // Get available players for active quarter
   const availablePlayers = getPlannerAvailablePlayers();
-  const assignedNames = new Set(Object.values(qData).filter(v => typeof v === 'string'));
-  const benchPlayers = availablePlayers.filter(p => !assignedNames.has(p.name));
+  const assignedNames = new Set(Object.values(qData).filter((v) => typeof v === 'string'));
+  const benchPlayers = availablePlayers.filter((p) => !assignedNames.has(p.name));
 
   const listContainer = document.getElementById('planner-bench-list');
-  listContainer.innerHTML = benchPlayers.length > 0
-    ? benchPlayers.map(p => {
-        const favPositions = normalizeFavPositions(p.favPosition);
-        const favTags = favPositions.length > 0
-          ? `<span class="planner-bench-fav">${favPositions.map(pos =>
-              `<span class="planner-bench-fav-tag ${getPosGroup(pos)}">${escapeHtml(pos)}</span>`
-            ).join('')}</span>`
-          : '';
-        return `
+  listContainer.innerHTML =
+    benchPlayers.length > 0
+      ? benchPlayers
+          .map((p) => {
+            const favPositions = normalizeFavPositions(p.favPosition);
+            const favTags =
+              favPositions.length > 0
+                ? `<span class="planner-bench-fav">${favPositions
+                    .map((pos) => `<span class="planner-bench-fav-tag ${getPosGroup(pos)}">${escapeHtml(pos)}</span>`)
+                    .join('')}</span>`
+                : '';
+            return `
           <div class="planner-bench-player ${state.selectedPlayer === p.name ? 'selected' : ''}"
                draggable="true"
                onclick="plannerSelectBenchPlayer('${escapeAttr(p.name)}')"
                ondragstart="plannerDragStart(event, '${escapeAttr(p.name)}', null, null)"
                onmouseenter="plannerHighlightPositions('${escapeAttr(p.name)}')"
                onmouseleave="plannerClearHighlights()">${escapeHtml(p.name)}${favTags}</div>`;
-      }).join('')
-    : '<span class="text-muted" style="padding: 8px;">All players assigned</span>';
+          })
+          .join('')
+      : '<span class="text-muted" style="padding: 8px;">All players assigned</span>';
 
   // Show/hide bench drop zone based on drag state
   const dropZone = document.getElementById('planner-bench-drop-zone');
@@ -238,21 +252,27 @@ function renderPlannerPositionHistory() {
   container.innerHTML = `
     <div class="planner-history-row planner-history-header-row">
       <span class="planner-history-name"></span>
-      ${positions.map(pos => `<span class="planner-history-pos ${getPosGroup(pos)}">${escapeHtml(pos)}</span>`).join('')}
+      ${positions.map((pos) => `<span class="planner-history-pos ${getPosGroup(pos)}">${escapeHtml(pos)}</span>`).join('')}
       <span class="planner-history-pos planner-history-off">Off</span>
       <span class="planner-history-pos planner-history-capt">Cpt</span>
     </div>
-    ${positionStats.map(player => `
+    ${positionStats
+      .map(
+        (player) => `
       <div class="planner-history-row">
         <span class="planner-history-name">${escapeHtml(player.name.split(' ')[0])}</span>
-        ${positions.map(pos => {
-          const c = player.counts[pos];
-          return `<span class="planner-history-cell ${c > 0 ? 'has-count' : ''}">${c > 0 ? c : '—'}</span>`;
-        }).join('')}
+        ${positions
+          .map((pos) => {
+            const c = player.counts[pos];
+            return `<span class="planner-history-cell ${c > 0 ? 'has-count' : ''}">${c > 0 ? c : '—'}</span>`;
+          })
+          .join('')}
         <span class="planner-history-cell planner-history-off-cell ${player.offQuarters > 0 ? 'has-count' : ''}">${player.offQuarters > 0 ? player.offQuarters : '—'}</span>
         <span class="planner-history-cell planner-history-capt-cell ${player.captainCount > 0 ? 'has-count' : ''}">${player.captainCount > 0 ? player.captainCount : '—'}</span>
       </div>
-    `).join('')}
+    `
+      )
+      .join('')}
   `;
 }
 
@@ -267,10 +287,10 @@ function renderPlannerLoadSummary() {
   const availablePlayers = getPlannerAvailablePlayers();
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
 
-  const playerLoads = availablePlayers.map(p => {
-    const onQuarters = quarters.map(q => {
+  const playerLoads = availablePlayers.map((p) => {
+    const onQuarters = quarters.map((q) => {
       const qData = lineup[q] || {};
-      return positions.some(pos => qData[pos] === p.name);
+      return positions.some((pos) => qData[pos] === p.name);
     });
     const total = onQuarters.filter(Boolean).length;
     return { name: p.name, onQuarters, total };
@@ -282,32 +302,34 @@ function renderPlannerLoadSummary() {
   container.innerHTML = `
     <div class="planner-load-title">Player Load</div>
     <div class="planner-load-grid">
-      ${playerLoads.map(p => {
-        const cls = p.total === 4 ? 'imbalance-high' : p.total === 0 ? 'imbalance-low' : '';
-        return `
+      ${playerLoads
+        .map((p) => {
+          const cls = p.total === 4 ? 'imbalance-high' : p.total === 0 ? 'imbalance-low' : '';
+          return `
           <div class="planner-load-player ${cls}">
             <span class="planner-load-name">${escapeHtml(p.name.split(' ')[0])}</span>
             <span class="planner-load-dots">
-              ${p.onQuarters.map(on => `<span class="planner-load-dot ${on ? 'on' : ''}"></span>`).join('')}
+              ${p.onQuarters.map((on) => `<span class="planner-load-dot ${on ? 'on' : ''}"></span>`).join('')}
             </span>
           </div>`;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
 }
 
-window.setPlannerActiveQuarter = function(quarter) {
+window.setPlannerActiveQuarter = function (quarter) {
   state._plannerActiveQuarter = quarter;
   state.selectedPlayer = null;
   renderPlannerView();
 };
 
-window.plannerSelectBenchPlayer = function(playerName) {
+window.plannerSelectBenchPlayer = function (playerName) {
   state.selectedPlayer = state.selectedPlayer === playerName ? null : playerName;
   renderPlannerView();
 };
 
-window.plannerPositionClick = function(quarter, position, playerName) {
+window.plannerPositionClick = function (quarter, position, playerName) {
   if (state.selectedPlayer) {
     // Switch active quarter to match where they're assigning
     state._plannerActiveQuarter = quarter;
@@ -327,7 +349,7 @@ function plannerPushUndo(quarter) {
   if (!state._plannerUndoStack) state._plannerUndoStack = [];
   state._plannerUndoStack.push({
     quarter,
-    snapshot: JSON.parse(JSON.stringify(game.lineup || {}))
+    snapshot: JSON.parse(JSON.stringify(game.lineup || {})),
   });
   // Limit stack size
   if (state._plannerUndoStack.length > 20) state._plannerUndoStack.shift();
@@ -339,7 +361,7 @@ function updatePlannerUndoBtn() {
   if (btn) btn.disabled = !state._plannerUndoStack || state._plannerUndoStack.length === 0;
 }
 
-window.plannerUndo = function() {
+window.plannerUndo = function () {
   const game = state.currentGame;
   if (!game || !state._plannerUndoStack || state._plannerUndoStack.length === 0) return;
   const entry = state._plannerUndoStack.pop();
@@ -363,7 +385,7 @@ function plannerAssignPosition(quarter, position) {
   if (!game.lineup[quarter]) game.lineup[quarter] = {};
 
   // Remove player from any other position in this quarter
-  Object.keys(game.lineup[quarter]).forEach(pos => {
+  Object.keys(game.lineup[quarter]).forEach((pos) => {
     if (game.lineup[quarter][pos] === state.selectedPlayer) {
       game.lineup[quarter][pos] = null;
     }
@@ -380,17 +402,17 @@ function plannerAssignPosition(quarter, position) {
 }
 
 // Feature 5: Copy quarter lineup
-window.plannerStartCopy = function(sourceQ) {
+window.plannerStartCopy = function (sourceQ) {
   state._plannerCopySource = sourceQ;
   renderPlannerView();
 };
 
-window.plannerCancelCopy = function() {
+window.plannerCancelCopy = function () {
   state._plannerCopySource = null;
   renderPlannerView();
 };
 
-window.plannerPasteQuarter = function(sourceQ, targetQ) {
+window.plannerPasteQuarter = function (sourceQ, targetQ) {
   const game = state.currentGame;
   if (!game) return;
 
@@ -401,7 +423,7 @@ window.plannerPasteQuarter = function(sourceQ, targetQ) {
   // Deep copy position assignments only (not score/notes fields)
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
   if (!game.lineup[targetQ]) game.lineup[targetQ] = {};
-  positions.forEach(pos => {
+  positions.forEach((pos) => {
     game.lineup[targetQ][pos] = source[pos] || null;
   });
 
@@ -414,16 +436,16 @@ window.plannerPasteQuarter = function(sourceQ, targetQ) {
 };
 
 // Feature 7: Hover highlight positions
-window.plannerHighlightPositions = function(playerName) {
+window.plannerHighlightPositions = function (playerName) {
   // Don't highlight while dragging
   if (state._plannerDragPlayer) return;
 
-  const player = state.currentTeamData?.players?.find(p => p.name === playerName);
+  const player = state.currentTeamData?.players?.find((p) => p.name === playerName);
   if (!player) return;
 
   const favPositions = new Set(normalizeFavPositions(player.favPosition));
   const posStats = getPlannerPositionStats();
-  const playerStat = posStats.find(p => p.name === playerName);
+  const playerStat = posStats.find((p) => p.name === playerName);
 
   // Get positions to highlight: favPositions + top 3 from history
   const highlightPositions = new Set(favPositions);
@@ -436,7 +458,7 @@ window.plannerHighlightPositions = function(playerName) {
   }
 
   // Add highlight class to matching empty slots
-  document.querySelectorAll('#planner-view .planner-slot:not(.filled)').forEach(slot => {
+  document.querySelectorAll('#planner-view .planner-slot:not(.filled)').forEach((slot) => {
     const pos = slot.dataset.position;
     if (highlightPositions.has(pos)) {
       slot.classList.add('planner-slot-highlight');
@@ -444,14 +466,14 @@ window.plannerHighlightPositions = function(playerName) {
   });
 };
 
-window.plannerClearHighlights = function() {
-  document.querySelectorAll('#planner-view .planner-slot-highlight').forEach(el => {
+window.plannerClearHighlights = function () {
+  document.querySelectorAll('#planner-view .planner-slot-highlight').forEach((el) => {
     el.classList.remove('planner-slot-highlight');
   });
 };
 
 // Feature 8: Drag and Drop
-window.plannerDragStart = function(event, playerName, fromQuarter, fromPosition) {
+window.plannerDragStart = function (event, playerName, fromQuarter, fromPosition) {
   state._plannerDragPlayer = playerName;
   state._plannerDragSource = fromQuarter && fromPosition ? { quarter: fromQuarter, position: fromPosition } : null;
   event.dataTransfer.effectAllowed = 'move';
@@ -469,17 +491,17 @@ window.plannerDragStart = function(event, playerName, fromQuarter, fromPosition)
   }
 };
 
-window.plannerDragOver = function(event) {
+window.plannerDragOver = function (event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   event.currentTarget.classList.add('drag-over');
 };
 
-window.plannerDragLeave = function(event) {
+window.plannerDragLeave = function (event) {
   event.currentTarget.classList.remove('drag-over');
 };
 
-window.plannerDrop = function(event, targetQuarter, targetPosition) {
+window.plannerDrop = function (event, targetQuarter, targetPosition) {
   event.preventDefault();
   event.currentTarget.classList.remove('drag-over');
 
@@ -503,7 +525,7 @@ window.plannerDrop = function(event, targetQuarter, targetPosition) {
     game.lineup[source.quarter][source.position] = currentOccupant || null; // swap
   } else {
     // From bench: remove from any other position in target quarter
-    Object.keys(game.lineup[targetQuarter]).forEach(pos => {
+    Object.keys(game.lineup[targetQuarter]).forEach((pos) => {
       if (game.lineup[targetQuarter][pos] === playerName) {
         game.lineup[targetQuarter][pos] = null;
       }
@@ -523,7 +545,7 @@ window.plannerDrop = function(event, targetQuarter, targetPosition) {
   updatePlannerUndoBtn();
 };
 
-window.plannerDropToBench = function(event) {
+window.plannerDropToBench = function (event) {
   event.preventDefault();
   const dropZone = document.getElementById('planner-bench-drop-zone');
   if (dropZone) dropZone.classList.remove('drag-over');
@@ -550,17 +572,17 @@ window.plannerDropToBench = function(event) {
 };
 
 // Clean up drag state on dragend (fires even if drop didn't happen)
-document.addEventListener('dragend', function() {
+document.addEventListener('dragend', function () {
   state._plannerDragPlayer = null;
   state._plannerDragSource = null;
-  document.querySelectorAll('#planner-view .dragging').forEach(el => el.classList.remove('dragging'));
-  document.querySelectorAll('#planner-view .drag-over').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('#planner-view .dragging').forEach((el) => el.classList.remove('dragging'));
+  document.querySelectorAll('#planner-view .drag-over').forEach((el) => el.classList.remove('drag-over'));
   const dropZone = document.getElementById('planner-bench-drop-zone');
   if (dropZone) dropZone.classList.remove('drag-active', 'drag-over');
 });
 
 // Feature 9: Auto-fill
-window.plannerAutoFill = function() {
+window.plannerAutoFill = function () {
   const game = state.currentGame;
   if (!game) return;
   if (!ensureNotReadOnly('autoFill')) return;
@@ -571,7 +593,7 @@ window.plannerAutoFill = function() {
   const qData = lineup[activeQ] || {};
 
   // Find empty positions
-  const emptyPositions = positions.filter(pos => !qData[pos]);
+  const emptyPositions = positions.filter((pos) => !qData[pos]);
   if (emptyPositions.length === 0) {
     showToast('All positions filled', 'info');
     return;
@@ -579,8 +601,8 @@ window.plannerAutoFill = function() {
 
   // Get bench players for this quarter
   const availablePlayers = getPlannerAvailablePlayers();
-  const assignedNames = new Set(Object.values(qData).filter(v => typeof v === 'string'));
-  const benchPlayers = availablePlayers.filter(p => !assignedNames.has(p.name));
+  const assignedNames = new Set(Object.values(qData).filter((v) => typeof v === 'string'));
+  const benchPlayers = availablePlayers.filter((p) => !assignedNames.has(p.name));
 
   if (benchPlayers.length === 0) {
     showToast('No players available', 'info');
@@ -589,12 +611,12 @@ window.plannerAutoFill = function() {
 
   // Count how many quarters each player is already assigned to (for load balancing)
   const playerQuarterCounts = {};
-  availablePlayers.forEach(p => {
+  availablePlayers.forEach((p) => {
     let count = 0;
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       if (q === activeQ) return; // don't count the quarter we're filling
       const qd = lineup[q] || {};
-      if (positions.some(pos => qd[pos] === p.name)) count++;
+      if (positions.some((pos) => qd[pos] === p.name)) count++;
     });
     playerQuarterCounts[p.name] = count;
   });
@@ -602,7 +624,9 @@ window.plannerAutoFill = function() {
   // Get position history stats
   const posStats = getPlannerPositionStats();
   const statsMap = {};
-  posStats.forEach(p => { statsMap[p.name] = p.counts; });
+  posStats.forEach((p) => {
+    statsMap[p.name] = p.counts;
+  });
 
   plannerPushUndo(activeQ);
 
@@ -660,4 +684,3 @@ window.plannerAutoFill = function() {
   updatePlannerUndoBtn();
   showToast(`Auto-filled ${activeQ}: ${fillCount} player${fillCount !== 1 ? 's' : ''} assigned`, 'success');
 };
-

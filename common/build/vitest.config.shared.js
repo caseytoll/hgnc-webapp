@@ -8,8 +8,8 @@ export function createVitestConfig() {
         provider: 'v8',
         reporter: ['text', 'html'],
         include: ['src/**/*.js'],
-        exclude: ['src/**/*.test.js']
-      }
-    }
+        exclude: ['src/**/*.test.js'],
+      },
+    },
   };
 }

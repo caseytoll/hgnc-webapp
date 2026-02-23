@@ -5,21 +5,21 @@ export function transformTeamDataFromSheet(data, teamID) {
   // Normalize favPosition to array (consistent with coach app)
   function normalizeFavPositions(val) {
     if (!val) return [];
-    if (Array.isArray(val)) return val.filter(p => p);
+    if (Array.isArray(val)) return val.filter((p) => p);
     if (typeof val === 'string' && val.trim()) return [val.trim()];
     return [];
   }
 
   // Transform players
-  const players = (data.players || []).map(p => ({
+  const players = (data.players || []).map((p) => ({
     id: p.id,
     name: p.name,
     fillIn: p.isFillIn || p.fillIn || false,
-    favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition)
+    favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition),
   }));
 
   // Transform games - match coach app format
-  const games = (data.games || []).map(g => {
+  const games = (data.games || []).map((g) => {
     // Convert quarters array to lineup object (same as coach app)
     let lineup = null;
     if (g.quarters && g.quarters.length > 0) {
@@ -39,7 +39,7 @@ export function transformTeamDataFromSheet(data, teamID) {
             ourGsGoals: q.ourGsGoals || 0,
             ourGaGoals: q.ourGaGoals || 0,
             oppGsGoals: q.opponentGsGoals || 0,
-            oppGaGoals: q.opponentGaGoals || 0
+            oppGaGoals: q.opponentGaGoals || 0,
             // notes intentionally excluded from parent portal
           };
         }
@@ -51,8 +51,9 @@ export function transformTeamDataFromSheet(data, teamID) {
     if (g._cachedScores) {
       scores = { us: g._cachedScores.ourScore, opponent: g._cachedScores.opponentScore };
     } else if (g.quarters) {
-      let us = 0, opponent = 0;
-      g.quarters.forEach(q => {
+      let us = 0,
+        opponent = 0;
+      g.quarters.forEach((q) => {
         us += (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
         opponent += (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
       });
@@ -67,12 +68,12 @@ export function transformTeamDataFromSheet(data, teamID) {
       opponent: g.opponent,
       date: g.date,
       time: g.time || '',
-      location: g.court ? `Court ${g.court}` : (g.location || g.venue || ''),
+      location: g.court ? `Court ${g.court}` : g.location || g.venue || '',
       status: g.status || (g.completed ? 'normal' : 'upcoming'),
       captain: g.captain || null,
       scores,
       availablePlayerIDs: g.availablePlayerIDs || [],
-      lineup
+      lineup,
     };
     // Preserve fixture linking fields
     if (g.fixtureMatchId) {
@@ -90,7 +91,7 @@ export function transformTeamDataFromSheet(data, teamID) {
     year: data.year || data.Year || new Date().getFullYear(),
     season: data.season || data.Season || 'Season 1',
     players: players,
-    games: games
+    games: games,
   };
 }
 

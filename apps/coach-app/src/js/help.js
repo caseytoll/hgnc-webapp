@@ -19,7 +19,7 @@ const helpContent = {
       <p><strong>Create a team:</strong> Tap "Add New Team" on the home screen. The wizard walks you through team name, competition type, season, and optional fixture integration.</p>
       <p><strong>Add players:</strong> After selecting your team, go to the <strong>Roster</strong> tab and tap "Add Player". You can set each player's preferred position.</p>
       <p><strong>Team settings:</strong> Tap the gear icon in the top-right to change team name, season, coach, or competition settings.</p>
-    `
+    `,
   },
   managingGames: {
     title: 'Managing Games',
@@ -35,7 +35,7 @@ const helpContent = {
         <li><strong>Bye</strong> — No opponent, doesn't count in stats</li>
         <li><strong>Abandoned / Forfeit</strong> — Recorded but excluded from stats</li>
       </ul>
-    `
+    `,
   },
   scoring: {
     title: 'Scoring & Positions',
@@ -50,7 +50,7 @@ const helpContent = {
         <li><strong>Notes</strong> — Tap the notes icon to add quarter-specific coaching notes. Use quick-insert buttons for player names and timestamps</li>
       </ul>
       <p><strong>Score validation:</strong> If fixture sync is active, a green tick confirms your score matches the official result. A warning appears if they differ.</p>
-    `
+    `,
   },
   planner: {
     title: 'Lineup Planner',
@@ -67,7 +67,7 @@ const helpContent = {
         <li><strong>Player load</strong> — The summary grid shows which players are on/off each quarter, highlighting uneven loads</li>
         <li><strong>Position colours</strong> — Shooters (pink), Midcourt (blue), Defence (green)</li>
       </ul>
-    `
+    `,
   },
   security: {
     title: 'Team Security (PINs)',
@@ -78,7 +78,7 @@ const helpContent = {
       <p><strong>How it works:</strong> When a PIN is set, any device needs to enter it once to unlock editing. The device remembers your PIN so you won't be asked again unless you log out.</p>
       <p><strong>Viewing is always open:</strong> Parents and spectators can always <em>view</em> your team via the Parent Portal — the PIN only protects editing in the Coach's App.</p>
       <p><strong>Log out all devices:</strong> If you need to revoke access (e.g., a shared device), use "Log Out All Devices" in Team Settings. All devices except yours will need to re-enter the PIN.</p>
-    `
+    `,
   },
   sharing: {
     title: 'Sharing with Parents',
@@ -88,7 +88,7 @@ const helpContent = {
       <p><strong>Parent Portal:</strong> Parents can view your team's schedule, scores, lineups, and stats at <strong>hgnc-gameday.pages.dev</strong>. No login needed — it's read-only.</p>
       <p><strong>Team Sheet:</strong> Before a game, open the game detail and tap "Share Lineup" to generate a visual team sheet image. Share it directly to WhatsApp, Messages, or any app.</p>
       <p><strong>What parents see:</strong> Game schedule, scores, player positions per quarter, team stats, and leaderboards. They cannot edit anything.</p>
-    `
+    `,
   },
   stats: {
     title: 'Stats & AI Insights',
@@ -105,8 +105,8 @@ const helpContent = {
       </ul>
       <p><strong>AI Insights:</strong> Tap "Get AI Insights" on the Overview tab for an AI-generated season summary including strengths, areas to improve, and lineup recommendations.</p>
       <p><strong>Training Focus:</strong> On the Training tab, "Get AI Training Focus" analyses your coaching notes across games to suggest what to work on at training.</p>
-    `
-  }
+    `,
+  },
 };
 
 // Section keys in display order
@@ -117,9 +117,10 @@ const helpSectionOrder = ['gettingStarted', 'managingGames', 'scoring', 'planner
 // ========================================
 
 export function openHelpView() {
-  const sectionsHtml = helpSectionOrder.map(key => {
-    const section = helpContent[key];
-    return `
+  const sectionsHtml = helpSectionOrder
+    .map((key) => {
+      const section = helpContent[key];
+      return `
       <div class="help-section">
         <button class="help-section-header" onclick="toggleHelpSection(this)">
           <div class="help-section-title">
@@ -138,7 +139,8 @@ export function openHelpView() {
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 
   const bodyHtml = `
     <div class="help-page">
@@ -153,12 +155,12 @@ export function openHelpView() {
   window.openModal('Help', bodyHtml);
 }
 
-window.toggleHelpSection = function(header) {
+window.toggleHelpSection = function (header) {
   const section = header.closest('.help-section');
   const wasOpen = section.classList.contains('open');
 
   // Close all sections first (accordion behavior)
-  document.querySelectorAll('.help-section.open').forEach(s => s.classList.remove('open'));
+  document.querySelectorAll('.help-section.open').forEach((s) => s.classList.remove('open'));
 
   // Toggle the clicked one
   if (!wasOpen) {
@@ -166,7 +168,7 @@ window.toggleHelpSection = function(header) {
   }
 };
 
-window.replayWalkthrough = function() {
+window.replayWalkthrough = function () {
   window.closeModal();
   setTimeout(() => showWalkthrough(true), 300);
 };
@@ -181,36 +183,36 @@ const walkthroughSlides = [
     body: `
       <p>This app helps you manage your netball team — schedule games, track scores and positions, view stats, and share with parents.</p>
       <p>Let's take a quick tour of the key features.</p>
-    `
+    `,
   },
   {
     title: 'Your Team',
     body: `
       <p><strong>Select or create a team</strong> from the home screen. Each team has its own roster, schedule, and stats.</p>
       <p>Add your players in the <strong>Roster</strong> tab — set preferred positions to help with lineup planning.</p>
-    `
+    `,
   },
   {
     title: 'Game Day',
     body: `
       <p>The <strong>Schedule</strong> tab shows all your games. Tap a game to enter scores, assign positions, and add notes for each quarter.</p>
       <p>If your competition is linked (Squadi/GameDay), fixtures sync automatically — you just need to fill in scores and lineups.</p>
-    `
+    `,
   },
   {
     title: 'Lineup & Stats',
     body: `
       <p>Use the <strong>Lineup Planner</strong> (best on tablet/desktop) to drag and drop players into positions across all four quarters.</p>
       <p>The <strong>Stats</strong> tab tracks win/loss records, top scorers, position history, and scoring combinations.</p>
-    `
+    `,
   },
   {
     title: 'Sharing & Security',
     body: `
       <p><strong>Parents</strong> can view your team at <strong>hgnc-gameday.pages.dev</strong> — it's read-only, no login needed.</p>
       <p>Set a <strong>PIN</strong> in Team Settings to prevent accidental edits. Tap <strong>?</strong> anytime for help.</p>
-    `
-  }
+    `,
+  },
 ];
 
 export function showWalkthrough(forceShow = false) {
@@ -224,9 +226,9 @@ export function showWalkthrough(forceShow = false) {
     const isFirst = currentSlide === 0;
     const isLast = currentSlide === totalSlides - 1;
 
-    const dots = walkthroughSlides.map((_, i) =>
-      `<span class="walkthrough-dot${i === currentSlide ? ' active' : ''}"></span>`
-    ).join('');
+    const dots = walkthroughSlides
+      .map((_, i) => `<span class="walkthrough-dot${i === currentSlide ? ' active' : ''}"></span>`)
+      .join('');
 
     const bodyHtml = `
       <div class="walkthrough-slide">
@@ -237,13 +239,15 @@ export function showWalkthrough(forceShow = false) {
 
     const footerHtml = `
       <div class="walkthrough-nav">
-        ${isFirst
-          ? '<button class="btn btn-ghost btn-sm" onclick="dismissWalkthrough()">Skip</button>'
-          : '<button class="btn btn-ghost btn-sm" onclick="walkthroughBack()">Back</button>'
+        ${
+          isFirst
+            ? '<button class="btn btn-ghost btn-sm" onclick="dismissWalkthrough()">Skip</button>'
+            : '<button class="btn btn-ghost btn-sm" onclick="walkthroughBack()">Back</button>'
         }
-        ${isLast
-          ? '<button class="btn btn-primary btn-sm" onclick="dismissWalkthrough()">Get Started</button>'
-          : '<button class="btn btn-primary btn-sm" onclick="walkthroughNext()">Next</button>'
+        ${
+          isLast
+            ? '<button class="btn btn-primary btn-sm" onclick="dismissWalkthrough()">Get Started</button>'
+            : '<button class="btn btn-primary btn-sm" onclick="walkthroughNext()">Next</button>'
         }
       </div>
     `;
@@ -251,21 +255,21 @@ export function showWalkthrough(forceShow = false) {
     window.openModal(slide.title, bodyHtml, footerHtml);
   }
 
-  window.walkthroughNext = function() {
+  window.walkthroughNext = function () {
     if (currentSlide < walkthroughSlides.length - 1) {
       currentSlide++;
       renderSlide();
     }
   };
 
-  window.walkthroughBack = function() {
+  window.walkthroughBack = function () {
     if (currentSlide > 0) {
       currentSlide--;
       renderSlide();
     }
   };
 
-  window.dismissWalkthrough = function() {
+  window.dismissWalkthrough = function () {
     localStorage.setItem(WALKTHROUGH_KEY, '1');
     window.closeModal();
   };
@@ -282,9 +286,12 @@ const contextHelpTopics = {
   planner: { title: 'Lineup Planner', content: helpContent.planner.body },
   security: { title: 'Team Security', content: helpContent.security.body },
   stats: { title: 'Understanding Stats', content: helpContent.stats.body },
-  training: { title: 'Training & AI Focus', content: helpContent.stats.body.split('</ul>')[1] || helpContent.stats.body },
+  training: {
+    title: 'Training & AI Focus',
+    content: helpContent.stats.body.split('</ul>')[1] || helpContent.stats.body,
+  },
   sharing: { title: 'Sharing with Parents', content: helpContent.sharing.body },
-  games: { title: 'Managing Games', content: helpContent.managingGames.body }
+  games: { title: 'Managing Games', content: helpContent.managingGames.body },
 };
 
 export function showContextHelp(topic) {

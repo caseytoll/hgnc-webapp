@@ -1,0 +1,254 @@
+/* ========================================
+   SHARE & EXPORT COMPONENTS
+   ======================================== */
+
+/* Lineup Card for Image Generation */
+.lineup-card-container {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  z-index: -1;
+  display: none;
+}
+
+.lineup-card {
+  width: 400px;
+  padding: 24px;
+  background: linear-gradient(135deg, #18181b 0%, #27272a 100%);
+  border-radius: 16px;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  color: #fafafa;
+}
+
+.lineup-card-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.lineup-card-team {
+  font-size: 24px;
+  font-weight: 700;
+  color: #c084fc;
+  margin-bottom: 4px;
+}
+
+.lineup-card-match {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fafafa;
+}
+
+.lineup-card-date {
+  font-size: 13px;
+  color: #a1a1aa;
+  margin-top: 4px;
+}
+
+.lineup-card-captain {
+  font-size: 13px;
+  color: #e4e4e7;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.lineup-card-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.lineup-card-table th {
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1a1aa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lineup-card-table td {
+  padding: 10px 4px;
+  font-size: 14px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lineup-card-table .player-name-cell {
+  font-weight: 600;
+  color: #fafafa;
+  text-align: left;
+  padding-right: 12px;
+}
+
+.lineup-card-table .pos-cell {
+  font-weight: 500;
+  color: #c084fc;
+  text-align: center;
+  min-width: 36px;
+}
+
+.lineup-card-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.lineup-card-footer {
+  text-align: center;
+  font-size: 11px;
+  color: #71717a;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.share-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+.share-action-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.share-action-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary-600);
+}
+
+.share-action-btn:active {
+  transform: scale(0.98);
+}
+
+.share-action-btn svg {
+  flex-shrink: 0;
+}
+
+/* Settings Divider */
+.settings-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 20px 0;
+}
+
+/* Data Management Buttons */
+.data-management-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.data-management-buttons .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.data-management-buttons .btn svg {
+  flex-shrink: 0;
+}
+
+/* Import Preview */
+.import-preview {
+  text-align: left;
+}
+
+.import-preview p {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+
+.import-details {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.import-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.import-detail-row:last-child {
+  border-bottom: none;
+}
+
+.import-label {
+  color: var(--text-secondary);
+}
+
+.import-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.import-warning {
+  color: var(--warning);
+  font-size: 13px;
+  padding: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: var(--radius-md);
+  margin-top: 12px;
+}
+
+.fullscreen-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.fullscreen-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--primary-600);
+}
+
+/* Fullscreen Mode Styles */
+:fullscreen {
+  background: var(--bg-primary);
+}
+
+:fullscreen .game-detail-view,
+:-webkit-full-screen .game-detail-view,
+:-moz-full-screen .game-detail-view {
+  background: var(--bg-primary);
+}
+
+:fullscreen .top-bar,
+:-webkit-full-screen .top-bar,
+:-moz-full-screen .top-bar {
+  display: none;
+}
+
+:fullscreen .game-detail-content,
+:-webkit-full-screen .game-detail-content,
+:-moz-full-screen .game-detail-content {
+  padding-top: env(safe-area-inset-top, 16px);
+}

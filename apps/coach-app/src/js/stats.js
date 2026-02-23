@@ -2,13 +2,21 @@ import { state, saveToLocalStorage } from './state.js';
 import { syncToGoogleSheets } from './sync.js';
 import { API_CONFIG } from './config.js';
 import { escapeHtml } from '../../../../common/utils.js';
-import { formatAIContent, renderAIFeedback, getOpponentDifficulty, calculateStrengthOfSchedule, ordinalSuffix, normalizeFavPositions } from './helpers.js';
+import {
+  formatAIContent,
+  renderAIFeedback,
+  getOpponentDifficulty,
+  calculateStrengthOfSchedule,
+  ordinalSuffix,
+  normalizeFavPositions,
+} from './helpers.js';
 import { contextHelpIcon } from './help.js';
 
 // ========================================
 // STATS RENDERING
 // ========================================
 
+window.renderStats = renderStats;
 export function renderStats() {
   const container = document.getElementById('stats-container');
 
@@ -50,11 +58,11 @@ export function renderStats() {
   }
 }
 
-window.switchStatsTab = function(tabId) {
+window.switchStatsTab = function (tabId) {
   state.activeStatsTab = tabId;
 
   // Update active tab styling
-  document.querySelectorAll('.stats-subtab').forEach(btn => {
+  document.querySelectorAll('.stats-subtab').forEach((btn) => {
     btn.classList.toggle('active', btn.textContent.toLowerCase().includes(tabId.substring(0, 4)));
   });
 
@@ -119,9 +127,15 @@ function renderStatsOverview(container) {
         <div class="metric-card" onclick="showMetricDetail('form')">
           <div class="metric-label">Form</div>
           <div class="metric-value form-badges">
-            ${advanced.form.length > 0 ? advanced.form.map(r =>
-              `<span class="form-badge ${r === 'W' ? 'win' : r === 'L' ? 'loss' : 'draw'}">${r}</span>`
-            ).join('') : '<span class="text-muted">-</span>'}
+            ${
+              advanced.form.length > 0
+                ? advanced.form
+                    .map(
+                      (r) => `<span class="form-badge ${r === 'W' ? 'win' : r === 'L' ? 'loss' : 'draw'}">${r}</span>`
+                    )
+                    .join('')
+                : '<span class="text-muted">-</span>'
+            }
           </div>
         </div>
         <div class="metric-card">
@@ -157,12 +171,13 @@ function renderStatsOverview(container) {
     <div class="stats-section">
       <div class="stats-section-title">Quarter Performance</div>
       <div class="quarter-breakdown">
-        ${['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
-          const qs = advanced.quarterStats[q];
-          const avgFor = qs.games > 0 ? (qs.for / qs.games).toFixed(1) : '0';
-          const avgAgainst = qs.games > 0 ? (qs.against / qs.games).toFixed(1) : '0';
-          const diff = qs.games > 0 ? (qs.diff / qs.games).toFixed(1) : '0';
-          return `
+        ${['Q1', 'Q2', 'Q3', 'Q4']
+          .map((q) => {
+            const qs = advanced.quarterStats[q];
+            const avgFor = qs.games > 0 ? (qs.for / qs.games).toFixed(1) : '0';
+            const avgAgainst = qs.games > 0 ? (qs.against / qs.games).toFixed(1) : '0';
+            const diff = qs.games > 0 ? (qs.diff / qs.games).toFixed(1) : '0';
+            return `
             <div class="quarter-stat ${advanced.bestQuarter === q ? 'best-quarter' : ''}">
               <div class="quarter-label">${q}</div>
               <div class="quarter-scores">
@@ -175,14 +190,18 @@ function renderStatsOverview(container) {
               </div>
             </div>
           `;
-        }).join('')}
+          })
+          .join('')}
       </div>
     </div>
 
     <!-- Goal Scorers -->
     <div class="stats-section">
       <div class="stats-section-title">Goal Scorers</div>
-      ${stats.playerStats.filter(p => p.goals > 0).map((p, i) => `
+      ${stats.playerStats
+        .filter((p) => p.goals > 0)
+        .map(
+          (p, i) => `
         <div class="scorer-card ${i === 0 ? 'top-scorer' : ''}" onclick="toggleScorerExpand(this)">
           <div class="scorer-card-header">
             <div class="scorer-rank">${escapeHtml(i + 1)}</div>
@@ -201,7 +220,9 @@ function renderStatsOverview(container) {
             </div>
           </div>
           <div class="scorer-card-breakdown">
-            ${p.gameBreakdown.map(g => `
+            ${p.gameBreakdown
+              .map(
+                (g) => `
               <div class="breakdown-row">
                 <div class="breakdown-game">
                   <span class="breakdown-round">R${escapeHtml(g.round)}</span>
@@ -213,15 +234,23 @@ function renderStatsOverview(container) {
                 </div>
                 <div class="breakdown-total">${escapeHtml(g.total)}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
-      `).join('')}
-      ${stats.playerStats.filter(p => p.goals > 0).length === 0 ? `
+      `
+        )
+        .join('')}
+      ${
+        stats.playerStats.filter((p) => p.goals > 0).length === 0
+          ? `
         <div class="empty-state">
           <p>No goals recorded yet</p>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
     <!-- AI Insights -->
@@ -237,7 +266,7 @@ function renderStatsOverview(container) {
 }
 
 // Fetch AI insights from Gemini
-window.fetchAIInsights = async function(forceRefresh = false) {
+window.fetchAIInsights = async function (forceRefresh = false) {
   const container = document.getElementById('ai-insights-container');
 
   if (!state.currentTeam || !state.currentTeamData) {
@@ -254,12 +283,21 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     // Show cached insights with option to refresh if games have been added
     let html = formatAIContent(state.currentTeamData.aiInsights.text);
 
-    const staleWarning = currentGameCount > gameCountAtGen
-      ? `<div class="ai-stale-warning" style="background: var(--warning-bg); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New games played since last analysis. Consider refreshing.</div>`
-      : '';
+    const staleWarning =
+      currentGameCount > gameCountAtGen
+        ? `<div class="ai-stale-warning" style="background: var(--warning-bg); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New games played since last analysis. Consider refreshing.</div>`
+        : '';
 
-    container.innerHTML = staleWarning + '<div class="ai-insights-content">' + html + '</div>' +
-      '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + escapeHtml(cachedDate) + ' (after ' + gameCountAtGen + ' games)</div>' +
+    container.innerHTML =
+      staleWarning +
+      '<div class="ai-insights-content">' +
+      html +
+      '</div>' +
+      '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' +
+      escapeHtml(cachedDate) +
+      ' (after ' +
+      gameCountAtGen +
+      ' games)</div>' +
       '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
       '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
       renderAIFeedback('season');
@@ -279,22 +317,22 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     }
     const { advanced, leaderboards, combinations } = state.analytics;
     // Exclude fill-in players from season-level AI analysis
-    const fillInNames = new Set(
-      state.currentTeamData.players.filter(p => p.fillIn).map(p => p.name)
-    );
+    const fillInNames = new Set(state.currentTeamData.players.filter((p) => p.fillIn).map((p) => p.name));
     const analyticsPayload = {
       teamName: state.currentTeam.teamName,
-      players: state.currentTeamData.players.filter(p => !p.fillIn).map(p => ({
-        name: p.name,
-        favPosition: p.favPosition || null
-      })),
+      players: state.currentTeamData.players
+        .filter((p) => !p.fillIn)
+        .map((p) => ({
+          name: p.name,
+          favPosition: p.favPosition || null,
+        })),
       // Team performance summary
       record: {
         wins: advanced.wins,
         losses: advanced.losses,
         draws: advanced.draws,
         gameCount: advanced.gameCount,
-        winRate: advanced.winRate
+        winRate: advanced.winRate,
       },
       // Scoring summary
       scoring: {
@@ -302,7 +340,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
         goalsAgainst: advanced.goalsAgainst,
         goalDiff: advanced.goalDiff,
         avgFor: advanced.avgFor,
-        avgAgainst: advanced.avgAgainst
+        avgAgainst: advanced.avgAgainst,
       },
       // Form and momentum
       form: advanced.form, // Last 5 games: ['W', 'L', 'W', ...]
@@ -310,10 +348,10 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       quarterAnalysis: {
         bestQuarter: advanced.bestQuarter,
         bestQuarterDiff: advanced.bestQuarterDiff,
-        stats: advanced.quarterStats
+        stats: advanced.quarterStats,
       },
       // Game-by-game results (with opponent ladder rank when available)
-      gameResults: advanced.gameResults.map(g => {
+      gameResults: advanced.gameResults.map((g) => {
         const opp = getOpponentDifficulty(g.opponent);
         return {
           round: g.round,
@@ -321,75 +359,112 @@ window.fetchAIInsights = async function(forceRefresh = false) {
           score: `${g.us}-${g.them}`,
           result: g.result,
           diff: g.diff,
-          opponentRank: opp ? `${opp.position}/${opp.totalTeams}` : null
+          opponentRank: opp ? `${opp.position}/${opp.totalTeams}` : null,
         };
       }),
       // Top performers (limit to top 5 each, excluding fill-in players)
       leaderboards: {
-        topScorers: leaderboards.offensive.topScorersByTotal.filter(s => !fillInNames.has(s.name)).slice(0, 5).map(s => ({
-          name: s.name,
-          goals: s.goals,
-          quarters: s.quarters,
-          avg: s.avg
-        })),
-        topScorersByEfficiency: leaderboards.offensive.topScorersByEfficiency.filter(s => !fillInNames.has(s.name)).slice(0, 3).map(s => ({
-          name: s.name,
-          avg: s.avg,
-          quarters: s.quarters
-        })),
-        topScoringPairs: leaderboards.offensive.topScoringPairsByTotal.filter(p => !p.players.some(name => fillInNames.has(name))).slice(0, 3).map(p => ({
-          players: p.players.join(' & '),
-          goals: p.goals,
-          quarters: p.quarters,
-          avg: p.avg
-        })),
-        topDefenders: leaderboards.defensive.topDefendersByEfficiency.filter(d => !fillInNames.has(d.name)).slice(0, 3).map(d => ({
-          name: d.name,
-          goalsAgainst: d.goalsAgainst,
-          quarters: d.quarters,
-          avg: d.avg
-        })),
-        topDefensivePairs: leaderboards.defensive.topDefensivePairsByEfficiency.filter(p => !p.players.some(name => fillInNames.has(name))).slice(0, 3).map(p => ({
-          players: p.players.join(' & '),
-          goalsAgainst: p.goalsAgainst,
-          quarters: p.quarters,
-          avg: p.avg
-        }))
+        topScorers: leaderboards.offensive.topScorersByTotal
+          .filter((s) => !fillInNames.has(s.name))
+          .slice(0, 5)
+          .map((s) => ({
+            name: s.name,
+            goals: s.goals,
+            quarters: s.quarters,
+            avg: s.avg,
+          })),
+        topScorersByEfficiency: leaderboards.offensive.topScorersByEfficiency
+          .filter((s) => !fillInNames.has(s.name))
+          .slice(0, 3)
+          .map((s) => ({
+            name: s.name,
+            avg: s.avg,
+            quarters: s.quarters,
+          })),
+        topScoringPairs: leaderboards.offensive.topScoringPairsByTotal
+          .filter((p) => !p.players.some((name) => fillInNames.has(name)))
+          .slice(0, 3)
+          .map((p) => ({
+            players: p.players.join(' & '),
+            goals: p.goals,
+            quarters: p.quarters,
+            avg: p.avg,
+          })),
+        topDefenders: leaderboards.defensive.topDefendersByEfficiency
+          .filter((d) => !fillInNames.has(d.name))
+          .slice(0, 3)
+          .map((d) => ({
+            name: d.name,
+            goalsAgainst: d.goalsAgainst,
+            quarters: d.quarters,
+            avg: d.avg,
+          })),
+        topDefensivePairs: leaderboards.defensive.topDefensivePairsByEfficiency
+          .filter((p) => !p.players.some((name) => fillInNames.has(name)))
+          .slice(0, 3)
+          .map((p) => ({
+            players: p.players.join(' & '),
+            goalsAgainst: p.goalsAgainst,
+            quarters: p.quarters,
+            avg: p.avg,
+          })),
       },
       // Best lineup combinations (excluding units with fill-in players)
       combinations: {
         bestAttackingUnit: (() => {
-          const unit = combinations.attackingUnits.find(u => !Object.values(u.players).some(name => fillInNames.has(name)));
-          return unit ? { players: unit.players, quarters: unit.quarters, avgFor: unit.avgFor, plusMinus: unit.plusMinus } : null;
+          const unit = combinations.attackingUnits.find(
+            (u) => !Object.values(u.players).some((name) => fillInNames.has(name))
+          );
+          return unit
+            ? { players: unit.players, quarters: unit.quarters, avgFor: unit.avgFor, plusMinus: unit.plusMinus }
+            : null;
         })(),
         bestDefensiveUnit: (() => {
-          const unit = combinations.defensiveUnits.find(u => !Object.values(u.players).some(name => fillInNames.has(name)));
-          return unit ? { players: unit.players, quarters: unit.quarters, avgAgainst: unit.avgAgainst, plusMinus: unit.plusMinus } : null;
-        })()
+          const unit = combinations.defensiveUnits.find(
+            (u) => !Object.values(u.players).some((name) => fillInNames.has(name))
+          );
+          return unit
+            ? { players: unit.players, quarters: unit.quarters, avgAgainst: unit.avgAgainst, plusMinus: unit.plusMinus }
+            : null;
+        })(),
       },
       // Strength of schedule context (if ladder data available)
       strengthOfSchedule: (() => {
         const sos = calculateStrengthOfSchedule();
         if (!sos) return null;
-        return { rating: sos.rating, label: sos.label, avgOpponentPosition: sos.avgPosition, gamesMatched: sos.gamesWithData };
+        return {
+          rating: sos.rating,
+          label: sos.label,
+          avgOpponentPosition: sos.avgPosition,
+          gamesMatched: sos.gamesWithData,
+        };
       })(),
       // Division results context — opponent W-L records for AI to interpret
       divisionContext: (() => {
         if (!state.divisionResults || state.divisionResults.length === 0) return null;
         const teamRecords = {};
-        state.divisionResults.forEach(round => {
-          (round.matches || []).forEach(m => {
+        state.divisionResults.forEach((round) => {
+          (round.matches || []).forEach((m) => {
             if (m.status !== 'ended' && m.status !== 'normal') return;
-            [m.team1, m.team2].forEach(t => { if (t && !teamRecords[t]) teamRecords[t] = { w: 0, l: 0, d: 0 }; });
+            [m.team1, m.team2].forEach((t) => {
+              if (t && !teamRecords[t]) teamRecords[t] = { w: 0, l: 0, d: 0 };
+            });
             if (m.score1 != null && m.score2 != null) {
-              if (m.score1 > m.score2) { teamRecords[m.team1].w++; teamRecords[m.team2].l++; }
-              else if (m.score1 < m.score2) { teamRecords[m.team1].l++; teamRecords[m.team2].w++; }
-              else { teamRecords[m.team1].d++; teamRecords[m.team2].d++; }
+              if (m.score1 > m.score2) {
+                teamRecords[m.team1].w++;
+                teamRecords[m.team2].l++;
+              } else if (m.score1 < m.score2) {
+                teamRecords[m.team1].l++;
+                teamRecords[m.team2].w++;
+              } else {
+                teamRecords[m.team1].d++;
+                teamRecords[m.team2].d++;
+              }
             }
           });
         });
         return Object.entries(teamRecords).map(([team, r]) => ({ team, record: `${r.w}-${r.l}-${r.d}` }));
-      })()
+      })(),
     };
 
     // POST analytics to backend (text/plain avoids CORS preflight with Apps Script)
@@ -401,9 +476,9 @@ window.fetchAIInsights = async function(forceRefresh = false) {
         action: 'getAIInsights',
         teamID: state.currentTeam.teamID,
         sheetName: state.currentTeam.sheetName,
-        analytics: analyticsPayload
+        analytics: analyticsPayload,
       }),
-      redirect: 'follow'
+      redirect: 'follow',
     });
     const data = await response.json();
 
@@ -413,7 +488,7 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       state.currentTeamData.aiInsights = {
         text: data.insights,
         generatedAt: new Date().toISOString(),
-        gameCount: currentGameCount
+        gameCount: currentGameCount,
       };
 
       // Save and sync to API
@@ -423,8 +498,15 @@ window.fetchAIInsights = async function(forceRefresh = false) {
       // Convert markdown-style formatting to HTML
       let html = formatAIContent(data.insights);
 
-      container.innerHTML = '<div class="ai-insights-content">' + html + '</div>' +
-        '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' + new Date().toLocaleDateString('en-AU') + ' (after ' + currentGameCount + ' games)</div>' +
+      container.innerHTML =
+        '<div class="ai-insights-content">' +
+        html +
+        '</div>' +
+        '<div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">Generated: ' +
+        new Date().toLocaleDateString('en-AU') +
+        ' (after ' +
+        currentGameCount +
+        ' games)</div>' +
         '<div style="display: flex; gap: 8px; margin-top: 12px;"><button class="btn btn-secondary" onclick="shareAIReport(\'season\')">Share</button>' +
         '<button class="btn btn-secondary" onclick="fetchAIInsights(true)">Refresh Insights</button></div>' +
         renderAIFeedback('season');
@@ -435,13 +517,16 @@ window.fetchAIInsights = async function(forceRefresh = false) {
     }
   } catch (err) {
     console.error('[AI Insights] Error:', err);
-    container.innerHTML = '<div class="ai-error"><p>Failed to get insights: ' + escapeHtml(err.message) + '</p>' +
+    container.innerHTML =
+      '<div class="ai-error"><p>Failed to get insights: ' +
+      escapeHtml(err.message) +
+      '</p>' +
       '<button class="btn btn-primary" onclick="fetchAIInsights(true)">Try Again</button></div>';
   }
 };
 
 // Show game AI summary in modal
-window.showGameAISummary = async function(forceRefresh = false) {
+window.showGameAISummary = async function (forceRefresh = false) {
   const game = state.currentGame;
   if (!game) {
     window.showToast('No game selected', 'error');
@@ -451,7 +536,7 @@ window.showGameAISummary = async function(forceRefresh = false) {
   // Check if game has scores
   let hasScores = false;
   if (game.lineup) {
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       const qData = game.lineup[q] || {};
       if (qData.ourGsGoals || qData.ourGaGoals || qData.oppGsGoals || qData.oppGaGoals) {
         hasScores = true;
@@ -500,9 +585,9 @@ window.showGameAISummary = async function(forceRefresh = false) {
         action: 'getGameAIInsights',
         teamID: state.currentTeam.teamID,
         sheetName: state.currentTeam.sheetName,
-        gameData: gamePayload
+        gameData: gamePayload,
       }),
-      redirect: 'follow'
+      redirect: 'follow',
     });
     const data = await response.json();
 
@@ -510,7 +595,7 @@ window.showGameAISummary = async function(forceRefresh = false) {
       // Save to game record
       game.aiSummary = {
         text: data.insights,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       };
 
       // Save and sync immediately (not debounced) to persist across devices
@@ -525,7 +610,8 @@ window.showGameAISummary = async function(forceRefresh = false) {
   } catch (err) {
     console.error('[Game AI Summary] Error:', err);
     modalBody.innerHTML = '<div class="ai-error"><p>Failed to get insights: ' + escapeHtml(err.message) + '</p></div>';
-    modalFooter.innerHTML = '<button class="btn btn-primary" onclick="showGameAISummary(true)">Try Again</button>' +
+    modalFooter.innerHTML =
+      '<button class="btn btn-primary" onclick="showGameAISummary(true)">Try Again</button>' +
       '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
   }
 };
@@ -556,11 +642,12 @@ function buildGameAnalysisPayload(game) {
   const players = state.currentTeamData?.players || [];
 
   // Calculate total scores
-  let ourTotal = 0, theirTotal = 0;
+  let ourTotal = 0,
+    theirTotal = 0;
   const quarterBreakdown = [];
   const playerContributions = {};
 
-  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
     const qData = game.lineup?.[q] || {};
     const qUs = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     const qThem = (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
@@ -573,11 +660,11 @@ function buildGameAnalysisPayload(game) {
       them: qThem,
       diff: qUs - qThem,
       lineup: {},
-      notes: qData.notes || ''
+      notes: qData.notes || '',
     });
 
     // Track player contributions per position
-    ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+    ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach((pos) => {
       const playerName = qData[pos];
       if (playerName) {
         if (!playerContributions[playerName]) {
@@ -588,7 +675,7 @@ function buildGameAnalysisPayload(game) {
             goalsScored: 0,
             quartersAtGS: 0,
             quartersAtGA: 0,
-            quartersDefending: 0
+            quartersDefending: 0,
           };
         }
         playerContributions[playerName].quarters++;
@@ -598,11 +685,11 @@ function buildGameAnalysisPayload(game) {
 
         // Track scoring positions
         if (pos === 'GS') {
-          playerContributions[playerName].goalsScored += (qData.ourGsGoals || 0);
+          playerContributions[playerName].goalsScored += qData.ourGsGoals || 0;
           playerContributions[playerName].quartersAtGS++;
         }
         if (pos === 'GA') {
-          playerContributions[playerName].goalsScored += (qData.ourGaGoals || 0);
+          playerContributions[playerName].goalsScored += qData.ourGaGoals || 0;
           playerContributions[playerName].quartersAtGA++;
         }
         if (pos === 'GD' || pos === 'GK') {
@@ -624,8 +711,8 @@ function buildGameAnalysisPayload(game) {
 
   // Collect coach notes from all quarters
   const coachNotes = quarterBreakdown
-    .filter(q => q.notes && q.notes.trim())
-    .map(q => ({ quarter: q.quarter, notes: q.notes.trim() }));
+    .filter((q) => q.notes && q.notes.trim())
+    .map((q) => ({ quarter: q.quarter, notes: q.notes.trim() }));
 
   // Opponent ladder difficulty (if available)
   const opponentDifficulty = getOpponentDifficulty(game.opponent);
@@ -641,10 +728,12 @@ function buildGameAnalysisPayload(game) {
     scoreDiff: ourTotal - theirTotal,
     captain: game.captain || null,
     quarterBreakdown,
-    playerContributions: Object.values(playerContributions).sort((a, b) => b.goalsScored - a.goalsScored || b.quarters - a.quarters),
+    playerContributions: Object.values(playerContributions).sort(
+      (a, b) => b.goalsScored - a.goalsScored || b.quarters - a.quarters
+    ),
     rosterSize: players.length,
     coachNotes: coachNotes,
-    opponentDifficulty: opponentDifficulty
+    opponentDifficulty: opponentDifficulty,
   };
 }
 
@@ -667,11 +756,22 @@ function renderStatsLeaders(container) {
     const sort = tableState.sort[tableName];
     return [...data].sort((a, b) => {
       let aVal, bVal;
-      if (sort.column === 'goals') { aVal = a.goals; bVal = b.goals; }
-      else if (sort.column === 'goalsAgainst') { aVal = a.goalsAgainst; bVal = b.goalsAgainst; }
-      else if (sort.column === 'avg') { aVal = a.avg; bVal = b.avg; }
-      else if (sort.column === 'quarters') { aVal = a.quarters; bVal = b.quarters; }
-      else { aVal = a[sort.column]; bVal = b[sort.column]; }
+      if (sort.column === 'goals') {
+        aVal = a.goals;
+        bVal = b.goals;
+      } else if (sort.column === 'goalsAgainst') {
+        aVal = a.goalsAgainst;
+        bVal = b.goalsAgainst;
+      } else if (sort.column === 'avg') {
+        aVal = a.avg;
+        bVal = b.avg;
+      } else if (sort.column === 'quarters') {
+        aVal = a.quarters;
+        bVal = b.quarters;
+      } else {
+        aVal = a[sort.column];
+        bVal = b[sort.column];
+      }
       return sort.ascending ? aVal - bVal : bVal - aVal;
     });
   };
@@ -683,7 +783,8 @@ function renderStatsLeaders(container) {
     return `<button class="leaders-expand-btn" onclick="toggleLeadersTable('${tableName}')">${isExpanded ? 'Show less' : `Show all (${totalCount})`}</button>`;
   };
 
-  const getDisplayCount = (tableName, totalCount) => tableState.expanded[tableName] ? totalCount : Math.min(5, totalCount);
+  const getDisplayCount = (tableName, totalCount) =>
+    tableState.expanded[tableName] ? totalCount : Math.min(5, totalCount);
 
   // Sort and prepare data for each table
   const scorersData = sortData(offensive.topScorersByTotal, 'scorers');
@@ -698,43 +799,59 @@ function renderStatsLeaders(container) {
       <div class="leaderboard-grid">
         <div class="leaderboard-card">
           <div class="leaderboard-header">Top Scorer</div>
-          ${offensive.topScorersByTotal.length > 0 ? `
+          ${
+            offensive.topScorersByTotal.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(offensive.topScorersByTotal[0].name)}</div>
               <div class="leaderboard-stat">${offensive.topScorersByTotal[0].goals} goals</div>
               <div class="leaderboard-detail">${offensive.topScorersByTotal[0].avg} per qtr · ${offensive.topScorersByTotal[0].quarters} qtrs</div>
             </div>
-          ` : '<div class="leaderboard-empty">No data yet</div>'}
+          `
+              : '<div class="leaderboard-empty">No data yet</div>'
+          }
         </div>
         <div class="leaderboard-card">
           <div class="leaderboard-header">Most Efficient</div>
-          ${offensive.topScorersByEfficiency.length > 0 ? `
+          ${
+            offensive.topScorersByEfficiency.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(offensive.topScorersByEfficiency[0].name)}</div>
               <div class="leaderboard-stat">${offensive.topScorersByEfficiency[0].avg} per qtr</div>
               <div class="leaderboard-detail">${offensive.topScorersByEfficiency[0].goals} goals · ${offensive.topScorersByEfficiency[0].quarters} qtrs</div>
             </div>
-          ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
+          `
+              : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`
+          }
         </div>
         <div class="leaderboard-card">
           <div class="leaderboard-header">Top Scoring Pair</div>
-          ${offensive.topScoringPairsByTotal.length > 0 ? `
+          ${
+            offensive.topScoringPairsByTotal.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(offensive.topScoringPairsByTotal[0].players[0].split(' ')[0])} & ${escapeHtml(offensive.topScoringPairsByTotal[0].players[1].split(' ')[0])}</div>
               <div class="leaderboard-stat">${offensive.topScoringPairsByTotal[0].goals} goals</div>
               <div class="leaderboard-detail">${offensive.topScoringPairsByTotal[0].avg} per qtr · ${offensive.topScoringPairsByTotal[0].quarters} qtrs</div>
             </div>
-          ` : '<div class="leaderboard-empty">No data yet</div>'}
+          `
+              : '<div class="leaderboard-empty">No data yet</div>'
+          }
         </div>
         <div class="leaderboard-card">
           <div class="leaderboard-header">Efficient Pair</div>
-          ${offensive.topScoringPairsByEfficiency.length > 0 ? `
+          ${
+            offensive.topScoringPairsByEfficiency.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(offensive.topScoringPairsByEfficiency[0].players[0].split(' ')[0])} & ${escapeHtml(offensive.topScoringPairsByEfficiency[0].players[1].split(' ')[0])}</div>
               <div class="leaderboard-stat">${offensive.topScoringPairsByEfficiency[0].avg} per qtr</div>
               <div class="leaderboard-detail">${offensive.topScoringPairsByEfficiency[0].goals} goals · ${offensive.topScoringPairsByEfficiency[0].quarters} qtrs</div>
             </div>
-          ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
+          `
+              : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`
+          }
         </div>
       </div>
     </div>
@@ -745,43 +862,59 @@ function renderStatsLeaders(container) {
       <div class="leaderboard-grid">
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defender</div>
-          ${defensive.topDefendersByTotal.length > 0 ? `
+          ${
+            defensive.topDefendersByTotal.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(defensive.topDefendersByTotal[0].name)}</div>
               <div class="leaderboard-stat">${defensive.topDefendersByTotal[0].avg} GA/qtr</div>
               <div class="leaderboard-detail">${defensive.topDefendersByTotal[0].goalsAgainst} conceded · ${defensive.topDefendersByTotal[0].quarters} qtrs</div>
             </div>
-          ` : '<div class="leaderboard-empty">No data yet</div>'}
+          `
+              : '<div class="leaderboard-empty">No data yet</div>'
+          }
         </div>
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Most Efficient</div>
-          ${defensive.topDefendersByEfficiency.length > 0 ? `
+          ${
+            defensive.topDefendersByEfficiency.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(defensive.topDefendersByEfficiency[0].name)}</div>
               <div class="leaderboard-stat">${defensive.topDefendersByEfficiency[0].avg} GA/qtr</div>
               <div class="leaderboard-detail">${defensive.topDefendersByEfficiency[0].goalsAgainst} conceded · ${defensive.topDefendersByEfficiency[0].quarters} qtrs</div>
             </div>
-          ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
+          `
+              : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`
+          }
         </div>
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Top Defensive Pair</div>
-          ${defensive.topDefensivePairsByTotal.length > 0 ? `
+          ${
+            defensive.topDefensivePairsByTotal.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(defensive.topDefensivePairsByTotal[0].players[0].split(' ')[0])} & ${escapeHtml(defensive.topDefensivePairsByTotal[0].players[1].split(' ')[0])}</div>
               <div class="leaderboard-stat">${defensive.topDefensivePairsByTotal[0].avg} GA/qtr</div>
               <div class="leaderboard-detail">${defensive.topDefensivePairsByTotal[0].goalsAgainst} conceded · ${defensive.topDefensivePairsByTotal[0].quarters} qtrs</div>
             </div>
-          ` : '<div class="leaderboard-empty">No data yet</div>'}
+          `
+              : '<div class="leaderboard-empty">No data yet</div>'
+          }
         </div>
         <div class="leaderboard-card defensive">
           <div class="leaderboard-header">Efficient Pair</div>
-          ${defensive.topDefensivePairsByEfficiency.length > 0 ? `
+          ${
+            defensive.topDefensivePairsByEfficiency.length > 0
+              ? `
             <div class="leaderboard-player">
               <div class="leaderboard-name">${escapeHtml(defensive.topDefensivePairsByEfficiency[0].players[0].split(' ')[0])} & ${escapeHtml(defensive.topDefensivePairsByEfficiency[0].players[1].split(' ')[0])}</div>
               <div class="leaderboard-stat">${defensive.topDefensivePairsByEfficiency[0].avg} GA/qtr</div>
               <div class="leaderboard-detail">${defensive.topDefensivePairsByEfficiency[0].goalsAgainst} conceded · ${defensive.topDefensivePairsByEfficiency[0].quarters} qtrs</div>
             </div>
-          ` : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`}
+          `
+              : `<div class="leaderboard-empty">Min ${minQuarters} qtrs required</div>`
+          }
         </div>
       </div>
     </div>
@@ -789,7 +922,9 @@ function renderStatsLeaders(container) {
     <!-- All Scorers List -->
     <div class="stats-section">
       <div class="stats-section-title">All Scorers</div>
-      ${scorersData.length > 0 ? `
+      ${
+        scorersData.length > 0
+          ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
@@ -798,7 +933,10 @@ function renderStatsLeaders(container) {
             ${sortHeader('scorers', 'avg', 'Avg')}
             ${sortHeader('scorers', 'quarters', 'Qtrs')}
           </div>
-          ${scorersData.slice(0, getDisplayCount('scorers', scorersData.length)).map((p, i) => `
+          ${scorersData
+            .slice(0, getDisplayCount('scorers', scorersData.length))
+            .map(
+              (p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.name)}</span>
@@ -806,16 +944,22 @@ function renderStatsLeaders(container) {
               <span class="col-avg">${p.avg}</span>
               <span class="col-quarters">${p.quarters}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
         ${expandButton('scorers', scorersData.length)}
-      ` : '<div class="empty-state"><p>No scorers yet</p></div>'}
+      `
+          : '<div class="empty-state"><p>No scorers yet</p></div>'
+      }
     </div>
 
     <!-- All Defenders List -->
     <div class="stats-section">
       <div class="stats-section-title">All Defenders</div>
-      ${defendersData.length > 0 ? `
+      ${
+        defendersData.length > 0
+          ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
@@ -824,7 +968,10 @@ function renderStatsLeaders(container) {
             ${sortHeader('defenders', 'avg', 'Avg')}
             ${sortHeader('defenders', 'quarters', 'Qtrs')}
           </div>
-          ${defendersData.slice(0, getDisplayCount('defenders', defendersData.length)).map((p, i) => `
+          ${defendersData
+            .slice(0, getDisplayCount('defenders', defendersData.length))
+            .map(
+              (p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.name)}</span>
@@ -832,16 +979,22 @@ function renderStatsLeaders(container) {
               <span class="col-avg">${p.avg}</span>
               <span class="col-quarters">${p.quarters}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
         ${expandButton('defenders', defendersData.length)}
-      ` : '<div class="empty-state"><p>No defenders yet</p></div>'}
+      `
+          : '<div class="empty-state"><p>No defenders yet</p></div>'
+      }
     </div>
 
     <!-- Goaling Pair Averages -->
     <div class="stats-section">
       <div class="stats-section-title">Goaling Pair Averages</div>
-      ${goalingPairsData.length > 0 ? `
+      ${
+        goalingPairsData.length > 0
+          ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
@@ -850,7 +1003,10 @@ function renderStatsLeaders(container) {
             ${sortHeader('goalingPairs', 'goals', 'Goals')}
             ${sortHeader('goalingPairs', 'quarters', 'Qtrs')}
           </div>
-          ${goalingPairsData.slice(0, getDisplayCount('goalingPairs', goalingPairsData.length)).map((p, i) => `
+          ${goalingPairsData
+            .slice(0, getDisplayCount('goalingPairs', goalingPairsData.length))
+            .map(
+              (p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
@@ -858,16 +1014,22 @@ function renderStatsLeaders(container) {
               <span class="col-goals">${p.goals}</span>
               <span class="col-quarters">${p.quarters}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
         ${expandButton('goalingPairs', goalingPairsData.length)}
-      ` : '<div class="empty-state"><p>No goaling pairs yet</p></div>'}
+      `
+          : '<div class="empty-state"><p>No goaling pairs yet</p></div>'
+      }
     </div>
 
     <!-- Defending Pair Averages -->
     <div class="stats-section">
       <div class="stats-section-title">Defending Pair Averages</div>
-      ${defendingPairsData.length > 0 ? `
+      ${
+        defendingPairsData.length > 0
+          ? `
         <div class="scorers-table">
           <div class="scorers-table-header">
             <span class="col-rank">#</span>
@@ -876,7 +1038,10 @@ function renderStatsLeaders(container) {
             ${sortHeader('defendingPairs', 'goalsAgainst', 'GA')}
             ${sortHeader('defendingPairs', 'quarters', 'Qtrs')}
           </div>
-          ${defendingPairsData.slice(0, getDisplayCount('defendingPairs', defendingPairsData.length)).map((p, i) => `
+          ${defendingPairsData
+            .slice(0, getDisplayCount('defendingPairs', defendingPairsData.length))
+            .map(
+              (p, i) => `
             <div class="scorers-table-row ${i === 0 ? 'top' : ''}">
               <span class="col-rank">${i + 1}</span>
               <span class="col-name">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
@@ -884,16 +1049,20 @@ function renderStatsLeaders(container) {
               <span class="col-goalsAgainst">${p.goalsAgainst}</span>
               <span class="col-quarters">${p.quarters}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
         ${expandButton('defendingPairs', defendingPairsData.length)}
-      ` : '<div class="empty-state"><p>No defending pairs yet</p></div>'}
+      `
+          : '<div class="empty-state"><p>No defending pairs yet</p></div>'
+      }
     </div>
   `;
 }
 
 // Sort leaders table by column
-window.sortLeadersTable = function(tableName, column) {
+window.sortLeadersTable = function (tableName, column) {
   const sort = state.leadersTableState.sort[tableName];
   if (sort.column === column) {
     sort.ascending = !sort.ascending;
@@ -901,7 +1070,7 @@ window.sortLeadersTable = function(tableName, column) {
     sort.column = column;
     // For defensive stats, ascending is better (lower = better), except quarters
     if (tableName === 'defenders' || tableName === 'defendingPairs') {
-      sort.ascending = (column === 'quarters') ? false : true;
+      sort.ascending = column === 'quarters' ? false : true;
     } else {
       sort.ascending = false;
     }
@@ -911,7 +1080,7 @@ window.sortLeadersTable = function(tableName, column) {
 };
 
 // Toggle expand/collapse for leaders table
-window.toggleLeadersTable = function(tableName) {
+window.toggleLeadersTable = function (tableName) {
   state.leadersTableState.expanded[tableName] = !state.leadersTableState.expanded[tableName];
   const container = document.getElementById('stats-tab-content');
   if (container) renderStatsLeaders(container);
@@ -925,7 +1094,9 @@ function renderStatsCombinations(container) {
     <!-- Attacking Units -->
     <div class="stats-section">
       <div class="stats-section-title">Attacking Units (GS-GA-WA-C)</div>
-      ${attackingUnits.length > 0 ? `
+      ${
+        attackingUnits.length > 0
+          ? `
         <div class="units-table">
           <div class="units-table-header">
             <span class="col-players">Players</span>
@@ -933,7 +1104,10 @@ function renderStatsCombinations(container) {
             <span class="col-gf">GF/Q</span>
             <span class="col-pm">+/-</span>
           </div>
-          ${attackingUnits.slice(0, 8).map((u, i) => `
+          ${attackingUnits
+            .slice(0, 8)
+            .map(
+              (u, i) => `
             <div class="units-table-row ${i === 0 ? 'best' : ''}">
               <span class="col-players">
                 <span class="unit-player">${escapeHtml(u.players.GS.split(' ')[0])}</span>
@@ -945,15 +1119,21 @@ function renderStatsCombinations(container) {
               <span class="col-gf text-success">${u.avgFor}</span>
               <span class="col-pm ${u.plusMinus >= 0 ? 'positive' : 'negative'}">${u.plusMinus >= 0 ? '+' : ''}${u.plusMinus}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
-      ` : `<div class="empty-state"><p>Min ${minQuarters} quarters together required</p></div>`}
+      `
+          : `<div class="empty-state"><p>Min ${minQuarters} quarters together required</p></div>`
+      }
     </div>
 
     <!-- Defensive Units -->
     <div class="stats-section">
       <div class="stats-section-title">Defensive Units (GK-GD-WD-C)</div>
-      ${defensiveUnits.length > 0 ? `
+      ${
+        defensiveUnits.length > 0
+          ? `
         <div class="units-table">
           <div class="units-table-header">
             <span class="col-players">Players</span>
@@ -961,7 +1141,10 @@ function renderStatsCombinations(container) {
             <span class="col-ga">GA/Q</span>
             <span class="col-pm">+/-</span>
           </div>
-          ${defensiveUnits.slice(0, 8).map((u, i) => `
+          ${defensiveUnits
+            .slice(0, 8)
+            .map(
+              (u, i) => `
             <div class="units-table-row ${i === 0 ? 'best' : ''}">
               <span class="col-players">
                 <span class="unit-player">${escapeHtml(u.players.GK.split(' ')[0])}</span>
@@ -973,9 +1156,13 @@ function renderStatsCombinations(container) {
               <span class="col-ga text-error">${u.avgAgainst}</span>
               <span class="col-pm ${u.plusMinus >= 0 ? 'positive' : 'negative'}">${u.plusMinus >= 0 ? '+' : ''}${u.plusMinus}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
-      ` : `<div class="empty-state"><p>Min ${minQuarters} quarters together required</p></div>`}
+      `
+          : `<div class="empty-state"><p>Min ${minQuarters} quarters together required</p></div>`
+      }
     </div>
 
     <!-- Position Pairings -->
@@ -986,25 +1173,43 @@ function renderStatsCombinations(container) {
         <!-- Offensive Pairings -->
         <div class="pairings-column">
           <div class="pairings-header">Offensive</div>
-          ${pairings.offensive.length > 0 ? pairings.offensive.slice(0, 5).map(p => `
+          ${
+            pairings.offensive.length > 0
+              ? pairings.offensive
+                  .slice(0, 5)
+                  .map(
+                    (p) => `
             <div class="pairing-row">
               <span class="pairing-pos">${escapeHtml(p.positions)}</span>
               <span class="pairing-names">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
               <span class="pairing-stat text-success">${p.avgFor} GF/Q</span>
             </div>
-          `).join('') : '<div class="pairing-empty">No data</div>'}
+          `
+                  )
+                  .join('')
+              : '<div class="pairing-empty">No data</div>'
+          }
         </div>
 
         <!-- Defensive Pairings -->
         <div class="pairings-column">
           <div class="pairings-header">Defensive</div>
-          ${pairings.defensive.length > 0 ? pairings.defensive.slice(0, 5).map(p => `
+          ${
+            pairings.defensive.length > 0
+              ? pairings.defensive
+                  .slice(0, 5)
+                  .map(
+                    (p) => `
             <div class="pairing-row">
               <span class="pairing-pos">${escapeHtml(p.positions)}</span>
               <span class="pairing-names">${escapeHtml(p.players[0].split(' ')[0])} & ${escapeHtml(p.players[1].split(' ')[0])}</span>
               <span class="pairing-stat text-error">${p.avgAgainst} GA/Q</span>
             </div>
-          `).join('') : '<div class="pairing-empty">No data</div>'}
+          `
+                  )
+                  .join('')
+              : '<div class="pairing-empty">No data</div>'
+          }
         </div>
       </div>
     </div>
@@ -1018,8 +1223,8 @@ function renderStatsAttendance(container) {
     return;
   }
 
-  const players = team.players.filter(p => !p.fillIn);
-  const games = team.games.filter(g => g.availablePlayerIDs || g.lineup);
+  const players = team.players.filter((p) => !p.fillIn);
+  const games = team.games.filter((g) => g.availablePlayerIDs || g.lineup);
 
   if (games.length === 0) {
     container.innerHTML = '<div class="empty-state"><p>No games with attendance data yet</p></div>';
@@ -1027,47 +1232,50 @@ function renderStatsAttendance(container) {
   }
 
   // Calculate attendance stats per player
-  const attendanceStats = players.map(player => {
-    let available = 0;
-    let played = 0;
+  const attendanceStats = players
+    .map((player) => {
+      let available = 0;
+      let played = 0;
 
-    games.forEach(game => {
-      // Check if player was available
-      const wasAvailable = game.availablePlayerIDs?.includes(player.id);
-      if (wasAvailable) available++;
+      games.forEach((game) => {
+        // Check if player was available
+        const wasAvailable = game.availablePlayerIDs?.includes(player.id);
+        if (wasAvailable) available++;
 
-      // Check if player actually played (in any quarter lineup)
-      if (game.lineup) {
-        const playedInGame = ['Q1', 'Q2', 'Q3', 'Q4'].some(q => {
-          const qData = game.lineup[q] || {};
-          return Object.values(qData).includes(player.name);
-        });
-        if (playedInGame) played++;
-      }
-    });
+        // Check if player actually played (in any quarter lineup)
+        if (game.lineup) {
+          const playedInGame = ['Q1', 'Q2', 'Q3', 'Q4'].some((q) => {
+            const qData = game.lineup[q] || {};
+            return Object.values(qData).includes(player.name);
+          });
+          if (playedInGame) played++;
+        }
+      });
 
-    const attendanceRate = games.length > 0 ? Math.round((available / games.length) * 100) : 0;
-    const playedRate = games.length > 0 ? Math.round((played / games.length) * 100) : 0;
+      const attendanceRate = games.length > 0 ? Math.round((available / games.length) * 100) : 0;
+      const playedRate = games.length > 0 ? Math.round((played / games.length) * 100) : 0;
 
-    return {
-      id: player.id,
-      name: player.name,
-      available,
-      played,
-      totalGames: games.length,
-      attendanceRate,
-      playedRate
-    };
-  }).sort((a, b) => b.attendanceRate - a.attendanceRate);
+      return {
+        id: player.id,
+        name: player.name,
+        available,
+        played,
+        totalGames: games.length,
+        attendanceRate,
+        playedRate,
+      };
+    })
+    .sort((a, b) => b.attendanceRate - a.attendanceRate);
 
   // Calculate team averages
-  const avgAttendance = attendanceStats.length > 0
-    ? Math.round(attendanceStats.reduce((sum, p) => sum + p.attendanceRate, 0) / attendanceStats.length)
-    : 0;
+  const avgAttendance =
+    attendanceStats.length > 0
+      ? Math.round(attendanceStats.reduce((sum, p) => sum + p.attendanceRate, 0) / attendanceStats.length)
+      : 0;
 
   // Find most/least reliable
-  const mostReliable = attendanceStats.filter(p => p.attendanceRate >= 80);
-  const needsAttention = attendanceStats.filter(p => p.attendanceRate < 50 && p.totalGames >= 2);
+  const mostReliable = attendanceStats.filter((p) => p.attendanceRate >= 80);
+  const needsAttention = attendanceStats.filter((p) => p.attendanceRate < 50 && p.totalGames >= 2);
 
   container.innerHTML = `
     <!-- Attendance Overview -->
@@ -1098,7 +1306,9 @@ function renderStatsAttendance(container) {
           <span class="att-col-rate">Available</span>
           <span class="att-col-bar">Trend</span>
         </div>
-        ${attendanceStats.map(p => `
+        ${attendanceStats
+          .map(
+            (p) => `
           <div class="attendance-row">
             <span class="att-col-name">${escapeHtml(p.name.split(' ')[0])}</span>
             <span class="att-col-rate ${p.attendanceRate >= 80 ? 'high' : p.attendanceRate < 50 ? 'low' : ''}">${p.available}/${p.totalGames}</span>
@@ -1109,25 +1319,35 @@ function renderStatsAttendance(container) {
               <span class="attendance-percent">${p.attendanceRate}%</span>
             </span>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     </div>
 
-    ${needsAttention.length > 0 ? `
+    ${
+      needsAttention.length > 0
+        ? `
     <!-- Needs Attention -->
     <div class="stats-section">
       <div class="stats-section-title">Needs Follow-up</div>
       <div class="attention-list">
-        ${needsAttention.map(p => `
+        ${needsAttention
+          .map(
+            (p) => `
           <div class="attention-item">
             <span class="attention-name">${escapeHtml(p.name)}</span>
             <span class="attention-stat">${p.attendanceRate}% attendance (${p.available}/${p.totalGames} games)</span>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
       <p class="attention-note">These players have attended less than 50% of games</p>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 }
 
@@ -1138,8 +1358,8 @@ function renderStatsPositions(container) {
     return;
   }
 
-  const players = team.players.filter(p => !p.fillIn);
-  const games = team.games.filter(g => g.lineup && g.status === 'normal');
+  const players = team.players.filter((p) => !p.fillIn);
+  const games = team.games.filter((g) => g.lineup && g.status === 'normal');
 
   if (games.length === 0) {
     container.innerHTML = '<div class="empty-state"><p>No completed games yet</p></div>';
@@ -1149,58 +1369,66 @@ function renderStatsPositions(container) {
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
 
   // Calculate position tracking for each player
-  const positionStats = players.map(player => {
-    const positionCounts = {
-      GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0
-    };
-    let totalQuarters = 0;
-    let offQuarters = 0;
-    let captainCount = 0;
+  const positionStats = players
+    .map((player) => {
+      const positionCounts = {
+        GS: 0,
+        GA: 0,
+        WA: 0,
+        C: 0,
+        WD: 0,
+        GD: 0,
+        GK: 0,
+      };
+      let totalQuarters = 0;
+      let offQuarters = 0;
+      let captainCount = 0;
 
-    games.forEach(game => {
-      if (!game.lineup) return;
+      games.forEach((game) => {
+        if (!game.lineup) return;
 
-      let playedInGame = false;
-      let quartersOnCourt = 0;
+        let playedInGame = false;
+        let quartersOnCourt = 0;
 
-      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(quarter => {
-        const qData = game.lineup[quarter];
-        if (!qData) return;
+        ['Q1', 'Q2', 'Q3', 'Q4'].forEach((quarter) => {
+          const qData = game.lineup[quarter];
+          if (!qData) return;
 
-        let playedThisQuarter = false;
-        positions.forEach(pos => {
-          if (qData[pos] === player.name) {
-            positionCounts[pos]++;
-            totalQuarters++;
-            playedThisQuarter = true;
-            playedInGame = true;
-            quartersOnCourt++;
-          }
+          let playedThisQuarter = false;
+          positions.forEach((pos) => {
+            if (qData[pos] === player.name) {
+              positionCounts[pos]++;
+              totalQuarters++;
+              playedThisQuarter = true;
+              playedInGame = true;
+              quartersOnCourt++;
+            }
+          });
         });
+
+        // Count quarters off for games where the player was selected
+        if (playedInGame) {
+          offQuarters += 4 - quartersOnCourt;
+        }
+
+        // Count captain assignments
+        if (game.captain === player.name) {
+          captainCount++;
+        }
       });
 
-      // Count quarters off for games where the player was selected
-      if (playedInGame) {
-        offQuarters += (4 - quartersOnCourt);
-      }
-
-      // Count captain assignments
-      if (game.captain === player.name) {
-        captainCount++;
-      }
-    });
-
-    return {
-      id: player.id,
-      name: player.name,
-      favPosition: player.favPosition,
-      positionCounts,
-      totalQuarters,
-      offQuarters,
-      captainCount,
-      positionsPlayed: positions.filter(p => positionCounts[p] > 0).length
-    };
-  }).sort((a, b) => b.totalQuarters - a.totalQuarters);
+      return {
+        id: player.id,
+        name: player.name,
+        favPosition: player.favPosition,
+        positionCounts,
+        totalQuarters,
+        offQuarters,
+        captainCount,
+        positionsPlayed: positions.filter((p) => positionCounts[p] > 0).length,
+      };
+    })
+    .sort((a, b) => b.totalQuarters - a.totalQuarters);
 
   // Calculate total possible quarters
   const totalPossibleQuarters = games.length * 4;
@@ -1215,33 +1443,41 @@ function renderStatsPositions(container) {
         <div class="position-grid">
           <!-- Header Row -->
           <div class="pos-grid-header pos-grid-name">Player</div>
-          ${positions.map(pos => `
+          ${positions
+            .map(
+              (pos) => `
             <div class="pos-grid-header pos-grid-pos">${escapeHtml(pos)}</div>
-          `).join('')}
+          `
+            )
+            .join('')}
           <div class="pos-grid-header pos-grid-pos pos-grid-off">Off</div>
           <div class="pos-grid-header pos-grid-pos pos-grid-capt">C</div>
           <div class="pos-grid-header pos-grid-total">Total</div>
 
           <!-- Player Rows -->
-          ${positionStats.map(player => {
-            const hasGaps = player.positionsPlayed < 7;
-            return `
+          ${positionStats
+            .map((player) => {
+              const hasGaps = player.positionsPlayed < 7;
+              return `
               <div class="pos-grid-name ${hasGaps ? 'needs-exposure' : ''}">${escapeHtml(player.name.split(' ')[0])}</div>
-              ${positions.map(pos => {
-                const count = player.positionCounts[pos];
-                const favPositions = normalizeFavPositions(player.favPosition);
-                const isFav = favPositions.includes(pos);
-                return `
+              ${positions
+                .map((pos) => {
+                  const count = player.positionCounts[pos];
+                  const favPositions = normalizeFavPositions(player.favPosition);
+                  const isFav = favPositions.includes(pos);
+                  return `
                   <div class="pos-grid-cell ${count > 0 ? 'played' : 'unplayed'} ${isFav ? 'favorite' : ''}">
                     ${count > 0 ? count : '—'}
                   </div>
                 `;
-              }).join('')}
+                })
+                .join('')}
               <div class="pos-grid-cell pos-grid-off-cell ${player.offQuarters > 0 ? 'has-off' : 'unplayed'}">${player.offQuarters > 0 ? player.offQuarters : '—'}</div>
               <div class="pos-grid-cell pos-grid-capt-cell ${player.captainCount > 0 ? 'has-captain' : 'unplayed'}">${player.captainCount > 0 ? player.captainCount : '—'}</div>
               <div class="pos-grid-total">${player.totalQuarters}</div>
             `;
-          }).join('')}
+            })
+            .join('')}
         </div>
       </div>
 
@@ -1265,50 +1501,64 @@ function renderStatsPositions(container) {
     <!-- Development Insights -->
     <div class="stats-section">
       <div class="stats-section-title">Development Insights</div>
-      ${positionStats.filter(p => p.positionsPlayed < 7).length > 0 ? `
+      ${
+        positionStats.filter((p) => p.positionsPlayed < 7).length > 0
+          ? `
         <div class="insight-box warning">
           <div class="insight-title">Players Needing Position Exposure</div>
           <div class="insight-list">
-            ${positionStats.filter(p => p.positionsPlayed < 7).map(player => {
-              const missingPositions = positions.filter(pos => player.positionCounts[pos] === 0);
-              return `
+            ${positionStats
+              .filter((p) => p.positionsPlayed < 7)
+              .map((player) => {
+                const missingPositions = positions.filter((pos) => player.positionCounts[pos] === 0);
+                return `
                 <div class="insight-item">
                   <span class="insight-name">${escapeHtml(player.name)}</span>
                   <span class="insight-detail">Needs: ${missingPositions.join(', ')}</span>
                 </div>
               `;
-            }).join('')}
+              })
+              .join('')}
           </div>
         </div>
-      ` : `
+      `
+          : `
         <div class="insight-box success">
           <div class="insight-title">✓ Great work!</div>
           <p>All players have experienced every position this season</p>
         </div>
-      `}
+      `
+      }
 
-      ${positionStats.filter(p => p.totalQuarters < (totalPossibleQuarters / players.length) * 0.7).length > 0 ? `
+      ${
+        positionStats.filter((p) => p.totalQuarters < (totalPossibleQuarters / players.length) * 0.7).length > 0
+          ? `
         <div class="insight-box info">
           <div class="insight-title">Playing Time Watch</div>
           <div class="insight-list">
-            ${positionStats.filter(p => p.totalQuarters < (totalPossibleQuarters / players.length) * 0.7).map(player => {
-              const avgQuarters = Math.round(totalPossibleQuarters / players.length);
-              return `
+            ${positionStats
+              .filter((p) => p.totalQuarters < (totalPossibleQuarters / players.length) * 0.7)
+              .map((player) => {
+                const avgQuarters = Math.round(totalPossibleQuarters / players.length);
+                return `
                 <div class="insight-item">
                   <span class="insight-name">${escapeHtml(player.name)}</span>
                   <span class="insight-detail">${player.totalQuarters} quarters (avg: ${avgQuarters})</span>
                 </div>
               `;
-            }).join('')}
+              })
+              .join('')}
           </div>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   `;
 }
 
 // showMetricDetail — referenced in onclick but not yet implemented
-window.showMetricDetail = function(metric) {
+window.showMetricDetail = function (metric) {
   // Form detail view
   if (metric === 'form') {
     const { advanced } = state.analytics;
@@ -1321,13 +1571,19 @@ window.showMetricDetail = function(metric) {
     modalTitle.textContent = 'Recent Form';
     modalBody.innerHTML = `
       <div class="form-detail">
-        ${advanced.gameResults.slice(-5).reverse().map(g => `
+        ${advanced.gameResults
+          .slice(-5)
+          .reverse()
+          .map(
+            (g) => `
           <div class="form-detail-row">
             <span class="form-badge ${g.result === 'W' ? 'win' : g.result === 'L' ? 'loss' : 'draw'}">${g.result}</span>
             <span class="form-detail-info">R${escapeHtml(g.round)} vs ${escapeHtml(g.opponent)}</span>
             <span class="form-detail-score">${g.us}-${g.them}</span>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `;
     modalFooter.innerHTML = '<button class="btn btn-primary" onclick="closeModal()">Close</button>';

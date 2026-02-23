@@ -1,0 +1,329 @@
+/* ========================================
+   MODAL (iOS-style bottom sheet)
+   ======================================== */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 0;
+}
+
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  width: 100%;
+  max-width: 430px;
+  max-height: calc(100vh - var(--safe-top) - 20px);
+  overflow: hidden;
+  animation: modalEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes modalEnter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  min-height: 56px;
+  border-bottom: 1px solid var(--border-light);
+  position: relative;
+}
+
+/* iOS-style drag indicator */
+.modal-header::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 5px;
+  background: var(--gray-600);
+  border-radius: var(--radius-full);
+}
+
+.modal-header h3 {
+  padding-top: 8px;
+}
+
+.modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 55vh;
+}
+
+.modal-footer {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  padding-bottom: calc(var(--space-lg) + var(--safe-bottom));
+  border-top: 1px solid var(--border-light);
+}
+
+.modal-footer .btn {
+  flex: 1;
+  min-height: var(--touch-target);
+}
+
+/* ========================================
+   PLAYER DETAIL MODAL
+   ======================================== */
+
+.player-detail-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.player-detail-tab {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-detail-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.player-tab-content {
+  display: none;
+}
+
+.player-tab-content.active {
+  display: block;
+}
+
+.player-edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Read-only view helpers */
+body.read-only .player-edit-actions,
+body.read-only #add-team-btn,
+body.read-only [data-admin-only] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Hide small inline add buttons and settings in read-only view */
+body.read-only .btn.btn-sm,
+body.read-only .top-bar .icon-btn[onclick*='openTeamSettings'],
+body.read-only .top-bar .icon-btn[onclick*='openGameSettings'] {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Make position slots non-interactive in read-only mode */
+body.read-only .position-slot {
+  pointer-events: none !important;
+  opacity: 0.95;
+}
+
+/* Disable stepper buttons & inputs in read-only mode */
+body.read-only .score-stepper .stepper-btn,
+body.read-only .score-stepper .scoring-input {
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+}
+
+/* Read-only pill (small indicator in top bar) */
+.read-only-pill {
+  display: inline-block;
+  margin-left: 12px;
+  background: rgba(125, 90, 255, 0.12);
+  color: #7c3aed;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  border: 1px solid rgba(124, 58, 237, 0.12);
+}
+.read-only-pill[title] {
+  cursor: default;
+}
+body.read-only .read-only-pill {
+  display: inline-block;
+}
+
+/* Disable availability toggles in read-only mode */
+body.read-only .availability-checkbox {
+  pointer-events: none !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.player-edit-actions .btn {
+  flex: 1;
+}
+
+.player-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.player-stat-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-sm);
+  text-align: center;
+}
+
+.player-stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-400);
+}
+
+.player-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.player-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.player-positions-section {
+  margin-bottom: var(--space-lg);
+}
+
+.positions-breakdown {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.position-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+.position-name {
+  width: 30px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--primary-400);
+}
+
+.position-bar-container {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.position-bar {
+  height: 100%;
+  background: var(--primary-500);
+  border-radius: 4px;
+}
+
+.position-count {
+  width: 24px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.player-games-section {
+  margin-bottom: var(--space-md);
+}
+
+.player-games-list {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.player-game-row {
+  display: grid;
+  grid-template-columns: 35px 1fr 60px 65px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.8rem;
+  align-items: center;
+}
+
+.player-game-row:last-child {
+  border-bottom: none;
+}
+
+.game-round {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.game-opponent {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-position {
+  color: var(--primary-400);
+  font-weight: 500;
+  font-size: 0.7rem;
+}
+
+.game-goals {
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.game-goals.scored {
+  color: var(--success);
+  font-weight: 600;
+}

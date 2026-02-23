@@ -1,0 +1,192 @@
+/* ========================================
+   DESIGN SYSTEM - Team Manager
+   ======================================== */
+
+/* CSS Custom Properties */
+:root {
+  /* Colors - Purple theme */
+  --primary-50: #faf5ff;
+  --primary-100: #f3e8ff;
+  --primary-200: #e9d5ff;
+  --primary-300: #d8b4fe;
+  --primary-400: #c084fc;
+  --primary-500: #a855f7;
+  --primary-600: #9333ea;
+  --primary-700: #7c3aed;
+  --primary-800: #6b21a8;
+  --primary-900: #581c87;
+  --primary: #7c3aed; /* Alias for --primary-700, used by coach sections & AI spinners */
+
+  /* Neutrals */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #a1a1aa;
+  --gray-500: #71717a;
+  --gray-600: #52525b;
+  --gray-700: #3f3f46;
+  --gray-800: #27272a;
+  --gray-900: #18181b;
+  --gray-950: #09090b;
+
+  /* Semantic colors */
+  --success: #10b981;
+  --success-light: #d1fae5;
+  --warning: #f59e0b;
+  --warning-light: #fef3c7;
+  --error: #ef4444;
+  --error-light: #fee2e2;
+  --info: #3b82f6;
+  --info-light: #dbeafe;
+
+  /* Theme colors */
+  --bg-primary: var(--gray-950);
+  --bg-secondary: var(--gray-900);
+  --bg-tertiary: var(--gray-800);
+  --bg-card: rgba(39, 39, 42, 0.8);
+  --bg-card-hover: rgba(63, 63, 70, 0.8);
+
+  --text-primary: var(--gray-50);
+  --text-secondary: var(--gray-400);
+  --text-muted: var(--gray-500);
+
+  --border-color: var(--gray-700);
+  --border-light: var(--gray-800);
+
+  /* Spacing - optimized for iPhone 15 Pro (393pt width) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(168, 85, 247, 0.3);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Safe areas for iPhone 15 Pro (Dynamic Island + Home Indicator) */
+  --safe-top: env(safe-area-inset-top, 59px);
+  --safe-bottom: env(safe-area-inset-bottom, 34px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Touch targets - minimum 44pt for iOS */
+  --touch-target: 44px;
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  /* Optimize for iPhone 15 Pro - 393pt width */
+  max-width: 100vw;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+#app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Center on larger screens, full width on mobile */
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+/* Landscape phones: expand app to full width and use safe-area paddings */
+@media (orientation: landscape) and (max-width: 900px) {
+  #app {
+    max-width: 100vw;
+    margin: 0; /* fill the screen */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    border-radius: 0; /* remove rounded container look in full-bleed view */
+  }
+  .bottom-nav {
+    left: 0;
+    transform: none;
+    max-width: 100%;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.25rem;
+}
+h3 {
+  font-size: 1.125rem;
+}
+h4 {
+  font-size: 1rem;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}

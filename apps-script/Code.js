@@ -717,6 +717,34 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'batchLogClientMetrics':
+          // Batch metric logging — parses a JSON array of {name,value,teams,extra} objects
+          try {
+            var batchJson = e.parameter.metrics || '';
+            if (!batchJson) {
+              result = { success: false, error: 'metrics parameter is required' };
+            } else {
+              var batchItems = JSON.parse(batchJson);
+              if (!Array.isArray(batchItems)) {
+                result = { success: false, error: 'metrics must be a JSON array' };
+              } else {
+                var logged = 0;
+                for (var bi = 0; bi < batchItems.length; bi++) {
+                  var item = batchItems[bi];
+                  if (item && item.name) {
+                    logClientMetric(item.name, item.value || '', item.teams || '', item.extra || '');
+                    logged++;
+                  }
+                }
+                result = { success: true, logged: logged };
+              }
+            }
+          } catch (errBatch) {
+            Logger.log('batchLogClientMetrics error: ' + errBatch.message);
+            result = { success: false, error: errBatch.message };
+          }
+          break;
+
         default:
           result = { success: false, error: 'Unknown action: ' + action };
       }
@@ -2014,11 +2042,7 @@ function getTeamInfo(teamID, forceRefresh) {
       if (!name) return 'hazel-glen';
       var n = String(name).toLowerCase().trim();
       if (n.indexOf('hg ') === 0 || n.indexOf('hazel') === 0) return 'hazel-glen';
-      if (n.indexOf('dc') === 0 || n.indexOf('diamond') === 0 || n.indexOf('dandenong') === 0) return 'diamond-creek';
-      if (n.indexOf('eltham') === 0) return 'eltham';
-      if (n.indexOf('heat') === 0) return 'heat';
-      if (n.indexOf('hurstbridge') === 0) return 'hurstbridge';
-      if (n.indexOf('kilmore') === 0) return 'kilmore';
+      if (n.indexOf('dc') === 0 || n.indexOf('dandenong') === 0) return 'dcgarnets';
       if (n.indexOf('montmorency') === 0) return 'montmorency';
       if (n.indexOf('titans') === 0) return 'titans';
       // fallback: slugify first two words
@@ -2033,7 +2057,7 @@ function getTeamInfo(teamID, forceRefresh) {
       // Prefer PNG filenames — the client now uses `data/club-logos.json` for exact mapping.
       info.ourLogo = '/assets/team-logos/' + info.clubSlug + '.png';
       // Last-resort fallback kept for legacy filenames
-      if (!info.ourLogo) info.ourLogo = '/assets/team-logos/hazel-glen.png';
+      if (!info.ourLogo) info.ourLogo = '/assets/team-logos/hg13fury.png';
     }
 
     // If we have a Squadi config, try to enrich with fixture and ladder info
@@ -2671,308 +2695,9 @@ function getNetballKnowledgePreamble() {
 - Players who only play one position plateau faster
 - Rotate in low-stakes games, specialize in important games
 
-### Common Junior Netball Mistakes & Coaching Cues
-
-**Footwork Violations (Stepping):**
-- Most common penalty in junior netball - players landing on one foot then dragging/shuffling
-- Coaching cue: "1-2 land" (land on one foot, then the second, establish pivot foot)
-- Landing drill: catch and stick (freeze on landing, check pivot foot)
-- Players moving from basketball/soccer often step because those sports allow running with the ball
-- Re-landing (jumping and landing again while holding the ball) is also stepping
-
-**Contact & Obstruction:**
-- Obstruction: defender must be 0.9m (3 feet) from the player with the ball when defending the pass/shot
-- Coaching cue: "arms length plus" - stand an arm's length away, then add a bit more
-- Contact: any physical contact that interferes with an opponent's play
-- Junior players often lean in rather than staying on their feet - "stand tall, don't lean"
-- Blocking: moving into an opponent's path - teach players to move AROUND, not through
-
-**Offside:**
-- Each position is restricted to specific thirds/areas of the court
-- GS/GK: goal third only. GA/GD: goal third + centre third. WA/WD: centre third + goal third. C: all thirds
-- Transverse line rule: must have at least one foot grounded in their allowed area before moving into the next
-- Common error: WA drifting into the goal circle, C stepping over the goal line
-- Coaching cue: "check your lines" before centre passes
-
-**Held Ball:**
-- Player must release the ball within 3 seconds of catching it
-- Junior players often freeze when pressured - "catch, look, pass" rhythm
-- Coaching cue: "hot potato when pressured" - if no clear option, pass back to reset
-
-**Short Pass:**
-- The ball must travel through enough space for a third player to move through
-- Common in tight attacking play near the circle edge
-- Coaching cue: "make it a proper pass" - step and extend
-
-### Game Management & Tactics
-
-**Rotation Strategy:**
-- Development games (expected win): rotate freely, try new positions, give bench players more court time
-- Competitive games (close match): use strongest combinations, rotate strategically at quarter breaks
-- Close games: keep best defensive pair together in Q3-Q4 to protect leads
-- Behind by 5+ goals: consider switching to your best attacking lineup to chase, or use it as a development opportunity
-
-**Centre Pass Tactics:**
-- Alternating centre passes mean you get roughly half - maximize YOUR centre passes
-- Set plays: designated first pass target (usually WA or GA), backup option if primary is covered
-- On opposition centre pass: defensive pressure immediately, try to force a turnover early in the passage
-
-**Managing Score Blowouts:**
-- Winning big (10+ ahead): rotate players to new positions, practice plays, work on weaknesses. Don't humiliate the opposition
-- Losing big: focus on small wins ("win this quarter"), maintain effort, protect player confidence
-- Both: this is junior sport - development matters more than scoreline
-
-**Substitution Timing:**
-- Between quarters is the standard substitution point
-- Tactical subs: bring on a strong defensive pair when protecting a lead in Q4
-- Fatigue: watch for players bending over, slow recovery to centre position, poor decision-making
-- Injury: immediate substitution, no playing through injuries in junior sport
-
-**Momentum Shifts:**
-- 3+ unanswered goals = momentum swing. Call timeout (if allowed) or use the quarter break
-- Signs of lost momentum: rushed passes, panic shooting, defensive lapses
-- Reset strategies: slow the ball down, use safe passes, work back to basics
-
-### Age-Appropriate Coaching Drills
-
-**Footwork Drills (all ages):**
-- Ladder drills: quick feet through agility ladder, focus on ball of foot landing
-- 1-2 Landing: throw and catch with partner, land correctly each time (progress to movement)
-- Pivot practice: catch ball, establish pivot foot, practice pivoting to find passing options
-- Line work: practice stopping at transverse lines with correct footwork
-
-**Shooting Drills:**
-- Close-range repetition: start under the post, 10 shots each side (confidence builder)
-- Movement into circle: drive from circle edge, receive pass, shoot (game-realistic)
-- Rebounding: shooter and defender practice tips and rebounds (GS/GK contested work)
-- Goal circle movement: GS/GA practise creating space for each other (dodge and drive patterns)
-
-**Defensive Drills:**
-- Shadowing: defender follows attacker's movements without the ball (footwork and anticipation)
-- 3-feet marking: practice maintaining correct distance while arms-up defending
-- Intercept timing: read the passer's eyes and body, step to intercept (not lunge)
-- Recovery defence: starting behind the attacker, practice recovering defensive position
-
-**Passing Drills:**
-- Chest pass accuracy: target passing to a partner's hands at different distances
-- Lob over defender: with a passive defender in between, practice lobbed passes
-- Leading and driving: receiver drives to space, passer delivers ball ahead of the runner
-- Under pressure passing: add a defender to force quick, accurate passing decisions
-
-**Game Sense Activities:**
-- Small-sided games (4v4): reduced court, more touches per player, faster decision-making
-- Positional awareness: play with "zones" painted/coned on court, players must stay in their zone
-- Transition play: practice the fast break from defence to attack (GK → WD → C → WA → circle)
-- Decision-making games: 3v2 overload drills where attackers must read the defence and choose the best option
-
 ---
 
 `;
-}
-
-/**
- * Few-shot example for season insights endpoint.
- * Shows the model the expected tone, specificity, and data-grounded analysis.
- */
-function getSeasonInsightsExample() {
-  return `
-
-## EXAMPLE OUTPUT (for reference - adapt to actual data above)
-
-**Season Summary**
-The Thunder sit at 5W-2L-1D after 8 rounds, holding a strong +32 goal differential. After a rocky start (L in R1, D in R2), the team has found its rhythm with 5 straight wins. The average of 18.3 goals scored per game is well above the U13 benchmark, though conceding 14.1 per game suggests defensive tightening is the next step.
-
-**Key Strengths**
-- **Dominant GS-GA pairing:** Lily (42 goals, 4.2/quarter at GS) and Sophie (28 goals, 3.5/quarter at GA) combine for 8.8 goals/quarter when paired — the best attacking output in any combination
-- **Q1 dominance:** Team averages +2.8 differential in Q1, winning the first quarter in 7 of 8 games. Strong starts set the tone
-- **Defensive consistency from Mia-Zara pair:** When paired at GK-GD, they concede just 2.9 goals/quarter across 14 quarters together
-
-**Areas to Improve**
-- **Q3 slump:** Average differential drops to -0.4 in Q3 — the only negative quarter. Consider a stronger halftime routine and keeping best combinations through Q3
-- **Depth at WA:** Only Chloe has played WA regularly. When she's rested, attacking output drops 30%. Developing a second WA option is critical
-- **Goal distribution:** Lily scores 60% of all goals. If she's well-defended, the team struggles — R5 loss (12-18) saw Lily held to 4 goals
-
-**Lineup Recommendations**
-Keep the Lily-Sophie GS-GA pair for competitive games. Trial Emma at GA alongside Lily in development games to build a backup scoring option. The Mia-Zara defensive pair should be preserved for close matches.
-
-**Tactical Tips**
-- Use the strong Q1 to build leads, then protect with your best defensive pair in Q3 when focus typically drops
-- Against top-4 opponents, consider playing Sophie at WA to feed Lily, and try Emma at GA — this changes the attacking dynamic
-- Work on centre-pass conversion: currently scoring on 55% of own centre passes, target 65%+
-`;
-}
-
-/**
- * Few-shot example for game summary endpoint.
- */
-function getGameSummaryExample() {
-  return `
-
-## EXAMPLE OUTPUT (for reference - adapt to actual data above)
-
-**Match Summary**
-A Round 5 win against the Eagles (22-18, +4), with the Thunder winning Q1 7-4 (+3) and Q2 5-4 (+1), before the Eagles took Q3 6-4 (-2). The Thunder closed with a strong Q4, winning 6-4 to seal it. The cumulative scores at the end of each quarter were 7-4, 12-8, 16-14, 22-18 — so what looked comfortable was actually level at 16-14 heading into Q4. Against a 3rd-placed opponent, this is a quality win.
-
-**Scoring Breakdown**
-- **Lily** (GS all 4 quarters): 10 goals total — Q1: 4, Q2: 2, Q3: 1, Q4: 3. Scored 45% of the team's total output
-- **Sophie** (GA Q1-Q2, WA Q3-Q4): 5 goals in her 2 quarters at GA — Q1: 2, Q2: 3. Moved to WA for Q3-Q4 and didn't score (as expected)
-- **Emma** (GA Q3-Q4): 7 goals after coming in at GA — Q3: 3, Q4: 4. Her best output of the season
-- GS-GA pair Lily+Sophie produced 9 goals in Q1-Q2; Lily+Emma produced 8 in Q3-Q4. Both pairs were effective, with Emma's pairing slightly more balanced (Lily 4, Emma 7 vs Lily 6, Sophie 5)
-
-**Quarter-by-Quarter Analysis**
-- **Q1 (7-4, +3):** Lineup: GS Lily, GA Sophie, WA Chloe, C Ava, WD Ruby, GD Mia, GK Zara. Strongest quarter — Lily (4 goals) and Sophie (2) combined for 6 of 7. Defence conceded 4 with the Mia-Zara GD-GK pairing
-- **Q2 (5-4, +1):** Same lineup. Scoring dipped to 5 but defence held at 4 conceded. Sophie outscored Lily 3-2 this quarter
-- **Q3 (4-6, -2):** Lineup changes — Sophie moved to WA, Emma came in at GA, Ruby to GD, Mia to WD. This was the weakest quarter. Defence conceded 6 with the new GD-GK configuration (Ruby-Zara). The Mia-to-WD move disrupted the defensive structure
-- **Q4 (6-4, +2):** Emma stayed at GA, Mia moved back to GD. Defensive improvement (4 conceded vs 6 in Q3). Emma scored 4 goals — her strongest quarter. Lily added 3 at GS
-
-**Key Performers**
-- **Lily (GS, 4 quarters):** 10 goals and played the full game. Consistent across all quarters except Q3 (only 1 goal when the new GA was settling in). Backbone of the scoring output
-- **Emma (GA, Q3-Q4):** 7 goals in 2 quarters (3.5/quarter). Outscored Sophie's GA rate (2.5/quarter). Her introduction re-energised the attack in Q4
-- **Zara (GK, 4 quarters):** Played the full game at GK. Goals against: Q1 4, Q2 4, Q3 6, Q4 4. The Q3 spike coincided with Ruby replacing Mia at GD, not Zara's own performance
-- **Chloe (WA Q1-Q2, C Q3-Q4):** Played 4 quarters across 2 positions. The attacking unit scored 12 in her WA quarters vs 10 in her C quarters
-
-**Lineup & Rotation Analysis**
-Lily, Zara, and Chloe played all 4 quarters. Sophie played 4 quarters but changed position at half-time (GA → WA). The biggest impact was the defensive reshuffle in Q3: moving Mia from GD to WD and bringing Ruby in at GD correlated with conceding 6 goals (vs 4 in every other quarter). Restoring Mia to GD in Q4 immediately dropped conceded goals back to 4. Emma played 2 quarters and was highly productive.
-
-**Player Development Notes**
-- **Emma** played GA for the first time in Q3-Q4 and scored 7 goals. Her 3.5 goals/quarter at GA outperformed Sophie's 2.5/quarter. Worth trialling from the start in future games
-- **Ruby** had her first quarter at GD (Q3) but the defensive unit conceded 6 goals that quarter. The pairing of Ruby-Zara needs more time to develop communication
-
-**Areas to Work On**
-- **Q3 defensive vulnerability:** Conceded 6 goals in Q3, the only quarter lost. Directly linked to the GD change (Ruby replacing Mia). If Ruby is to develop at GD, consider pairing her with Mia at GK rather than disrupting the established Mia-Zara pairing
-- **GS scoring consistency:** Lily's Q3 dip (1 goal vs 2-4 in other quarters) coincided with Emma's first quarter at GA. Allow a settling-in period when introducing a new GA alongside Lily
-- **Midcourt transition:** Chloe's move from WA to C at half-time didn't noticeably affect scoring, but track this over more games to see if she's more effective feeding from WA
-`;
-}
-
-/**
- * Few-shot example for player report endpoint.
- */
-function getPlayerReportExample() {
-  return `
-
-## EXAMPLE OUTPUT (for reference - adapt to actual data above)
-
-**Season Summary**
-Sophie has been a key contributor across 7 games this season, demonstrating genuine versatility with time at GA, WA, and C. Her 18 total goals from GA make her the team's second-highest scorer, while her work at WA in recent rounds shows she can impact games without shooting. She's played 24 of a possible 28 quarters — one of the most reliable players on the roster.
-
-**Round-by-Round Performance**
-- R1 vs Eagles: Solid debut at GA with 3 goals. Found good space in the circle and linked well with Lily at GS
-- R2 vs Hawks: Quiet game (1 goal at GA). Was well-defended and struggled to find shooting opportunities
-- R3 vs Magpies: Bounced back with 4 goals including 2 in Q4 when the team needed them most. Showed composure
-- R5 vs Tigers: Tried WA for the first time — created 3 clear feeds to Lily's 5 goals that quarter. Natural feeder
-- R6 vs Lions: Mixed game across GA (Q1-Q2) and WA (Q3-Q4). The position switch mid-game disrupted her flow
-- R7 vs Panthers: Strong 4-goal game at GA. Best shooting accuracy of the season with confident circle movement
-
-**Strengths**
-- **Dual threat:** Can score (3.0 goals/quarter at GA) and feed (attacking unit scores 7.2/quarter with Sophie at WA)
-- **Big-game performer:** Scored 4 goals in both R3 and R7 against top-4 opponents
-- **Court awareness:** Reads the play well, finding space without the ball. Her movement off-ball draws defenders and creates opportunities for teammates
-
-**Development Areas**
-- **Consistency at GA:** Goals range from 1 to 4 per game — building a reliable baseline of 2-3 per game would boost confidence
-- **WA-to-circle transition:** When playing WA, sometimes drifts into the circle illegally. Needs to stay aware of the transverse line
-- **Defensive contribution:** When at GA, could do more to pressure the opposition GD on turnovers
-
-**Position Recommendation**
-Primary position should be GA — she has the shooting touch and the game sense to be a strong secondary scorer. Continue developing her at WA in lower-stakes games to build the feeding skill set. Long-term, she could become a complete GA who can both shoot and feed depending on what the team needs.
-
-**Goals for Next Games**
-- Aim for a consistent 2+ goals per quarter when at GA (she's capable, just needs consistency)
-- When at WA, practice the "deliver and hold" — feed the circle, then hold position at the edge rather than drifting in
-- Work on a go-to move in the circle: a strong dodge to the left to create separation from her defender
-`;
-}
-
-/**
- * Few-shot example for training focus endpoint.
- */
-function getTrainingFocusExample() {
-  return `
-
-## EXAMPLE OUTPUT (for reference - adapt to actual data above)
-
-**Team Focus Areas**
-- **Footwork under pressure (persistent issue):** Stepping was mentioned in R3, R5, and R7 coach notes — particularly for Chloe and Ruby. This is the #1 penalty source. Drill: "Catch and freeze" — pairs pass at increasing speed, receiver must land cleanly and hold. Progress to movement catches. 10 minutes at start of each training
-- **Q3 intensity drop:** The team has lost Q3 in 5 of 7 games (avg -1.2 differential). Suggest a high-intensity drill right before the Q3 simulation in training — "halftime reset" practice where players do 30 seconds of footwork, then immediately play a competitive 3-minute quarter
-- **Circle feeding accuracy:** Coach noted "passes going over Sophie's head" in R6 and "Lily couldn't reach the lob" in R7. Drill: target passing with a defender between — chest pass vs lob decision-making
-
-**Individual Focus Areas**
-- **Chloe (stepping):** Mentioned for footwork in 3 of last 4 games. Needs dedicated 1:1 landing technique work — "1-2 landing" drill with a coach checking pivot foot each catch. 5 minutes before/after training
-- **Emma (circle movement at GA):** Coach noted "stood still in the circle" in R6. Drill: "3-second rule" — must change position in circle every 3 seconds, practicing dodge-drive-offer patterns
-
-**Training Effectiveness**
-- The Feb 5 session on defensive positioning appears to have worked — Mia and Zara conceded 1 fewer goal/quarter in R6-R7 compared to R4-R5. Continue reinforcing
-- Despite the Feb 8 footwork session, stepping is still appearing for Chloe. She missed the Feb 12 session which covered advanced landing — recommend a catch-up session before the next game
-- Ruby attended all defensive sessions and her WD performance has improved noticeably (3 intercepts in R7, up from 0 in R4)
-
-**Priority This Week**
-1. **Footwork catch-up for Chloe:** She missed the key session and is still stepping. 10-minute 1:1 before Thursday's group training — focus on "catch, land, pivot" under pressure
-2. **Q3 simulation:** Run a competitive mini-game that simulates coming back from halftime. Players sit for 2 minutes, then immediately play a high-intensity 4-minute game. Build the habit of fast restarts
-`;
-}
-
-/**
- * Shared Gemini API caller. Uses systemInstruction for stable knowledge
- * and contents for per-request data. Handles errors and response extraction.
- * @param {string} systemPrompt - Stable context (netball knowledge preamble)
- * @param {string} userPrompt - Per-request data and instructions
- * @param {Object} [options] - { temperature: 0.7, maxOutputTokens: 2000 }
- * @returns {string} The generated text response
- */
-function callGeminiAPI(systemPrompt, userPrompt, options) {
-  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured in Script Properties');
-  }
-
-  var opts = options || {};
-  var temperature = opts.temperature !== undefined ? opts.temperature : 0.7;
-  var maxOutputTokens = opts.maxOutputTokens || 2000;
-
-  var payload = {
-    contents: [{ parts: [{ text: userPrompt }] }],
-    generationConfig: {
-      temperature: temperature,
-      maxOutputTokens: maxOutputTokens
-    }
-  };
-
-  if (systemPrompt) {
-    payload.systemInstruction = { parts: [{ text: systemPrompt }] };
-  }
-
-  var response = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey,
-    {
-      method: 'POST',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    }
-  );
-
-  var responseCode = response.getResponseCode();
-  var responseText = response.getContentText();
-
-  if (responseCode !== 200) {
-    Logger.log('Gemini API error: ' + responseCode + ' - ' + responseText);
-    try {
-      var errJson = JSON.parse(responseText);
-      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
-      throw new Error('Gemini: ' + errMsg);
-    } catch (parseErr) {
-      if (parseErr.message && parseErr.message.indexOf('Gemini:') === 0) throw parseErr;
-      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
-    }
-  }
-
-  var json = JSON.parse(responseText);
-  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
-    return json.candidates[0].content.parts[0].text;
-  } else {
-    throw new Error('Unexpected Gemini response format');
-  }
 }
 
 /**
@@ -2981,6 +2706,10 @@ function callGeminiAPI(systemPrompt, userPrompt, options) {
  * @returns {string} AI-generated insights in markdown format
  */
 function getAIInsightsWithAnalytics(analytics) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
 
   var teamName = analytics.teamName || 'Team';
   var record = analytics.record || {};
@@ -2992,12 +2721,10 @@ function getAIInsightsWithAnalytics(analytics) {
   var gameResults = analytics.gameResults || [];
   var players = analytics.players || [];
 
-  // Build system prompt (stable knowledge) and user prompt (per-request data)
-  var systemPrompt = 'You are an expert netball coach assistant analyzing ' + teamName + '. ' +
+  // Build comprehensive prompt with netball knowledge and team data
+  var prompt = 'You are an expert netball coach assistant analyzing ' + teamName + '. ' +
     'Use your netball knowledge to provide specific, actionable insights.\n\n' +
     getNetballKnowledgePreamble();
-
-  var prompt = '';
 
   // SECTION 1: Team Overview
   prompt += '## TEAM OVERVIEW\n';
@@ -3125,9 +2852,43 @@ function getAIInsightsWithAnalytics(analytics) {
   prompt += '**Lineup Recommendations**\n[Specific pairing or unit suggestions based on the combination data]\n\n';
   prompt += '**Tactical Tips**\n[2-3 actionable tips for the next game based on patterns in the data]';
 
-  prompt += getSeasonInsightsExample();
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
 
-  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 2000 });
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error: ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
 }
 
 /**
@@ -3136,6 +2897,11 @@ function getAIInsightsWithAnalytics(analytics) {
  * @returns {string} AI-generated game summary in markdown format
  */
 function getGameAIInsights(gameData) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
   var teamName = gameData.teamName || 'Team';
   var round = gameData.round || '?';
   var opponent = gameData.opponent || 'Opponent';
@@ -3146,10 +2912,10 @@ function getGameAIInsights(gameData) {
   var captain = gameData.captain;
   var location = gameData.location;
 
-  var systemPrompt = 'You are an expert netball coach assistant. Analyze this game for ' + teamName + ' and provide a detailed summary of the performance with specific player callouts.\n\n' +
-    getNetballKnowledgePreamble();
-
-  var prompt = '## GAME DATA\n\n';
+  // Build the prompt with netball knowledge
+  var prompt = 'You are an expert netball coach assistant. Analyze this game for ' + teamName + ' and provide a detailed summary of the performance with specific player callouts.\n\n' +
+    getNetballKnowledgePreamble() +
+    '## GAME DATA\n\n';
 
   // Game Overview
   prompt += '### GAME OVERVIEW\n';
@@ -3157,10 +2923,6 @@ function getGameAIInsights(gameData) {
   prompt += 'Final Score: ' + finalScore.us + ' - ' + finalScore.them + ' (' + result + ', diff: ' + (gameData.scoreDiff >= 0 ? '+' : '') + gameData.scoreDiff + ')\n';
   if (location) prompt += 'Location: ' + location + '\n';
   if (captain) prompt += 'Captain: ' + captain + '\n';
-  var oppDiff = gameData.opponentDifficulty;
-  if (oppDiff) {
-    prompt += 'Opponent ladder position: ' + oppDiff.position + ' of ' + oppDiff.totalTeams + ' teams (' + oppDiff.tier + ' tier)\n';
-  }
   prompt += '\n';
 
   // Quarter-by-Quarter Breakdown
@@ -3218,22 +2980,54 @@ function getGameAIInsights(gameData) {
 
   // Instructions
   prompt += '---\n';
-  prompt += 'Provide a detailed game summary in this exact format. EVERY statement must reference specific data from above (player names, goal tallies, quarter scores, positions played, lineup changes). Do NOT make general statements or assumptions beyond the data provided.\n\n';
-  prompt += '**Match Summary**\n[3-4 sentences covering: the final scoreline and margin, which quarters each team won/lost (cite the scores), any momentum shifts visible in the quarter-by-quarter scores, and the overall flow of the game. Reference specific quarter differentials.]\n\n';
-  prompt += '**Scoring Breakdown**\n[For each player who scored goals: name, how many goals, which position(s) they scored from, and in which quarters. Compare GS vs GA goal contribution. Note if any scorer played multiple shooting positions. Identify which shooting pair(s) were used and their combined output per quarter.]\n\n';
-  prompt += '**Quarter-by-Quarter Analysis**\n[Analyze EACH quarter separately (Q1, Q2, Q3, Q4): the score for that quarter, the full lineup used, who scored the goals, and how the defensive unit performed (goals conceded). Note any lineup changes between quarters and whether those changes correlated with scoring improvements or drops.]\n\n';
-  prompt += '**Key Performers**\n[3-4 bullet points. For scorers: cite exact goal tallies and positions. For midcourt/defence: cite quarters played, positions covered, and goals conceded by the defensive unit when they were on court. Highlight versatility (multiple positions) with specifics.]\n\n';
-  prompt += '**Lineup & Rotation Analysis**\n[Which players played all 4 quarters vs fewer? Which positions had the same player throughout vs rotations? Did any position changes between quarters correlate with changes in scoring or defensive performance? Cite the specific quarters and scores.]\n\n';
-  prompt += '**Player Development Notes**\n[2-3 notes about players who tried new positions (name the position and quarter), played limited minutes, or showed notable contributions. Cite the data.]\n\n';
-  prompt += '**Areas to Work On**\n[2-3 specific observations grounded in the data: e.g., weakest quarter and what happened in the lineup, goal distribution imbalances between GS/GA, or defensive vulnerabilities in specific quarters. Cite quarter scores and lineups.]';
+  prompt += 'Provide a game summary in this exact format (be specific with player names):\n\n';
+  prompt += '**Match Summary**\n[2-3 sentences summarizing the game flow - who controlled early, any momentum shifts, how it finished]\n\n';
+  prompt += '**Key Performers**\n[2-3 bullet points highlighting standout players by name with specific stats - goals scored, defensive efforts, versatility]\n\n';
+  prompt += '**Quarter Analysis**\n[Brief analysis of which quarters were strongest/weakest and why based on lineups]\n\n';
+  prompt += '**Tactical Observations**\n[2-3 observations about what worked well or could improve - specific to this game\'s lineup decisions]\n\n';
+  prompt += '**Player Development Notes**\n[1-2 notes about players who showed growth, tried new positions, or could be developed further]';
 
   if (coachNotes.length > 0) {
-    prompt += '\n\n**Coach\'s Notes Integration:** The coach recorded observations during the game (shown above). Weave these into the relevant sections — connect the coach\'s observations to the statistical data. For example, if the coach noted "stepping" in Q2 and the team conceded more goals in Q2, connect those dots.';
+    prompt += '\n\n**Important:** Incorporate the coach\'s notes into your analysis where relevant. Reference specific observations the coach made and connect them to the stats and lineup data.';
   }
 
-  prompt += getGameSummaryExample();
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1200
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
 
-  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 2500 });
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (game): ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
 }
 
 /**
@@ -3242,6 +3036,11 @@ function getGameAIInsights(gameData) {
  * @returns {string} AI-generated player summary in markdown format
  */
 function getPlayerAIInsights(playerData) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
   var playerName = playerData.name || 'Player';
   var teamName = playerData.teamName || 'Team';
   var isFillIn = playerData.fillIn || false;
@@ -3251,10 +3050,10 @@ function getPlayerAIInsights(playerData) {
   var gameHistory = playerData.gameHistory || [];
   var teamContext = playerData.teamContext || {};
 
-  var systemPrompt = 'You are an expert netball coach providing a personalized player development report for ' + playerName + ' from ' + teamName + '.\n\n' +
-    getNetballKnowledgePreamble();
-
-  var prompt = '## PLAYER DATA\n\n';
+  // Build prompt with netball knowledge
+  var prompt = 'You are an expert netball coach providing a personalized player development report for ' + playerName + ' from ' + teamName + '.\n\n' +
+    getNetballKnowledgePreamble() +
+    '## PLAYER DATA\n\n';
 
   // Player Overview
   prompt += '### PLAYER PROFILE\n';
@@ -3341,9 +3140,43 @@ function getPlayerAIInsights(playerData) {
   prompt += '**Position Recommendation**\n[Based on their stats and versatility, suggest their best position(s) and any positions worth trying]\n\n';
   prompt += '**Goals for Next Games**\n[2-3 specific, achievable goals for upcoming games based on their trajectory]';
 
-  prompt += getPlayerReportExample();
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
 
-  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 2000 });
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (player): ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
 }
 
 /**
@@ -3352,9 +3185,14 @@ function getPlayerAIInsights(playerData) {
  * @returns {string} AI-generated training suggestions in markdown format
  */
 function getTrainingFocus(data) {
-  var systemPrompt = getNetballKnowledgePreamble();
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
 
-  var prompt = '# TRAINING FOCUS ANALYSIS\n\n';
+  var prompt = getNetballKnowledgePreamble();
+
+  prompt += '\n\n# TRAINING FOCUS ANALYSIS\n\n';
   prompt += 'You are analyzing a junior netball team\'s season to recommend training focus areas based on coach observations and performance data.\n\n';
 
   prompt += '## TEAM CONTEXT\n';
@@ -3521,9 +3359,43 @@ function getTrainingFocus(data) {
   prompt += '[Top 2 most impactful things to address at training THIS WEEK, based on the most recent games. If an issue keeps appearing from earlier in the season, flag it as "persistent". If a player missed training on a skill they\'re struggling with, recommend 1:1 catch-up.]\n\n';
   prompt += 'IMPORTANT: Prioritize issues from RECENT games over older notes. Only mention earlier season patterns if they are STILL appearing in recent games (persistent issues). If training session data is available, correlate attendance with improvement - players who attended relevant training should show improvement, while those who missed may still struggle. Be specific with drill suggestions. Reference the actual notes the coach made. Keep language encouraging and developmentally appropriate for junior players.';
 
-  prompt += getTrainingFocusExample();
+  // Call Gemini API
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
 
-  return callGeminiAPI(systemPrompt, prompt, { maxOutputTokens: 2000 });
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini API error (training): ' + responseCode + ' - ' + responseText);
+    try {
+      var errJson = JSON.parse(responseText);
+      var errMsg = errJson.error && errJson.error.message ? errJson.error.message : responseText;
+      throw new Error('Gemini: ' + errMsg);
+    } catch (parseErr) {
+      throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 200));
+    }
+  }
+
+  var json = JSON.parse(responseText);
+  if (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) {
+    return json.candidates[0].content.parts[0].text;
+  } else {
+    throw new Error('Unexpected Gemini response format');
+  }
 }
 
 // --- Admin convenience functions (owner-only) ---
@@ -4551,4 +4423,115 @@ function clearApplicationLogs(type) {
     logError('CLEAR_LOGS', e.message, { type: type });
     return { success: false, error: e.message };
   }
+}
+
+// ========================================
+// NIGHTLY BACKGROUND REFRESH
+// ========================================
+
+/**
+ * Nightly trigger function — pre-fetches fixture and ladder data for all
+ * configured active teams so client requests are served from cache.
+ * Install once via installNightlyTrigger().
+ */
+function nightlyRefresh() {
+  Logger.log('[NightlyRefresh] Starting at ' + new Date().toISOString());
+
+  var teams;
+  try {
+    teams = loadMasterTeamList();
+    if (teams.error) {
+      Logger.log('[NightlyRefresh] Failed to load teams: ' + teams.error);
+      return;
+    }
+  } catch (e) {
+    Logger.log('[NightlyRefresh] loadMasterTeamList threw: ' + e.message);
+    return;
+  }
+
+  var activeTeams = teams.filter(function(t) { return !t.archived; });
+  Logger.log('[NightlyRefresh] Processing ' + activeTeams.length + ' active teams');
+
+  var fixtureOk = 0, fixtureSkipped = 0, fixtureErr = 0;
+  var ladderOk = 0, ladderSkipped = 0, ladderErr = 0;
+
+  for (var i = 0; i < activeTeams.length; i++) {
+    var team = activeTeams[i];
+
+    // Pre-fetch fixture data for teams with resultsApi configured
+    if (team.resultsApi) {
+      try {
+        var fixtureResult = getFixtureDataForTeam(team.teamID, true);
+        if (fixtureResult && fixtureResult.success) {
+          fixtureOk++;
+          Logger.log('[NightlyRefresh] Fixture refreshed: ' + team.name);
+        } else {
+          fixtureErr++;
+          Logger.log('[NightlyRefresh] Fixture refresh failed for ' + team.name + ': ' + (fixtureResult && fixtureResult.error));
+        }
+      } catch (e) {
+        fixtureErr++;
+        Logger.log('[NightlyRefresh] Fixture error for ' + team.name + ': ' + e.message);
+      }
+    } else {
+      fixtureSkipped++;
+    }
+
+    // Pre-fetch ladder for teams with resultsApi or ladderApi configured
+    if (team.resultsApi || team.ladderApi) {
+      try {
+        var ladderResult = getSquadiLadderForTeam(team.teamID, true);
+        if (ladderResult && ladderResult.success) {
+          ladderOk++;
+          Logger.log('[NightlyRefresh] Ladder refreshed: ' + team.name);
+        } else {
+          ladderErr++;
+          Logger.log('[NightlyRefresh] Ladder refresh failed for ' + team.name + ': ' + (ladderResult && ladderResult.error));
+        }
+      } catch (e) {
+        ladderErr++;
+        Logger.log('[NightlyRefresh] Ladder error for ' + team.name + ': ' + e.message);
+      }
+    } else {
+      ladderSkipped++;
+    }
+  }
+
+  // Invalidate getTeams cache so next client request gets fresh data
+  try {
+    CacheService.getScriptCache().remove('getTeamsResponse');
+  } catch (e) {
+    Logger.log('[NightlyRefresh] Cache invalidation failed: ' + e.message);
+  }
+
+  var summary = 'fixture: ' + fixtureOk + ' ok / ' + fixtureErr + ' err / ' + fixtureSkipped + ' skipped, ' +
+                'ladder: ' + ladderOk + ' ok / ' + ladderErr + ' err / ' + ladderSkipped + ' skipped';
+  Logger.log('[NightlyRefresh] Done. ' + summary);
+  logClientMetric('nightly_refresh', 1, activeTeams.length, summary);
+}
+
+/**
+ * One-time setup: install a nightly time-based trigger for nightlyRefresh().
+ * Run this manually from the Apps Script editor after deploying.
+ * Safe to re-run — removes any existing trigger first.
+ */
+function installNightlyTrigger() {
+  // Remove any existing nightly trigger for this function
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'nightlyRefresh') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      Logger.log('[installNightlyTrigger] Removed existing trigger');
+    }
+  }
+
+  // Create a new daily trigger at 2am
+  ScriptApp.newTrigger('nightlyRefresh')
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+
+  Logger.log('[installNightlyTrigger] Nightly trigger installed (2am daily)');
+  return { success: true, message: 'Nightly trigger installed at 2am daily' };
 }

@@ -13,9 +13,9 @@ import { shareData, haptic } from '../../../../common/share-utils.js';
 // PLAYER DETAIL MODAL
 // ========================================
 
-window.openPlayerDetail = function(playerID) {
+window.openPlayerDetail = function (playerID) {
   if (!state.currentTeamData) return;
-  const player = state.currentTeamData.players.find(p => p.id === playerID);
+  const player = state.currentTeamData.players.find((p) => p.id === playerID);
   if (!player) return;
 
   // Store current player for AI summary
@@ -26,15 +26,17 @@ window.openPlayerDetail = function(playerID) {
 
   // Check if player is already in library
   const teamID = state.currentTeamData.teamID;
-  const isInLibrary = state.playerLibrary.players.some(lp =>
-    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  const isInLibrary = state.playerLibrary.players.some((lp) =>
+    lp.linkedInstances.some((li) => li.teamID === teamID && li.playerID === playerID)
   );
 
   // Check for cached AI summary
   const hasCachedSummary = player.aiSummary && player.aiSummary.text;
   const cachedDate = hasCachedSummary ? new Date(player.aiSummary.generatedAt).toLocaleDateString('en-AU') : '';
 
-  openModal(`${escapeHtml(player.name)}`, `
+  openModal(
+    `${escapeHtml(player.name)}`,
+    `
     <div class="player-detail-tabs">
       <button class="player-detail-tab active" onclick="switchPlayerTab('stats')">Stats</button>
       <button class="player-detail-tab" onclick="switchPlayerTab('ai')">AI Report</button>
@@ -69,11 +71,15 @@ window.openPlayerDetail = function(playerID) {
         </div>
       </div>
 
-      ${playerStats.positionBreakdown.length > 0 ? `
+      ${
+        playerStats.positionBreakdown.length > 0
+          ? `
       <div class="player-positions-section">
         <div class="player-section-title">Positions Played</div>
         <div class="positions-breakdown">
-          ${playerStats.positionBreakdown.map(p => `
+          ${playerStats.positionBreakdown
+            .map(
+              (p) => `
             <div class="position-item">
               <span class="position-name">${escapeHtml(p.position)}</span>
               <div class="position-bar-container">
@@ -81,32 +87,49 @@ window.openPlayerDetail = function(playerID) {
               </div>
               <span class="position-count">${p.count}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
-      ${playerStats.recentGames.length > 0 ? `
+      ${
+        playerStats.recentGames.length > 0
+          ? `
       <div class="player-games-section">
         <div class="player-section-title">Recent Games</div>
         <div class="player-games-list">
-          ${playerStats.recentGames.slice(0, 5).map(g => `
+          ${playerStats.recentGames
+            .slice(0, 5)
+            .map(
+              (g) => `
             <div class="player-game-row">
               <span class="game-round">R${g.round}</span>
               <span class="game-opponent">${escapeHtml(g.opponent)}</span>
               <span class="game-position">${escapeHtml(g.positions.join(', '))}</span>
               <span class="game-goals ${g.goals > 0 ? 'scored' : ''}">${g.goals > 0 ? g.goals + ' goals' : '-'}</span>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </div>
-      ` : '<div class="empty-state"><p>No game data yet</p></div>'}
+      `
+          : '<div class="empty-state"><p>No game data yet</p></div>'
+      }
     </div>
 
     <div id="player-tab-ai" class="player-tab-content">
-      ${playerStats.gamesPlayed > 0 ? `
+      ${
+        playerStats.gamesPlayed > 0
+          ? `
         <div id="player-ai-container">
-          ${hasCachedSummary ? `
+          ${
+            hasCachedSummary
+              ? `
             <div class="ai-insights-content">${formatAIContent(player.aiSummary.text)}</div>
             <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
               Generated: ${escapeHtml(cachedDate)}
@@ -116,21 +139,27 @@ window.openPlayerDetail = function(playerID) {
               <button class="btn btn-secondary" onclick="fetchPlayerAISummary(true)">Regenerate Report</button>
             </div>
             ${renderAIFeedback('player')}
-          ` : `
+          `
+              : `
             <div class="empty-state" style="padding: 20px 0;">
               <p style="margin-bottom: 16px;">Get AI-powered insights on ${escapeHtml(player.name)}'s performance, strengths, and development areas.</p>
               <button class="btn btn-primary" onclick="fetchPlayerAISummary(false)">Generate AI Report</button>
             </div>
-          `}
+          `
+          }
         </div>
-      ` : `
+      `
+          : `
         <div class="empty-state">
           <p>No game data yet. AI reports require at least one game played.</p>
         </div>
-      `}
+      `
+      }
     </div>
 
-    ${!window.isReadOnlyView ? `
+    ${
+      !window.isReadOnlyView
+        ? `
     <div id="player-tab-edit" class="player-tab-content">
       <div class="form-group">
         <label class="form-label">Name</label>
@@ -139,16 +168,18 @@ window.openPlayerDetail = function(playerID) {
       <div class="form-group">
         <label class="form-label">Favourite Positions</label>
         <div class="position-checkboxes" id="edit-player-positions">
-          ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos => {
-            const favPositions = normalizeFavPositions(player.favPosition);
-            const isChecked = favPositions.includes(pos);
-            return `
+          ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']
+            .map((pos) => {
+              const favPositions = normalizeFavPositions(player.favPosition);
+              const isChecked = favPositions.includes(pos);
+              return `
               <label class="position-checkbox-label">
                 <input type="checkbox" class="position-checkbox" value="${escapeAttr(pos)}" ${isChecked ? 'checked' : ''}>
                 <span class="position-checkbox-text">${escapeHtml(pos)}</span>
               </label>
             `;
-          }).join('')}
+            })
+            .join('')}
         </div>
         <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">Select one or more preferred positions, or leave blank for flexible</p>
       </div>
@@ -170,15 +201,18 @@ window.openPlayerDetail = function(playerID) {
         <button class="btn btn-primary" onclick="savePlayer('${escapeAttr(playerID)}')">Save Changes</button>
       </div>
     </div>
-    ` : ''}
-  `);
+    `
+        : ''
+    }
+  `
+  );
 };
 
 // ========================================
 // SHARE AI REPORT
 // ========================================
 
-window.shareAIReport = async function(type) {
+window.shareAIReport = async function (type) {
   const teamName = state.currentTeam?.teamName || state.currentTeamData?.teamName || 'Team';
   let title = '';
   let text = '';
@@ -225,13 +259,13 @@ window.shareAIReport = async function(type) {
 // PLAYER TABS
 // ========================================
 
-window.switchPlayerTab = function(tabId) {
-  document.querySelectorAll('.player-detail-tab').forEach(btn => {
+window.switchPlayerTab = function (tabId) {
+  document.querySelectorAll('.player-detail-tab').forEach((btn) => {
     const btnText = btn.textContent.toLowerCase().replace(' ', '');
     const targetTab = tabId === 'ai' ? 'aireport' : tabId;
     btn.classList.toggle('active', btnText === targetTab);
   });
-  document.querySelectorAll('.player-tab-content').forEach(content => {
+  document.querySelectorAll('.player-tab-content').forEach((content) => {
     content.classList.toggle('active', content.id === `player-tab-${tabId}`);
   });
 };
@@ -240,7 +274,7 @@ window.switchPlayerTab = function(tabId) {
 // AI PLAYER SUMMARY
 // ========================================
 
-window.fetchPlayerAISummary = async function(forceRefresh = false) {
+window.fetchPlayerAISummary = async function (forceRefresh = false) {
   const player = state.currentPlayerForAI;
   if (!player) {
     showToast('No player selected', 'error');
@@ -251,7 +285,8 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
   if (!container) return;
 
   // Show loading state
-  container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing player performance...</p></div>';
+  container.innerHTML =
+    '<div class="ai-loading"><div class="spinner"></div><p>Analyzing player performance...</p></div>';
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -259,8 +294,8 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
     const playerStats = calculatePlayerStats(player);
 
     // Build detailed game history with results, scores, and quarter-by-quarter detail
-    const gameHistory = playerStats.recentGames.map(g => {
-      const game = state.currentTeamData.games.find(gm => gm.round === g.round);
+    const gameHistory = playerStats.recentGames.map((g) => {
+      const game = state.currentTeamData.games.find((gm) => gm.round === g.round);
       let result = null;
       let score = null;
       let quartersInGame = 0;
@@ -276,9 +311,9 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
 
         // Get quarter-by-quarter detail for this player
         if (game.lineup) {
-          ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+          ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
             const qData = game.lineup[q] || {};
-            ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+            ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach((pos) => {
               if (qData[pos] === player.name) {
                 quartersInGame++;
                 let qGoals = 0;
@@ -287,7 +322,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
                 quarterDetails.push({
                   quarter: q,
                   position: pos,
-                  goals: qGoals
+                  goals: qGoals,
                 });
               }
             });
@@ -300,7 +335,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
         result,
         score,
         quartersInGame,
-        quarterDetails
+        quarterDetails,
       };
     });
 
@@ -308,9 +343,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
     const { advanced } = state.analytics;
     const teamContext = {
       teamRecord: `${advanced.wins}W-${advanced.losses}L-${advanced.draws}D`,
-      topScorers: state.analytics.leaderboards.offensive.topScorersByTotal
-        .slice(0, 3)
-        .map(s => s.name)
+      topScorers: state.analytics.leaderboards.offensive.topScorersByTotal.slice(0, 3).map((s) => s.name),
     };
 
     // Build player payload
@@ -323,11 +356,11 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
         gamesPlayed: playerStats.gamesPlayed,
         quartersPlayed: playerStats.quartersPlayed,
         totalGoals: playerStats.totalGoals,
-        avgGoalsPerGame: playerStats.avgGoalsPerGame
+        avgGoalsPerGame: playerStats.avgGoalsPerGame,
       },
       positionBreakdown: playerStats.positionBreakdown,
       gameHistory: gameHistory,
-      teamContext: teamContext
+      teamContext: teamContext,
     };
 
     // POST to backend
@@ -339,9 +372,9 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
         action: 'getPlayerAIInsights',
         teamID: state.currentTeam.teamID,
         sheetName: state.currentTeam.sheetName,
-        playerData: playerPayload
+        playerData: playerPayload,
       }),
-      redirect: 'follow'
+      redirect: 'follow',
     });
     const data = await response.json();
 
@@ -349,7 +382,7 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
       // Save to player record
       player.aiSummary = {
         text: data.insights,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       };
 
       // Save and sync to API immediately
@@ -389,9 +422,9 @@ window.fetchPlayerAISummary = async function(forceRefresh = false) {
 // SAVE / DELETE PLAYER
 // ========================================
 
-window.savePlayer = async function(playerID) {
+window.savePlayer = async function (playerID) {
   if (!ensureNotReadOnly('savePlayer')) return;
-  const player = state.currentTeamData.players.find(p => p.id === playerID);
+  const player = state.currentTeamData.players.find((p) => p.id === playerID);
   if (!player) {
     showToast('Player not found', 'error');
     closeModal();
@@ -422,7 +455,7 @@ window.savePlayer = async function(playerID) {
 
   // Check for duplicate names (excluding current player)
   const existingPlayer = state.currentTeamData.players.find(
-    p => p.id !== playerID && p.name.toLowerCase() === name.toLowerCase()
+    (p) => p.id !== playerID && p.name.toLowerCase() === name.toLowerCase()
   );
   if (existingPlayer) {
     showToast('A player with this name already exists', 'error');
@@ -432,9 +465,9 @@ window.savePlayer = async function(playerID) {
 
   // Collect selected favourite positions
   const positionCheckboxes = document.querySelectorAll('#edit-player-positions .position-checkbox:checked');
-  const selectedPositions = Array.from(positionCheckboxes).map(cb => cb.value);
+  const selectedPositions = Array.from(positionCheckboxes).map((cb) => cb.value);
   const validPositions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-  if (selectedPositions.some(pos => !validPositions.includes(pos))) {
+  if (selectedPositions.some((pos) => !validPositions.includes(pos))) {
     showToast('Invalid position selected', 'error');
     return;
   }
@@ -446,8 +479,8 @@ window.savePlayer = async function(playerID) {
   // Handle career tracking checkbox
   const trackCareer = document.getElementById('edit-player-track-career').checked;
   const teamID = state.currentTeamData.teamID;
-  const isCurrentlyTracked = state.playerLibrary.players.some(lp =>
-    lp.linkedInstances.some(li => li.teamID === teamID && li.playerID === playerID)
+  const isCurrentlyTracked = state.playerLibrary.players.some((lp) =>
+    lp.linkedInstances.some((li) => li.teamID === teamID && li.playerID === playerID)
   );
 
   const libraryChanged = (trackCareer && !isCurrentlyTracked) || (!trackCareer && isCurrentlyTracked);
@@ -483,11 +516,11 @@ window.savePlayer = async function(playerID) {
   }
 };
 
-window.deletePlayer = async function(playerID) {
+window.deletePlayer = async function (playerID) {
   if (!ensureNotReadOnly('deletePlayer')) return;
   if (!confirm('Delete this player?')) return;
 
-  state.currentTeamData.players = state.currentTeamData.players.filter(p => p.id !== playerID);
+  state.currentTeamData.players = state.currentTeamData.players.filter((p) => p.id !== playerID);
   saveToLocalStorage();
 
   closeModal();
@@ -511,9 +544,11 @@ window.deletePlayer = async function(playerID) {
 // ADD PLAYER MODAL
 // ========================================
 
-window.openAddPlayerModal = function() {
+window.openAddPlayerModal = function () {
   if (!ensureNotReadOnly('openAddPlayerModal')) return;
-  openModal('Add Player', `
+  openModal(
+    'Add Player',
+    `
     <div class="form-group">
       <label class="form-label">Name</label>
       <input type="text" class="form-input" id="new-player-name" placeholder="Player name" maxlength="100">
@@ -521,12 +556,16 @@ window.openAddPlayerModal = function() {
     <div class="form-group">
       <label class="form-label">Favourite Positions</label>
       <div class="position-checkboxes" id="new-player-positions">
-        ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].map(pos => `
+        ${['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK']
+          .map(
+            (pos) => `
           <label class="position-checkbox-label">
             <input type="checkbox" class="position-checkbox" value="${escapeAttr(pos)}">
             <span class="position-checkbox-text">${escapeHtml(pos)}</span>
           </label>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
       <p class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">Select one or more preferred positions, or leave blank for flexible</p>
     </div>
@@ -536,10 +575,12 @@ window.openAddPlayerModal = function() {
         Mark as fill-in player
       </label>
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="addPlayer()">Add Player</button>
-  `);
+  `
+  );
 };
 
 // ========================================
@@ -573,7 +614,7 @@ function clearFieldError(input) {
   if (existingError) existingError.remove();
 }
 
-window.addPlayer = async function() {
+window.addPlayer = async function () {
   if (!ensureNotReadOnly('addPlayer')) return;
   const nameInput = document.getElementById('new-player-name');
   const name = nameInput.value.trim();
@@ -598,9 +639,7 @@ window.addPlayer = async function() {
   }
 
   // Check for duplicate names
-  const existingPlayer = state.currentTeamData.players.find(
-    p => p.name.toLowerCase() === name.toLowerCase()
-  );
+  const existingPlayer = state.currentTeamData.players.find((p) => p.name.toLowerCase() === name.toLowerCase());
   if (existingPlayer) {
     setFieldError(nameInput, 'A player with this name already exists');
     return;
@@ -608,9 +647,9 @@ window.addPlayer = async function() {
 
   // Collect selected favourite positions
   const positionCheckboxes = document.querySelectorAll('#new-player-positions .position-checkbox:checked');
-  const selectedPositions = Array.from(positionCheckboxes).map(cb => cb.value);
+  const selectedPositions = Array.from(positionCheckboxes).map((cb) => cb.value);
   const validPositions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
-  if (selectedPositions.some(pos => !validPositions.includes(pos))) {
+  if (selectedPositions.some((pos) => !validPositions.includes(pos))) {
     showToast('Invalid position selected', 'error');
     return;
   }
@@ -619,7 +658,7 @@ window.addPlayer = async function() {
     id: `p${Date.now()}`,
     name: name,
     favPosition: selectedPositions, // Now stores array
-    fillIn: document.getElementById('new-player-fillin').checked
+    fillIn: document.getElementById('new-player-fillin').checked,
   };
 
   state.currentTeamData.players.push(newPlayer);
@@ -650,11 +689,13 @@ window.addPlayer = async function() {
 // GAME MANAGEMENT
 // ========================================
 
-window.openAddGameModal = function() {
+window.openAddGameModal = function () {
   if (!ensureNotReadOnly('openAddGameModal')) return;
   const nextRound = (state.currentTeamData?.games?.length || 0) + 1;
 
-  openModal('Add Game', `
+  openModal(
+    'Add Game',
+    `
     <div class="form-group">
       <label class="form-label">Round</label>
       <input type="number" class="form-input" id="new-game-round" value="${escapeAttr(nextRound)}" min="1" max="99">
@@ -675,13 +716,15 @@ window.openAddGameModal = function() {
       <label class="form-label">Court</label>
       <input type="text" class="form-input" id="new-game-location" placeholder="e.g. 1 or Banyule Court 1" maxlength="50">
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="addGame()">Add Game</button>
-  `);
+  `
+  );
 };
 
-window.addGame = async function() {
+window.addGame = async function () {
   if (!ensureNotReadOnly('addGame')) return;
   const opponentInput = document.getElementById('new-game-opponent');
   const opponent = opponentInput.value.trim();
@@ -727,8 +770,8 @@ window.addGame = async function() {
     location: location,
     status: 'upcoming',
     scores: null,
-    availablePlayerIDs: state.currentTeamData.players.filter(p => !p.fillIn).map(p => p.id),
-    lineup: null
+    availablePlayerIDs: state.currentTeamData.players.filter((p) => !p.fillIn).map((p) => p.id),
+    lineup: null,
   };
 
   state.currentTeamData.games.push(newGame);

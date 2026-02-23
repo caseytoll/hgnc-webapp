@@ -1,5 +1,5 @@
 /* Parent Portal - Styles specific to the Parent Portal */
-@import "../../../../common/styles/shared.css";
+@import '../../../../common/styles/shared.css';
 
 /* Portal splash logo (gradient text div) */
 .splash-logo {
@@ -234,7 +234,9 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
   opacity: 0.5;
-  transition: opacity 0.3s ease, color 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    color 0.3s ease;
 }
 
 .scoring-autosave-indicator.flash {

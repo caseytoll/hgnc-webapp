@@ -15,6 +15,7 @@ import { calculateAllAnalytics } from '../../../../common/stats-calculations.js'
 // AVAILABILITY
 // ========================================
 
+window.renderAvailabilityList = renderAvailabilityList;
 export function renderAvailabilityList() {
   const game = state.currentGame;
   const container = document.getElementById('availability-list');
@@ -22,14 +23,15 @@ export function renderAvailabilityList() {
   if (!game) return;
 
   const players = state.currentTeamData.players;
-  const availableIDs = game.availablePlayerIDs || players.map(p => p.id);
+  const availableIDs = game.availablePlayerIDs || players.map((p) => p.id);
 
   container.innerHTML = `
     <div class="availability-list">
-      ${players.map(p => {
-        const isAvailable = availableIDs.includes(p.id);
-        const disabled = window.isReadOnlyView ? 'disabled' : '';
-        return `
+      ${players
+        .map((p) => {
+          const isAvailable = availableIDs.includes(p.id);
+          const disabled = window.isReadOnlyView ? 'disabled' : '';
+          return `
           <div class="availability-item">
             <input type="checkbox" class="availability-checkbox"
                    data-player-id="${escapeAttr(p.id)}"
@@ -39,22 +41,27 @@ export function renderAvailabilityList() {
             <div class="availability-status">${isAvailable ? 'Available' : 'Unavailable'}</div>
           </div>
         `;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
 }
 
-window.toggleAvailability = function(playerID, available) {
+window.toggleAvailability = function (playerID, available) {
   if (!ensureNotReadOnly('toggleAvailability')) {
     // If blocked, re-render to reset any transient UI changes (checkbox flip from click)
-    try { renderAvailabilityList(); } catch (e) { /* noop */ }
+    try {
+      renderAvailabilityList();
+    } catch (e) {
+      /* noop */
+    }
     return;
   }
   const game = state.currentGame;
   if (!game) return;
 
   if (!game.availablePlayerIDs) {
-    game.availablePlayerIDs = state.currentTeamData.players.map(p => p.id);
+    game.availablePlayerIDs = state.currentTeamData.players.map((p) => p.id);
   }
 
   if (available) {
@@ -62,7 +69,7 @@ window.toggleAvailability = function(playerID, available) {
       game.availablePlayerIDs.push(playerID);
     }
   } else {
-    game.availablePlayerIDs = game.availablePlayerIDs.filter(id => id !== playerID);
+    game.availablePlayerIDs = game.availablePlayerIDs.filter((id) => id !== playerID);
   }
 
   renderAvailabilityList();
@@ -75,6 +82,7 @@ window.toggleAvailability = function(playerID, available) {
 // SCORING
 // ========================================
 
+window.renderScoringInputs = renderScoringInputs;
 export function renderScoringInputs() {
   const game = state.currentGame;
   const container = document.getElementById('scoring-inputs');
@@ -121,8 +129,9 @@ export function renderScoringInputs() {
   };
 
   const calcGameTotal = () => {
-    let us = 0, opp = 0;
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    let us = 0,
+      opp = 0;
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       const qData = lineup[q] || {};
       us += (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
       opp += (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
@@ -140,11 +149,12 @@ export function renderScoringInputs() {
       <span class="scoring-panel-title">Score by Quarter</span>
       ${contextHelpIcon('scoring')}
     </div>
-    ${['Q1', 'Q2', 'Q3', 'Q4'].map((q, index) => {
-      const qData = lineup[q] || {};
-      const qTotal = calcQuarterTotal(qData);
-      const isExpanded = q === expandedQuarter;
-      return `
+    ${['Q1', 'Q2', 'Q3', 'Q4']
+      .map((q, index) => {
+        const qData = lineup[q] || {};
+        const qTotal = calcQuarterTotal(qData);
+        const isExpanded = q === expandedQuarter;
+        return `
         <div class="scoring-quarter-header${isExpanded ? ' expanded' : ''}" data-quarter="${escapeAttr(q)}" onclick="toggleScoringQuarter('${escapeAttr(q)}')">
           <div class="quarter-header-left">
             <span class="quarter-name">${escapeHtml(q)}</span>
@@ -170,14 +180,15 @@ export function renderScoringInputs() {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            <span class="notes-preview-text" id="notes-preview-text-${escapeAttr(q)}">${(qData.notes || '').trim() ? escapeHtml((qData.notes || '').trim().substring(0, 80) + ((qData.notes || '').trim().length > 80 ? '...' : '')) : (window.isReadOnlyView ? 'No notes' : 'Tap to add notes...')}</span>
+            <span class="notes-preview-text" id="notes-preview-text-${escapeAttr(q)}">${(qData.notes || '').trim() ? escapeHtml((qData.notes || '').trim().substring(0, 80) + ((qData.notes || '').trim().length > 80 ? '...' : '')) : window.isReadOnlyView ? 'No notes' : 'Tap to add notes...'}</span>
             <svg class="notes-preview-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 18l6-6-6-6"/>
             </svg>
           </div>
         </div>
       `;
-    }).join('')}
+      })
+      .join('')}
 
     <div class="scoring-autosave-indicator" id="autosave-indicator">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -192,12 +203,12 @@ export function renderScoringInputs() {
   `;
 }
 
-window.toggleScoringQuarter = function(quarter) {
+window.toggleScoringQuarter = function (quarter) {
   // Toggle accordion - only one quarter open at a time
   const headers = document.querySelectorAll('.scoring-quarter-header');
   const contents = document.querySelectorAll('.scoring-quarter-content');
 
-  headers.forEach(header => {
+  headers.forEach((header) => {
     const isTarget = header.dataset.quarter === quarter;
     const wasExpanded = header.classList.contains('expanded');
 
@@ -211,9 +222,11 @@ window.toggleScoringQuarter = function(quarter) {
     }
   });
 
-  contents.forEach(content => {
+  contents.forEach((content) => {
     const isTarget = content.dataset.quarter === quarter;
-    const headerExpanded = document.querySelector(`.scoring-quarter-header[data-quarter="${content.dataset.quarter}"]`)?.classList.contains('expanded');
+    const headerExpanded = document
+      .querySelector(`.scoring-quarter-header[data-quarter="${content.dataset.quarter}"]`)
+      ?.classList.contains('expanded');
 
     if (isTarget && headerExpanded) {
       content.classList.add('expanded');
@@ -223,7 +236,7 @@ window.toggleScoringQuarter = function(quarter) {
   });
 };
 
-window.updateScore = function(quarter, field, value) {
+window.updateScore = function (quarter, field, value) {
   if (!ensureNotReadOnly('updateScore')) return;
   const game = state.currentGame;
   if (!game) return;
@@ -247,7 +260,7 @@ window.updateScore = function(quarter, field, value) {
   flashAutosaveIndicator();
 };
 
-window.adjustScore = function(quarter, field, delta) {
+window.adjustScore = function (quarter, field, delta) {
   if (!ensureNotReadOnly('adjustScore')) return;
   const game = state.currentGame;
   if (!game) return;
@@ -283,7 +296,7 @@ function updateScoringDisplays() {
   const game = state.currentGame;
   if (!game || !game.lineup) return;
 
-  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
     const qData = game.lineup[q] || {};
     const qUs = (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     const qOpp = (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);
@@ -305,18 +318,21 @@ function flashAutosaveIndicator() {
 // QUARTER NOTES
 // ========================================
 
-window.insertTimestamp = function(textareaId) {
+window.insertTimestamp = function (textareaId) {
   const textarea = document.getElementById(textareaId);
   if (!textarea) return;
 
   // Format time as h:mmam/pm in Melbourne timezone
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-AU', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'Australia/Melbourne'
-  }).toLowerCase().replace(' ', '');
+  const timeStr = now
+    .toLocaleTimeString('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Australia/Melbourne',
+    })
+    .toLowerCase()
+    .replace(' ', '');
 
   const timestamp = `[${timeStr}] `;
 
@@ -344,7 +360,7 @@ window.insertTimestamp = function(textareaId) {
   textarea.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
-window.insertPlayerName = function(textareaId, name) {
+window.insertPlayerName = function (textareaId, name) {
   const textarea = document.getElementById(textareaId);
   if (!textarea) return;
 
@@ -373,7 +389,7 @@ window.insertPlayerName = function(textareaId, name) {
   textarea.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
-window.updateQuarterNotes = function(quarter, value) {
+window.updateQuarterNotes = function (quarter, value) {
   if (!ensureNotReadOnly('updateQuarterNotes')) return;
   const game = state.currentGame;
   if (!game) return;
@@ -397,7 +413,7 @@ window.updateQuarterNotes = function(quarter, value) {
   updateNotesPreview(quarter);
 };
 
-window.openNotesModal = function(quarter) {
+window.openNotesModal = function (quarter) {
   setActiveNotesModalQuarter(quarter);
   const game = state.currentGame;
   if (!game) return;
@@ -406,7 +422,8 @@ window.openNotesModal = function(quarter) {
   const textareaId = `notes-modal-textarea-${quarter}`;
   const isReadOnly = window.isReadOnlyView;
 
-  const chipsHtml = !isReadOnly ? `
+  const chipsHtml = !isReadOnly
+    ? `
     <div class="notes-modal-chips">
       <div class="notes-quick-buttons">
         <button type="button" class="timestamp-btn" onclick="insertTimestamp('${escapeAttr(textareaId)}')" title="Insert timestamp">
@@ -418,7 +435,8 @@ window.openNotesModal = function(quarter) {
         <div class="player-chips">${getPlayerChipsHtml(quarter, textareaId)}</div>
       </div>
     </div>
-  ` : '';
+  `
+    : '';
 
   const bodyHtml = `
     ${chipsHtml}
@@ -444,7 +462,7 @@ window.openNotesModal = function(quarter) {
   }
 };
 
-window.saveAndCloseNotesModal = function(quarter) {
+window.saveAndCloseNotesModal = function (quarter) {
   // Save notes before closing - use the quarter arg directly since we know which modal is open
   setActiveNotesModalQuarter(null); // Clear first to prevent double-save in closeModal
 
@@ -484,6 +502,7 @@ function updateNotesPreview(quarter) {
   }
 }
 
+window.renderGameNotes = renderGameNotes;
 export function renderGameNotes() {
   const game = state.currentGame;
   const container = document.getElementById('notes-content');
@@ -492,7 +511,7 @@ export function renderGameNotes() {
   const lineup = game.lineup || {};
 
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-  const hasAnyNotes = quarters.some(q => lineup[q]?.notes);
+  const hasAnyNotes = quarters.some((q) => lineup[q]?.notes);
 
   if (!hasAnyNotes) {
     container.innerHTML = `
@@ -505,10 +524,11 @@ export function renderGameNotes() {
 
   container.innerHTML = `
     <div class="notes-panel">
-      ${quarters.map(q => {
-        const qData = lineup[q] || {};
-        const notes = qData.notes || '';
-        return `
+      ${quarters
+        .map((q) => {
+          const qData = lineup[q] || {};
+          const notes = qData.notes || '';
+          return `
           <div class="quarter-notes-card">
             <div class="quarter-notes-header">${escapeHtml(q)}</div>
             <div class="quarter-notes-content ${notes ? '' : 'quarter-notes-empty'}">
@@ -516,12 +536,13 @@ export function renderGameNotes() {
             </div>
           </div>
         `;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
 }
 
-window.finalizeGame = async function() {
+window.finalizeGame = async function () {
   if (!ensureNotReadOnly('finalizeGame')) return;
   const game = state.currentGame;
   if (!game || !game.lineup) return;
@@ -529,7 +550,7 @@ window.finalizeGame = async function() {
   let ourTotal = 0;
   let theirTotal = 0;
 
-  ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+  ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
     const qData = game.lineup[q] || {};
     ourTotal += (qData.ourGsGoals || 0) + (qData.ourGaGoals || 0);
     theirTotal += (qData.oppGsGoals || 0) + (qData.oppGaGoals || 0);

@@ -3,7 +3,7 @@ import {
   calculateAdvancedStats,
   calculateLeaderboards,
   calculateCombinations,
-  calculateAllAnalytics
+  calculateAllAnalytics,
 } from './stats-calculations.js';
 
 // ========================================
@@ -20,7 +20,7 @@ const createTestTeam = (overrides = {}) => ({
     { id: 'p4', name: 'Player Four', fillIn: false, favPosition: 'C' },
     { id: 'p5', name: 'Player Five', fillIn: false, favPosition: 'WD' },
     { id: 'p6', name: 'Player Six', fillIn: false, favPosition: 'GD' },
-    { id: 'p7', name: 'Player Seven', fillIn: false, favPosition: 'GK' }
+    { id: 'p7', name: 'Player Seven', fillIn: false, favPosition: 'GK' },
   ],
   games: [
     {
@@ -30,11 +30,59 @@ const createTestTeam = (overrides = {}) => ({
       status: 'normal',
       scores: { us: 12, opponent: 8 },
       lineup: {
-        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
-        Q2: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 2, oppGsGoals: 1, oppGaGoals: 1 },
-        Q3: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
-        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, oppGsGoals: 1, oppGaGoals: 1 }
-      }
+        Q1: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 3,
+          ourGaGoals: 1,
+          oppGsGoals: 1,
+          oppGaGoals: 1,
+        },
+        Q2: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 2,
+          ourGaGoals: 2,
+          oppGsGoals: 1,
+          oppGaGoals: 1,
+        },
+        Q3: {
+          GS: 'Player Two',
+          GA: 'Player One',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 2,
+          ourGaGoals: 1,
+          oppGsGoals: 1,
+          oppGaGoals: 1,
+        },
+        Q4: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 1,
+          ourGaGoals: 0,
+          oppGsGoals: 1,
+          oppGaGoals: 1,
+        },
+      },
     },
     {
       gameID: 'g2',
@@ -43,11 +91,59 @@ const createTestTeam = (overrides = {}) => ({
       status: 'normal',
       scores: { us: 10, opponent: 12 },
       lineup: {
-        Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, oppGsGoals: 2, oppGaGoals: 1 },
-        Q2: { GS: 'Player Two', GA: 'Player One', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, oppGsGoals: 2, oppGaGoals: 2 },
-        Q3: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 1, oppGsGoals: 1, oppGaGoals: 1 },
-        Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 0, oppGsGoals: 2, oppGaGoals: 1 }
-      }
+        Q1: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 2,
+          ourGaGoals: 1,
+          oppGsGoals: 2,
+          oppGaGoals: 1,
+        },
+        Q2: {
+          GS: 'Player Two',
+          GA: 'Player One',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 3,
+          ourGaGoals: 1,
+          oppGsGoals: 2,
+          oppGaGoals: 2,
+        },
+        Q3: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 1,
+          ourGaGoals: 1,
+          oppGsGoals: 1,
+          oppGaGoals: 1,
+        },
+        Q4: {
+          GS: 'Player One',
+          GA: 'Player Two',
+          WA: 'Player Three',
+          C: 'Player Four',
+          WD: 'Player Five',
+          GD: 'Player Six',
+          GK: 'Player Seven',
+          ourGsGoals: 1,
+          ourGaGoals: 0,
+          oppGsGoals: 2,
+          oppGaGoals: 1,
+        },
+      },
     },
     {
       gameID: 'g3',
@@ -55,10 +151,10 @@ const createTestTeam = (overrides = {}) => ({
       opponent: 'Team C',
       status: 'upcoming',
       scores: null,
-      lineup: null
-    }
+      lineup: null,
+    },
   ],
-  ...overrides
+  ...overrides,
 });
 
 // ========================================
@@ -143,7 +239,7 @@ describe('calculateAdvancedStats', () => {
       expect(stats.gameResults[0]).toMatchObject({
         round: 1,
         opponent: 'Team A',
-        result: 'W'
+        result: 'W',
       });
     });
   });
@@ -162,14 +258,16 @@ describe('calculateAdvancedStats', () => {
 
     it('should handle team with only upcoming games', () => {
       const team = createTestTeam({
-        games: [{
-          gameID: 'g1',
-          round: 1,
-          opponent: 'Team A',
-          status: 'upcoming',
-          scores: null,
-          lineup: null
-        }]
+        games: [
+          {
+            gameID: 'g1',
+            round: 1,
+            opponent: 'Team A',
+            status: 'upcoming',
+            scores: null,
+            lineup: null,
+          },
+        ],
       });
       const stats = calculateAdvancedStats(team);
 
@@ -178,14 +276,16 @@ describe('calculateAdvancedStats', () => {
 
     it('should handle games without lineup data', () => {
       const team = createTestTeam({
-        games: [{
-          gameID: 'g1',
-          round: 1,
-          opponent: 'Team A',
-          status: 'normal',
-          scores: { us: 10, opponent: 8 },
-          lineup: null
-        }]
+        games: [
+          {
+            gameID: 'g1',
+            round: 1,
+            opponent: 'Team A',
+            status: 'normal',
+            scores: { us: 10, opponent: 8 },
+            lineup: null,
+          },
+        ],
       });
       const stats = calculateAdvancedStats(team);
 
@@ -196,14 +296,16 @@ describe('calculateAdvancedStats', () => {
 
     it('should handle draw games', () => {
       const team = createTestTeam({
-        games: [{
-          gameID: 'g1',
-          round: 1,
-          opponent: 'Team A',
-          status: 'normal',
-          scores: { us: 10, opponent: 10 },
-          lineup: null
-        }]
+        games: [
+          {
+            gameID: 'g1',
+            round: 1,
+            opponent: 'Team A',
+            status: 'normal',
+            scores: { us: 10, opponent: 10 },
+            lineup: null,
+          },
+        ],
       });
       const stats = calculateAdvancedStats(team);
 
@@ -253,7 +355,7 @@ describe('calculateLeaderboards', () => {
       const team = createTestTeam();
       const leaderboards = calculateLeaderboards(team);
 
-      leaderboards.offensive.topScorersByEfficiency.forEach(scorer => {
+      leaderboards.offensive.topScorersByEfficiency.forEach((scorer) => {
         expect(scorer.quarters).toBeGreaterThanOrEqual(leaderboards.minQuarters);
       });
     });
@@ -304,14 +406,16 @@ describe('calculateLeaderboards', () => {
 
     it('should handle games without lineup', () => {
       const team = createTestTeam({
-        games: [{
-          gameID: 'g1',
-          round: 1,
-          opponent: 'Team A',
-          status: 'normal',
-          scores: { us: 10, opponent: 8 },
-          lineup: null
-        }]
+        games: [
+          {
+            gameID: 'g1',
+            round: 1,
+            opponent: 'Team A',
+            status: 'normal',
+            scores: { us: 10, opponent: 8 },
+            lineup: null,
+          },
+        ],
       });
       const leaderboards = calculateLeaderboards(team);
 
@@ -424,7 +528,7 @@ describe('calculateCombinations', () => {
       const team = createTestTeam();
       const combos = calculateCombinations(team);
 
-      combos.attackingUnits.forEach(unit => {
+      combos.attackingUnits.forEach((unit) => {
         expect(unit.quarters).toBeGreaterThanOrEqual(combos.minQuarters);
       });
     });
@@ -441,17 +545,19 @@ describe('calculateCombinations', () => {
 
     it('should handle incomplete lineups', () => {
       const team = createTestTeam({
-        games: [{
-          gameID: 'g1',
-          round: 1,
-          opponent: 'Team A',
-          status: 'normal',
-          scores: { us: 10, opponent: 8 },
-          lineup: {
-            Q1: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 3, ourGaGoals: 2, opponentScore: 2 }
-            // Missing other positions and quarters
-          }
-        }]
+        games: [
+          {
+            gameID: 'g1',
+            round: 1,
+            opponent: 'Team A',
+            status: 'normal',
+            scores: { us: 10, opponent: 8 },
+            lineup: {
+              Q1: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 3, ourGaGoals: 2, opponentScore: 2 },
+              // Missing other positions and quarters
+            },
+          },
+        ],
       });
       const combos = calculateCombinations(team);
 
@@ -500,19 +606,65 @@ describe('calculateAllAnalytics', () => {
 describe('edge cases - comprehensive', () => {
   it('should handle single game correctly', () => {
     const team = createTestTeam({
-      games: [{
-        gameID: 'g1',
-        round: 1,
-        opponent: 'Team A',
-        status: 'normal',
-        scores: { us: 10, opponent: 8 },
-        lineup: {
-          Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 2, opponentScore: 2 },
-          Q2: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 2 },
-          Q3: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 1, ourGaGoals: 1, opponentScore: 2 },
-          Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 0, ourGaGoals: 0, opponentScore: 2 }
-        }
-      }]
+      games: [
+        {
+          gameID: 'g1',
+          round: 1,
+          opponent: 'Team A',
+          status: 'normal',
+          scores: { us: 10, opponent: 8 },
+          lineup: {
+            Q1: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 3,
+              ourGaGoals: 2,
+              opponentScore: 2,
+            },
+            Q2: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 2,
+              ourGaGoals: 1,
+              opponentScore: 2,
+            },
+            Q3: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 1,
+              ourGaGoals: 1,
+              opponentScore: 2,
+            },
+            Q4: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 0,
+              ourGaGoals: 0,
+              opponentScore: 2,
+            },
+          },
+        },
+      ],
     });
 
     const stats = calculateAdvancedStats(team);
@@ -523,19 +675,65 @@ describe('edge cases - comprehensive', () => {
 
   it('should handle zero goals correctly', () => {
     const team = createTestTeam({
-      games: [{
-        gameID: 'g1',
-        round: 1,
-        opponent: 'Team A',
-        status: 'normal',
-        scores: { us: 0, opponent: 5 },
-        lineup: {
-          Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 0, ourGaGoals: 0, opponentScore: 2 },
-          Q2: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 0, ourGaGoals: 0, opponentScore: 3 },
-          Q3: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 0, ourGaGoals: 0, opponentScore: 0 },
-          Q4: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 0, ourGaGoals: 0, opponentScore: 0 }
-        }
-      }]
+      games: [
+        {
+          gameID: 'g1',
+          round: 1,
+          opponent: 'Team A',
+          status: 'normal',
+          scores: { us: 0, opponent: 5 },
+          lineup: {
+            Q1: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 0,
+              ourGaGoals: 0,
+              opponentScore: 2,
+            },
+            Q2: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 0,
+              ourGaGoals: 0,
+              opponentScore: 3,
+            },
+            Q3: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 0,
+              ourGaGoals: 0,
+              opponentScore: 0,
+            },
+            Q4: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 0,
+              ourGaGoals: 0,
+              opponentScore: 0,
+            },
+          },
+        },
+      ],
     });
 
     const stats = calculateAdvancedStats(team);
@@ -545,31 +743,77 @@ describe('edge cases - comprehensive', () => {
 
     const leaderboards = calculateLeaderboards(team);
     // Scorers should have 0 goals
-    leaderboards.offensive.topScorersByTotal.forEach(scorer => {
+    leaderboards.offensive.topScorersByTotal.forEach((scorer) => {
       expect(scorer.goals).toBe(0);
     });
   });
 
   it('should handle player rotation correctly', () => {
     const team = createTestTeam({
-      games: [{
-        gameID: 'g1',
-        round: 1,
-        opponent: 'Team A',
-        status: 'normal',
-        scores: { us: 10, opponent: 8 },
-        lineup: {
-          Q1: { GS: 'Player One', GA: 'Player Two', WA: 'Player Three', C: 'Player Four', WD: 'Player Five', GD: 'Player Six', GK: 'Player Seven', ourGsGoals: 3, ourGaGoals: 1, opponentScore: 2 },
-          Q2: { GS: 'Player Two', GA: 'Player Three', WA: 'Player Four', C: 'Player Five', WD: 'Player Six', GD: 'Player Seven', GK: 'Player One', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 2 },
-          Q3: { GS: 'Player Three', GA: 'Player Four', WA: 'Player Five', C: 'Player Six', WD: 'Player Seven', GD: 'Player One', GK: 'Player Two', ourGsGoals: 1, ourGaGoals: 1, opponentScore: 2 },
-          Q4: { GS: 'Player Four', GA: 'Player Five', WA: 'Player Six', C: 'Player Seven', WD: 'Player One', GD: 'Player Two', GK: 'Player Three', ourGsGoals: 1, ourGaGoals: 0, opponentScore: 2 }
-        }
-      }]
+      games: [
+        {
+          gameID: 'g1',
+          round: 1,
+          opponent: 'Team A',
+          status: 'normal',
+          scores: { us: 10, opponent: 8 },
+          lineup: {
+            Q1: {
+              GS: 'Player One',
+              GA: 'Player Two',
+              WA: 'Player Three',
+              C: 'Player Four',
+              WD: 'Player Five',
+              GD: 'Player Six',
+              GK: 'Player Seven',
+              ourGsGoals: 3,
+              ourGaGoals: 1,
+              opponentScore: 2,
+            },
+            Q2: {
+              GS: 'Player Two',
+              GA: 'Player Three',
+              WA: 'Player Four',
+              C: 'Player Five',
+              WD: 'Player Six',
+              GD: 'Player Seven',
+              GK: 'Player One',
+              ourGsGoals: 2,
+              ourGaGoals: 1,
+              opponentScore: 2,
+            },
+            Q3: {
+              GS: 'Player Three',
+              GA: 'Player Four',
+              WA: 'Player Five',
+              C: 'Player Six',
+              WD: 'Player Seven',
+              GD: 'Player One',
+              GK: 'Player Two',
+              ourGsGoals: 1,
+              ourGaGoals: 1,
+              opponentScore: 2,
+            },
+            Q4: {
+              GS: 'Player Four',
+              GA: 'Player Five',
+              WA: 'Player Six',
+              C: 'Player Seven',
+              WD: 'Player One',
+              GD: 'Player Two',
+              GK: 'Player Three',
+              ourGsGoals: 1,
+              ourGaGoals: 0,
+              opponentScore: 2,
+            },
+          },
+        },
+      ],
     });
 
     const leaderboards = calculateLeaderboards(team);
     // Multiple players should have scored
-    const playersWithGoals = leaderboards.offensive.topScorersByTotal.filter(s => s.goals > 0);
+    const playersWithGoals = leaderboards.offensive.topScorersByTotal.filter((s) => s.goals > 0);
     expect(playersWithGoals.length).toBeGreaterThan(1);
   });
 });

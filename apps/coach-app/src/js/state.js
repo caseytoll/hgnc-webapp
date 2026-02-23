@@ -19,8 +19,8 @@ export const state = {
       scorers: { column: 'goals', ascending: false },
       defenders: { column: 'avg', ascending: true },
       goalingPairs: { column: 'avg', ascending: false },
-      defendingPairs: { column: 'avg', ascending: true }
-    }
+      defendingPairs: { column: 'avg', ascending: true },
+    },
   },
   // Player Library - tracks players across teams/seasons
   playerLibrary: { players: [] },
@@ -31,7 +31,9 @@ export const state = {
   // suppress metrics and avoid repeat failing requests.
   apiAvailable: true,
   // Coach section collapsed state (not persisted, resets each session)
-  collapsedCoachSections: {}
+  collapsedCoachSections: {},
+  // Division results from fixture sync (opponent scouting context for AI)
+  divisionResults: [],
 };
 
 // ========================================
@@ -102,7 +104,7 @@ export function updateTeamCache(teamID, teamData) {
   // Store the lastModified from the data for version checking
   teamCacheMetadata[teamID] = {
     cachedAt: new Date().toISOString(),
-    lastModified: teamData._lastModified || 0
+    lastModified: teamData._lastModified || 0,
   };
 }
 
@@ -120,7 +122,8 @@ export function saveToLocalStorage() {
       teamsListCacheTime: teamsListCacheTime,
       playerLibrary: state.playerLibrary,
       teamPinTokens: state.teamPinTokens,
-      lastSaved: new Date().toISOString()
+      divisionResults: state.divisionResults,
+      lastSaved: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     console.log('[Storage] Data saved');
@@ -137,13 +140,25 @@ export function loadFromLocalStorage() {
       if (data.playerLibrary) {
         state.playerLibrary = data.playerLibrary;
       }
-      // Load API team cache
-      if (data.apiTeams) {
+      // Load API team cache, pruning entries older than 30 days
+      const PRUNE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      if (data.apiTeams && data.teamCacheMeta) {
+        for (const [teamID, teamData] of Object.entries(data.apiTeams)) {
+          const meta = data.teamCacheMeta[teamID];
+          const age = meta?.cachedAt ? now - new Date(meta.cachedAt).getTime() : Infinity;
+          if (age <= PRUNE_AGE_MS) {
+            apiTeamCache[teamID] = teamData;
+          }
+        }
+      } else if (data.apiTeams) {
         Object.assign(apiTeamCache, data.apiTeams);
       }
-      // Load cache metadata for TTL tracking
+      // Load cache metadata for TTL tracking (only for entries we kept)
       if (data.teamCacheMeta) {
-        Object.assign(teamCacheMetadata, data.teamCacheMeta);
+        for (const [teamID, meta] of Object.entries(data.teamCacheMeta)) {
+          if (apiTeamCache[teamID]) teamCacheMetadata[teamID] = meta;
+        }
       }
       // Load PIN tokens
       if (data.teamPinTokens) {
@@ -153,6 +168,10 @@ export function loadFromLocalStorage() {
       if (data.teamsListCache) {
         teamsListCache = data.teamsListCache;
         teamsListCacheTime = data.teamsListCacheTime;
+      }
+      // Load division results (opponent scouting context)
+      if (data.divisionResults) {
+        state.divisionResults = data.divisionResults;
       }
       console.log('[Storage] Data loaded from', data.lastSaved);
       return true;

@@ -1,11 +1,14 @@
 {
-  "dc": "/assets/team-logos/diamond-creek.png",
-  "diamond-creek": "/assets/team-logos/diamond-creek.png",
-  "eltham": "/assets/team-logos/eltham.png",
-  "hazel-glen": "/assets/team-logos/hazel-glen.png",
-  "heat": "/assets/team-logos/heat.jpg",
-  "hurstbridge": "/assets/team-logos/hurstbridge.jpg",
-  "kilmore": "/assets/team-logos/kilmore.jpg",
-  "montmorency": "/assets/team-logos/montmorency.png",
-  "titans": "/assets/team-logos/titans.jpg"
+  "dc-amber": "/assets/team-logos/dc-amber.png",
+  "dc-amethysts": "/assets/team-logos/dc-amethysts.png",
+  "dc-diamonds": "/assets/team-logos/dc-diamonds.png",
+  "dc-garnets": "/assets/team-logos/dc-garnets.png",
+  "dc-onyx": "/assets/team-logos/dc-onyx.png",
+  "dc-sapphires": "/assets/team-logos/dc-sapphires.png",
+  "dc-topaz": "/assets/team-logos/dc-topaz.png",
+  "eltham-pearls": "/assets/team-logos/eltham-pearls.png",
+  "hazel-glen": "/assets/team-logos/hazel-glen.svg",
+  "hg-13-fury": "/assets/team-logos/hg-13-fury.png",
+  "montmorency-13-magpies": "/assets/team-logos/montmorency-13-magpies.png",
+  "titans-teal": "/assets/team-logos/titans-teal.jpg"
 }

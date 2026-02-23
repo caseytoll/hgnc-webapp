@@ -1,0 +1,179 @@
+/* ========================================
+   TRAINING SESSIONS
+   ======================================== */
+
+.training-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.training-session-item {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.training-session-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary-600);
+}
+
+.training-session-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.training-session-focus {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.training-session-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Training Session Detail */
+.training-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.training-detail-date {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.training-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.training-detail-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.training-detail-notes {
+  color: var(--text-primary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Attendance List (detail view) */
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.attendance-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.attendance-item.attended {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.attendance-item.missed {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+
+.attendance-icon {
+  font-weight: bold;
+  width: 20px;
+  text-align: center;
+}
+
+.attendance-name {
+  color: var(--text-primary);
+}
+
+/* Attendance Grid (add/edit form) */
+.attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.attendance-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.attendance-checkbox:hover {
+  background: var(--bg-card-hover);
+}
+
+.attendance-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary-500);
+  cursor: pointer;
+}
+
+.attendance-checkbox span {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+/* Form textarea styling */
+.form-textarea {
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+/* Danger button variant */
+.btn-danger {
+  color: var(--error) !important;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}

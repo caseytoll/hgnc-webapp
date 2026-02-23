@@ -1,0 +1,31 @@
+/* ========================================
+   SCORE VALIDATION (Fixture Sync)
+   ======================================== */
+
+.score-validated {
+  color: var(--success);
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+.score-mismatch {
+  color: var(--warning, #f59e0b);
+  font-size: 0.75rem;
+  margin-left: 4px;
+  cursor: help;
+}
+
+.fixture-score-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.fixture-score-note.verified {
+  color: var(--success);
+}
+
+.fixture-score-note.mismatch {
+  color: var(--warning, #f59e0b);
+}

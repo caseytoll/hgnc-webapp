@@ -11,16 +11,25 @@ import { haptic } from '../../../../common/share-utils.js';
 // TEAM SETTINGS
 // ========================================
 
-window.openTeamSettings = function() {
+window.openTeamSettings = function () {
   const team = state.currentTeam;
   const isArchived = team.archived || false;
   // Generate canonical parent portal link
-  const slugify = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const slug = team.teamName && team.year && team.season
-    ? [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-')
-    : '';
+  const slugify = (s) =>
+    (s || '')
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  const slug =
+    team.teamName && team.year && team.season
+      ? [slugify(team.teamName), String(team.year), slugify(team.season)].filter(Boolean).join('-')
+      : '';
   const portalUrl = slug ? `https://hgnc-gameday.pages.dev/teams/${slug}/` : '';
-  openModal('Team Settings', `
+  openModal(
+    'Team Settings',
+    `
     <div class="form-group">
       <label class="form-label">Team Name</label>
       <input type="text" class="form-input" id="edit-team-name" value="${escapeAttr(team.teamName)}" maxlength="100">
@@ -32,18 +41,22 @@ window.openTeamSettings = function() {
     <div class="form-group">
       <label class="form-label">Season</label>
       <select class="form-select" id="edit-team-season">
-        ${['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'].map(s =>
-          `<option value="${escapeAttr(s)}" ${team.season === s ? 'selected' : ''}>${escapeHtml(s)}</option>`
-        ).join('')}
+        ${['Season 1', 'Season 2', 'Autumn', 'Spring', 'Summer', 'Winter', 'Other', 'NFNL']
+          .map(
+            (s) => `<option value="${escapeAttr(s)}" ${team.season === s ? 'selected' : ''}>${escapeHtml(s)}</option>`
+          )
+          .join('')}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Coach</label>
       <select class="form-select" id="edit-team-coach" onchange="if(this.value==='${COACH_OTHER_SENTINEL}'){document.getElementById('edit-team-coach-custom').style.display='';this.style.display='none';document.getElementById('edit-team-coach-custom').focus();}">
         <option value="">— None —</option>
-        ${getUniqueCoachNames().map(c =>
-          `<option value="${escapeAttr(c)}" ${team.coach === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
-        ).join('')}
+        ${getUniqueCoachNames()
+          .map(
+            (c) => `<option value="${escapeAttr(c)}" ${team.coach === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
+          )
+          .join('')}
         <option value="${COACH_OTHER_SENTINEL}">Other...</option>
       </select>
       <input type="text" class="form-input" id="edit-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
@@ -54,7 +67,11 @@ window.openTeamSettings = function() {
     </div>
     ${(() => {
       let sc = {};
-      try { sc = team.resultsApi ? JSON.parse(team.resultsApi) : {}; } catch(e) {}
+      try {
+        sc = team.resultsApi ? JSON.parse(team.resultsApi) : {};
+      } catch (_e) {
+        // invalid JSON, use empty config
+      }
       const currentSource = sc.source || '';
       return `
     <div class="form-group">
@@ -80,11 +97,11 @@ window.openTeamSettings = function() {
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px">
           <div>
             <label class="form-label form-label-sm">Team Name (as shown on GameDay)</label>
-            <input type="text" class="form-input" id="edit-gameday-team-name" maxlength="100" placeholder="e.g. Hazel Glen 6" value="${escapeAttr(sc.source === 'gameday' ? (sc.teamName || '') : '')}">
+            <input type="text" class="form-input" id="edit-gameday-team-name" maxlength="100" placeholder="e.g. Hazel Glen 6" value="${escapeAttr(sc.source === 'gameday' ? sc.teamName || '' : '')}">
           </div>
           <div>
             <label class="form-label form-label-sm">Round Offset</label>
-            <input type="number" class="form-input" id="edit-gameday-round-offset" placeholder="0" value="${sc.source === 'gameday' ? (sc.roundOffset || '') : ''}">
+            <input type="number" class="form-input" id="edit-gameday-round-offset" placeholder="0" value="${sc.source === 'gameday' ? sc.roundOffset || '' : ''}">
             <p class="form-hint" style="margin-top:2px">e.g. 3 if you had 3 grading rounds</p>
           </div>
         </div>
@@ -116,6 +133,18 @@ window.openTeamSettings = function() {
       </div>
     </div>`;
     })()}
+    ${team.resultsApi ? `
+    <div class="form-group" style="margin-top:8px">
+      <button type="button" class="btn btn-outline" id="btn-refresh-team-data" onclick="refreshTeamData()" style="width:100%">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        Refresh Fixtures &amp; Ladder
+      </button>
+      <div class="form-help">Forces a fresh fetch of fixture results and ladder standings, bypassing the overnight cache.</div>
+    </div>
+    ` : ''}
     <div class="form-group">
       <label class="form-label">Parent Portal Link <span class="form-label-desc">(read-only, for parents)</span></label>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -127,7 +156,9 @@ window.openTeamSettings = function() {
     <div class="settings-divider"></div>
     <div class="form-group">
       <label class="form-label">Team PIN <span class="form-label-desc">(optional)</span> ${contextHelpIcon('security')}</label>
-      ${team.hasPin ? `
+      ${
+        team.hasPin
+          ? `
         <p class="form-hint">PIN is set. Only devices with the PIN can access this team.</p>
         <div class="pin-actions">
           <button type="button" class="btn btn-sm btn-outline" onclick="showChangePinModal()">Change PIN</button>
@@ -140,13 +171,15 @@ window.openTeamSettings = function() {
           Log Out All Devices
         </button>
         <p class="form-hint" style="margin-top: 4px; font-size: 11px;">Other devices will need to re-enter the PIN.</p>
-      ` : `
+      `
+          : `
         <p class="form-hint">Set a 4-digit PIN to restrict access to this team.</p>
         <div style="display: flex; gap: 8px; align-items: center;">
           <input type="tel" class="pin-input" id="settings-pin-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="••••" autocomplete="off">
           <button type="button" class="btn btn-sm btn-primary" onclick="setTeamPINFromSettings()">Set PIN</button>
         </div>
-      `}
+      `
+      }
     </div>
     <div class="settings-divider"></div>
     <div class="form-group">
@@ -191,20 +224,22 @@ window.openTeamSettings = function() {
         Delete Team
       </button>
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     <button class="btn btn-primary" onclick="saveTeamSettings()">Save</button>
-  `);
+  `
+  );
 };
 
-window._toggleFixtureSource = function(source) {
+window._toggleFixtureSource = function (source) {
   const gamedayFields = document.getElementById('fixture-gameday-fields');
   const squadiFields = document.getElementById('fixture-squadi-fields');
   if (gamedayFields) gamedayFields.style.display = source === 'gameday' ? 'block' : 'none';
   if (squadiFields) squadiFields.style.display = source === 'squadi' ? 'block' : 'none';
 };
 
-window.setTeamPINFromSettings = async function() {
+window.setTeamPINFromSettings = async function () {
   const input = document.getElementById('settings-pin-input');
   if (!input) return;
   const pin = input.value.trim();
@@ -221,7 +256,7 @@ window.setTeamPINFromSettings = async function() {
     if (result.success && result.pinToken) {
       state.teamPinTokens[team.teamID] = result.pinToken;
       team.hasPin = true;
-      const teamInList = state.teams.find(t => t.teamID === team.teamID);
+      const teamInList = state.teams.find((t) => t.teamID === team.teamID);
       if (teamInList) teamInList.hasPin = true;
       saveToLocalStorage();
       showToast('Team PIN set', 'success');
@@ -235,26 +270,30 @@ window.setTeamPINFromSettings = async function() {
   }
 };
 
-window.showChangePinModal = function() {
+window.showChangePinModal = function () {
   const team = state.currentTeam;
   if (!team) return;
   closeModal();
-  openModal('Change Team PIN', `
+  openModal(
+    'Change Team PIN',
+    `
     <div style="text-align: center;">
       <p style="margin-bottom: 16px; color: var(--text-secondary);">Enter a new 4-digit PIN</p>
       <input type="tel" class="pin-input" id="change-pin-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="••••" autocomplete="off">
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost" onclick="closeModal(); openTeamSettings();">Cancel</button>
     <button class="btn btn-primary" onclick="confirmChangePIN()">Change PIN</button>
-  `);
+  `
+  );
   setTimeout(() => {
     const input = document.getElementById('change-pin-input');
     if (input) input.focus();
   }, 100);
 };
 
-window.confirmChangePIN = async function() {
+window.confirmChangePIN = async function () {
   const input = document.getElementById('change-pin-input');
   if (!input) return;
   const pin = input.value.trim();
@@ -283,7 +322,7 @@ window.confirmChangePIN = async function() {
   }
 };
 
-window.removeTeamPIN = async function() {
+window.removeTeamPIN = async function () {
   if (!confirm('Remove the PIN? Anyone will be able to access this team.')) return;
   const team = state.currentTeam;
   if (!team) return;
@@ -293,7 +332,7 @@ window.removeTeamPIN = async function() {
     if (result.success) {
       delete state.teamPinTokens[team.teamID];
       team.hasPin = false;
-      const teamInList = state.teams.find(t => t.teamID === team.teamID);
+      const teamInList = state.teams.find((t) => t.teamID === team.teamID);
       if (teamInList) teamInList.hasPin = false;
       saveToLocalStorage();
       showToast('PIN removed', 'success');
@@ -307,7 +346,7 @@ window.removeTeamPIN = async function() {
   }
 };
 
-window.revokeAllDevices = async function() {
+window.revokeAllDevices = async function () {
   if (!confirm('This will log out all other devices. They will need to re-enter the PIN to access this team.')) return;
   const team = state.currentTeam;
   if (!team) return;
@@ -327,7 +366,7 @@ window.revokeAllDevices = async function() {
   }
 };
 
-window.archiveTeam = async function() {
+window.archiveTeam = async function () {
   const team = state.currentTeam;
   if (!team) return;
 
@@ -341,7 +380,7 @@ window.archiveTeam = async function() {
     if (state.currentTeamData) state.currentTeamData.archived = true;
 
     // Update in teams list too
-    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    const teamInList = state.teams.find((t) => t.teamID === team.teamID);
     if (teamInList) teamInList.archived = true;
 
     // Save to backend
@@ -358,7 +397,7 @@ window.archiveTeam = async function() {
     // Revert local changes
     team.archived = false;
     if (state.currentTeamData) state.currentTeamData.archived = false;
-    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    const teamInList = state.teams.find((t) => t.teamID === team.teamID);
     if (teamInList) teamInList.archived = false;
     showToast('Failed to archive team: ' + error.message, 'error');
   } finally {
@@ -366,7 +405,7 @@ window.archiveTeam = async function() {
   }
 };
 
-window.unarchiveTeam = async function() {
+window.unarchiveTeam = async function () {
   const team = state.currentTeam;
   if (!team) return;
 
@@ -380,7 +419,7 @@ window.unarchiveTeam = async function() {
     if (state.currentTeamData) state.currentTeamData.archived = false;
 
     // Update in teams list too
-    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    const teamInList = state.teams.find((t) => t.teamID === team.teamID);
     if (teamInList) teamInList.archived = false;
 
     // Save to backend
@@ -396,7 +435,7 @@ window.unarchiveTeam = async function() {
     // Revert local changes
     team.archived = true;
     if (state.currentTeamData) state.currentTeamData.archived = true;
-    const teamInList = state.teams.find(t => t.teamID === team.teamID);
+    const teamInList = state.teams.find((t) => t.teamID === team.teamID);
     if (teamInList) teamInList.archived = true;
     showToast('Failed to restore team: ' + error.message, 'error');
   } finally {
@@ -404,9 +443,12 @@ window.unarchiveTeam = async function() {
   }
 };
 
-window.autoDetectSquadi = async function() {
+window.autoDetectSquadi = async function () {
   const btn = document.getElementById('btn-auto-detect-squadi');
-  if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+  }
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -427,16 +469,16 @@ window.autoDetectSquadi = async function() {
 
     // Build flat list of pickable options
     const options = [];
-    comps.forEach(comp => {
-      (comp.divisions || []).forEach(div => {
-        (div.teams || []).forEach(teamName => {
+    comps.forEach((comp) => {
+      (comp.divisions || []).forEach((div) => {
+        (div.teams || []).forEach((teamName) => {
           options.push({
             competitionId: comp.id,
             competitionName: comp.name,
             competitionKey: comp.orgKey,
             divisionId: div.id,
             divisionName: div.name,
-            teamName
+            teamName,
           });
         });
       });
@@ -450,31 +492,40 @@ window.autoDetectSquadi = async function() {
     }
 
     // Multiple matches — show picker modal
-    const rows = options.map((opt, idx) =>
-      `<div class="sos-opponent-row" style="cursor:pointer;padding:10px 8px" onclick="pickSquadiOption(${idx})">
+    const rows = options
+      .map(
+        (opt, idx) =>
+          `<div class="sos-opponent-row" style="cursor:pointer;padding:10px 8px" onclick="pickSquadiOption(${idx})">
         <div>
           <strong>${escapeHtml(opt.teamName)}</strong>
           <div style="font-size:12px;color:var(--text-secondary)">${escapeHtml(opt.divisionName)} — ${escapeHtml(opt.competitionName)}</div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`
-    ).join('');
+      )
+      .join('');
 
     window._squadiAutoDetectOptions = options;
-    openModal('Select Your Team', `
+    openModal(
+      'Select Your Team',
+      `
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Found ${options.length} HG teams across ${comps.length} competition${comps.length > 1 ? 's' : ''}. Select yours:</p>
       <div style="display:flex;flex-direction:column;gap:2px">${rows}</div>
-    `, `<button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-outline" onclick="autoDetectSquadiRescan()" style="margin-left:8px">Force Rescan</button>`);
-
+    `,
+      `<button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-outline" onclick="autoDetectSquadiRescan()" style="margin-left:8px">Force Rescan</button>`
+    );
   } catch (err) {
     showToast('Auto-detect error: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Auto-Detect from Squadi'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Auto-Detect from Squadi';
+    }
   }
 };
 
-window.pickSquadiOption = function(idx) {
+window.pickSquadiOption = function (idx) {
   if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption called with idx:', idx);
   const options = window._squadiAutoDetectOptions;
   if (!options || !options[idx]) {
@@ -493,7 +544,7 @@ window.pickSquadiOption = function(idx) {
     source: 'squadi',
     competitionId: selectedOption.competitionId,
     divisionId: selectedOption.divisionId,
-    squadiTeamName: selectedOption.teamName
+    squadiTeamName: selectedOption.teamName,
   };
   if (selectedOption.competitionKey) {
     config.competitionKey = selectedOption.competitionKey;
@@ -512,38 +563,44 @@ window.pickSquadiOption = function(idx) {
     season: state.currentTeam.season,
     ladderUrl: state.currentTeam.ladderUrl,
     resultsApi: resultsApi,
-    coach: state.currentTeam.coach
-  }).then(() => {
-    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
+    coach: state.currentTeam.coach,
+  })
+    .then(() => {
+      if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: updateTeamSettings successful');
 
-    // Update local state
-    state.currentTeam.resultsApi = resultsApi;
-    if (state.currentTeamData) {
-      state.currentTeamData.resultsApi = resultsApi;
-    }
+      // Update local state
+      state.currentTeam.resultsApi = resultsApi;
+      if (state.currentTeamData) {
+        state.currentTeamData.resultsApi = resultsApi;
+      }
 
-    // Update in teams list
-    const teamInList = state.teams.find(t => t.teamID === state.currentTeam.teamID);
-    if (teamInList) {
-      teamInList.resultsApi = resultsApi;
-    }
+      // Update in teams list
+      const teamInList = state.teams.find((t) => t.teamID === state.currentTeam.teamID);
+      if (teamInList) {
+        teamInList.resultsApi = resultsApi;
+      }
 
-    saveToLocalStorage();
-    renderMainApp();
-    showToast('Squadi configuration saved!', 'success');
-    if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: completed successfully');
-  }).catch((error) => {
-    if (API_CONFIG.debug) console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
-    showToast('Failed to save Squadi config: ' + error.message, 'error');
-  }).finally(() => {
-    hideLoading();
-  });
+      saveToLocalStorage();
+      renderMainApp();
+      showToast('Squadi configuration saved!', 'success');
+      if (API_CONFIG.debug) console.log('[DEBUG] pickSquadiOption: completed successfully');
+    })
+    .catch((error) => {
+      if (API_CONFIG.debug) console.error('[DEBUG] pickSquadiOption: updateTeamSettings failed:', error);
+      showToast('Failed to save Squadi config: ' + error.message, 'error');
+    })
+    .finally(() => {
+      hideLoading();
+    });
 };
 
-window.autoDetectSquadiRescan = async function() {
+window.autoDetectSquadiRescan = async function () {
   closeModal();
   const btn = document.getElementById('btn-auto-detect-squadi');
-  if (btn) { btn.disabled = true; btn.textContent = 'Rescanning...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Rescanning...';
+  }
 
   try {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
@@ -562,13 +619,19 @@ window.autoDetectSquadiRescan = async function() {
       return;
     }
 
-    showToast(`Found ${comps.reduce((sum, c) => sum + c.divisions.reduce((s, d) => s + d.teams.length, 0), 0)} HG teams. Opening picker...`, 'success');
+    showToast(
+      `Found ${comps.reduce((sum, c) => sum + c.divisions.reduce((s, d) => s + d.teams.length, 0), 0)} HG teams. Opening picker...`,
+      'success'
+    );
     // Re-trigger to show picker
     window.autoDetectSquadi();
   } catch (err) {
     showToast('Rescan error: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Auto-Detect from Squadi'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Auto-Detect from Squadi';
+    }
   }
 };
 
@@ -600,7 +663,7 @@ function fillSquadiFields(opt) {
   }
 }
 
-window.saveTeamSettings = async function() {
+window.saveTeamSettings = async function () {
   if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: starting execution');
   const nameInput = document.getElementById('edit-team-name');
   const name = nameInput.value.trim();
@@ -611,8 +674,13 @@ window.saveTeamSettings = async function() {
   const ladderUrl = ladderUrlInput.value.trim();
   const coachSelect = document.getElementById('edit-team-coach');
   const coachCustom = document.getElementById('edit-team-coach-custom');
-  const coachRaw = (coachCustom && coachCustom.style.display !== 'none') ? coachCustom.value.trim() : (coachSelect ? coachSelect.value : '');
-    const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
+  const coachRaw =
+    coachCustom && coachCustom.style.display !== 'none'
+      ? coachCustom.value.trim()
+      : coachSelect
+        ? coachSelect.value
+        : '';
+  const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
 
   // Build fixture config from form fields
   const fixtureSource = document.getElementById('edit-fixture-source')?.value || '';
@@ -632,14 +700,30 @@ window.saveTeamSettings = async function() {
     const squadiDivId = parseInt(document.getElementById('edit-squadi-division-id')?.value) || 0;
     const squadiTeamName = document.getElementById('edit-squadi-team-name')?.value.trim() || '';
     const squadiCompKey = document.getElementById('edit-squadi-competition-key')?.value.trim() || '';
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Squadi config - compId:', squadiCompId, 'divId:', squadiDivId, 'teamName:', squadiTeamName, 'compKey:', squadiCompKey);
+    if (API_CONFIG.debug)
+      console.log(
+        '[DEBUG] saveTeamSettings: Squadi config - compId:',
+        squadiCompId,
+        'divId:',
+        squadiDivId,
+        'teamName:',
+        squadiTeamName,
+        'compKey:',
+        squadiCompKey
+      );
     if (squadiCompId && squadiDivId && squadiTeamName) {
-      const config = { source: 'squadi', competitionId: squadiCompId, divisionId: squadiDivId, squadiTeamName: squadiTeamName };
+      const config = {
+        source: 'squadi',
+        competitionId: squadiCompId,
+        divisionId: squadiDivId,
+        squadiTeamName: squadiTeamName,
+      };
       if (squadiCompKey) config.competitionKey = squadiCompKey;
       resultsApi = JSON.stringify(config);
       if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Built Squadi resultsApi:', resultsApi);
     } else {
-      if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
+      if (API_CONFIG.debug)
+        console.log('[DEBUG] saveTeamSettings: Missing required Squadi fields, resultsApi will be empty');
     }
   }
 
@@ -665,7 +749,7 @@ window.saveTeamSettings = async function() {
     return;
   }
 
-  const validSeasons = ['Season 1', 'Season 2', 'Autumn', 'Spring', 'NFNL'];
+  const validSeasons = ['Season 1', 'Season 2', 'Autumn', 'Spring', 'Summer', 'Winter', 'Other', 'NFNL'];
   if (!validSeasons.includes(season)) {
     if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation failed - invalid season');
     showToast('Invalid season selected', 'error');
@@ -673,7 +757,19 @@ window.saveTeamSettings = async function() {
   }
 
   if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: validation passed, proceeding with save');
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: name:', name, 'year:', year, 'season:', season, 'fixtureSource:', fixtureSource, 'resultsApi:', resultsApi);
+  if (API_CONFIG.debug)
+    console.log(
+      '[DEBUG] saveTeamSettings: name:',
+      name,
+      'year:',
+      year,
+      'season:',
+      season,
+      'fixtureSource:',
+      fixtureSource,
+      'resultsApi:',
+      resultsApi
+    );
 
   // Store old values for rollback
   const oldName = state.currentTeam.teamName;
@@ -706,7 +802,7 @@ window.saveTeamSettings = async function() {
     }
 
     // Update in teams list
-    const teamInList = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+    const teamInList = state.teams.find((t) => t.teamID === state.currentTeam.teamID);
     if (teamInList) {
       teamInList.teamName = name;
       teamInList.year = year;
@@ -743,7 +839,7 @@ window.saveTeamSettings = async function() {
       state.currentTeamData.season = oldSeason;
       state.currentTeamData.ladderUrl = oldLadderUrl;
     }
-    const rollbackTeam = state.teams.find(t => t.teamID === state.currentTeam.teamID);
+    const rollbackTeam = state.teams.find((t) => t.teamID === state.currentTeam.teamID);
     if (rollbackTeam) {
       rollbackTeam.teamName = oldName;
       rollbackTeam.year = oldYear;
@@ -760,12 +856,14 @@ window.saveTeamSettings = async function() {
   }
 };
 
-window.openGameSettings = function() {
+window.openGameSettings = function () {
   if (!ensureNotReadOnly('openGameSettings')) return;
   const game = state.currentGame;
   if (!game) return;
 
-  openModal('Game Settings', `
+  openModal(
+    'Game Settings',
+    `
     <div class="form-group">
       <label class="form-label">Round</label>
       <input type="number" class="form-input" id="edit-game-round" value="${escapeAttr(game.round)}" min="1" max="99">
@@ -796,13 +894,15 @@ window.openGameSettings = function() {
         <option value="bye" ${game.status === 'bye' ? 'selected' : ''}>Bye</option>
       </select>
     </div>
-  `, `
+  `,
+    `
     <button class="btn btn-ghost text-error" onclick="deleteGame()">Delete</button>
     <button class="btn btn-primary" onclick="saveGameSettings()">Save</button>
-  `);
+  `
+  );
 };
 
-window.saveGameSettings = function() {
+window.saveGameSettings = function () {
   const game = state.currentGame;
   if (!game) {
     showToast('Game not found', 'error');
@@ -814,10 +914,14 @@ window.saveGameSettings = function() {
   const newStatus = document.getElementById('edit-game-status').value;
   if (newStatus === 'abandoned') {
     const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const unplayed = quarters.filter(q => !game.lineup || !game.lineup[q] || (!game.lineup[q].GS && !game.lineup[q].GA && !game.lineup[q].C));
+    const unplayed = quarters.filter(
+      (q) => !game.lineup || !game.lineup[q] || (!game.lineup[q].GS && !game.lineup[q].GA && !game.lineup[q].C)
+    );
     if (unplayed.length > 0) {
       if (confirm(`Game marked as Abandoned. Clear all data for unplayed quarters (${unplayed.join(', ')})?`)) {
-        unplayed.forEach(q => { if (game.lineup) game.lineup[q] = {}; });
+        unplayed.forEach((q) => {
+          if (game.lineup) game.lineup[q] = {};
+        });
       }
     }
   }
@@ -863,12 +967,10 @@ window.saveGameSettings = function() {
   showToast('Game updated', 'success');
 };
 
-window.deleteGame = function() {
+window.deleteGame = function () {
   if (!confirm('Delete this game?')) return;
 
-  state.currentTeamData.games = state.currentTeamData.games.filter(
-    g => g.gameID !== state.currentGame.gameID
-  );
+  state.currentTeamData.games = state.currentTeamData.games.filter((g) => g.gameID !== state.currentGame.gameID);
 
   saveToLocalStorage();
 
@@ -881,9 +983,9 @@ window.deleteGame = function() {
 // HOME SEGMENT CONTROL (Teams/Players)
 // ========================================
 
-window.switchHomeSegment = function(segment) {
+window.switchHomeSegment = function (segment) {
   // Update button states
-  document.querySelectorAll('.segment-btn').forEach(btn => {
+  document.querySelectorAll('.segment-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.textContent.toLowerCase() === segment);
   });
 

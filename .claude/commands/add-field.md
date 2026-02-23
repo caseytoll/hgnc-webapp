@@ -11,14 +11,14 @@ Guided walkthrough for adding a new field to the Team object. This field needs u
 5. **`createNewTeam()`** — Include in `appendRow` call (match column order)
 6. **`createTeam` API action** — Read from `e.parameter`
 
-## Frontend Changes (apps/coach-app/src/js/app.js)
+## Frontend Changes
 
-7. **Initial teams load** (~line 719) — Add default value if needed
-8. **Background revalidation `freshTeams` mapping** — Include field with default
-9. **Change-detection signature** — Include if field changes should trigger UI refresh
-10. **`saveTeamSettings()`** — Read from form, update `state.currentTeam`, `state.currentTeamData` (if applicable), `teamInList`, send to API, AND add to rollback
-11. **`openTeamSettings()`** — Add form field to settings modal
-12. **`openAddTeamModal()` / `addNewTeam()`** — Add form field and include in API call
+7. **`data-loader.js` — Initial teams load** — Add default value if needed in the teams mapping
+8. **`data-loader.js` — Background revalidation `freshTeams` mapping** — Include field with default
+9. **`data-loader.js` — Change-detection signature** — Include if field changes should trigger UI refresh
+10. **`team-settings.js` — `saveTeamSettings()`** — Read from form, update `state.currentTeam`, `state.currentTeamData` (if applicable), `teamInList`, send to API, AND add to rollback
+11. **`team-settings.js` — `openTeamSettings()`** — Add form field to settings modal
+12. **`wizard.js` — `addNewTeam()`** — Add form field and include in createTeam API call
 
 ## Verification
 - Run `npm run test:run` and `cd apps/parent-portal && npm run test:run`

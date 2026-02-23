@@ -25,7 +25,7 @@ export function renderAIFeedback(type) {
   </div>`;
 }
 
-window.rateAIInsights = function(type, rating, btn) {
+window.rateAIInsights = function (type, rating, btn) {
   const container = document.getElementById('ai-feedback-' + type);
   if (!container) return;
 
@@ -33,7 +33,12 @@ window.rateAIInsights = function(type, rating, btn) {
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
   const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
   const teamName = state.currentTeam?.teamName || 'unknown';
-  const url = baseUrl + '?action=logClientMetric&name=ai_feedback&value=' + encodeURIComponent(rating === 'up' ? 1 : 0) + '&teams=1&extra=' + encodeURIComponent(type + ':' + teamName);
+  const url =
+    baseUrl +
+    '?action=logClientMetric&name=ai_feedback&value=' +
+    encodeURIComponent(rating === 'up' ? 1 : 0) +
+    '&teams=1&extra=' +
+    encodeURIComponent(type + ':' + teamName);
   fetch(url).catch(() => {});
 
   container.innerHTML = '<span class="ai-feedback-thanks">Thanks for your feedback!</span>';
@@ -45,7 +50,7 @@ window.rateAIInsights = function(type, rating, btn) {
 
 export function normalizeFavPositions(favPosition) {
   if (!favPosition) return [];
-  if (Array.isArray(favPosition)) return favPosition.filter(p => p);
+  if (Array.isArray(favPosition)) return favPosition.filter((p) => p);
   if (typeof favPosition === 'string' && favPosition.trim()) return [favPosition.trim()];
   return [];
 }
@@ -83,7 +88,7 @@ export function parseSquadiConfig(resultsApi) {
 
 export function fuzzyOpponentMatch(existing, fixture) {
   if (!existing || !fixture) return false;
-  const norm = s => s.toLowerCase().trim().replace(/\s+/g, ' ');
+  const norm = (s) => s.toLowerCase().trim().replace(/\s+/g, ' ');
   const a = norm(existing);
   const b = norm(fixture);
   if (a === b) return true;
@@ -119,7 +124,7 @@ export function getOpponentDifficulty(opponentName) {
     const rows = cached.data.ladder.rows;
     const totalTeams = rows.length;
     if (totalTeams === 0) return null;
-    const match = rows.find(row => {
+    const match = rows.find((row) => {
       const ladderTeam = String(row['TEAM'] || row['Team'] || '');
       return fuzzyOpponentMatch(opponentName, ladderTeam);
     });
@@ -144,7 +149,7 @@ export function calculateStrengthOfSchedule() {
   const opponents = [];
   let positionSum = 0;
   let totalTeams = 0;
-  gameResults.forEach(g => {
+  gameResults.forEach((g) => {
     const diff = getOpponentDifficulty(g.opponent);
     if (diff) {
       opponents.push({ opponent: g.opponent, position: diff.position, tier: diff.tier, result: g.result });
@@ -165,7 +170,7 @@ export function calculateStrengthOfSchedule() {
     gamesWithData: opponents.length,
     totalGames: gameResults.length,
     label,
-    opponents
+    opponents,
   };
 }
 
@@ -175,7 +180,9 @@ export function calculateStrengthOfSchedule() {
 
 export function getUniqueCoachNames() {
   const names = new Set();
-  state.teams.forEach(t => { if (t.coach) names.add(t.coach); });
+  state.teams.forEach((t) => {
+    if (t.coach) names.add(t.coach);
+  });
   return Array.from(names).sort((a, b) => a.localeCompare(b));
 }
 
@@ -193,7 +200,7 @@ export function calculatePlayerStats(player) {
   let captainCount = 0;
   const recentGames = [];
 
-  games.forEach(game => {
+  games.forEach((game) => {
     if (!game.lineup) return;
 
     let playedInGame = false;
@@ -201,11 +208,11 @@ export function calculatePlayerStats(player) {
     let quartersOnCourt = 0;
     const gamePositions = [];
 
-    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
       const qData = game.lineup[q] || {};
 
       // Check each position
-      ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+      ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach((pos) => {
         if (qData[pos] === player.name) {
           playedInGame = true;
           quartersPlayed++;
@@ -231,12 +238,12 @@ export function calculatePlayerStats(player) {
 
     if (playedInGame) {
       gamesPlayed++;
-      offQuarters += (4 - quartersOnCourt);
+      offQuarters += 4 - quartersOnCourt;
       recentGames.push({
         round: game.round,
         opponent: game.opponent,
         positions: gamePositions,
-        goals: gameGoals
+        goals: gameGoals,
       });
     }
 
@@ -250,7 +257,7 @@ export function calculatePlayerStats(player) {
     .map(([position, count]) => ({
       position,
       count,
-      percentage: quartersPlayed > 0 ? Math.round((count / quartersPlayed) * 100) : 0
+      percentage: quartersPlayed > 0 ? Math.round((count / quartersPlayed) * 100) : 0,
     }))
     .sort((a, b) => b.count - a.count);
 
@@ -262,7 +269,7 @@ export function calculatePlayerStats(player) {
     totalGoals,
     avgGoalsPerGame: gamesPlayed > 0 ? (totalGoals / gamesPlayed).toFixed(1) : '0.0',
     positionBreakdown,
-    recentGames: recentGames.reverse() // Most recent first
+    recentGames: recentGames.reverse(), // Most recent first
   };
 }
 
@@ -270,7 +277,7 @@ export function resolvePlayerName(val) {
   if (!val) return '';
   // Try to find by ID in current team
   const players = state.currentTeamData?.players || [];
-  const found = players.find(p => p.id === val);
+  const found = players.find((p) => p.id === val);
   if (found) return found.name;
   // If not found by ID, assume it's already a name
   return val;
@@ -282,25 +289,23 @@ export function getPlayerChipsHtml(quarter, textareaId) {
   const positions = ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'];
 
   // Get players assigned to positions in this quarter
-  let players = positions
-    .map(pos => resolvePlayerName(qData[pos]))
-    .filter(name => name && name.trim());
+  let players = positions.map((pos) => resolvePlayerName(qData[pos])).filter((name) => name && name.trim());
 
   // If no lineup set, show all team players (non fill-ins)
   if (players.length === 0) {
-    players = (state.currentTeamData?.players || [])
-      .filter(p => !p.fillIn)
-      .map(p => p.name);
+    players = (state.currentTeamData?.players || []).filter((p) => !p.fillIn).map((p) => p.name);
   }
 
   // Get unique first names
   const uniqueNames = [...new Set(players)];
 
   // Generate player chips
-  const playerChips = uniqueNames.map(name => {
-    const firstName = name.split(' ')[0];
-    return `<button type="button" class="player-chip" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(firstName)}')" title="${escapeAttr(name)}">${escapeHtml(firstName)}</button>`;
-  }).join('');
+  const playerChips = uniqueNames
+    .map((name) => {
+      const firstName = name.split(' ')[0];
+      return `<button type="button" class="player-chip" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(firstName)}')" title="${escapeAttr(name)}">${escapeHtml(firstName)}</button>`;
+    })
+    .join('');
 
   // Add group buttons (Team, Opp, Goalers, Midcourt, Defence)
   const groupChips = `
@@ -312,24 +317,36 @@ export function getPlayerChipsHtml(quarter, textareaId) {
   `;
 
   // Position chips
-  const positionChips = positions.map(pos =>
-    `<button type="button" class="player-chip player-chip-position" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(pos)}')" title="Insert '${escapeAttr(pos)}'">${escapeHtml(pos)}</button>`
-  ).join('');
+  const positionChips = positions
+    .map(
+      (pos) =>
+        `<button type="button" class="player-chip player-chip-position" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(pos)}')" title="Insert '${escapeAttr(pos)}'">${escapeHtml(pos)}</button>`
+    )
+    .join('');
 
   // Common infraction chips
-  const infractionChips = ['Stepping', 'Contact', 'Offside'].map(word =>
-    `<button type="button" class="player-chip player-chip-infraction" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
-  ).join('');
+  const infractionChips = ['Stepping', 'Contact', 'Offside']
+    .map(
+      (word) =>
+        `<button type="button" class="player-chip player-chip-infraction" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+    )
+    .join('');
 
   // Positive play chips
-  const positiveChips = ['Great shot', 'Good defence', 'Intercept'].map(word =>
-    `<button type="button" class="player-chip player-chip-positive" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
-  ).join('');
+  const positiveChips = ['Great shot', 'Good defence', 'Intercept']
+    .map(
+      (word) =>
+        `<button type="button" class="player-chip player-chip-positive" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+    )
+    .join('');
 
   // Game flow chips
-  const flowChips = ['Turnover', 'Loose ball', 'Sub'].map(word =>
-    `<button type="button" class="player-chip player-chip-flow" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
-  ).join('');
+  const flowChips = ['Turnover', 'Loose ball', 'Sub']
+    .map(
+      (word) =>
+        `<button type="button" class="player-chip player-chip-flow" onclick="insertPlayerName('${escapeAttr(textareaId)}', '${escapeAttr(word)}')" title="Insert '${escapeAttr(word)}'">${escapeHtml(word)}</button>`
+    )
+    .join('');
 
   return playerChips + groupChips + positionChips + infractionChips + positiveChips + flowChips;
 }

@@ -86,10 +86,26 @@ Current production API: https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJ
 webapp-local-dev/
 ├── apps/
 │   ├── coach-app/           # Coach's App (Full Editing)
-│   │   ├── src/js/app.js    # Main app logic, global state object
+│   │   ├── src/js/app.js    # Entry point: theme, init, module imports (~250 lines)
+│   │   ├── src/js/state.js  # Shared state object, cache, localStorage
+│   │   ├── src/js/data-loader.js  # Team/data loading, fixture sync, metrics
+│   │   ├── src/js/rendering.js    # Main app, ladder, schedule, roster rendering
+│   │   ├── src/js/scoring.js      # Score inputs, quarter notes, availability
+│   │   ├── src/js/stats.js        # Stats rendering (all tabs)
+│   │   ├── src/js/training.js     # Training session CRUD, AI focus
+│   │   ├── src/js/game-detail.js  # Game detail, share/export, lineup builder
+│   │   ├── src/js/lineup-planner.js # Desktop 4-quarter planner
+│   │   ├── src/js/player.js       # Player + game management
+│   │   ├── src/js/player-library.js # Career stats tracking
+│   │   ├── src/js/team-settings.js  # Team/game settings
+│   │   ├── src/js/team-selector.js  # Team list rendering, PIN entry
+│   │   ├── src/js/wizard.js       # Create team wizard (6-step)
+│   │   ├── src/js/system-settings.js # System settings, cache mgmt
+│   │   ├── src/js/sync.js         # Google Sheets sync, debounce
+│   │   ├── src/js/ui.js           # View/tab/modal/toast, loading states
+│   │   ├── src/js/helpers.js      # Shared helper functions
 │   │   ├── src/js/api.js    # Data transformation (sheet ↔ PWA format)
 │   │   ├── src/js/config.js # API endpoint, useMockData toggle
-│   │   ├── src/js/help.js   # Help system (help page, walkthrough, contextual help)
 │   │   └── src/js/*.test.js # Test files
 │   └── parent-portal/       # Parent Portal (Read-Only)
 │       ├── src/js/app.js    # Read-only app logic
@@ -114,7 +130,8 @@ webapp-local-dev/
 ### Key Patterns
 
 - Single HTML file per app with `<div class="view">` sections (show/hide via `display`)
-- Global `state` object in app.js holds current team, game, players
+- Shared `state` object exported from `state.js`, imported by all feature modules
+- Coach app is split into ~18 ES modules (see directory structure above); `app.js` is just the entry point (~250 lines)
 - All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
 - Always use `escapeHtml()` for user input to prevent XSS
 - Always use `formatAIContent()` for rendering AI-generated text (escapes HTML first, then applies markdown formatting)
@@ -125,182 +142,76 @@ webapp-local-dev/
 
 ### Keeping Apps Consistent
 
-**IMPORTANT:** When making style or layout changes, apply them to BOTH apps to maintain visual consistency.
+**IMPORTANT:** When making style or layout changes, apply them to BOTH apps to maintain visual consistency. The Parent Portal should mirror the Coach's App styling for all shared UI components.
+
+When modifying UI in one app, check if the other needs the same change:
 
 - **CSS classes must match:** Use `.game-item` for game lists (not `.game-card`), `.player-card` for roster, etc.
 - **HTML structure:** Game list items use `game-round`, `game-info`, `game-opponent`, `game-meta`, `game-score` classes
 - **Stats field names:** Use `avgFor`/`avgAgainst` (not `avgGoalsFor`/`avgGoalsAgainst`) from stats-calculations.js
 - **Team name source:** `getTeamData` API doesn't return teamName - use `getTeams` data for team info display
 - **Theme toggle:** Uses `data-theme` attribute on `<html>`, not body class. Values: `light` or `dark`
-- **Game status handling:** Check for `game.status === 'abandoned'` or `'bye'` before displaying scores. Bye games show "Bye" as opponent text (no "vs" prefix) and no score label. Both statuses use gray round indicator (`var(--gray-400)`)
+- **Game status handling:** Check for `game.status === 'abandoned'` or `'bye'` before displaying scores. Bye games show "Bye" as opponent text (no "vs" prefix) and no score label. Both statuses use gray round indicator (`var(--gray-400)`).
 - **Upcoming games:** Use `isGameInPast()` from utils.js to exclude future games from stats calculations
 - **Stats filter consistency:** Both `calculateTeamStats` (mock-data.js) and `calculateAdvancedStats` (stats-calculations.js) use the same filter: `g.status === 'normal' && g.scores && isGameInPast(g)`
 - **Team Sheet sharing:** Format is "Round X - TeamName vs Opponent" with full first names (no truncation)
 - **Fixture sync fields:** `fixtureMatchId` and `fixtureScore` must round-trip through both apps' `transformTeamDataFromSheet` and `transformTeamDataToSheet` (same pattern as `aiSummary`)
 
+**Shared UI Components (must match between apps):**
+
+| Component | CSS Classes | Notes |
+|-----------|-------------|-------|
+| Game list | `.game-item`, `.game-round`, `.game-info`, `.game-opponent`, `.game-meta`, `.game-score` | Sort by date descending |
+| Player cards | `.player-card`, `.player-avatar`, `.player-info` | Clickable to show stats modal |
+| Stats hero | `.stats-hero`, `.stats-record`, `.stats-metrics` | Purple banner with W-L-D |
+| Stats tabs | Overview, Leaders, Positions, Combos, Attendance | Same tab structure |
+| Score card | `.game-score-card`, `.game-score-display`, `.score-team`, `.score-value`, `.score-label`, `.team-logo-game` | Column layout: logo, score (2.25rem), team name. Uses `state.currentTeam.teamName` (not "Us"). Coach app has logos, portal text-only |
+| Scoring display | `.scoring-accordion`, `.scoring-quarter`, `.position-badge` | Accordion with GS/GA badges |
+| Position tracker | `.position-grid`, `.pos-grid-cell` | 7-column grid for all positions |
+| Modal | `.modal-backdrop`, `.modal`, `.modal-header` | iOS-style bottom sheet |
+| Team Sheet | `.lineup-card`, `.lineup-card-header`, `.lineup-card-table` | Shareable image with player positions per quarter |
+| Score validation | `.score-validated`, `.score-mismatch`, `.fixture-score-note` | Green check or warning when fixture score differs from manual |
+
 ### Team Access Control (PIN System)
 
-- Per-team optional 4-digit PINs. Backend returns `pinToken` (16-char hex) on correct PIN, stored in `state.teamPinTokens` (localStorage)
-- Auth gates writes only: `saveTeamData` and `updateTeam` check pinToken. Reads are open for Parent Portal
-- Master PIN in Apps Script Properties (`MASTER_PIN`). "Log Out All Devices" regenerates pinToken server-side
-- PIN storage: Teams sheet columns L (PIN) and M (PinToken) — not in team data JSON
+- **Per-team PINs:** Each team can optionally have a 4-digit PIN set in Team Settings
+- **Device handshake:** When a device enters the correct PIN, the backend returns a `pinToken` (16-char hex). The device stores this in `state.teamPinTokens` (persisted to localStorage) and includes it in subsequent write requests
+- **Auth gates writes only:** `saveTeamData` and `updateTeam` check pinToken. Reads (`getTeams`, `getTeamData`) are open so the Parent Portal works without auth
+- **Master PIN:** Stored in Apps Script Properties (`MASTER_PIN`). Accepts any team's PIN prompt, useful for admin access
+- **Log Out All Devices:** Regenerates the pinToken on the server, invalidating all stored tokens except the caller's
+- **PIN storage:** Teams sheet columns L (PIN) and M (PinToken) — not in team data JSON
+- **Team list:** Shows lock icon on PIN-protected teams; unlocked icon if device has a valid token
 
 ### Coach Grouping
 
-- Optional `coach` text field per team (Teams sheet column N). Dropdown populated from existing coaches plus "Other..." (`COACH_OTHER_SENTINEL`)
-- Team list grouped: My Teams (have pinToken) → Per-coach sections (collapsed) → Other Teams (no coach)
+- **Coach field:** Each team has an optional `coach` text field (Teams sheet column N)
+- **Coach dropdown:** In Team Settings and Create Team, populated from existing coach names across all teams plus an "Other..." free-text option
+- **Grouped team list:** Teams are grouped into sections:
+  1. **My Teams** (always expanded) — teams the device has a pinToken for
+  2. **Per-coach sections** (collapsed by default) — remaining teams grouped by coach name
+  3. **Other Teams** (collapsed) — teams with no coach assigned
+- **Collapse state:** Tracked in `state.collapsedCoachSections`, resets each session (not persisted)
 
 ### Coach's App Specifics
 
-- **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner
+- **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner.
+- **Notes quick-insert:** Each quarter's notes section has quick-insert buttons (player names, groups, timestamp)
+- **Scoring panel:** Accordion-style quarters with score steppers and notes
 - **Offline support:** Data saved to localStorage first, synced when online
-- **Caching:** True stale-while-revalidate — cached data (teams list and team data) served instantly from localStorage regardless of age, with background revalidation fetching fresh data every time. UI re-renders if `_lastModified` or team signature changes. `TEAM_CACHE_TTL_MS` (5 min) only controls whether to skip the background revalidation for the teams list (i.e., suppress redundant fetches within 5 min)
+- **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate. Team data uses `lastModified` version check with TTL fallback.
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
-- **Lineup Planner:** Desktop-optimized full-screen 4-quarter view. Uses `position: fixed` to break out of `#app`'s 430px max-width. Features drag-and-drop, auto-fill, copy quarter, undo stack
-- **Team Creation Wizard:** 6-step wizard (Info, Competition Type, Season, Coach, Integration, Review). Season options vary by competition: NFNL → Season 1/2, Nillumbik Force → Autumn (Feb–Jun) / Spring (Jul–Dec) with auto-detect, Other → Season 1/2/Other. Validates per step with duplicate detection
-- **Help system** (`help.js`): Three layers — (1) Help page with 7 accordion sections via `?` button in headers, (2) First-time walkthrough (5 slides, tracked via `localStorage('hgnc.helpWalkthroughSeen')`), (3) Contextual `?` icons on scoring, stats, training, PIN, and planner sections
-- **Squadi Auto-Discovery:** "Auto-Detect from Squadi" in Team Settings scans Squadi API for HG teams, caches in `Squadi_Lookup` sheet (6-month TTL). Force rescan available
-
-### AI Features (Gemini-powered)
-
-Uses `gemini-2.5-flash` via Apps Script. API key in Apps Script properties.
-
-**Architecture:**
-- `callGeminiAPI(systemPrompt, userPrompt, options)` — shared helper handles API calls, errors, response extraction
-- `systemInstruction` field carries stable netball knowledge preamble; `contents` field carries per-request data
-- `getNetballKnowledgePreamble()` — ~250-line shared knowledge base covering position roles, +/- analysis, pair chemistry, quarter patterns, junior benchmarks, common mistakes, game management tactics, and coaching drills
-- Each endpoint has a few-shot example function (`getSeasonInsightsExample()`, etc.) appended to its instructions
-
-**Four AI endpoints:**
-- **AI Insights** (`getAIInsights`): Season analysis with opponent difficulty context. Cached in `state.currentTeamData.aiInsights`
-- **Game AI Summary** (`getGameAIInsights`): Per-game analysis with player contributions
-- **Player AI Insights** (`getPlayerAIInsights`): Individual player analysis
-- **AI Training Focus** (`getTrainingFocus`): Rolling window of last 3 games with notes as primary focus. Correlates with training session attendance. History in `trainingFocusHistory[]` (max 5, newest first)
-
-**Feedback loop:** All AI-rendered content shows thumbs up/down buttons. Feedback logged via `logClientMetric` with `name: 'ai_feedback'`, `extra: '{type}:{teamName}'`
-
-### Opponent Difficulty Ratings
-
-Coach-app only. `getOpponentDifficulty(opponentName)` reads cached ladder from localStorage (`ladder.cache.{teamID}`), uses `fuzzyOpponentMatch()` for name lookup. Returns position/tier or `null` when no ladder data (graceful degradation). Strength of Schedule shown in stats overview.
+- **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). 440px sidebar + 2×2 quarter grid. Features drag-and-drop, auto-fill, copy/paste, undo stack, position color coding, player load summary.
 
 ### Parent Portal Specifics
 
-- No service worker — always fetches fresh data. Read-only, no edit functionality
-- Team URLs: `/teams/{slug}` format. Dark/light theme toggle persisted to localStorage
-
----
-
-## Data Structures
-
-```javascript
-// Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
-{ teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach, competitionType }
-// competitionType: Not stored in backend, inferred from resultsApi/ladderUrl (NFNL, Nillumbik Force, or Other)
-// season: 'Season 1', 'Season 2', 'Autumn', 'Spring', 'Other', or 'NFNL' (legacy)
-
-// Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
-{
-  teamID, sheetName,
-  players: [{ id, name, fillIn, favPosition }],
-  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup, fixtureMatchId, fixtureScore }],  // status: upcoming|normal|abandoned|forfeit|bye
-  trainingSessions: [{ sessionID, date, attendedPlayerIDs, focus, notes }],  // Optional
-  trainingFocusHistory: [{ text, generatedAt, gameCount, noteCount, recentGames }]  // Optional, max 5
-}
-
-// Lineup (per game, per quarter)
-{
-  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals, notes },
-  Q2: { ... }, Q3: { ... }, Q4: { ... }
-}
-```
-
-**Positions:** GS, GA, WA, C, WD, GD, GK
-
----
-
-## API
-
-API actions discoverable from `Code.js` switch cases. Key notes:
-
-- **Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
-- **POST-only actions:** `saveTeamData`, `savePlayerLibrary`, and all AI endpoints (`getAIInsights`, `getGameAIInsights`, `getPlayerAIInsights`, `getTrainingFocus`)
-- **All other actions use GET** via `doGet > handleApiRequest`
-
----
-
-## Data Sync
-
-Data syncs to Google Sheets at these points:
-- **Player/game operations** - Adding, editing, or deleting syncs immediately
-- **Lineup changes** - Saved to localStorage immediately, synced when closing game detail view (batch sync)
-- **Team settings** - Immediately via `updateTeam` API
-
-Data is always saved to localStorage first for offline support, then synced to the backend when online. The `closeGameDetail` function guards against parallel syncs via `syncInProgress` flag.
-
-**Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data.
-
-**PIN Auth on Writes:** `saveTeamData` (POST-only, no GET handler) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`.
-
-**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, Diagnostics, PlayerLibrary, Squadi_Lookup
-
-**Teams sheet columns:** A=TeamID, B=Year, C=Season, D=TeamName, E=SheetName, F=LadderName, G=LadderApi, H=ResultsApi, I=Archived, J=PlayerCount, K=LastModified, L=PIN, M=PinToken, N=Coach
-
----
-
-## Ladder & Fixture Integration
-
-### Ladder Sources
-
-| Source | Config | How It Works |
-|--------|--------|--------------|
-| **NFNL** (static) | `ladderUrl` field | GitHub Action scrapes HTML daily → `public/ladder-<teamID>.json` |
-| **Squadi** (live) | `resultsApi` with `source: "squadi"` | Backend fetches from Squadi API → `getSquadiLadder` action |
-| **GameDay** (computed) | `resultsApi` with `source: "gameday"` | Backend computes standings from fixture match results (W×4 + D×2 points) |
-
-NFNL scraper: `scripts/fetch-ladder.js`. GameDay ladder: `computeGameDayLadder()` in Code.js (can't scrape client-rendered HTML). GitHub workflow: `.github/workflows/daily-ladder.yml`.
-
-### Fixture Sync (Auto-Populate Games)
-
-Teams with `resultsApi` configured get automatic game population. Sources: Squadi API or GameDay HTML scraping. Merge rules:
-1. Match fixture to existing game by `fixtureMatchId` first, fall back to fuzzy match (same round + similar opponent)
-2. Existing game: fill empty fields only — **never overwrite** manual data (scores, lineup, notes, captain)
-3. New game: create with fixture data, status from fixture, scores = null
-4. Status only upgrades from `upcoming` → fixture status (never downgrades)
-5. `fixtureScore` always updated when match has ended (for score validation display)
-6. Backend caches fixture data in CacheService (6-hour TTL), key includes config hash for invalidation
-
-**GameDay `roundOffset`:** Offsets round numbers for teams with pre-season grading games (e.g., `roundOffset: 3` shifts all rounds by 3).
+- **No service worker:** Always fetches fresh data from API
+- **Read-only:** No edit functionality, but can view all stats and lineups
+- **Team URLs:** `/teams/{slug}` format, e.g., `/teams/hazel-glen-6`
+- **Dark/light theme:** Toggle in header, persisted to localStorage
 
 ---
 
 ## Change Checklists
-
-### Adding a field to the Team object
-
-The team object is mapped/copied in multiple places. When adding a new field:
-
-1. **Backend `Code.js`:**
-   - `ensureTeamsSheetStructure()` — add column header
-   - `loadMasterTeamList()` — read from row array (0-indexed)
-   - `getTeams` response — include in `pwaTeams` mapping
-   - `updateTeamSettings()` — handle in settings write
-   - `createNewTeam()` — include in `appendRow` call
-   - `createTeam` API action — read from `e.parameter`
-
-2. **Frontend `app.js`:**
-   - Initial teams load (~line 719) — add default if needed
-   - Background revalidation `freshTeams` mapping — include field with default
-   - Background revalidation change-detection signature — include if changes should trigger UI refresh
-   - `saveTeamSettings()` — read from form, update `state.currentTeam`, `state.currentTeamData` (if applicable), `teamInList`, send to API, AND add to rollback
-   - `openTeamSettings()` — add form field
-   - `openAddTeamModal()` / `addNewTeam()` — add form field and include in API call
-
-### Adding a security check
-
-- **Grep for ALL handlers** of the action being secured — `Code.js` has both GET (`doGet > handleApiRequest`) and POST (`doPost`) paths. `saveTeamData` is POST-only; other actions use GET.
-- **Grep for ALL callers** that hit the secured endpoint — there are TWO code paths that POST to `saveTeamData`: `saveTeamDataWithProtection()` in `api.js` and `syncToGoogleSheets()` in `app.js`. Both must include auth tokens.
-- Consider abuse scenarios: rate limiting, brute force, lockout
-- Auth checks should fail-open on errors (don't block saves due to transient issues) but log the failure
 
 ### General
 
@@ -315,9 +226,10 @@ The team object is mapped/copied in multiple places. When adding a new field:
 
 **Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost.
 
-**Vite parse errors:** Check brace balance:
+**Vite parse errors:** Check brace balance (run from `apps/coach-app/`):
 ```bash
 node --check src/js/app.js
+node --check src/js/data-loader.js  # or whichever module has the error
 ```
 
 **Toggle data source:** Dev panel (bottom-right, localhost only) or set `useMockData: true` in config.js.
@@ -327,3 +239,16 @@ node --check src/js/app.js
 **Service worker updates:** Auto-generated version from build timestamp. Users see "Update now" banner when available.
 
 **Monitor workflow issues:** If `Resource not accessible by integration`, add `permissions: issues: write` to workflow YAML.
+
+---
+
+## Skills Reference (lazy-loaded — invoke with /command-name)
+
+- `/data-ref` — Data structures, API endpoints, sheet schema, sync behavior
+- `/fixture-ladder` — Ladder sources, fixture sync algorithm, GameDay/Squadi config
+- `/ai-features` — Gemini AI insights, training focus, opponent difficulty ratings
+- `/add-field` — Checklist for adding a new Team object field
+- `/security-check` — Checklist for adding security checks
+- `/gemini-tips` — Using Gemini CLI for codebase analysis
+- `/review` — Project code review checklist
+- `/deploy-coach`, `/deploy-parent`, `/deploy-backend`, `/deploy-all` — Deployment

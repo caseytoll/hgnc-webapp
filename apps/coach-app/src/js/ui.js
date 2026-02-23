@@ -9,8 +9,8 @@ import { escapeHtml, escapeAttr } from '../../../../common/utils.js';
 // VIEW MANAGEMENT
 // ========================================
 
-window.showView = function(viewId) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+window.showView = function (viewId) {
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
   const view = document.getElementById(viewId);
   if (view) {
     view.classList.add('active');
@@ -19,7 +19,7 @@ window.showView = function(viewId) {
 };
 
 // PIN token helper (used by api.js for write operations)
-window.getTeamPinToken = function(teamID) {
+window.getTeamPinToken = function (teamID) {
   return state.teamPinTokens[teamID] || null;
 };
 
@@ -27,14 +27,14 @@ window.getTeamPinToken = function(teamID) {
 // TAB MANAGEMENT
 // ========================================
 
-window.switchTab = function(tabId) {
+window.switchTab = function (tabId) {
   // Update nav items
-  document.querySelectorAll('.nav-item').forEach(btn => {
+  document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === tabId);
   });
 
   // Update tab panels
-  document.querySelectorAll('.tab-panel').forEach(panel => {
+  document.querySelectorAll('.tab-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.id === `tab-${tabId}`);
   });
 
@@ -48,12 +48,12 @@ window.switchTab = function(tabId) {
   console.log(`[Tab] Switched to: ${tabId}`);
 };
 
-window.switchGameTab = function(tabId) {
-  document.querySelectorAll('.game-tab').forEach(btn => {
+window.switchGameTab = function (tabId) {
+  document.querySelectorAll('.game-tab').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.gameTab === tabId);
   });
 
-  document.querySelectorAll('.game-panel').forEach(panel => {
+  document.querySelectorAll('.game-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.id === `game-panel-${tabId}`);
   });
 };
@@ -74,7 +74,7 @@ export function hideLoading() {
 // TOAST NOTIFICATIONS
 // ========================================
 
-window.showToast = function(message, type = 'info') {
+window.showToast = function (message, type = 'info') {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   // Validate type to prevent class injection
@@ -92,11 +92,15 @@ window.showToast = function(message, type = 'info') {
 };
 
 // Read-only guard helper (use before performing UI/write actions)
-window.ensureNotReadOnly = function(action = '') {
+window.ensureNotReadOnly = function (action = '') {
   try {
     if (typeof window !== 'undefined' && window.isReadOnlyView) {
       // Friendly notification for parents
-      try { showToast('Read-only view: action disabled', 'info'); } catch (e) { /* noop */ }
+      try {
+        showToast('Read-only view: action disabled', 'info');
+      } catch (e) {
+        /* noop */
+      }
       console.warn('[Read-only] blocked action:', action);
       return false;
     }
@@ -108,7 +112,7 @@ window.ensureNotReadOnly = function(action = '') {
 };
 
 // Show an always-visible small "Read-only" pill in the top bar for parents
-window.showReadOnlyPill = function(teamName) {
+window.showReadOnlyPill = function (teamName) {
   try {
     // If already shown, update tooltip/team text
     const existing = document.getElementById('read-only-pill');
@@ -145,14 +149,14 @@ export function setActiveNotesModalQuarter(val) {
   activeNotesModalQuarter = val;
 }
 
-window.openModal = function(title, bodyHtml, footerHtml = '') {
+window.openModal = function (title, bodyHtml, footerHtml = '') {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-footer').innerHTML = footerHtml;
   document.getElementById('modal-backdrop').classList.remove('hidden');
 };
 
-window.closeModal = function() {
+window.closeModal = function () {
   // If notes modal is open, save before closing
   if (activeNotesModalQuarter && !window.isReadOnlyView) {
     const quarter = activeNotesModalQuarter;
@@ -165,18 +169,18 @@ window.closeModal = function() {
   document.getElementById('modal-backdrop').classList.add('hidden');
 };
 
-window.toggleScorerExpand = function(card) {
+window.toggleScorerExpand = function (card) {
   // Close other open cards
-  document.querySelectorAll('.scorer-card.expanded').forEach(c => {
+  document.querySelectorAll('.scorer-card.expanded').forEach((c) => {
     if (c !== card) c.classList.remove('expanded');
   });
   // Toggle this card
   card.classList.toggle('expanded');
 };
 
-window.togglePlayerExpand = function(card) {
+window.togglePlayerExpand = function (card) {
   // Close other open cards
-  document.querySelectorAll('.player-stats-card.expanded').forEach(c => {
+  document.querySelectorAll('.player-stats-card.expanded').forEach((c) => {
     if (c !== card) c.classList.remove('expanded');
   });
   // Toggle this card
@@ -191,7 +195,7 @@ export function renderScheduleSkeleton() {
   const container = document.getElementById('schedule-list');
   container.innerHTML = `
     <div class="skeleton-schedule">
-      ${[1,2,3].map(() => '<div class="skeleton skeleton-card"></div>').join('')}
+      ${[1, 2, 3].map(() => '<div class="skeleton skeleton-card"></div>').join('')}
     </div>
   `;
 }
@@ -200,7 +204,7 @@ export function renderRosterSkeleton() {
   const container = document.getElementById('roster-grid');
   container.innerHTML = `
     <div class="skeleton-roster">
-      ${[1,2,3,4,5,6].map(() => '<div class="skeleton skeleton-player"></div>').join('')}
+      ${[1, 2, 3, 4, 5, 6].map(() => '<div class="skeleton skeleton-player"></div>').join('')}
     </div>
   `;
 }

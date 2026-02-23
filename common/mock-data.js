@@ -10,30 +10,45 @@ import { isGameInPast } from './utils.js';
 export function calculateTeamStats(team) {
   if (!team || !team.games) {
     return {
-      gameCount: 0, wins: 0, losses: 0, draws: 0,
-      goalsFor: 0, goalsAgainst: 0, goalDiff: 0, winRate: 0,
-      playerStats: []
+      gameCount: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDiff: 0,
+      winRate: 0,
+      playerStats: [],
     };
   }
 
   // Filter to completed games only (status 'normal' with scores) and exclude future games
-  const games = team.games.filter(g => g.status === 'normal' && g.scores && isGameInPast(g));
+  const games = team.games.filter((g) => g.status === 'normal' && g.scores && isGameInPast(g));
 
   if (games.length === 0) {
     return {
-      gameCount: 0, wins: 0, losses: 0, draws: 0,
-      goalsFor: 0, goalsAgainst: 0, goalDiff: 0, winRate: 0,
-      playerStats: []
+      gameCount: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDiff: 0,
+      winRate: 0,
+      playerStats: [],
     };
   }
 
-  let wins = 0, losses = 0, draws = 0;
-  let goalsFor = 0, goalsAgainst = 0;
+  let wins = 0,
+    losses = 0,
+    draws = 0;
+  let goalsFor = 0,
+    goalsAgainst = 0;
 
   // Track player stats: { name: { goals, quarters, gamesPlayed: [], gameBreakdown: [] } }
   const playerData = {};
 
-  games.forEach(game => {
+  games.forEach((game) => {
     const us = game.scores.us;
     const them = game.scores.opponent;
     goalsFor += us;
@@ -47,12 +62,12 @@ export function calculateTeamStats(team) {
     if (game.lineup) {
       const playersInGame = new Set();
 
-      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach((q) => {
         const quarter = game.lineup[q];
         if (!quarter) return;
 
         // Track players in positions
-        ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(pos => {
+        ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach((pos) => {
           const playerName = quarter[pos];
           if (playerName) {
             if (!playerData[playerName]) {
@@ -70,7 +85,12 @@ export function calculateTeamStats(team) {
               playerData[playerName].scoringQuarters++;
               // Aggregate by game
               if (!playerData[playerName].gameGoals[game.gameID]) {
-                playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
+                playerData[playerName].gameGoals[game.gameID] = {
+                  round: game.round,
+                  opponent: game.opponent,
+                  gsGoals: 0,
+                  gaGoals: 0,
+                };
               }
               playerData[playerName].gameGoals[game.gameID].gsGoals += gsGoals;
             }
@@ -79,7 +99,12 @@ export function calculateTeamStats(team) {
               playerData[playerName].scoringQuarters++;
               // Aggregate by game
               if (!playerData[playerName].gameGoals[game.gameID]) {
-                playerData[playerName].gameGoals[game.gameID] = { round: game.round, opponent: game.opponent, gsGoals: 0, gaGoals: 0 };
+                playerData[playerName].gameGoals[game.gameID] = {
+                  round: game.round,
+                  opponent: game.opponent,
+                  gsGoals: 0,
+                  gaGoals: 0,
+                };
               }
               playerData[playerName].gameGoals[game.gameID].gaGoals += gaGoals;
             }
@@ -88,7 +113,7 @@ export function calculateTeamStats(team) {
       });
 
       // Record which games each player participated in
-      playersInGame.forEach(name => {
+      playersInGame.forEach((name) => {
         if (!playerData[name].gamesPlayed.includes(game.gameID)) {
           playerData[name].gamesPlayed.push(game.gameID);
         }
@@ -100,12 +125,12 @@ export function calculateTeamStats(team) {
   const playerStats = Object.entries(playerData)
     .map(([name, data]) => {
       // Convert gameGoals object to gameBreakdown array with totals
-      const gameBreakdown = Object.values(data.gameGoals).map(g => ({
+      const gameBreakdown = Object.values(data.gameGoals).map((g) => ({
         round: g.round,
         opponent: g.opponent,
         gsGoals: g.gsGoals,
         gaGoals: g.gaGoals,
-        total: g.gsGoals + g.gaGoals
+        total: g.gsGoals + g.gaGoals,
       }));
       return {
         name,
@@ -113,7 +138,7 @@ export function calculateTeamStats(team) {
         quarters: data.quarters,
         scoringQuarters: data.scoringQuarters,
         gamesPlayed: data.gamesPlayed,
-        gameBreakdown
+        gameBreakdown,
       };
     })
     .sort((a, b) => b.goals - a.goals);
@@ -127,505 +152,473 @@ export function calculateTeamStats(team) {
     goalsAgainst,
     goalDiff: goalsFor - goalsAgainst,
     winRate: Math.round((wins / games.length) * 100),
-    playerStats
+    playerStats,
   };
 }
 
 export const mockTeams = [
   {
-    "teamID": "team-001",
-    "year": 2025,
-    "season": "Season 1",
-    "teamName": "U11 Thunder",
-    "players": [
+    teamID: 'team-001',
+    year: 2025,
+    season: 'Season 1',
+    teamName: 'U11 Thunder',
+    players: [
       {
-        "id": "p1",
-        "name": "Emma Wilson",
-        "fillIn": false,
-        "favPosition": "GS"
+        id: 'p1',
+        name: 'Emma Wilson',
+        fillIn: false,
+        favPosition: 'GS',
       },
       {
-        "id": "p2",
-        "name": "Sophia Chen",
-        "fillIn": false,
-        "favPosition": "GA"
+        id: 'p2',
+        name: 'Sophia Chen',
+        fillIn: false,
+        favPosition: 'GA',
       },
       {
-        "id": "p3",
-        "name": "Olivia Taylor",
-        "fillIn": false,
-        "favPosition": "WA"
+        id: 'p3',
+        name: 'Olivia Taylor',
+        fillIn: false,
+        favPosition: 'WA',
       },
       {
-        "id": "p4",
-        "name": "Ava Johnson",
-        "fillIn": false,
-        "favPosition": "C"
+        id: 'p4',
+        name: 'Ava Johnson',
+        fillIn: false,
+        favPosition: 'C',
       },
       {
-        "id": "p5",
-        "name": "Isabella Brown",
-        "fillIn": false,
-        "favPosition": "WD"
+        id: 'p5',
+        name: 'Isabella Brown',
+        fillIn: false,
+        favPosition: 'WD',
       },
       {
-        "id": "p6",
-        "name": "Mia Davis",
-        "fillIn": false,
-        "favPosition": "GD"
+        id: 'p6',
+        name: 'Mia Davis',
+        fillIn: false,
+        favPosition: 'GD',
       },
       {
-        "id": "p7",
-        "name": "Charlotte Miller",
-        "fillIn": false,
-        "favPosition": "GK"
+        id: 'p7',
+        name: 'Charlotte Miller',
+        fillIn: false,
+        favPosition: 'GK',
       },
       {
-        "id": "p8",
-        "name": "Amelia Garcia",
-        "fillIn": false,
-        "favPosition": ""
+        id: 'p8',
+        name: 'Amelia Garcia',
+        fillIn: false,
+        favPosition: '',
       },
       {
-        "id": "p9",
-        "name": "Harper Martinez",
-        "fillIn": false,
-        "favPosition": ""
+        id: 'p9',
+        name: 'Harper Martinez',
+        fillIn: false,
+        favPosition: '',
       },
       {
-        "id": "p10",
-        "name": "Evelyn White",
-        "fillIn": true,
-        "favPosition": ""
-      }
+        id: 'p10',
+        name: 'Evelyn White',
+        fillIn: true,
+        favPosition: '',
+      },
     ],
-    "games": [
+    games: [
       {
-        "gameID": "g1",
-        "round": 1,
-        "opponent": "Lightning",
-        "date": "2025-04-05",
-        "time": "09:00",
-        "location": "Home",
-        "status": "normal",
-        "scores": {
-          "us": 12,
-          "opponent": 8
+        gameID: 'g1',
+        round: 1,
+        opponent: 'Lightning',
+        date: '2025-04-05',
+        time: '09:00',
+        location: 'Home',
+        status: 'normal',
+        scores: {
+          us: 12,
+          opponent: 8,
         },
-        "availablePlayerIDs": [
-          "p1",
-          "p2",
-          "p3",
-          "p4",
-          "p5",
-          "p6",
-          "p7",
-          "p8",
-          "p9"
-        ],
-        "lineup": {
-          "Q1": {
-            "GS": "Emma Wilson",
-            "GA": "Sophia Chen",
-            "WA": "Olivia Taylor",
-            "C": "Ava Johnson",
-            "WD": "Isabella Brown",
-            "GD": "Mia Davis",
-            "GK": "Charlotte Miller",
-            "ourGsGoals": 2,
-            "ourGaGoals": 1,
-            "oppGsGoals": 1, "oppGaGoals": 1
+        availablePlayerIDs: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'],
+        lineup: {
+          Q1: {
+            GS: 'Emma Wilson',
+            GA: 'Sophia Chen',
+            WA: 'Olivia Taylor',
+            C: 'Ava Johnson',
+            WD: 'Isabella Brown',
+            GD: 'Mia Davis',
+            GK: 'Charlotte Miller',
+            ourGsGoals: 2,
+            ourGaGoals: 1,
+            oppGsGoals: 1,
+            oppGaGoals: 1,
           },
-          "Q2": {
-            "GS": "Sophia Chen",
-            "GA": "Emma Wilson",
-            "WA": "Amelia Garcia",
-            "C": "Harper Martinez",
-            "WD": "Olivia Taylor",
-            "GD": "Ava Johnson",
-            "GK": "Isabella Brown",
-            "ourGsGoals": 3,
-            "ourGaGoals": 1,
-            "oppGsGoals": 1, "oppGaGoals": 1
+          Q2: {
+            GS: 'Sophia Chen',
+            GA: 'Emma Wilson',
+            WA: 'Amelia Garcia',
+            C: 'Harper Martinez',
+            WD: 'Olivia Taylor',
+            GD: 'Ava Johnson',
+            GK: 'Isabella Brown',
+            ourGsGoals: 3,
+            ourGaGoals: 1,
+            oppGsGoals: 1,
+            oppGaGoals: 1,
           },
-          "Q3": {
-            "GS": "Emma Wilson",
-            "GA": "Sophia Chen",
-            "WA": "Olivia Taylor",
-            "C": "Ava Johnson",
-            "WD": "Isabella Brown",
-            "GD": "Mia Davis",
-            "GK": "Charlotte Miller",
-            "ourGsGoals": 2,
-            "ourGaGoals": 2,
-            "oppGsGoals": 2, "oppGaGoals": 1
+          Q3: {
+            GS: 'Emma Wilson',
+            GA: 'Sophia Chen',
+            WA: 'Olivia Taylor',
+            C: 'Ava Johnson',
+            WD: 'Isabella Brown',
+            GD: 'Mia Davis',
+            GK: 'Charlotte Miller',
+            ourGsGoals: 2,
+            ourGaGoals: 2,
+            oppGsGoals: 2,
+            oppGaGoals: 1,
           },
-          "Q4": {
-            "GS": "Sophia Chen",
-            "GA": "Amelia Garcia",
-            "WA": "Harper Martinez",
-            "C": "Charlotte Miller",
-            "WD": "Mia Davis",
-            "GD": "Isabella Brown",
-            "GK": "Ava Johnson",
-            "ourGsGoals": 1,
-            "ourGaGoals": 0,
-            "oppGsGoals": 1, "oppGaGoals": 0
-          }
-        }
+          Q4: {
+            GS: 'Sophia Chen',
+            GA: 'Amelia Garcia',
+            WA: 'Harper Martinez',
+            C: 'Charlotte Miller',
+            WD: 'Mia Davis',
+            GD: 'Isabella Brown',
+            GK: 'Ava Johnson',
+            ourGsGoals: 1,
+            ourGaGoals: 0,
+            oppGsGoals: 1,
+            oppGaGoals: 0,
+          },
+        },
       },
       {
-        "gameID": "g2",
-        "round": 2,
-        "opponent": "Storm",
-        "date": "2025-04-12",
-        "time": "10:30",
-        "location": "Away",
-        "status": "normal",
-        "scores": {
-          "us": 15,
-          "opponent": 10
+        gameID: 'g2',
+        round: 2,
+        opponent: 'Storm',
+        date: '2025-04-12',
+        time: '10:30',
+        location: 'Away',
+        status: 'normal',
+        scores: {
+          us: 15,
+          opponent: 10,
         },
-        "availablePlayerIDs": [
-          "p1",
-          "p2",
-          "p3",
-          "p4",
-          "p5",
-          "p6",
-          "p7",
-          "p8"
-        ],
-        "lineup": {
-          "Q1": {
-            "GS": "Emma Wilson",
-            "GA": "Sophia Chen",
-            "WA": "Olivia Taylor",
-            "C": "Ava Johnson",
-            "WD": "Isabella Brown",
-            "GD": "Mia Davis",
-            "GK": "Charlotte Miller",
-            "ourGsGoals": 4,
-            "ourGaGoals": 2,
-            "oppGsGoals": 2, "oppGaGoals": 1
+        availablePlayerIDs: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'],
+        lineup: {
+          Q1: {
+            GS: 'Emma Wilson',
+            GA: 'Sophia Chen',
+            WA: 'Olivia Taylor',
+            C: 'Ava Johnson',
+            WD: 'Isabella Brown',
+            GD: 'Mia Davis',
+            GK: 'Charlotte Miller',
+            ourGsGoals: 4,
+            ourGaGoals: 2,
+            oppGsGoals: 2,
+            oppGaGoals: 1,
           },
-          "Q2": {
-            "GS": "Sophia Chen",
-            "GA": "Emma Wilson",
-            "WA": "Amelia Garcia",
-            "C": "Olivia Taylor",
-            "WD": "Ava Johnson",
-            "GD": "Isabella Brown",
-            "GK": "Mia Davis",
-            "ourGsGoals": 2,
-            "ourGaGoals": 1,
-            "oppGsGoals": 1, "oppGaGoals": 1
+          Q2: {
+            GS: 'Sophia Chen',
+            GA: 'Emma Wilson',
+            WA: 'Amelia Garcia',
+            C: 'Olivia Taylor',
+            WD: 'Ava Johnson',
+            GD: 'Isabella Brown',
+            GK: 'Mia Davis',
+            ourGsGoals: 2,
+            ourGaGoals: 1,
+            oppGsGoals: 1,
+            oppGaGoals: 1,
           },
-          "Q3": {
-            "GS": "Emma Wilson",
-            "GA": "Sophia Chen",
-            "WA": "Olivia Taylor",
-            "C": "Ava Johnson",
-            "WD": "Isabella Brown",
-            "GD": "Mia Davis",
-            "GK": "Charlotte Miller",
-            "ourGsGoals": 3,
-            "ourGaGoals": 1,
-            "oppGsGoals": 2, "oppGaGoals": 1
+          Q3: {
+            GS: 'Emma Wilson',
+            GA: 'Sophia Chen',
+            WA: 'Olivia Taylor',
+            C: 'Ava Johnson',
+            WD: 'Isabella Brown',
+            GD: 'Mia Davis',
+            GK: 'Charlotte Miller',
+            ourGsGoals: 3,
+            ourGaGoals: 1,
+            oppGsGoals: 2,
+            oppGaGoals: 1,
           },
-          "Q4": {
-            "GS": "Sophia Chen",
-            "GA": "Amelia Garcia",
-            "WA": "Charlotte Miller",
-            "C": "Mia Davis",
-            "WD": "Isabella Brown",
-            "GD": "Ava Johnson",
-            "GK": "Olivia Taylor",
-            "ourGsGoals": 1,
-            "ourGaGoals": 1,
-            "oppGsGoals": 1, "oppGaGoals": 1
-          }
-        }
+          Q4: {
+            GS: 'Sophia Chen',
+            GA: 'Amelia Garcia',
+            WA: 'Charlotte Miller',
+            C: 'Mia Davis',
+            WD: 'Isabella Brown',
+            GD: 'Ava Johnson',
+            GK: 'Olivia Taylor',
+            ourGsGoals: 1,
+            ourGaGoals: 1,
+            oppGsGoals: 1,
+            oppGaGoals: 1,
+          },
+        },
       },
       {
-        "gameID": "g3",
-        "round": 3,
-        "opponent": "Flames",
-        "date": "2025-04-19",
-        "time": "09:00",
-        "location": "Home",
-        "status": "upcoming",
-        "scores": null,
-        "availablePlayerIDs": [
-          "p1",
-          "p2",
-          "p3",
-          "p4",
-          "p5",
-          "p6",
-          "p7",
-          "p8",
-          "p9"
-        ],
-        "lineup": null
-      }
-    ]
+        gameID: 'g3',
+        round: 3,
+        opponent: 'Flames',
+        date: '2025-04-19',
+        time: '09:00',
+        location: 'Home',
+        status: 'upcoming',
+        scores: null,
+        availablePlayerIDs: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'],
+        lineup: null,
+      },
+    ],
   },
   {
-    "teamID": "team-002",
-    "year": 2025,
-    "season": "Season 1",
-    "teamName": "U13 Lightning",
-    "players": [
+    teamID: 'team-002',
+    year: 2025,
+    season: 'Season 1',
+    teamName: 'U13 Lightning',
+    players: [
       {
-        "id": "p1",
-        "name": "Zoe Anderson",
-        "fillIn": false,
-        "favPosition": "GS"
+        id: 'p1',
+        name: 'Zoe Anderson',
+        fillIn: false,
+        favPosition: 'GS',
       },
       {
-        "id": "p2",
-        "name": "Lily Thompson",
-        "fillIn": false,
-        "favPosition": "GA"
+        id: 'p2',
+        name: 'Lily Thompson',
+        fillIn: false,
+        favPosition: 'GA',
       },
       {
-        "id": "p3",
-        "name": "Grace Lee",
-        "fillIn": false,
-        "favPosition": "WA"
+        id: 'p3',
+        name: 'Grace Lee',
+        fillIn: false,
+        favPosition: 'WA',
       },
       {
-        "id": "p4",
-        "name": "Chloe Harris",
-        "fillIn": false,
-        "favPosition": "C"
+        id: 'p4',
+        name: 'Chloe Harris',
+        fillIn: false,
+        favPosition: 'C',
       },
       {
-        "id": "p5",
-        "name": "Ella Clark",
-        "fillIn": false,
-        "favPosition": "WD"
+        id: 'p5',
+        name: 'Ella Clark',
+        fillIn: false,
+        favPosition: 'WD',
       },
       {
-        "id": "p6",
-        "name": "Aria Lewis",
-        "fillIn": false,
-        "favPosition": "GD"
+        id: 'p6',
+        name: 'Aria Lewis',
+        fillIn: false,
+        favPosition: 'GD',
       },
       {
-        "id": "p7",
-        "name": "Luna Walker",
-        "fillIn": false,
-        "favPosition": "GK"
+        id: 'p7',
+        name: 'Luna Walker',
+        fillIn: false,
+        favPosition: 'GK',
       },
       {
-        "id": "p8",
-        "name": "Stella Hall",
-        "fillIn": false,
-        "favPosition": ""
-      }
+        id: 'p8',
+        name: 'Stella Hall',
+        fillIn: false,
+        favPosition: '',
+      },
     ],
-    "games": [
+    games: [
       {
-        "gameID": "g1",
-        "round": 1,
-        "opponent": "Eagles",
-        "date": "2025-04-05",
-        "time": "11:00",
-        "location": "Home",
-        "status": "normal",
-        "scores": {
-          "us": 18,
-          "opponent": 14
+        gameID: 'g1',
+        round: 1,
+        opponent: 'Eagles',
+        date: '2025-04-05',
+        time: '11:00',
+        location: 'Home',
+        status: 'normal',
+        scores: {
+          us: 18,
+          opponent: 14,
         },
-        "availablePlayerIDs": [
-          "p1",
-          "p2",
-          "p3",
-          "p4",
-          "p5",
-          "p6",
-          "p7",
-          "p8"
-        ],
-        "lineup": {
-          "Q1": {
-            "GS": "Zoe Anderson",
-            "GA": "Lily Thompson",
-            "WA": "Grace Lee",
-            "C": "Chloe Harris",
-            "WD": "Ella Clark",
-            "GD": "Aria Lewis",
-            "GK": "Luna Walker",
-            "ourGsGoals": 5,
-            "ourGaGoals": 2,
-            "oppGsGoals": 2, "oppGaGoals": 2
+        availablePlayerIDs: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'],
+        lineup: {
+          Q1: {
+            GS: 'Zoe Anderson',
+            GA: 'Lily Thompson',
+            WA: 'Grace Lee',
+            C: 'Chloe Harris',
+            WD: 'Ella Clark',
+            GD: 'Aria Lewis',
+            GK: 'Luna Walker',
+            ourGsGoals: 5,
+            ourGaGoals: 2,
+            oppGsGoals: 2,
+            oppGaGoals: 2,
           },
-          "Q2": {
-            "GS": "Lily Thompson",
-            "GA": "Zoe Anderson",
-            "WA": "Stella Hall",
-            "C": "Grace Lee",
-            "WD": "Chloe Harris",
-            "GD": "Ella Clark",
-            "GK": "Aria Lewis",
-            "ourGsGoals": 3,
-            "ourGaGoals": 2,
-            "oppGsGoals": 2, "oppGaGoals": 1
+          Q2: {
+            GS: 'Lily Thompson',
+            GA: 'Zoe Anderson',
+            WA: 'Stella Hall',
+            C: 'Grace Lee',
+            WD: 'Chloe Harris',
+            GD: 'Ella Clark',
+            GK: 'Aria Lewis',
+            ourGsGoals: 3,
+            ourGaGoals: 2,
+            oppGsGoals: 2,
+            oppGaGoals: 1,
           },
-          "Q3": {
-            "GS": "Zoe Anderson",
-            "GA": "Lily Thompson",
-            "WA": "Grace Lee",
-            "C": "Chloe Harris",
-            "WD": "Ella Clark",
-            "GD": "Aria Lewis",
-            "GK": "Luna Walker",
-            "ourGsGoals": 4,
-            "ourGaGoals": 1,
-            "oppGsGoals": 2, "oppGaGoals": 2
+          Q3: {
+            GS: 'Zoe Anderson',
+            GA: 'Lily Thompson',
+            WA: 'Grace Lee',
+            C: 'Chloe Harris',
+            WD: 'Ella Clark',
+            GD: 'Aria Lewis',
+            GK: 'Luna Walker',
+            ourGsGoals: 4,
+            ourGaGoals: 1,
+            oppGsGoals: 2,
+            oppGaGoals: 2,
           },
-          "Q4": {
-            "GS": "Lily Thompson",
-            "GA": "Stella Hall",
-            "WA": "Luna Walker",
-            "C": "Aria Lewis",
-            "WD": "Ella Clark",
-            "GD": "Chloe Harris",
-            "GK": "Grace Lee",
-            "ourGsGoals": 1,
-            "ourGaGoals": 0,
-            "oppGsGoals": 2, "oppGaGoals": 1
-          }
-        }
-      }
-    ]
+          Q4: {
+            GS: 'Lily Thompson',
+            GA: 'Stella Hall',
+            WA: 'Luna Walker',
+            C: 'Aria Lewis',
+            WD: 'Ella Clark',
+            GD: 'Chloe Harris',
+            GK: 'Grace Lee',
+            ourGsGoals: 1,
+            ourGaGoals: 0,
+            oppGsGoals: 2,
+            oppGaGoals: 1,
+          },
+        },
+      },
+    ],
   },
   {
-    "teamID": "team_1769222442072",
-    "year": 2026,
-    "season": "Season 1",
-    "teamName": "U11 Fire",
-    "players": [
+    teamID: 'team_1769222442072',
+    year: 2026,
+    season: 'Season 1',
+    teamName: 'U11 Fire',
+    players: [
       {
-        "id": "p1769222466720",
-        "name": "Ella",
-        "favPosition": "C",
-        "fillIn": false
+        id: 'p1769222466720',
+        name: 'Ella',
+        favPosition: 'C',
+        fillIn: false,
       },
       {
-        "id": "p1769222474206",
-        "name": "Laylah",
-        "favPosition": "GS",
-        "fillIn": false
-      }
+        id: 'p1769222474206',
+        name: 'Laylah',
+        favPosition: 'GS',
+        fillIn: false,
+      },
     ],
-    "games": [
+    games: [
       {
-        "gameID": "g1769222491409",
-        "round": 1,
-        "opponent": "monty",
-        "date": "2026-01-23",
-        "time": "09:00",
-        "location": "Home",
-        "status": "normal",
-        "scores": {
-          "us": 8,
-          "opponent": 0
+        gameID: 'g1769222491409',
+        round: 1,
+        opponent: 'monty',
+        date: '2026-01-23',
+        time: '09:00',
+        location: 'Home',
+        status: 'normal',
+        scores: {
+          us: 8,
+          opponent: 0,
         },
-        "availablePlayerIDs": [
-          "p1769222466720",
-          "p1769222474206"
-        ],
-        "lineup": {
-          "Q1": {
-            "GS": "Ella",
-            "GA": "Laylah",
-            "C": null,
-            "ourGsGoals": 4,
-            "ourGaGoals": 4
-          }
-        }
-      }
-    ]
+        availablePlayerIDs: ['p1769222466720', 'p1769222474206'],
+        lineup: {
+          Q1: {
+            GS: 'Ella',
+            GA: 'Laylah',
+            C: null,
+            ourGsGoals: 4,
+            ourGaGoals: 4,
+          },
+        },
+      },
+    ],
   },
   {
-    "teamID": "team_u11_flames_2025_season_2",
-    "year": 2025,
-    "season": "Season 2",
-    "teamName": "U11 Flames",
-    "players": [
+    teamID: 'team_u11_flames_2025_season_2',
+    year: 2025,
+    season: 'Season 2',
+    teamName: 'U11 Flames',
+    players: [
       {
-        "id": "p_flames_1",
-        "name": "Alice",
-        "favPosition": "GS",
-        "fillIn": false
+        id: 'p_flames_1',
+        name: 'Alice',
+        favPosition: 'GS',
+        fillIn: false,
       },
       {
-        "id": "p_flames_2",
-        "name": "Bob",
-        "favPosition": "GA",
-        "fillIn": false
-      }
+        id: 'p_flames_2',
+        name: 'Bob',
+        favPosition: 'GA',
+        fillIn: false,
+      },
     ],
-    "games": [
+    games: [
       {
-        "gameID": "g_flames_1",
-        "round": 1,
-        "opponent": "Test Opponent",
-        "date": "2025-01-15",
-        "time": "10:00",
-        "location": "Home",
-        "status": "normal",
-        "scores": {
-          "us": 10,
-          "opponent": 5
+        gameID: 'g_flames_1',
+        round: 1,
+        opponent: 'Test Opponent',
+        date: '2025-01-15',
+        time: '10:00',
+        location: 'Home',
+        status: 'normal',
+        scores: {
+          us: 10,
+          opponent: 5,
         },
-        "availablePlayerIDs": [
-          "p_flames_1",
-          "p_flames_2"
-        ],
-        "lineup": {
-          "Q1": {
-            "GS": "Alice",
-            "GA": "Bob",
-            "ourGsGoals": 3,
-            "ourGaGoals": 2
-          }
-        }
-      }
-    ]
+        availablePlayerIDs: ['p_flames_1', 'p_flames_2'],
+        lineup: {
+          Q1: {
+            GS: 'Alice',
+            GA: 'Bob',
+            ourGsGoals: 3,
+            ourGaGoals: 2,
+          },
+        },
+      },
+    ],
   },
   {
-    "teamID": "team_1763710520310",
-    "year": 2025,
-    "season": "NFNL",
-    "teamName": "Hazel Glen 6",
-    "players": [
+    teamID: 'team_1763710520310',
+    year: 2025,
+    season: 'NFNL',
+    teamName: 'Hazel Glen 6',
+    players: [
       {
-        "id": "p1",
-        "name": "Player 1",
-        "fillIn": false,
-        "favPosition": "GS"
+        id: 'p1',
+        name: 'Player 1',
+        fillIn: false,
+        favPosition: 'GS',
       },
       {
-        "id": "p2",
-        "name": "Player 2",
-        "fillIn": false,
-        "favPosition": "GA"
-      }
+        id: 'p2',
+        name: 'Player 2',
+        fillIn: false,
+        favPosition: 'GA',
+      },
     ],
-    "games": [
+    games: [
       {
-        "gameID": "game1",
-        "round": 1,
-        "date": "2025-02-01",
-        "time": "10:00",
-        "location": "Hazel Glen",
-        "opponent": "Opponent Team",
-        "status": "upcoming"
-      }
-    ]
-  }
+        gameID: 'game1',
+        round: 1,
+        date: '2025-02-01',
+        time: '10:00',
+        location: 'Hazel Glen',
+        opponent: 'Opponent Team',
+        status: 'upcoming',
+      },
+    ],
+  },
 ];

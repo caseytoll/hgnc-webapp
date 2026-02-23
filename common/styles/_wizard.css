@@ -1,0 +1,246 @@
+/* ========================================
+   WIZARD STYLES
+   ======================================== */
+
+.wizard-progress {
+  margin-bottom: 20px;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.progress-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-400);
+  background-color: var(--gray-700);
+  border: 2px solid var(--gray-600);
+  transition: all 0.2s ease;
+}
+
+.progress-step.active {
+  color: var(--text-primary);
+  background-color: var(--primary-600);
+  border-color: var(--primary-500);
+  transform: scale(1.1);
+}
+
+.progress-step.completed {
+  color: var(--text-primary);
+  background-color: var(--success);
+  border-color: var(--success);
+}
+
+.progress-step.completed::before {
+  content: '✓';
+  font-size: 16px;
+}
+
+.form-help {
+  font-size: 12px;
+  color: var(--gray-400);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.summary-section {
+  background-color: var(--bg-tertiary);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-700);
+}
+
+.summary-item {
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--gray-800);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.summary-item strong {
+  color: var(--primary-400);
+}
+
+.info-section {
+  background-color: var(--bg-tertiary);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-700);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.info-icon {
+  font-size: 24px;
+  opacity: 0.7;
+}
+
+.info-content h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.info-content p {
+  margin: 0;
+  color: var(--gray-300);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ─── Competition selection ─── */
+
+.wizard-step-hint {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.wizard-competition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.competition-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.competition-btn:active {
+  transform: scale(0.98);
+}
+
+.competition-btn.selected {
+  border-color: var(--primary-500);
+  background: var(--bg-tertiary);
+}
+
+.competition-btn-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.competition-btn.selected .competition-btn-name {
+  color: var(--primary-400);
+}
+
+.competition-btn-desc {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ─── Squadi step ─── */
+
+.squadi-loading,
+.squadi-error,
+.squadi-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.squadi-loading .loading-spinner {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 10px;
+}
+
+.squadi-teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.squadi-team-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.squadi-team-item:active {
+  transform: scale(0.98);
+}
+
+.squadi-team-item.selected {
+  border-color: var(--primary-500);
+  background: var(--bg-tertiary);
+}
+
+.squadi-team-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.squadi-team-item.selected .squadi-team-name {
+  color: var(--primary-400);
+}
+
+.squadi-team-division {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.squadi-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ─── Misc ─── */
+
+.form-label-optional {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}

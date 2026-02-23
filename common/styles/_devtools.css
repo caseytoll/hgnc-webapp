@@ -1,0 +1,70 @@
+/* ========================================
+   DEV TOOLS
+   ======================================== */
+
+.dev-indicator {
+  position: fixed;
+  bottom: calc(80px + var(--safe-bottom) + var(--space-sm));
+  right: var(--space-md);
+  background: var(--warning);
+  color: black;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  z-index: 99;
+}
+
+.dev-panel {
+  position: fixed;
+  bottom: calc(80px + var(--safe-bottom) + 36px);
+  right: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  width: 200px;
+  z-index: 99;
+}
+
+.dev-panel.hidden {
+  display: none;
+}
+
+.dev-panel h4 {
+  font-size: 0.8rem;
+  margin-bottom: var(--space-md);
+}
+
+.dev-row {
+  margin-bottom: var(--space-sm);
+}
+
+.dev-row label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.dev-row select,
+.dev-row button {
+  font-size: 0.75rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.dev-row button {
+  margin-right: var(--space-xs);
+}
+
+.dev-status {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}

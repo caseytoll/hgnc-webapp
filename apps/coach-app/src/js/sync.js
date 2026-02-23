@@ -39,7 +39,7 @@ export async function syncToGoogleSheets() {
     action: 'saveTeamData',
     sheetName: sheetName,
     teamData: JSON.stringify(saveData),
-    clientLastModified: state.currentTeamData._lastModified || null
+    clientLastModified: state.currentTeamData._lastModified || null,
   };
   const pinToken = state.teamPinTokens?.[teamID];
   if (pinToken) postBody.pinToken = pinToken;
@@ -50,7 +50,7 @@ export async function syncToGoogleSheets() {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' }, // Apps Script requires text/plain for CORS
     body: JSON.stringify(postBody),
-    redirect: 'follow'
+    redirect: 'follow',
   });
 
   console.log('[syncToGoogleSheets] Response status:', response.status);

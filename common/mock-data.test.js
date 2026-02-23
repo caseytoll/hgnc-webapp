@@ -11,7 +11,7 @@ describe('mockTeams', () => {
   });
 
   it('should have valid team structure', () => {
-    mockTeams.forEach(team => {
+    mockTeams.forEach((team) => {
       expect(team).toHaveProperty('teamID');
       expect(team).toHaveProperty('year');
       expect(team).toHaveProperty('season');
@@ -24,8 +24,8 @@ describe('mockTeams', () => {
   });
 
   it('should have valid player structure', () => {
-    mockTeams.forEach(team => {
-      team.players.forEach(player => {
+    mockTeams.forEach((team) => {
+      team.players.forEach((player) => {
         expect(player).toHaveProperty('id');
         expect(player).toHaveProperty('name');
         expect(player).toHaveProperty('fillIn');
@@ -35,8 +35,8 @@ describe('mockTeams', () => {
   });
 
   it('should have valid game structure', () => {
-    mockTeams.forEach(team => {
-      team.games.forEach(game => {
+    mockTeams.forEach((team) => {
+      team.games.forEach((game) => {
         expect(game).toHaveProperty('gameID');
         expect(game).toHaveProperty('round');
         expect(game).toHaveProperty('opponent');
@@ -60,7 +60,7 @@ describe('calculateTeamStats', () => {
     players: [
       { id: 'p1', name: 'Player One', fillIn: false, favPosition: 'GS' },
       { id: 'p2', name: 'Player Two', fillIn: false, favPosition: 'GA' },
-      { id: 'p3', name: 'Player Three', fillIn: false, favPosition: 'C' }
+      { id: 'p3', name: 'Player Three', fillIn: false, favPosition: 'C' },
     ],
     games: [
       {
@@ -73,8 +73,8 @@ describe('calculateTeamStats', () => {
           Q1: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 3, ourGaGoals: 1, opponentScore: 1 },
           Q2: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 2 },
           Q3: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 2, ourGaGoals: 0, opponentScore: 1 },
-          Q4: { GS: 'Player Two', GA: 'Player One', ourGsGoals: 1, ourGaGoals: 0, opponentScore: 1 }
-        }
+          Q4: { GS: 'Player Two', GA: 'Player One', ourGsGoals: 1, ourGaGoals: 0, opponentScore: 1 },
+        },
       },
       {
         gameID: 'g2',
@@ -86,10 +86,10 @@ describe('calculateTeamStats', () => {
           Q1: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 2, ourGaGoals: 1, opponentScore: 3 },
           Q2: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 1, ourGaGoals: 1, opponentScore: 2 },
           Q3: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 1, ourGaGoals: 1, opponentScore: 3 },
-          Q4: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 0, ourGaGoals: 1, opponentScore: 2 }
-        }
-      }
-    ]
+          Q4: { GS: 'Player One', GA: 'Player Two', ourGsGoals: 0, ourGaGoals: 1, opponentScore: 2 },
+        },
+      },
+    ],
   };
 
   let stats;
@@ -127,13 +127,13 @@ describe('calculateTeamStats', () => {
   });
 
   it('should track goals per player', () => {
-    const playerOne = stats.playerStats.find(p => p.name === 'Player One');
+    const playerOne = stats.playerStats.find((p) => p.name === 'Player One');
     expect(playerOne).toBeDefined();
     expect(playerOne.goals).toBeGreaterThan(0);
   });
 
   it('should track quarters played per player', () => {
-    const playerOne = stats.playerStats.find(p => p.name === 'Player One');
+    const playerOne = stats.playerStats.find((p) => p.name === 'Player One');
     expect(playerOne.quarters).toBeGreaterThan(0);
   });
 
@@ -144,13 +144,13 @@ describe('calculateTeamStats', () => {
   });
 
   it('should track game breakdown for scorers', () => {
-    const scorer = stats.playerStats.find(p => p.goals > 0);
+    const scorer = stats.playerStats.find((p) => p.goals > 0);
     expect(scorer.gameBreakdown).toBeDefined();
     expect(Array.isArray(scorer.gameBreakdown)).toBe(true);
   });
 
   it('should track games played for each player', () => {
-    const playerOne = stats.playerStats.find(p => p.name === 'Player One');
+    const playerOne = stats.playerStats.find((p) => p.name === 'Player One');
     expect(playerOne.gamesPlayed).toBeDefined();
     expect(Array.isArray(playerOne.gamesPlayed)).toBe(true);
   });
@@ -162,7 +162,7 @@ describe('calculateTeamStats with empty data', () => {
       teamID: 'empty',
       teamName: 'Empty Team',
       players: [{ id: 'p1', name: 'Player', fillIn: false }],
-      games: []
+      games: [],
     };
 
     const stats = calculateTeamStats(emptyTeam);
@@ -188,9 +188,9 @@ describe('calculateTeamStats with empty data', () => {
           opponent: 'Opp',
           status: 'normal',
           scores: { us: 5, opponent: 3 },
-          lineup: null
-        }
-      ]
+          lineup: null,
+        },
+      ],
     };
 
     const stats = calculateTeamStats(teamWithNoLineup);
@@ -212,9 +212,9 @@ describe('calculateTeamStats with empty data', () => {
           opponent: 'Opp',
           status: 'upcoming',
           scores: null,
-          lineup: null
-        }
-      ]
+          lineup: null,
+        },
+      ],
     };
 
     const stats = calculateTeamStats(teamWithUpcoming);
@@ -234,9 +234,9 @@ describe('calculateTeamStats with empty data', () => {
           opponent: 'Opp',
           status: 'normal',
           scores: { us: 5, opponent: 5 },
-          lineup: null
-        }
-      ]
+          lineup: null,
+        },
+      ],
     };
 
     const stats = calculateTeamStats(teamWithDraw);
@@ -249,7 +249,7 @@ describe('calculateTeamStats with empty data', () => {
 
 describe('calculateTeamStats with real mock data', () => {
   it('should calculate stats for all mock teams without errors', () => {
-    mockTeams.forEach(team => {
+    mockTeams.forEach((team) => {
       const stats = calculateTeamStats(team);
 
       expect(stats).toHaveProperty('gameCount');

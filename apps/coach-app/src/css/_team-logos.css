@@ -1,0 +1,148 @@
+/* ========================================
+   GAME HEADER TEAM LOGOS (extends shared.css)
+   ======================================== */
+@media (max-width: 380px) {
+  .game-score-display .team-logo-game { width: 40px; height: 40px; }
+  .game-score-display { gap: 12px; }
+  .game-score-display .score-value { font-size: 1.75rem; }
+}
+
+.notes-modal-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.notes-modal-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Notes quick-insert buttons */
+.notes-quick-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.player-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.player-chip {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.player-chip:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-300);
+}
+
+.player-chip:active {
+  background: var(--primary-200);
+}
+
+.player-chip-group {
+  background: var(--bg-secondary);
+  border-color: var(--primary-700);
+  color: var(--primary-400);
+}
+
+.player-chip-group:hover {
+  background: var(--primary-900);
+  border-color: var(--primary-500);
+}
+
+.player-chip-position {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.player-chip-position:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.player-chip-infraction {
+  background: var(--bg-secondary);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.player-chip-infraction:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.player-chip-positive {
+  background: var(--bg-secondary);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.player-chip-positive:hover {
+  background: var(--success);
+  color: #fff;
+}
+
+.player-chip-flow {
+  background: var(--bg-secondary);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.player-chip-flow:hover {
+  background: var(--warning);
+  color: #fff;
+}
+
+/* Notes tab panel */
+.notes-panel {
+  padding: var(--space-md);
+}
+
+.notes-empty-state {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-muted);
+}
+
+.quarter-notes-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+}
+
+.quarter-notes-header {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--primary-400);
+}
+
+.quarter-notes-content {
+  padding: var(--space-md);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.quarter-notes-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}

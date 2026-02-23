@@ -22,19 +22,27 @@
     "test": "cd apps/coach-app && npm run test",
     "test:run": "cd apps/coach-app && npm run test:run",
     "test:common": "cd common && npx vitest run",
-    "test:coverage": "cd apps/coach-app && npm run test:coverage"
+    "test:coverage": "cd apps/coach-app && npm run test:coverage",
+    "lint": "eslint apps/*/src common",
+    "lint:fix": "eslint apps/*/src common --fix",
+    "format": "prettier --write 'apps/*/src/**/*.{js,css}' 'common/**/*.{js,css}'",
+    "format:check": "prettier --check 'apps/*/src/**/*.{js,css}' 'common/**/*.{js,css}'"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.0.17",
     "canvas": "^3.2.1",
     "cheerio": "^1.2.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
     "express": "^5.2.1",
     "happy-dom": "^20.1.0",
     "http-proxy-middleware": "^3.0.5",
     "node-fetch": "^2.7.0",
+    "prettier": "^3.8.1",
     "vite": "^7.3.1",
     "vitest": "^4.0.17"
   },

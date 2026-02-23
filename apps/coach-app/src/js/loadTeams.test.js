@@ -1,13 +1,18 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 // Provide a minimal localStorage mock before importing app module (app.js reads localStorage on import)
-import { vi } from 'vitest';
 const mockLocalStorage = (() => {
   let store = {};
   return {
     getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
-    removeItem: (k) => { delete store[k]; },
-    clear: () => { store = {}; }
+    setItem: (k, v) => {
+      store[k] = String(v);
+    },
+    removeItem: (k) => {
+      delete store[k];
+    },
+    clear: () => {
+      store = {};
+    },
   };
 })();
 vi.stubGlobal('localStorage', mockLocalStorage);
@@ -49,7 +54,12 @@ describe('loadTeams fallback behavior', () => {
 
   it('falls back to mockTeams when network fetch throws', async () => {
     // Simulate fetch throwing for the getTeams call
-    vi.stubGlobal('fetch', vi.fn(() => { throw new Error('network error'); }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        throw new Error('network error');
+      })
+    );
 
     await loadTeams();
 
@@ -59,8 +69,14 @@ describe('loadTeams fallback behavior', () => {
   });
 
   it('uses live API when fetch succeeds', async () => {
-    const fakeApiResp = { success: true, teams: [{ teamID: 't1', teamName: 'Live Team', sheetName: 's1', playerCount: 5, year: 2026, season: 'S1' }] };
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(fakeApiResp) })));
+    const fakeApiResp = {
+      success: true,
+      teams: [{ teamID: 't1', teamName: 'Live Team', sheetName: 's1', playerCount: 5, year: 2026, season: 'S1' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(fakeApiResp) }))
+    );
 
     await loadTeams(true);
 
