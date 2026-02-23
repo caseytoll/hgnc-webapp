@@ -2374,6 +2374,15 @@ var SQUADI_ORG_KEYS = [
 ];
 
 /**
+ * Hardcoded fallback map of divisionId → competitionUniqueKey.
+ * Used when resolveSquadiCompetitionKey() cannot discover the key via API.
+ * Update each season when competition UUIDs change.
+ */
+var SQUADI_KNOWN_COMP_KEYS = {
+  '29572': '75e568d0-565e-41e6-82e0-f57b9654e3d2' // NF Autumn 2026 — U15 Fury
+};
+
+/**
  * Resolve the Squadi competitionUniqueKey (UUID) for a given numeric competitionId.
  * Calls the Squadi competitions API for each known org key until the competition is found.
  * Returns the UUID string or null if not found.
@@ -2482,9 +2491,15 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     if (!config.divisionId) {
       throw new Error('Squadi config missing divisionId');
     }
+    Logger.log('[Ladder] config for team ' + teamID + ': ' + JSON.stringify(config));
     // If competitionKey is missing, resolve it dynamically via the Squadi competitions API
-    if (!config.competitionKey && config.competitionId) {
-      var resolvedKey = resolveSquadiCompetitionKey(config.competitionId);
+    if (!config.competitionKey) {
+      var resolvedKey = config.competitionId ? resolveSquadiCompetitionKey(config.competitionId) : null;
+      // Fallback: use hardcoded map keyed by divisionId
+      if (!resolvedKey && config.divisionId && SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)]) {
+        resolvedKey = SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)];
+        Logger.log('[Ladder] Using hardcoded competitionKey for divisionId ' + config.divisionId + ': ' + resolvedKey);
+      }
       if (resolvedKey) {
         config.competitionKey = resolvedKey;
         // Self-heal: write the discovered key back to the Teams sheet so future fetches don't need to resolve it
@@ -2568,10 +2583,13 @@ function fetchSquadiLadderData(config) {
       return { success: false, error: 'Squadi API Error: ' + responseCode };
     }
 
-    var data = JSON.parse(response.getContentText());
+    var rawText = response.getContentText();
+    Logger.log('[Ladder] Raw API response (first 500 chars): ' + rawText.substring(0, 500));
+    var data = JSON.parse(rawText);
     var ladders = data.ladders || [];
 
     if (ladders.length === 0) {
+      Logger.log('[Ladder] data keys: ' + JSON.stringify(Object.keys(data)));
       return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
     }
 
