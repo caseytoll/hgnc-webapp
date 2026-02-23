@@ -1605,9 +1605,15 @@ function scanSquadiCompetitions(forceRescan) {
           continue;
         }
 
-        // Extract competition name and org key from first round's division data
+        // Extract competition name and competition key (UUID) from the API response.
+        // The Squadi API may return it under different field names depending on the endpoint version.
         var compName = data.division ? (data.division.competitionName || '') : '';
-        var orgKey = '';
+        var orgKey = data.division
+          ? (data.division.competitionUniqueKey || data.division.uniqueKey ||
+             data.division.organisationUniqueKey || data.division.competitionKey || '')
+          : '';
+        // Also check top-level response fields
+        if (!orgKey) orgKey = data.competitionUniqueKey || data.competitionKey || '';
 
         // Collect all divisions and team names from all matches
         var divisionMap = {};
@@ -1829,6 +1835,26 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
 
   if (!result.success) return result;
 
+  // Self-heal: if the stored config is missing competitionKey but the fixture response discovered
+  // one, write it back to the Teams sheet so the ladder can use it going forward.
+  if (config.source === 'squadi' && !config.competitionKey && result.discoveredCompKey) {
+    try {
+      var ss = getSpreadsheet();
+      var teamsSheet = ss.getSheetByName('Teams');
+      var sheetData = teamsSheet.getDataRange().getValues();
+      for (var si = 1; si < sheetData.length; si++) {
+        if (String(sheetData[si][0]) === String(teamID)) {
+          config.competitionKey = result.discoveredCompKey;
+          teamsSheet.getRange(si + 1, 8).setValue(JSON.stringify(config)); // Column H = resultsApi
+          Logger.log('[Fixture] Self-healed competitionKey for team ' + teamID + ': ' + result.discoveredCompKey);
+          break;
+        }
+      }
+    } catch (healErr) {
+      Logger.log('[Fixture] Could not self-heal competitionKey: ' + healErr.message);
+    }
+  }
+
   // Cache the result (6 hours)
   try {
     var cache2 = CacheService.getScriptCache();
@@ -1985,11 +2011,19 @@ function fetchSquadiFixtureData(config) {
   teamFixtures.sort(function(a, b) { return a.roundNum - b.roundNum; });
   divisionResults.sort(function(a, b) { return a.roundNum - b.roundNum; });
 
+  // Extract competitionKey (UUID) from the authenticated API response — may be present in
+  // data.division under various field names. Returned so callers can update stored config.
+  var discoveredCompKey = apiResult.division
+    ? (apiResult.division.competitionUniqueKey || apiResult.division.uniqueKey ||
+       apiResult.division.competitionKey || apiResult.division.organisationUniqueKey || '')
+    : '';
+
   return {
     success: true,
     teamFixtures: teamFixtures,
     divisionResults: divisionResults,
-    divisionName: (apiResult.division && apiResult.division.name) || ''
+    divisionName: (apiResult.division && apiResult.division.name) || '',
+    discoveredCompKey: discoveredCompKey
   };
 }
 
@@ -2362,9 +2396,10 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
   if (config.source === 'gameday') {
     result = computeGameDayLadder(config, teamID);
   } else if (config.source === 'squadi') {
-    if (!config.divisionId || !config.competitionKey) {
-      throw new Error('Squadi config missing divisionId or competitionKey');
+    if (!config.divisionId) {
+      throw new Error('Squadi config missing divisionId');
     }
+    // competitionKey is optional — ladder API will be tried without it if absent
     result = fetchSquadiLadderData(config);
   } else {
     throw new Error('Unknown ladder source: ' + config.source);
@@ -2397,7 +2432,7 @@ function fetchSquadiLadderData(config) {
 
   var url = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
     + '?divisionIds=' + config.divisionId
-    + '&competitionKey=' + config.competitionKey
+    + (config.competitionKey ? ('&competitionKey=' + config.competitionKey) : '')
     + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
 
   var options = {
