@@ -123,6 +123,7 @@ function renderLadderTab(team) {
     .then(data => {
       const ladderDiv = ladderPanel.querySelector('#ladder-content');
       if (!data.ladder || !data.ladder.rows || !data.ladder.headers) {
+        console.warn('[Ladder] No ladder data. Full response:', JSON.stringify(data));
         ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available yet.</div>`;
         return;
       }

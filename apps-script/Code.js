@@ -2559,6 +2559,7 @@ function fetchSquadiLadderData(config) {
     + '?divisionIds=' + config.divisionId
     + (config.competitionKey ? ('&competitionKey=' + config.competitionKey) : '')
     + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
+  Logger.log('[Ladder] Fetching URL: ' + url);
 
   var options = {
     'method': 'get',
@@ -2589,8 +2590,11 @@ function fetchSquadiLadderData(config) {
     var ladders = data.ladders || [];
 
     if (ladders.length === 0) {
-      Logger.log('[Ladder] data keys: ' + JSON.stringify(Object.keys(data)));
-      return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
+      var dataKeys = Object.keys(data);
+      Logger.log('[Ladder] empty ladders — data keys: ' + JSON.stringify(dataKeys));
+      Logger.log('[Ladder] raw snippet: ' + rawText.substring(0, 300));
+      return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(),
+               message: 'No ladder data available', _debug: { dataKeys: dataKeys, raw: rawText.substring(0, 200) } };
     }
 
     var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS', 'GD', 'PPG', 'Logo'];
