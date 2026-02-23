@@ -2388,76 +2388,82 @@ var SQUADI_KNOWN_COMP_KEYS = {};
  *   2. divisionId found inside the competition's divisions array
  * Returns the UUID string or null if not found.
  */
-function resolveSquadiCompetitionKey(competitionId, divisionId) {
+/**
+ * @param {string|number} competitionId
+ * @param {string|number} divisionId
+ * @param {Array} [debugOut] - if provided, push debug objects into it for surfacing to frontend
+ * @returns {string|null}
+ */
+function resolveSquadiCompetitionKey(competitionId, divisionId, debugOut) {
   var AUTH_TOKEN = loadAuthToken();
-  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') return null;
-
-  var headers = {
-    'Authorization': AUTH_TOKEN,
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'Origin': 'https://registration.netballconnect.com',
-    'Referer': 'https://registration.netballconnect.com/'
-  };
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+    if (debugOut) debugOut.push({ error: 'AUTH_TOKEN_MISSING' });
+    return null;
+  }
 
   for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
     var orgKey = SQUADI_ORG_KEYS[i];
+    try {
+      var resp = UrlFetchApp.fetch('https://api-netball.squadi.com/livescores/competitions', {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify({ organisationKey: orgKey }),
+        headers: { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json',
+                   'Origin': 'https://registration.netballconnect.com',
+                   'Referer': 'https://registration.netballconnect.com/' },
+        muteHttpExceptions: true
+      });
+      var code = resp.getResponseCode();
+      if (code !== 200) {
+        Logger.log('[CompKey] competitions → ' + code);
+        if (debugOut) debugOut.push({ endpoint: 'livescores/competitions', status: code });
+        continue;
+      }
+      var rawText = resp.getContentText();
+      var body = JSON.parse(rawText);
+      var list = Array.isArray(body) ? body : (body.competitions || body.data || []);
+      Logger.log('[CompKey] ' + list.length + ' competitions returned');
 
-    // Only use the Squadi live scores API — WSA/comp-api endpoints return different UUID spaces
-    // that are incompatible with the Squadi live scores ladder API
-    var endpoints = [
-      { url: 'https://api-netball.squadi.com/livescores/competitions', method: 'post', payload: JSON.stringify({ organisationKey: orgKey }) }
-    ];
+      // Surface the raw response to frontend for debugging
+      if (debugOut) {
+        debugOut.push({
+          endpoint: 'livescores/competitions',
+          count: list.length,
+          bodyKeys: Object.keys(body),
+          firstItem: list.length > 0 ? list[0] : null,
+          allItems: list.length <= 5 ? list : list.slice(0, 3)
+        });
+      }
 
-    for (var e = 0; e < endpoints.length; e++) {
-      var ep = endpoints[e];
-      try {
-        var fetchHeaders = { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json', 'Origin': 'https://registration.netballconnect.com', 'Referer': 'https://registration.netballconnect.com/' };
-        var fetchOpts = { method: ep.method, headers: fetchHeaders, muteHttpExceptions: true };
-        if (ep.payload) { fetchOpts.contentType = 'application/json'; fetchOpts.payload = ep.payload; }
+      for (var c = 0; c < list.length; c++) {
+        var comp = list[c];
+        var compKey = comp.uniqueKey || comp.competitionUniqueKey || comp.key || comp.unique_key || '';
+        if (!compKey) continue;
 
-        var resp = UrlFetchApp.fetch(ep.url, fetchOpts);
-        var code = resp.getResponseCode();
-        if (code !== 200) {
-          Logger.log('[CompKey] ' + ep.url.split('/').slice(-1)[0] + ' → ' + code);
-          continue;
+        // Match by competitionId
+        var cId = comp.id || comp.competitionId || comp.competition_id || '';
+        if (competitionId && String(cId) === String(competitionId)) {
+          Logger.log('[CompKey] matched by competitionId → ' + compKey);
+          return compKey;
         }
-        var body = JSON.parse(resp.getContentText());
-        var list = Array.isArray(body) ? body : (body.competitions || body.data || []);
-        Logger.log('[CompKey] ' + ep.url.split('/').slice(-1)[0] + ' → ' + list.length + ' items');
-        if (list.length > 0) {
-          Logger.log('[CompKey] first item (full): ' + JSON.stringify(list[0]));
-        }
 
-        for (var c = 0; c < list.length; c++) {
-          var comp = list[c];
-          var compKey = comp.uniqueKey || comp.competitionUniqueKey || comp.key || comp.unique_key || '';
-          if (!compKey) continue;
-
-          // Match 1: competition's own id matches competitionId
-          var cId = comp.id || comp.competitionId || comp.competition_id || '';
-          if (competitionId && String(cId) === String(competitionId)) {
-            Logger.log('[CompKey] matched by competitionId → ' + compKey);
+        // Match by divisionId in competition's divisions array
+        var divs = comp.divisions || comp.divisionIds || comp.divisionList || [];
+        for (var d = 0; d < divs.length; d++) {
+          var div = divs[d];
+          var dId = (typeof div === 'object') ? (div.id || div.divisionId || div.division_id || '') : div;
+          if (divisionId && String(dId) === String(divisionId)) {
+            Logger.log('[CompKey] matched by divisionId ' + divisionId + ' → ' + compKey);
             return compKey;
           }
-
-          // Match 2: competition has a divisions list containing our divisionId
-          var divs = comp.divisions || comp.divisionIds || comp.divisionList || [];
-          for (var d = 0; d < divs.length; d++) {
-            var div = divs[d];
-            var dId = (typeof div === 'object') ? (div.id || div.divisionId || div.division_id || '') : div;
-            if (divisionId && String(dId) === String(divisionId)) {
-              Logger.log('[CompKey] matched by divisionId ' + divisionId + ' in comp ' + compKey);
-              return compKey;
-            }
-          }
         }
-      } catch (err) {
-        Logger.log('[CompKey] Error: ' + err.message);
       }
+    } catch (err) {
+      Logger.log('[CompKey] Error: ' + err.message);
+      if (debugOut) debugOut.push({ error: err.message });
     }
   }
-  Logger.log('[CompKey] No match found for competitionId=' + competitionId + ' divisionId=' + divisionId);
+  Logger.log('[CompKey] No match for competitionId=' + competitionId + ' divisionId=' + divisionId);
   return null;
 }
 
@@ -2517,8 +2523,9 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
 
     // If competitionKey is missing, try to resolve it (but don't self-heal until key is verified)
     var candidateKey = config.competitionKey || '';
+    var resolveDebug = [];
     if (!candidateKey) {
-      candidateKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId) || '';
+      candidateKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId, resolveDebug) || '';
       if (candidateKey) Logger.log('[Ladder] Resolved candidate key: ' + candidateKey);
     }
 
@@ -2578,6 +2585,10 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     throw new Error('Unknown ladder source: ' + config.source);
   }
 
+  // Attach resolve debug to any non-success or empty-ladder response for frontend diagnostics
+  if (resolveDebug && resolveDebug.length > 0) {
+    result._resolveDebug = resolveDebug;
+  }
   if (!result.success) return result;
 
   // Only cache when we actually have ladder rows — don't cache empty responses
