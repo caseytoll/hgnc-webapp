@@ -134,25 +134,31 @@ function renderLadderTab(team) {
     });
 }
 
-function getCachedLadder(teamID, fetchFn) {
+function getCachedLadder(teamID, fetchFn, force) {
   const cacheKey = `ladder.cache.${teamID}`;
   const today = new Date().toISOString().slice(0, 10);
-  try {
-    const cached = JSON.parse(localStorage.getItem(cacheKey));
-    if (cached && cached.date === today && cached.data) {
-      return Promise.resolve(cached.data);
-    }
-  } catch (_e) { /* corrupt cache, refetch */ }
+  if (!force) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey));
+      if (cached && cached.date === today && cached.data) {
+        return Promise.resolve(cached.data);
+      }
+    } catch (_e) { /* corrupt cache, refetch */ }
+  }
   return fetchFn().then(data => {
-    try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (_e) { /* quota */ }
+    // Only cache when we have real rows — don't cache an empty ladder
+    if (data && data.ladder && data.ladder.rows && data.ladder.rows.length > 0) {
+      try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, data })); } catch (_e) { /* quota */ }
+    }
     return data;
   });
 }
 
-function fetchSquadiLadder(teamID) {
+function fetchSquadiLadder(teamID, force) {
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
-  return fetch(`${baseUrl}?api=true&action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}`)
+  const forceParam = force ? '&forceRefresh=true' : '';
+  return fetch(`${baseUrl}?api=true&action=getSquadiLadder&teamID=${encodeURIComponent(teamID)}${forceParam}`)
     .then(res => res.json());
 }
 
@@ -161,15 +167,15 @@ function fetchSquadiLadder(teamID) {
  * available immediately rather than only after the ladder tab is opened.
  * Called non-blocking from data-loader.js after team data loads.
  */
-window.prewarmLadderCache = function(team) {
+window.prewarmLadderCache = function(team, force) {
   if (!team) return;
   const fixCfg = window.parseFixtureConfig ? window.parseFixtureConfig(team.resultsApi) : null;
   const hasFixture = fixCfg && (fixCfg.source === 'squadi' || fixCfg.source === 'gameday');
   if (!hasFixture && !team.ladderUrl) return; // no ladder source configured
   const fetchFn = hasFixture
-    ? () => fetchSquadiLadder(team.teamID)
+    ? () => fetchSquadiLadder(team.teamID, force)
     : () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
-  getCachedLadder(team.teamID, fetchFn).catch(() => { /* silent fail — ladder is optional */ });
+  getCachedLadder(team.teamID, fetchFn, force).catch(() => { /* silent fail — ladder is optional */ });
 };
 
 function renderLadderTable(ladderDiv, data, team, highlightName) {
@@ -274,9 +280,9 @@ function renderLadderTable(ladderDiv, data, team, highlightName) {
       const squadiCfg = fixCfg && fixCfg.source === 'squadi' ? fixCfg : null;
       const gamedayCfg = fixCfg && fixCfg.source === 'gameday' ? fixCfg : null;
       const fetchFn = (squadiCfg || gamedayCfg)
-        ? () => fetchSquadiLadder(team.teamID)
+        ? () => fetchSquadiLadder(team.teamID, true)
         : () => fetch(`/ladder-${team.teamID}.json`).then(res => res.json());
-      getCachedLadder(team.teamID, fetchFn)
+      getCachedLadder(team.teamID, fetchFn, true)
         .then(freshData => {
           if (!freshData.ladder || !freshData.ladder.rows || !freshData.ladder.headers) {
             ladderDiv.innerHTML = `<div class="ladder-error">No ladder data available yet.</div>`;

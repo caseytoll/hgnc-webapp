@@ -2456,14 +2456,19 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     throw new Error('Invalid ResultsApi JSON: ' + e.message);
   }
 
-  var cacheKey = 'LADDER_' + teamID;
+  // v4 key — incremented to invalidate previously cached empty-ladder results
+  var cacheKey = 'LADDER_v4_' + teamID;
   if (!forceRefresh) {
     try {
       var cache = CacheService.getScriptCache();
       var cached = cache.get(cacheKey);
       if (cached) {
-        Logger.log('Returning cached ladder for team ' + teamID);
-        return JSON.parse(cached);
+        var parsedCache = JSON.parse(cached);
+        // Don't serve a cached null-ladder; retry so resolveSquadiCompetitionKey can run
+        if (parsedCache && parsedCache.ladder !== null) {
+          Logger.log('Returning cached ladder for team ' + teamID);
+          return parsedCache;
+        }
       }
     } catch (e) {
       Logger.log('Cache read error: ' + e.message);
@@ -2507,15 +2512,20 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
 
   if (!result.success) return result;
 
-  // Cache for 1 hour
-  try {
-    var cacheObj = CacheService.getScriptCache();
-    var jsonStr = JSON.stringify(result);
-    if (jsonStr.length <= 100000) {
-      cacheObj.put(cacheKey, jsonStr, 3600);
+  // Only cache when we actually have ladder rows — don't cache empty responses
+  // so the next request can retry with resolveSquadiCompetitionKey
+  if (result.ladder && result.ladder.rows && result.ladder.rows.length > 0) {
+    try {
+      var cacheObj = CacheService.getScriptCache();
+      var jsonStr = JSON.stringify(result);
+      if (jsonStr.length <= 100000) {
+        cacheObj.put(cacheKey, jsonStr, 3600);
+      }
+    } catch (e) {
+      Logger.log('Ladder cache write error: ' + e.message);
     }
-  } catch (e) {
-    Logger.log('Ladder cache write error: ' + e.message);
+  } else {
+    Logger.log('[Ladder] Not caching empty ladder result for team ' + teamID);
   }
 
   return result;

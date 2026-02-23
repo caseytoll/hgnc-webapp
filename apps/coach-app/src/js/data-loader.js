@@ -680,11 +680,11 @@ window.refreshTeamData = async function() {
     console.warn('[RefreshData] Fixture refresh failed:', e.message);
   }
 
-  // Force-refresh ladder by clearing client cache then pre-warming
+  // Force-refresh ladder — bypass both localStorage and server-side CacheService
   try {
     const cacheKey = `ladder.cache.${state.currentTeam.teamID}`;
     localStorage.removeItem(cacheKey);
-    window.prewarmLadderCache(state.currentTeam);
+    window.prewarmLadderCache(state.currentTeam, true); // force=true bypasses server cache
     ladderUpdated = true;
   } catch (e) {
     console.warn('[RefreshData] Ladder refresh failed:', e.message);
