@@ -65,10 +65,12 @@ window.switchGameTab = function (tabId) {
 export function showLoading() {
   document.getElementById('loading-overlay').classList.remove('hidden');
 }
+window.showLoading = showLoading;
 
 export function hideLoading() {
   document.getElementById('loading-overlay').classList.add('hidden');
 }
+window.hideLoading = hideLoading;
 
 // ========================================
 // TOAST NOTIFICATIONS

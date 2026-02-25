@@ -19,25 +19,7 @@ try {
 } catch (e) {
   if (e.message !== 'Redirecting to team page') console.warn('[App] Early redirect error:', e.message || e);
 }
-// ========================================
-// EXPORT MOCK DATA (DEV TOOL)
-// ========================================
-window.exportMockData = function() {
-  // Export as JS file for direct replacement
-  const js = `// Auto-exported mock data\n\nexport const mockTeams = ${JSON.stringify(window.mockTeams || mockTeams, null, 2)};\n`;
-  const blob = new Blob([js], { type: 'text/javascript' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'mock-data.js';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 100);
-  if (typeof showToast === 'function') showToast('Mock data exported', 'success');
-};
+
 // ========================================
 // TEAM MANAGER - Local Development App
 // ========================================
@@ -65,6 +47,7 @@ import './wizard.js';
 import { loadTeams } from './data-loader.js';
 import './team-selector.js';
 import './sync.js';
+import './opposition-scouting.js';
 
 // Performance mark: earliest practical marker for app start
 try { performance.mark && performance.mark('app-start'); } catch (_e) { /* noop */ }
@@ -97,14 +80,18 @@ try { performance.mark && performance.mark('app-start'); } catch (_e) { /* noop 
 // ========================================
 
 // Runtime API health check and query-toggle handling
-async function checkApiHealth(timeoutMs = 3000) {
+async function checkApiHealth(timeoutMs = 8000) {
   try {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
-    const resp = await fetch(`${API_CONFIG.baseUrl}?api=true&action=ping`, { signal: controller.signal, cache: 'no-store' });
+    const resp = await fetch(`${API_CONFIG.baseUrl}?api=true&action=ping`, {
+      signal: controller.signal,
+      cache: 'no-store',
+      redirect: 'follow',
+    });
     clearTimeout(id);
     if (!resp.ok) throw new Error('Non-OK');
-    const data = await resp.json().catch(() => ({}));
+    await resp.json().catch(() => ({}));
     state.apiAvailable = true;
     updateStatus('API OK');
     return true;
@@ -219,9 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!applyRuntimeDataOverride()) {
     checkApiHealth().then(ok => {
       if (!ok) {
-        // If API is down, switch data source to mock for safety
-        setDataSource('mock');
-        console.warn('[App] API health-check failed — switched to mock data');
+        // Only switch to mock data when there are no real cached teams to show
+        const hasCachedTeams = state.teams && state.teams.length > 0;
+        if (!hasCachedTeams) {
+          setDataSource('mock');
+          console.warn('[App] API health-check failed — no cached data, switched to mock');
+        } else {
+          console.warn('[App] API health-check failed — using cached data, staying on live mode');
+        }
       }
     });
     // Periodic health-check to recover if API comes back

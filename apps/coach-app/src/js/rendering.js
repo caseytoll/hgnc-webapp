@@ -370,9 +370,8 @@ function renderSchedule() {
             ${game.opponentLineupConfirmed !== undefined ? `<span class="lineup-status ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}" title="Opponent lineup ${game.opponentLineupConfirmed ? 'confirmed' : 'pending'}">👥</span>` : ''}
           </div>
           <div class="game-meta">
-            ${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)} • ${escapeHtml(game.location)}
-            ${game.venueDetails && game.venueDetails.lat ? `<a href="https://maps.google.com/?q=${game.venueDetails.lat},${game.venueDetails.lng}" target="_blank" class="venue-link" title="View on map">📍</a>` : ''}
-            ${game.livestreamUrl ? `<a href="${escapeAttr(game.livestreamUrl)}" target="_blank" class="livestream-link" title="Watch live">📺</a>` : ''}
+            <span>${escapeHtml(formatDate(game.date))} • ${escapeHtml(game.time)}</span>
+            <span>${escapeHtml(game.location)}${game.venueDetails && game.venueDetails.lat ? ` <a href="https://maps.google.com/?q=${game.venueDetails.lat},${game.venueDetails.lng}" target="_blank" class="venue-link" title="View on map">📍</a>` : ''}${game.livestreamUrl ? ` <a href="${escapeAttr(game.livestreamUrl)}" target="_blank" class="livestream-link" title="Watch live">📺</a>` : ''}</span>
           </div>
         </div>
         <div class="game-score">

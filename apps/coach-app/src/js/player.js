@@ -6,7 +6,7 @@ import { state, saveToLocalStorage } from './state.js';
 import { API_CONFIG } from './config.js';
 import { calculatePlayerStats, formatAIContent, renderAIFeedback, normalizeFavPositions } from './helpers.js';
 import { syncToGoogleSheets } from './sync.js';
-import { escapeHtml, escapeAttr } from '../../../../common/utils.js';
+import { escapeHtml, escapeAttr, generatePlayerCode } from '../../../../common/utils.js';
 import { shareData, haptic } from '../../../../common/share-utils.js';
 
 // ========================================
@@ -44,6 +44,7 @@ window.openPlayerDetail = function (playerID) {
     </div>
 
     <div id="player-tab-stats" class="player-tab-content active">
+      ${player.playerCode ? `<div style="text-align: center; margin-bottom: 12px;"><span class="player-code-badge">${escapeHtml(player.playerCode)}</span></div>` : ''}
       <div class="player-stats-grid">
         <div class="player-stat-card">
           <span class="player-stat-value">${playerStats.gamesPlayed}</span>
@@ -161,6 +162,10 @@ window.openPlayerDetail = function (playerID) {
       !window.isReadOnlyView
         ? `
     <div id="player-tab-edit" class="player-tab-content">
+      ${player.playerCode ? `<div class="form-group">
+        <label class="form-label">Player Code</label>
+        <div style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">${escapeHtml(player.playerCode)}</div>
+      </div>` : ''}
       <div class="form-group">
         <label class="form-label">Name</label>
         <input type="text" class="form-input" id="edit-player-name" value="${escapeAttr(player.name)}">
@@ -654,9 +659,11 @@ window.addPlayer = async function () {
     return;
   }
 
+  const existingCodes = state.currentTeamData.players.map(p => p.playerCode).filter(Boolean);
   const newPlayer = {
     id: `p${Date.now()}`,
     name: name,
+    playerCode: generatePlayerCode(existingCodes),
     favPosition: selectedPositions, // Now stores array
     fillIn: document.getElementById('new-player-fillin').checked,
   };

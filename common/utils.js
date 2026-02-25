@@ -253,6 +253,22 @@ export function generateId(prefix = 'id') {
 }
 
 /**
+ * Generates a short 3-character alphanumeric player code.
+ * Excludes confusing characters (0/O, 1/I/L).
+ * @param {string[]} existingCodes - Codes already in use (to avoid collisions)
+ * @returns {string}
+ */
+export function generatePlayerCode(existingCodes = []) {
+  const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  let code;
+  do {
+    code = '';
+    for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  } while (existingCodes.includes(code));
+  return code;
+}
+
+/**
  * Calculates initials from a name.
  * @param {string} name - The full name
  * @returns {string} - The initials (e.g., "John Smith" -> "JS")

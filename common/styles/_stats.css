@@ -3,11 +3,18 @@
    ======================================== */
 
 .stats-hero {
+  position: relative;
   background: linear-gradient(135deg, var(--primary-700), var(--primary-900));
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   text-align: center;
   margin-bottom: var(--space-lg);
+}
+
+.stats-hero-help {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
 }
 
 .stats-record {

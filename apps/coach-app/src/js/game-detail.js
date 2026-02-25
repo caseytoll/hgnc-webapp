@@ -9,7 +9,8 @@ import {
   cancelDebouncedSync,
   updateSyncIndicator,
   syncInProgress,
-  hasPendingChanges
+  hasPendingChanges,
+  queueGameAIFireAndForget
 } from './sync.js';
 import {
   escapeHtml,
@@ -72,6 +73,11 @@ window.closeGameDetail = async function() {
   // Cancel any pending debounced sync
   cancelDebouncedSync();
 
+  // Capture game ref before clearing state (needed for AI queue below)
+  const closingGame = state.currentGame;
+  const closingTeamID = state.currentTeamData?.teamID;
+  const closingSheetName = state.teamSheetMap?.[closingTeamID];
+
   // Sync changes before leaving game detail view (skip if sync already in progress)
   if (state.currentTeamData && hasPendingChanges && !syncInProgress) {
     try {
@@ -84,6 +90,13 @@ window.closeGameDetail = async function() {
       console.error('[App] Failed to sync on game close:', err);
       showToast('Changes saved locally, will sync when online', 'warning');
     }
+  }
+
+  // Queue background AI generation if the game has analyzable data
+  if (closingGame?.gameID && closingTeamID && closingSheetName &&
+      closingGame.status !== 'bye' && closingGame.status !== 'abandoned' &&
+      (closingGame.scores || closingGame.lineup)) {
+    queueGameAIFireAndForget(closingGame.gameID, closingSheetName, closingTeamID);
   }
 
   state.currentGame = null;

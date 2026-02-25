@@ -95,7 +95,7 @@ function renderPlayerLibrary() {
       <div class="library-player-card" onclick="openLibraryPlayerDetail('${escapeAttr(player.globalId)}')">
         <div class="library-player-avatar">${escapeHtml(getInitials(player.name))}</div>
         <div class="library-player-info">
-          <div class="library-player-name">${escapeHtml(player.name)}</div>
+          <div class="library-player-name">${escapeHtml(player.name)}${player.playerCode ? ` <span class="player-code-badge">${escapeHtml(player.playerCode)}</span>` : ''}</div>
           <div class="library-player-meta">
             ${player.linkedInstances.length} season${player.linkedInstances.length !== 1 ? 's' : ''} • ${stats.allTime.gamesPlayed} games
           </div>
@@ -519,6 +519,7 @@ window.createLibraryEntry = async function (player, team, teamID, playerID) {
   const newEntry = {
     globalId: `gp_${Date.now()}`,
     name: player.name,
+    playerCode: player.playerCode || '',
     linkedInstances: [
       {
         teamID: team.teamID,
@@ -560,8 +561,10 @@ function addToPlayerLibraryDirect(teamID, playerID) {
   const player = team.players.find((p) => p.id === playerID);
   if (!player) return;
 
-  // Check for existing player with same name to link to
-  const existingPlayer = state.playerLibrary.players.find((lp) => lp.name.toLowerCase() === player.name.toLowerCase());
+  // Check for existing player — prefer code match, fall back to name match
+  const existingPlayer = player.playerCode
+    ? state.playerLibrary.players.find((lp) => lp.playerCode === player.playerCode)
+    : state.playerLibrary.players.find((lp) => lp.name.toLowerCase() === player.name.toLowerCase());
 
   if (existingPlayer) {
     // Link to existing
@@ -577,6 +580,7 @@ function addToPlayerLibraryDirect(teamID, playerID) {
     state.playerLibrary.players.push({
       globalId: `gp_${Date.now()}`,
       name: player.name,
+      playerCode: player.playerCode || '',
       linkedInstances: [
         {
           teamID,

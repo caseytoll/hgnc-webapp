@@ -69,7 +69,7 @@ export async function loadTeams(forceRefresh = false) {
           try { sendClientMetric('background-revalidate', (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
 
           const baseUrl = API_CONFIG.baseUrl;
-          const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
+          const resp = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`, { redirect: 'follow' });
           if (!resp.ok) {
             console.warn('[Cache] Background revalidation fetch failed, status:', resp.status);
             try { sendClientMetric('background-revalidate-failed', resp.status, (teamsListCache.teams || []).length); } catch (_e) { /* noop */ }
@@ -85,12 +85,13 @@ export async function loadTeams(forceRefresh = false) {
             teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, sheetName: t.sheetName,
             year: t.year, season: t.season, archived: t.archived, ladderUrl: t.ladderUrl,
             resultsApi: t.resultsApi || '',
-            lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || ''
+            lastModified: t.lastModified, hasPin: t.hasPin || false, coach: t.coach || '',
+            competition: t.competition || ''
           }));
 
-          // Lightweight comparison by teamID + playerCount + name + coach + hasPin
-          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
-          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi })));
+          // Lightweight comparison by teamID + playerCount + name + coach + hasPin + competition
+          const oldSig = JSON.stringify((teamsListCache.teams || []).map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi, competition: t.competition })));
+          const newSig = JSON.stringify(freshTeams.map(t => ({ teamID: t.teamID, teamName: t.teamName, playerCount: t.playerCount, coach: t.coach, hasPin: t.hasPin, resultsApi: t.resultsApi, competition: t.competition })));
 
           if (oldSig !== newSig) {
             console.log('[Cache] Teams list updated on server; refreshing UI');
@@ -157,11 +158,11 @@ export async function loadTeams(forceRefresh = false) {
         return;
       }
 
-      // Use direct API for both dev and production (browsers handle redirects automatically)
+      // Use direct API for both dev and production
       const baseUrl = API_CONFIG.baseUrl;
       // Measure teams fetch time
       const teamsFetchStart = (performance && performance.now) ? performance.now() : Date.now();
-      const response = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`);
+      const response = await fetch(`${baseUrl}?api=true&action=getTeams&_t=${Date.now()}`, { redirect: 'follow' });
       const teamsFetchMs = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - teamsFetchStart);
       console.log('[App] Response status:', response.status, 'teamsFetchMs:', teamsFetchMs + 'ms');
       const data = await response.json();
@@ -179,6 +180,7 @@ export async function loadTeams(forceRefresh = false) {
         if (t.hasPin === undefined) t.hasPin = false;
         if (!t.coach) t.coach = '';
         if (!t.resultsApi) t.resultsApi = '';
+        if (!t.competition) t.competition = '';
         return t;
       });
 

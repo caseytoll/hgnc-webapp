@@ -41,6 +41,7 @@ export function renderStats() {
         <button class="stats-subtab ${state.activeStatsTab === 'positions' ? 'active' : ''}" onclick="switchStatsTab('positions')">Positions</button>
         <button class="stats-subtab ${state.activeStatsTab === 'combos' ? 'active' : ''}" onclick="switchStatsTab('combos')">Combos</button>
         <button class="stats-subtab ${state.activeStatsTab === 'attendance' ? 'active' : ''}" onclick="switchStatsTab('attendance')">Attendance</button>
+        <button class="stats-subtab ${state.activeStatsTab === 'patterns' ? 'active' : ''}" onclick="switchStatsTab('patterns')">Patterns</button>
       </div>
       <div id="stats-tab-content"></div>
     `;
@@ -88,6 +89,9 @@ function renderActiveStatsTab() {
       break;
     case 'attendance':
       renderStatsAttendance(content);
+      break;
+    case 'patterns':
+      renderStatsPatterns(content);
       break;
     default:
       renderStatsOverview(content);
@@ -1556,6 +1560,213 @@ function renderStatsPositions(container) {
     </div>
   `;
 }
+
+// ========================================
+// STATS: PATTERNS TAB (Pattern Detector)
+// ========================================
+
+function renderStatsPatterns(container) {
+  const cached = state.currentTeamData?.patternInsights;
+
+  if (cached && cached.patterns) {
+    container.innerHTML = buildPatternHTML(cached);
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="stats-section">
+      <div class="stats-section-title">AI Pattern Detector</div>
+      <p style="font-size: 14px; color: var(--text-secondary); margin: 0 0 16px;">
+        Analyzes recent game-by-game AI summaries to detect multi-game trends in your team's performance.
+      </p>
+      <div id="pattern-detector-container">
+        <button class="btn btn-primary" onclick="fetchPatternDetector()">Generate Patterns</button>
+      </div>
+    </div>
+  `;
+}
+
+function buildPatternHTML(data) {
+  const cached = data;
+  const generatedDate = cached.generatedAt
+    ? new Date(cached.generatedAt).toLocaleDateString('en-AU')
+    : '';
+
+  const trendBadge = (trend) => {
+    const map = {
+      improving: 'badge-success',
+      declining: 'badge-error',
+      consistent: 'badge-info',
+      volatile: 'badge-warning',
+    };
+    return `<span class="badge ${map[trend] || 'badge-info'}">${escapeHtml(trend || '—')}</span>`;
+  };
+
+  const patternCard = (label, key) => {
+    const p = cached.patterns?.[key];
+    if (!p) return '';
+    const games = Array.isArray(p.supporting_games) ? p.supporting_games.join(', ') : '';
+    return `
+      <div class="pattern-card">
+        <div class="pattern-card-header">
+          <span class="pattern-card-label">${escapeHtml(label)}</span>
+          ${trendBadge(p.trend)}
+          ${p.confidence != null ? `<span class="pattern-confidence">${Math.round(p.confidence * 100)}%</span>` : ''}
+        </div>
+        <p class="pattern-card-desc">${escapeHtml(p.description || '')}</p>
+        ${games ? `<div class="pattern-card-games">Based on: ${escapeHtml(games)}</div>` : ''}
+      </div>
+    `;
+  };
+
+  const trajectoryRows = (cached.playerTrajectories || [])
+    .map(
+      (t) => `
+    <div class="pattern-trajectory-row">
+      <div class="pattern-trajectory-name">${escapeHtml(t.name || '')}</div>
+      ${trendBadge(t.trend)}
+      <div class="pattern-trajectory-desc">${escapeHtml(t.description || '')}</div>
+    </div>
+  `
+    )
+    .join('');
+
+  const comboRows = (cached.combinationEffectiveness || [])
+    .map((c) => {
+      const players = Array.isArray(c.players) ? c.players.join(' & ') : c.players || '';
+      return `
+    <div class="pattern-combo-row">
+      <div class="pattern-combo-players">${escapeHtml(players)}</div>
+      ${trendBadge(c.trend)}
+      <div class="pattern-combo-desc">${escapeHtml(c.description || '')}</div>
+      ${c.games_together != null ? `<div class="pattern-combo-games">${escapeHtml(c.games_together)} games together</div>` : ''}
+    </div>
+  `;
+    })
+    .join('');
+
+  return `
+    <div class="stats-section">
+      <div class="stats-section-title">AI Pattern Detector</div>
+      ${cached.summary ? `<div class="ai-insights-content" style="margin-bottom: 16px;">${escapeHtml(cached.summary)}</div>` : ''}
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-section-title">Performance Patterns</div>
+      <div class="pattern-cards-grid">
+        ${patternCard('Closing Games', 'closing')}
+        ${patternCard('Defence', 'defense')}
+        ${patternCard('Attack', 'attack')}
+        ${patternCard('Momentum', 'momentum')}
+      </div>
+    </div>
+
+    ${
+      trajectoryRows
+        ? `
+    <div class="stats-section">
+      <div class="stats-section-title">Player Trajectories</div>
+      <div class="pattern-trajectories">
+        ${trajectoryRows}
+      </div>
+    </div>
+    `
+        : ''
+    }
+
+    ${
+      comboRows
+        ? `
+    <div class="stats-section">
+      <div class="stats-section-title">Combination Effectiveness</div>
+      <div class="pattern-combos">
+        ${comboRows}
+      </div>
+    </div>
+    `
+        : ''
+    }
+
+    <div class="stats-section">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        ${generatedDate ? `<span class="ai-meta" style="font-size: 12px; color: var(--text-tertiary);">Generated: ${escapeHtml(generatedDate)} · ${escapeHtml(String(cached.gamesAnalyzed || 0))} games</span>` : ''}
+        <button class="btn btn-secondary" onclick="fetchPatternDetector(true)">Refresh Patterns</button>
+      </div>
+    </div>
+  `;
+}
+
+window.fetchPatternDetector = async function (forceRefresh = false) {
+  if (!state.currentTeam || !state.currentTeamData) {
+    window.showToast('No team data loaded', 'error');
+    return;
+  }
+
+  const container = document.getElementById('pattern-detector-container');
+  const statsTabContent = document.getElementById('stats-tab-content');
+
+  // On force refresh, re-render the full tab with loading inside it
+  const loadingTarget = container || statsTabContent;
+  if (loadingTarget) {
+    loadingTarget.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Detecting patterns...</p></div>';
+  }
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+
+    const pdUrl = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+    pdUrl.searchParams.set('api', 'true');
+    pdUrl.searchParams.set('action', 'generatePatternDetector');
+    pdUrl.searchParams.set('teamID', state.currentTeam.teamID);
+    pdUrl.searchParams.set('sheetName', state.currentTeam.sheetName);
+    if (forceRefresh) pdUrl.searchParams.set('forceRefresh', 'true');
+
+    const response = await fetch(pdUrl.toString(), { method: 'GET', redirect: 'follow' });
+    const data = await response.json();
+
+    // Backend returns { success, data: { patterns, playerTrajectories, ... } }
+    const pd = data.data || data;
+    if (data.success && pd.patterns) {
+      // Cache locally
+      state.currentTeamData.patternInsights = {
+        patterns: pd.patterns,
+        playerTrajectories: pd.playerTrajectories || [],
+        combinationEffectiveness: pd.combinationEffectiveness || [],
+        summary: pd.summary || '',
+        generatedAt: pd.generatedAt || new Date().toISOString(),
+        gamesAnalyzed: pd.gameCount || 0,
+      };
+      saveToLocalStorage();
+
+      // Re-render the full patterns tab
+      const content = document.getElementById('stats-tab-content');
+      if (content) content.innerHTML = buildPatternHTML(state.currentTeamData.patternInsights);
+
+      if (data.cached) {
+        window.showToast('Patterns loaded from cache', 'info');
+      } else {
+        window.showToast('Pattern analysis complete', 'success');
+      }
+    } else {
+      throw new Error(data.error || 'Pattern detection failed');
+    }
+  } catch (err) {
+    console.error('[Pattern Detector] Error:', err);
+    const content = document.getElementById('stats-tab-content');
+    if (content) {
+      content.innerHTML = `
+        <div class="stats-section">
+          <div class="stats-section-title">AI Pattern Detector</div>
+          <div class="ai-error">
+            <p>${escapeHtml(err.message)}</p>
+            <button class="btn btn-primary" onclick="fetchPatternDetector(true)">Try Again</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+};
 
 // showMetricDetail — referenced in onclick but not yet implemented
 window.showMetricDetail = function (metric) {

@@ -213,6 +213,19 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'generateTrainingCorrelation':
+          var corrTrainingData = postData.trainingData || null;
+          if (!corrTrainingData) {
+            result = { success: false, error: 'trainingData is required' };
+          } else {
+            try {
+              result = generateTrainingCorrelation(corrTrainingData);
+            } catch (corrErr) {
+              result = { success: false, error: corrErr.message };
+            }
+          }
+          break;
+
         case 'deleteTeam':
           var deleteTeamID = postData.teamID || e.parameter.teamID || '';
           if (!deleteTeamID) {
@@ -637,37 +650,6 @@ function getSpreadsheet() {
           }
           break;
 
-        case 'testLadderPublic':
-          // Diagnostic: test if Squadi ladder API works without auth
-          try {
-            var testDiv = e.parameter.divisionId || '26942';
-            var testKey = e.parameter.competitionKey || 'b8acc87f-8a28-4de7-b7b8-36209d56ace9';
-            var testUrl = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
-              + '?divisionIds=' + testDiv
-              + '&competitionKey=' + testKey
-              + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
-
-            // Test 1: without auth
-            var noAuthResp = UrlFetchApp.fetch(testUrl, { method: 'get', muteHttpExceptions: true,
-              headers: { 'Accept': 'application/json', 'Origin': 'https://registration.netballconnect.com', 'Referer': 'https://registration.netballconnect.com/' } });
-            var noAuthCode = noAuthResp.getResponseCode();
-            var noAuthSnippet = noAuthResp.getContentText().substring(0, 300);
-
-            // Test 2: with auth
-            var authToken = loadAuthToken();
-            var authResp = UrlFetchApp.fetch(testUrl, { method: 'get', muteHttpExceptions: true,
-              headers: { 'Authorization': authToken, 'Accept': 'application/json', 'Origin': 'https://registration.netballconnect.com', 'Referer': 'https://registration.netballconnect.com/' } });
-            var authCode = authResp.getResponseCode();
-            var authSnippet = authResp.getContentText().substring(0, 300);
-
-            result = { success: true, testUrl: testUrl,
-              noAuth: { status: noAuthCode, snippet: noAuthSnippet },
-              withAuth: { status: authCode, snippet: authSnippet } };
-          } catch (testErr) {
-            result = { success: false, error: testErr.message };
-          }
-          break;
-
         case 'getTeamInfo':
           var infoTeamID = e.parameter.teamID || '';
           var infoForce = e.parameter.forceRefresh === 'true';
@@ -748,33 +730,177 @@ function getSpreadsheet() {
           }
           break;
 
-        case 'batchLogClientMetrics':
-          // Batch metric logging — parses a JSON array of {name,value,teams,extra} objects
-          try {
-            var batchJson = e.parameter.metrics || '';
-            if (!batchJson) {
-              result = { success: false, error: 'metrics parameter is required' };
-            } else {
-              var batchItems = JSON.parse(batchJson);
-              if (!Array.isArray(batchItems)) {
-                result = { success: false, error: 'metrics must be a JSON array' };
-              } else {
-                var logged = 0;
-                for (var bi = 0; bi < batchItems.length; bi++) {
-                  var item = batchItems[bi];
-                  if (item && item.name) {
-                    logClientMetric(item.name, item.value || '', item.teams || '', item.extra || '');
-                    logged++;
-                  }
-                }
-                result = { success: true, logged: logged };
-              }
+        case 'queueGameAI':
+          var queueGameID = e.parameter.gameID || '';
+          var queueSheetName = e.parameter.sheetName || '';
+          var queueTeamID = e.parameter.teamID || '';
+          var queueForce = e.parameter.forceRefresh === 'true';
+          if (!queueGameID || !queueSheetName || !queueTeamID) {
+            result = { success: false, error: 'Missing required params: gameID, sheetName, teamID' };
+          } else {
+            try {
+              result = queueGameAI({ gameID: queueGameID, sheetName: queueSheetName, teamID: queueTeamID, forceRefresh: queueForce });
+            } catch (errQueue) {
+              Logger.log('queueGameAI error: ' + errQueue.message);
+              result = { success: false, error: errQueue.message };
             }
-          } catch (errBatch) {
-            Logger.log('batchLogClientMetrics error: ' + errBatch.message);
-            result = { success: false, error: errBatch.message };
           }
           break;
+
+        case 'processAIQueueManual':
+          try {
+            processAIQueue();
+            result = { success: true, message: 'Queue processing complete' };
+          } catch (errProcess) {
+            Logger.log('processAIQueueManual error: ' + errProcess.message);
+            result = { success: false, error: errProcess.message };
+          }
+          break;
+
+        case 'setupAIQueueTrigger':
+          try {
+            result = setupAIQueueTrigger();
+          } catch (errTrigger) {
+            Logger.log('setupAIQueueTrigger error: ' + errTrigger.message);
+            result = { success: false, error: errTrigger.message };
+          }
+          break;
+
+        case 'queueAllGames': {
+          var qagForce = e.parameter.forceRefresh === 'true';
+          try {
+            result = queueAllGames(qagForce);
+          } catch (errQAG) {
+            Logger.log('queueAllGames error: ' + errQAG.message);
+            result = { success: false, error: errQAG.message };
+          }
+          break;
+        }
+
+        case 'setupOppositionTriggers': {
+          try {
+            result = setupOppositionTriggers();
+          } catch (errOppTrig) {
+            Logger.log('setupOppositionTriggers error: ' + errOppTrig.message);
+            result = { success: false, error: errOppTrig.message };
+          }
+          break;
+        }
+
+        case 'generatePatternDetector': {
+          var pdTeamID = e.parameter.teamID || '';
+          var pdSheetName = e.parameter.sheetName || '';
+          var pdForce = e.parameter.forceRefresh === 'true';
+          if (!pdTeamID || !pdSheetName) {
+            result = { success: false, error: 'teamID and sheetName are required' };
+          } else {
+            try {
+              result = generatePatternDetector(pdTeamID, pdSheetName, pdForce);
+            } catch (errPD) {
+              Logger.log('generatePatternDetector error: ' + errPD.message);
+              result = { success: false, error: errPD.message };
+            }
+          }
+          break;
+        }
+
+        case 'refreshOppositionMatches': {
+          var oppTeamID = e.parameter.teamID || '';
+          if (!oppTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = collectOppositionFixturesImmediate(oppTeamID);
+            } catch (errOpp) {
+              Logger.log('refreshOppositionMatches error: ' + errOpp.message);
+              result = { success: false, error: errOpp.message };
+            }
+          }
+          break;
+        }
+
+        case 'generateOppositionInsightsImmediate': {
+          var genOppTeamID = e.parameter.teamID || '';
+          var genOppRound = e.parameter.round || '0';
+          var genOppGameID = e.parameter.gameID || '';
+          if (!genOppTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = generateOppositionInsightsImmediately(genOppTeamID, genOppRound, genOppGameID);
+            } catch (errGenOpp) {
+              Logger.log('generateOppositionInsightsImmediate error: ' + errGenOpp.message);
+              result = { success: false, error: errGenOpp.message };
+            }
+          }
+          break;
+        }
+
+        case 'getOppositionScouting': {
+          var getOppTeamID = e.parameter.teamID || '';
+          var getOppOpponent = e.parameter.opponent || '';
+          var getOppRound = e.parameter.round || '';
+          if (!getOppTeamID || !getOppOpponent || !getOppRound) {
+            result = { success: false, error: 'teamID, opponent, and round are required' };
+          } else {
+            try {
+              var scoutingData = getOppositionScoutingData(getOppTeamID, getOppOpponent, parseInt(getOppRound, 10));
+              result = scoutingData ? { success: true, data: scoutingData } : { success: false, error: 'No scouting data found' };
+            } catch (errGetOpp) {
+              Logger.log('getOppositionScouting error: ' + errGetOpp.message);
+              result = { success: false, error: errGetOpp.message };
+            }
+          }
+          break;
+        }
+
+        case 'processOppositionAIQueueManual': {
+          try {
+            processOppositionAIQueue();
+            result = { success: true, message: 'Opposition queue processing complete' };
+          } catch (errOppQueue) {
+            Logger.log('processOppositionAIQueueManual error: ' + errOppQueue.message);
+            result = { success: false, error: errOppQueue.message };
+          }
+          break;
+        }
+
+        case 'debugGameAI': {
+          // Returns raw aiSummary (or absence) for a specific game — checks both A1 (merged) and C1 (raw AI map)
+          var dbgSheet = e.parameter.sheetName || '';
+          var dbgGameID = e.parameter.gameID || '';
+          if (!dbgSheet || !dbgGameID) {
+            result = { success: false, error: 'sheetName and gameID required' };
+          } else {
+            try {
+              var dbgSS = getSpreadsheet();
+              var dbgTeamSheet = dbgSS.getSheetByName(dbgSheet);
+              if (!dbgTeamSheet) {
+                result = { success: false, error: 'Sheet not found: ' + dbgSheet };
+                break;
+              }
+              var dbgA1 = dbgTeamSheet.getRange('A1').getValue();
+              var dbgC1 = dbgTeamSheet.getRange('C1').getValue();
+              var dbgAIMap = {};
+              if (dbgC1) { try { dbgAIMap = JSON.parse(dbgC1); } catch(e){} }
+              var dbgAI = dbgAIMap[dbgGameID] || null;
+              result = {
+                success: true,
+                gameID: dbgGameID,
+                hasAISummary: !!dbgAI,
+                aiSummaryKeys: dbgAI ? Object.keys(dbgAI) : null,
+                generatedAt: dbgAI ? dbgAI.generatedAt : null,
+                moduleVersion: dbgAI ? dbgAI.moduleVersion : null,
+                a1Bytes: (dbgA1 || '').length,
+                c1Bytes: (dbgC1 || '').length,
+                c1GameCount: Object.keys(dbgAIMap).length
+              };
+            } catch (dbgErr) {
+              result = { success: false, error: dbgErr.message };
+            }
+          }
+          break;
+        }
 
         default:
           result = { success: false, error: 'Unknown action: ' + action };
@@ -1636,15 +1762,9 @@ function scanSquadiCompetitions(forceRescan) {
           continue;
         }
 
-        // Extract competition name and competition key (UUID) from the API response.
-        // The Squadi API may return it under different field names depending on the endpoint version.
+        // Extract competition name and org key from first round's division data
         var compName = data.division ? (data.division.competitionName || '') : '';
-        var orgKey = data.division
-          ? (data.division.competitionUniqueKey || data.division.uniqueKey ||
-             data.division.organisationUniqueKey || data.division.competitionKey || '')
-          : '';
-        // Also check top-level response fields
-        if (!orgKey) orgKey = data.competitionUniqueKey || data.competitionKey || '';
+        var orgKey = '';
 
         // Collect all divisions and team names from all matches
         var divisionMap = {};
@@ -1866,26 +1986,6 @@ function getFixtureDataForTeam(teamID, forceRefresh) {
 
   if (!result.success) return result;
 
-  // Self-heal: if the stored config is missing competitionKey but the fixture response discovered
-  // one, write it back to the Teams sheet so the ladder can use it going forward.
-  if (config.source === 'squadi' && !config.competitionKey && result.discoveredCompKey) {
-    try {
-      var ss = getSpreadsheet();
-      var teamsSheet = ss.getSheetByName('Teams');
-      var sheetData = teamsSheet.getDataRange().getValues();
-      for (var si = 1; si < sheetData.length; si++) {
-        if (String(sheetData[si][0]) === String(teamID)) {
-          config.competitionKey = result.discoveredCompKey;
-          teamsSheet.getRange(si + 1, 8).setValue(JSON.stringify(config)); // Column H = resultsApi
-          Logger.log('[Fixture] Self-healed competitionKey for team ' + teamID + ': ' + result.discoveredCompKey);
-          break;
-        }
-      }
-    } catch (healErr) {
-      Logger.log('[Fixture] Could not self-heal competitionKey: ' + healErr.message);
-    }
-  }
-
   // Cache the result (6 hours)
   try {
     var cache2 = CacheService.getScriptCache();
@@ -1910,18 +2010,6 @@ function fetchSquadiFixtureData(config) {
   var apiResult = fetchSquadiFixtures(config.competitionId, config.divisionId);
   if (apiResult.error) {
     return { success: false, error: apiResult.error, message: apiResult.message || apiResult.error };
-  }
-
-  // Log the full division object so we can discover what fields Squadi returns
-  // (particularly any UUID / competitionKey field we can use for the ladder API)
-  if (apiResult.division) {
-    Logger.log('[Fixture] data.division keys: ' + JSON.stringify(Object.keys(apiResult.division)));
-    Logger.log('[Fixture] data.division: ' + JSON.stringify(apiResult.division));
-  }
-  // Also log first match to see all available fields
-  var firstMatch = apiResult.rounds && apiResult.rounds[0] && apiResult.rounds[0].matches && apiResult.rounds[0].matches[0];
-  if (firstMatch) {
-    Logger.log('[Fixture] first match keys: ' + JSON.stringify(Object.keys(firstMatch)));
   }
 
   var teamFixtures = [];
@@ -2054,19 +2142,11 @@ function fetchSquadiFixtureData(config) {
   teamFixtures.sort(function(a, b) { return a.roundNum - b.roundNum; });
   divisionResults.sort(function(a, b) { return a.roundNum - b.roundNum; });
 
-  // Extract competitionKey (UUID) from the authenticated API response — may be present in
-  // data.division under various field names. Returned so callers can update stored config.
-  var discoveredCompKey = apiResult.division
-    ? (apiResult.division.competitionUniqueKey || apiResult.division.uniqueKey ||
-       apiResult.division.competitionKey || apiResult.division.organisationUniqueKey || '')
-    : '';
-
   return {
     success: true,
     teamFixtures: teamFixtures,
     divisionResults: divisionResults,
-    divisionName: (apiResult.division && apiResult.division.name) || '',
-    discoveredCompKey: discoveredCompKey
+    divisionName: (apiResult.division && apiResult.division.name) || ''
   };
 }
 
@@ -2396,121 +2476,6 @@ function extractGameDayMatches(html) {
 }
 
 /**
- * Organisation keys for HGNC-affiliated competitions.
- * organisationKey is stable — it identifies the club/association, not the season.
- * competitionUniqueKey changes each season; this map helps discover it via the API.
- */
-var SQUADI_ORG_KEYS = [
-  '7a628258-a707-4196-917f-4faf87cbb124' // Nillumbik Force
-];
-
-/**
- * Hardcoded fallback map of divisionId → competitionUniqueKey (Squadi live scores API).
- * Used when resolveSquadiCompetitionKey() cannot discover the key via API.
- * Update each season when competition UUIDs change.
- * NOTE: these keys are from the Squadi live scores API, NOT from NetballConnect registration URLs.
- */
-var SQUADI_KNOWN_COMP_KEYS = {
-  '29572': '75e568d0-565e-41e6-82e0-f57b9654e3d2' // NF Autumn 2026 — U15 Fury (15&U Div 4)
-};
-
-/**
- * Resolve the Squadi live scores competitionUniqueKey for a given competitionId + divisionId.
- * Tries multiple Squadi/WSA API endpoints. Matches by:
- *   1. competitionId on the competition object itself
- *   2. divisionId found inside the competition's divisions array
- * Returns the UUID string or null if not found.
- */
-/**
- * @param {string|number} competitionId
- * @param {string|number} divisionId
- * @param {Array} [debugOut] - if provided, push debug objects into it for surfacing to frontend
- * @returns {string|null}
- */
-function resolveSquadiCompetitionKey(competitionId, divisionId, debugOut) {
-  for (var i = 0; i < SQUADI_ORG_KEYS.length; i++) {
-    var orgKey = SQUADI_ORG_KEYS[i];
-    try {
-      var compUrl = 'https://api-netball.squadi.com/livescores/competitions';
-      var compPayload = JSON.stringify({ organisationKey: orgKey });
-      var publicHeaders = { 'Accept': 'application/json',
-        'Origin': 'https://registration.netballconnect.com',
-        'Referer': 'https://registration.netballconnect.com/' };
-
-      // Try without auth first (API is publicly accessible)
-      var resp = UrlFetchApp.fetch(compUrl, {
-        method: 'post', contentType: 'application/json', payload: compPayload,
-        headers: publicHeaders, muteHttpExceptions: true
-      });
-      var code = resp.getResponseCode();
-
-      // Fall back to auth if public returns 401
-      if (code === 401) {
-        var AUTH_TOKEN = loadAuthToken();
-        if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
-          Logger.log('[CompKey] public → 401, retrying with auth');
-          publicHeaders['Authorization'] = AUTH_TOKEN;
-          resp = UrlFetchApp.fetch(compUrl, {
-            method: 'post', contentType: 'application/json', payload: compPayload,
-            headers: publicHeaders, muteHttpExceptions: true
-          });
-          code = resp.getResponseCode();
-        }
-      }
-      if (code !== 200) {
-        Logger.log('[CompKey] competitions → ' + code);
-        if (debugOut) debugOut.push({ endpoint: 'livescores/competitions', status: code, retried: true });
-        continue;
-      }
-      var rawText = resp.getContentText();
-      var body = JSON.parse(rawText);
-      var list = Array.isArray(body) ? body : (body.competitions || body.data || []);
-      Logger.log('[CompKey] ' + list.length + ' competitions returned');
-
-      // Surface the raw response to frontend for debugging
-      if (debugOut) {
-        debugOut.push({
-          endpoint: 'livescores/competitions',
-          count: list.length,
-          bodyKeys: Object.keys(body),
-          firstItem: list.length > 0 ? list[0] : null,
-          allItems: list.length <= 5 ? list : list.slice(0, 3)
-        });
-      }
-
-      for (var c = 0; c < list.length; c++) {
-        var comp = list[c];
-        var compKey = comp.uniqueKey || comp.competitionUniqueKey || comp.key || comp.unique_key || '';
-        if (!compKey) continue;
-
-        // Match by competitionId
-        var cId = comp.id || comp.competitionId || comp.competition_id || '';
-        if (competitionId && String(cId) === String(competitionId)) {
-          Logger.log('[CompKey] matched by competitionId → ' + compKey);
-          return compKey;
-        }
-
-        // Match by divisionId in competition's divisions array
-        var divs = comp.divisions || comp.divisionIds || comp.divisionList || [];
-        for (var d = 0; d < divs.length; d++) {
-          var div = divs[d];
-          var dId = (typeof div === 'object') ? (div.id || div.divisionId || div.division_id || '') : div;
-          if (divisionId && String(dId) === String(divisionId)) {
-            Logger.log('[CompKey] matched by divisionId ' + divisionId + ' → ' + compKey);
-            return compKey;
-          }
-        }
-      }
-    } catch (err) {
-      Logger.log('[CompKey] Error: ' + err.message);
-      if (debugOut) debugOut.push({ error: err.message });
-    }
-  }
-  Logger.log('[CompKey] No match for competitionId=' + competitionId + ' divisionId=' + divisionId);
-  return null;
-}
-
-/**
  * Get ladder data for a specific team, using its ResultsApi config.
  * Supports both Squadi (API) and GameDay (computed from fixture results).
  * Caches results in CacheService for 1 hour.
@@ -2536,19 +2501,14 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
     throw new Error('Invalid ResultsApi JSON: ' + e.message);
   }
 
-  // v4 key — incremented to invalidate previously cached empty-ladder results
-  var cacheKey = 'LADDER_v4_' + teamID;
+  var cacheKey = 'LADDER_' + teamID;
   if (!forceRefresh) {
     try {
       var cache = CacheService.getScriptCache();
       var cached = cache.get(cacheKey);
       if (cached) {
-        var parsedCache = JSON.parse(cached);
-        // Don't serve a cached null-ladder; retry so resolveSquadiCompetitionKey can run
-        if (parsedCache && parsedCache.ladder !== null) {
-          Logger.log('Returning cached ladder for team ' + teamID);
-          return parsedCache;
-        }
+        Logger.log('Returning cached ladder for team ' + teamID);
+        return JSON.parse(cached);
       }
     } catch (e) {
       Logger.log('Cache read error: ' + e.message);
@@ -2559,100 +2519,25 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
   if (config.source === 'gameday') {
     result = computeGameDayLadder(config, teamID);
   } else if (config.source === 'squadi') {
-    if (!config.divisionId) {
-      throw new Error('Squadi config missing divisionId');
+    if (!config.divisionId || !config.competitionKey) {
+      throw new Error('Squadi config missing divisionId or competitionKey');
     }
-    Logger.log('[Ladder] config for team ' + teamID + ': ' + JSON.stringify(config));
-
-    // If competitionKey is missing, try to resolve it (but don't self-heal until key is verified)
-    var candidateKey = config.competitionKey || '';
-    var resolveDebug = [];
-    if (!candidateKey) {
-      candidateKey = resolveSquadiCompetitionKey(config.competitionId, config.divisionId, resolveDebug) || '';
-      // Fallback: use hardcoded map keyed by divisionId
-      if (!candidateKey && SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)]) {
-        candidateKey = SQUADI_KNOWN_COMP_KEYS[String(config.divisionId)];
-        Logger.log('[Ladder] Using hardcoded key for divisionId ' + config.divisionId + ': ' + candidateKey);
-      }
-      if (candidateKey) Logger.log('[Ladder] Resolved candidate key: ' + candidateKey);
-    }
-
-    // Try fetch with whatever key we have (possibly empty)
-    var tryConfig = { source: config.source, divisionId: config.divisionId,
-                      competitionId: config.competitionId, squadiTeamName: config.squadiTeamName,
-                      competitionKey: candidateKey };
-    result = fetchSquadiLadderData(tryConfig);
-
-    // If the key caused a server error, retry without it and clear any bad stored key
-    if (!result.success && candidateKey) {
-      Logger.log('[Ladder] Key caused error (' + result.error + '), retrying without competitionKey');
-      var noKeyConfig = { source: config.source, divisionId: config.divisionId,
-                          competitionId: config.competitionId, squadiTeamName: config.squadiTeamName,
-                          competitionKey: '' };
-      result = fetchSquadiLadderData(noKeyConfig);
-      // Clear bad key from sheet so next request tries resolve again
-      if (config.competitionKey) {
-        try {
-          var clearSs = getSpreadsheet();
-          var clearSheet = clearSs.getSheetByName('Teams');
-          var clearData = clearSheet.getDataRange().getValues();
-          for (var ci = 1; ci < clearData.length; ci++) {
-            if (String(clearData[ci][0]) === String(teamID)) {
-              var cleared = JSON.parse(clearData[ci][7] || '{}');
-              cleared.competitionKey = '';
-              clearSheet.getRange(ci + 1, 8).setValue(JSON.stringify(cleared));
-              try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (_e) {}
-              Logger.log('[Ladder] Cleared bad competitionKey from sheet for team ' + teamID);
-              break;
-            }
-          }
-        } catch (clearErr) { Logger.log('[Ladder] Clear key failed: ' + clearErr.message); }
-      }
-    }
-
-    // Self-heal: write verified key back to sheet only after successful fetch with rows
-    if (result.success && result.ladder && result.ladder.rows && result.ladder.rows.length > 0
-        && candidateKey && candidateKey !== config.competitionKey) {
-      try {
-        var healSs = getSpreadsheet();
-        var healSheet = healSs.getSheetByName('Teams');
-        var healData = healSheet.getDataRange().getValues();
-        for (var hi = 1; hi < healData.length; hi++) {
-          if (String(healData[hi][0]) === String(teamID)) {
-            var healed = JSON.parse(healData[hi][7] || '{}');
-            healed.competitionKey = candidateKey;
-            healSheet.getRange(hi + 1, 8).setValue(JSON.stringify(healed));
-            try { CacheService.getScriptCache().remove('getTeamsResponse'); } catch (_e) {}
-            Logger.log('[Ladder] Self-healed competitionKey for team ' + teamID + ': ' + candidateKey);
-            break;
-          }
-        }
-      } catch (healErr) { Logger.log('[Ladder] Self-heal write failed: ' + healErr.message); }
-    }
+    result = fetchSquadiLadderData(config);
   } else {
     throw new Error('Unknown ladder source: ' + config.source);
   }
 
-  // Attach resolve debug to any non-success or empty-ladder response for frontend diagnostics
-  if (resolveDebug && resolveDebug.length > 0) {
-    result._resolveDebug = resolveDebug;
-  }
   if (!result.success) return result;
 
-  // Only cache when we actually have ladder rows — don't cache empty responses
-  // so the next request can retry with resolveSquadiCompetitionKey
-  if (result.ladder && result.ladder.rows && result.ladder.rows.length > 0) {
-    try {
-      var cacheObj = CacheService.getScriptCache();
-      var jsonStr = JSON.stringify(result);
-      if (jsonStr.length <= 100000) {
-        cacheObj.put(cacheKey, jsonStr, 3600);
-      }
-    } catch (e) {
-      Logger.log('Ladder cache write error: ' + e.message);
+  // Cache for 1 hour
+  try {
+    var cacheObj = CacheService.getScriptCache();
+    var jsonStr = JSON.stringify(result);
+    if (jsonStr.length <= 100000) {
+      cacheObj.put(cacheKey, jsonStr, 3600);
     }
-  } else {
-    Logger.log('[Ladder] Not caching empty ladder result for team ' + teamID);
+  } catch (e) {
+    Logger.log('Ladder cache write error: ' + e.message);
   }
 
   return result;
@@ -2662,50 +2547,44 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
  * Fetch Squadi ladder from API.
  */
 function fetchSquadiLadderData(config) {
+  var AUTH_TOKEN = loadAuthToken();
+  if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+    return { success: false, error: 'AUTH_TOKEN_MISSING' };
+  }
+
   var url = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
     + '?divisionIds=' + config.divisionId
-    + (config.competitionKey ? ('&competitionKey=' + config.competitionKey) : '')
+    + '&competitionKey=' + config.competitionKey
     + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
-  Logger.log('[Ladder] Fetching URL: ' + url);
 
-  // Try without auth first — Squadi ladder API is publicly accessible.
-  // Sending a mismatched org token actually causes 500, so public-first is safer.
-  var publicHeaders = { 'Accept': 'application/json',
-    'Origin': 'https://registration.netballconnect.com',
-    'Referer': 'https://registration.netballconnect.com/' };
+  var options = {
+    'method': 'get',
+    'headers': {
+      'Authorization': AUTH_TOKEN,
+      'Accept': 'application/json',
+      'Origin': 'https://registration.netballconnect.com',
+      'Referer': 'https://registration.netballconnect.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15'
+    },
+    'muteHttpExceptions': true
+  };
 
   try {
-    var response = UrlFetchApp.fetch(url, { method: 'get', headers: publicHeaders, muteHttpExceptions: true });
+    var response = UrlFetchApp.fetch(url, options);
     var responseCode = response.getResponseCode();
 
-    // If public access fails (401), retry with auth token
     if (responseCode === 401) {
-      var AUTH_TOKEN = loadAuthToken();
-      if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
-        Logger.log('[Ladder] Public returned 401, retrying with auth');
-        var authHeaders = { 'Authorization': AUTH_TOKEN, 'Accept': 'application/json',
-          'Origin': 'https://registration.netballconnect.com',
-          'Referer': 'https://registration.netballconnect.com/' };
-        response = UrlFetchApp.fetch(url, { method: 'get', headers: authHeaders, muteHttpExceptions: true });
-        responseCode = response.getResponseCode();
-      }
+      return { success: false, error: 'AUTH_TOKEN_EXPIRED' };
     }
-
     if (responseCode !== 200) {
       return { success: false, error: 'Squadi API Error: ' + responseCode };
     }
 
-    var rawText = response.getContentText();
-    Logger.log('[Ladder] Raw API response (first 500 chars): ' + rawText.substring(0, 500));
-    var data = JSON.parse(rawText);
+    var data = JSON.parse(response.getContentText());
     var ladders = data.ladders || [];
 
     if (ladders.length === 0) {
-      var dataKeys = Object.keys(data);
-      Logger.log('[Ladder] empty ladders — data keys: ' + JSON.stringify(dataKeys));
-      Logger.log('[Ladder] raw snippet: ' + rawText.substring(0, 300));
-      return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(),
-               message: 'No ladder data available', _debug: { dataKeys: dataKeys, raw: rawText.substring(0, 200) } };
+      return { success: true, ladder: null, divisionName: '', lastUpdated: new Date().toISOString(), message: 'No ladder data available' };
     }
 
     var headers = ['POS', 'TEAM', 'P', 'W', 'L', 'D', 'FF', 'FG', 'For', 'Agst', '% Won', 'PTS', 'GD', 'PPG', 'Logo'];
@@ -2831,6 +2710,1683 @@ function computeGameDayLadder(config, teamID) {
     gamedayTeamName: config.teamName || ''
   };
 }
+
+// === AI QUEUE MANAGEMENT (Phase 1: Background Infrastructure) ===
+
+/**
+ * Computes a short hash of the game fields that matter for AI analysis.
+ * Only scores, lineup positions/goals, quarter notes, and captain are included.
+ * Metadata changes (location, date, opponent name) do NOT change the hash.
+ * @param {Object} game - Game object from team data
+ * @returns {string} 16-char hex hash
+ */
+function calculateGameDataHash(game) {
+  // Sheet format stores quarters as array: [{positions, ourGsGoals, ourGaGoals, opponentGsGoals, opponentGaGoals, notes}]
+  // Only hash the fields AI actually analyzes (positions, goals, notes, captain)
+  var relevantData = {
+    quarters: (game.quarters || []).map(function(q) {
+      return {
+        positions: q.positions || null,
+        ourGsGoals: q.ourGsGoals || 0,
+        ourGaGoals: q.ourGaGoals || 0,
+        opponentGsGoals: q.opponentGsGoals || 0,
+        opponentGaGoals: q.opponentGaGoals || 0,
+        notes: q.notes || null
+      };
+    }),
+    captain: game.captain || null
+  };
+  var jsonStr = JSON.stringify(relevantData);
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, jsonStr);
+  return bytes.map(function(b) {
+    return ('0' + (b & 0xff).toString(16)).slice(-2);
+  }).join('').substring(0, 16);
+}
+
+/**
+ * Queue a game for background AI summary generation.
+ * Stores job in PropertiesService with key: ai_queue_{gameID}_{sheetName}
+ * Uses hash-based change detection — won't re-queue if data is unchanged.
+ * @param {Object} params - { gameID, sheetName, teamID, forceRefresh }
+ * @returns {Object} { success, message }
+ */
+function queueGameAI(params) {
+  try {
+    var gameID = params.gameID;
+    var sheetName = params.sheetName;
+    var teamID = params.teamID;
+    var forceRefresh = params.forceRefresh || false;
+
+    if (!gameID || !sheetName || !teamID) {
+      return { success: false, error: 'Missing required params: gameID, sheetName, teamID' };
+    }
+
+    var teamDataResult = loadTeamData(sheetName);
+    if (!teamDataResult || !teamDataResult.teamData) {
+      return { success: false, error: 'Team data not found for sheet: ' + sheetName };
+    }
+
+    var parsed;
+    try {
+      parsed = JSON.parse(teamDataResult.teamData);
+    } catch (e) {
+      return { success: false, error: 'Invalid team data JSON' };
+    }
+
+    var game = null;
+    var games = parsed.games || [];
+    for (var i = 0; i < games.length; i++) {
+      // Sheet format uses 'id'; PWA format uses 'gameID' — support both
+      if (games[i].id === gameID || games[i].gameID === gameID) {
+        game = games[i];
+        break;
+      }
+    }
+
+    if (!game) {
+      return { success: false, error: 'Game not found: ' + gameID };
+    }
+
+    // Require a played game (status=normal) with at least one quarter of positions
+    if (game.status !== 'normal') {
+      return { success: false, error: 'Game status is not normal (status: ' + game.status + ')' };
+    }
+    var quarters = game.quarters || [];
+    var hasPositions = quarters.some(function(q) { return q && q.positions && Object.keys(q.positions).length > 0; });
+    if (!hasPositions) {
+      return { success: false, error: 'Game has no lineup data yet' };
+    }
+
+    var currentHash = calculateGameDataHash(game);
+
+    // Skip if data unchanged and not forced
+    if (!forceRefresh && game.aiSummary && game.aiSummary.gameDataHash === currentHash) {
+      return { success: true, message: 'AI summary already up-to-date (hash unchanged)', skipped: true };
+    }
+
+    // Use canonical game ID from the sheet record (may be 'id' or 'gameID')
+    var canonicalGameID = game.id || game.gameID || gameID;
+
+    var props = PropertiesService.getScriptProperties();
+    var queueKey = 'ai_queue_' + canonicalGameID + '_' + sheetName;
+
+    var job = {
+      gameID: canonicalGameID,
+      sheetName: sheetName,
+      teamID: teamID,
+      type: 'game_summary',
+      queuedAt: new Date().toISOString(),
+      lastKnownHash: currentHash,
+      forceRefresh: forceRefresh,
+      attempts: 0,
+      lastError: null,
+      priority: 1
+    };
+
+    props.setProperty(queueKey, JSON.stringify(job));
+    Logger.log('queueGameAI: queued ' + queueKey);
+    return { success: true, message: 'Game queued for AI processing', queued: true };
+  } catch (e) {
+    Logger.log('queueGameAI error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Retrieve all queued AI jobs from PropertiesService.
+ * Filters for keys starting with 'ai_queue_'.
+ * @returns {Array} Array of { key, job } objects
+ */
+function getQueuedJobs() {
+  var props = PropertiesService.getScriptProperties();
+  var allProps = props.getProperties();
+  var jobs = [];
+  var keys = Object.keys(allProps);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (key.indexOf('ai_queue_') === 0) {
+      try {
+        var job = JSON.parse(allProps[key]);
+        jobs.push({ key: key, job: job });
+      } catch (e) {
+        Logger.log('getQueuedJobs: could not parse job ' + key + ': ' + e.message);
+      }
+    }
+  }
+  return jobs;
+}
+
+/**
+ * Ensures the AI_Knowledge_Base sheet exists with correct headers.
+ * Creates it if missing. Safe to call on every trigger run (fast if already exists).
+ * @returns {Sheet} The AI_Knowledge_Base sheet
+ */
+function ensureAIKnowledgeBaseSheet() {
+  var ss = getSpreadsheet();
+  var sheetName = 'AI_Knowledge_Base';
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow([
+      'Timestamp', 'TeamID', 'GameID', 'ModuleType', 'Status',
+      'GameDataHash', 'OutputJSON', 'ModelUsed', 'TokensUsed',
+      'ProcessingTimeMs', 'Attempts', 'LastError', 'Version', 'CacheUntil', 'Notes'
+    ]);
+    Logger.log('ensureAIKnowledgeBaseSheet: created AI_Knowledge_Base sheet');
+  }
+  return sheet;
+}
+
+// === AI PHASE 2: EVENT ANALYZER (Structured JSON Output) ===
+
+/**
+ * Pre-compute player stats from the quarters array.
+ * Deterministic — no AI needed. Returns a map of playerName → stats.
+ * @param {Array} quarters - Sheet format quarters array
+ * @returns {Object} { playerName: { quartersPlayed, positions, goals } }
+ */
+function computePlayerStatsFromQuarters(quarters) {
+  var stats = {};
+  var quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+  (quarters || []).forEach(function(q, idx) {
+    var qName = quarterNames[idx] || ('Q' + (idx + 1));
+    var positions = q.positions || {};
+    var scoringPositions = { GS: q.ourGsGoals || 0, GA: q.ourGaGoals || 0 };
+
+    Object.keys(positions).forEach(function(pos) {
+      var name = positions[pos];
+      if (!name) return;
+      if (!stats[name]) stats[name] = { quartersPlayed: 0, positions: [], goals: 0, positionMap: {} };
+      stats[name].quartersPlayed++;
+      if (stats[name].positions.indexOf(pos) === -1) stats[name].positions.push(pos);
+      // Track goals scored (GS and GA positions only)
+      if (scoringPositions[pos] !== undefined) {
+        stats[name].goals += scoringPositions[pos];
+      }
+    });
+  });
+
+  return stats;
+}
+
+/**
+ * Phase 2 Event Analyzer: calls Gemini and returns structured JSON output.
+ * Returns { facts, playerContributions, keyMoments, summary, tokensUsed, processingTimeMs }.
+ * Throws if Gemini call fails or JSON cannot be parsed.
+ * @param {Object} game - Sheet format game object
+ * @param {Object} teamInfo - { teamName, season }
+ * @returns {Object} Structured event analysis
+ */
+function callGeminiEventAnalyzer(game, teamInfo) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured in Script Properties');
+
+  var teamName = teamInfo.teamName || 'Team';
+  var opponent = game.opponent || 'Opponent';
+  var quarters = game.quarters || [];
+  var quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+  // Pre-compute stats to give Gemini accurate numbers
+  var playerStats = computePlayerStatsFromQuarters(quarters);
+
+  // Build per-quarter data summary
+  var quarterData = [];
+  var totalUs = 0;
+  var totalThem = 0;
+  quarters.forEach(function(q, idx) {
+    var qName = quarterNames[idx] || ('Q' + (idx + 1));
+    var us = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+    var them = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+    totalUs += us;
+    totalThem += them;
+    var positions = q.positions || {};
+    var lineupStr = ['GS','GA','WA','C','WD','GD','GK']
+      .filter(function(p) { return positions[p]; })
+      .map(function(p) { return p + ':' + positions[p]; }).join(', ');
+    quarterData.push({
+      quarter: qName, us: us, them: them, diff: us - them,
+      lineup: lineupStr, notes: q.notes || ''
+    });
+  });
+
+  var result = totalUs > totalThem ? 'win' : (totalUs < totalThem ? 'loss' : 'draw');
+  var margin = Math.abs(totalUs - totalThem);
+
+  // Build player list for prompt
+  var playerList = Object.keys(playerStats).map(function(name) {
+    var s = playerStats[name];
+    return name + ' (' + s.positions.join('/') + ', ' + s.quartersPlayed + 'Q, ' + s.goals + ' goals)';
+  }).join('; ');
+
+  var prompt = 'You are an expert netball analyst. Analyze this game and return a structured JSON object.\n\n' +
+    'TEAM: ' + teamName + ' vs ' + opponent + '\n' +
+    'RESULT: ' + result.toUpperCase() + ' ' + totalUs + '-' + totalThem + ' (margin: ' + margin + ')\n\n' +
+    'QUARTER DATA:\n' + quarterData.map(function(q) {
+      return q.quarter + ': Us ' + q.us + ' Them ' + q.them + ' (' + (q.diff >= 0 ? '+' : '') + q.diff + ')' +
+        (q.lineup ? ' | ' + q.lineup : '') + (q.notes ? ' | Notes: ' + q.notes : '');
+    }).join('\n') + '\n\n' +
+    'PLAYER STATS (pre-computed):\n' + playerList + '\n\n' +
+    getNetballKnowledgePreamble() + '\n\n' +
+    'Return ONLY valid JSON matching this exact schema (no markdown, no explanation):\n' +
+    '{\n' +
+    '  "facts": {\n' +
+    '    "result": "win|loss|draw",\n' +
+    '    "margin": <number>,\n' +
+    '    "totalScore": { "us": <n>, "them": <n> },\n' +
+    '    "quarters": {\n' +
+    '      "Q1": { "score": { "us": <n>, "them": <n> }, "momentum": "positive|negative|neutral" },\n' +
+    '      "Q2": { "score": { "us": <n>, "them": <n> }, "momentum": "positive|negative|neutral" },\n' +
+    '      "Q3": { "score": { "us": <n>, "them": <n> }, "momentum": "positive|negative|neutral" },\n' +
+    '      "Q4": { "score": { "us": <n>, "them": <n> }, "momentum": "positive|negative|neutral" }\n' +
+    '    },\n' +
+    '    "strongestQuarter": "Q1|Q2|Q3|Q4",\n' +
+    '    "weakestQuarter": "Q1|Q2|Q3|Q4",\n' +
+    '    "closingProblem": <true|false>\n' +
+    '  },\n' +
+    '  "playerContributions": [\n' +
+    '    { "name": "<string>", "quartersPlayed": <n>, "positions": ["<pos>"], "goals": <n>, "impact": "high|medium|low" }\n' +
+    '  ],\n' +
+    '  "keyMoments": [\n' +
+    '    { "quarter": "Q1|Q2|Q3|Q4", "description": "<string>", "source": "coach_notes|inference" }\n' +
+    '  ],\n' +
+    '  "summary": "<2-3 sentence factual summary of what happened>"\n' +
+    '}\n\n' +
+    'Rules: closingProblem=true if Q4 momentum is negative or team lost Q4. ' +
+    'Use exact player stats provided above. impact=high if >30% of team goals or played all 4Q in key position. ' +
+    'keyMoments max 3 items. summary is factual only, no recommendations.';
+
+  var startMs = Date.now();
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,       // Lower temp for structured output
+          maxOutputTokens: 1200,
+          responseMimeType: 'application/json'
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var processingTimeMs = Date.now() - startMs;
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode === 429) {
+    var quotaErr = new Error('Quota exceeded (HTTP 429)');
+    quotaErr.isQuotaError = true;
+    throw quotaErr;
+  }
+  if (responseCode !== 200) {
+    throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 100));
+  }
+
+  var json;
+  try {
+    json = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error('Invalid JSON from Gemini: ' + e.message);
+  }
+
+  if (!json.candidates || !json.candidates[0] || !json.candidates[0].content ||
+      !json.candidates[0].content.parts || !json.candidates[0].content.parts[0]) {
+    throw new Error('Unexpected Gemini response format');
+  }
+
+  var rawText = json.candidates[0].content.parts[0].text;
+  var usageMetadata = json.usageMetadata || {};
+  var tokensUsed = (usageMetadata.promptTokenCount || 0) + (usageMetadata.candidatesTokenCount || 0);
+
+  // Parse the structured JSON from Gemini's response
+  var analysisStr = rawText.trim();
+  // Strip markdown code fences if present (some models add them despite instructions)
+  analysisStr = analysisStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  var analysis = JSON.parse(analysisStr); // Will throw if invalid — processAIQueue handles it
+
+  return {
+    facts: analysis.facts || {},
+    playerContributions: analysis.playerContributions || [],
+    keyMoments: analysis.keyMoments || [],
+    summary: analysis.summary || '',
+    tokensUsed: tokensUsed,
+    processingTimeMs: processingTimeMs
+  };
+}
+
+/**
+ * Call Gemini API for background game AI summary generation.
+ * Designed for background processing — concise prompt, 800 token limit.
+ * Throws errors with isQuotaError=true on HTTP 429 for retry logic.
+ * @param {Object} game - Game object with scores/lineup/notes
+ * @param {Object} teamInfo - { teamName, season }
+ * @returns {Object} { text: string, tokensUsed: number, processingTimeMs: number }
+ */
+function callGeminiBackgroundGameAI(game, teamInfo) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured in Script Properties');
+  }
+
+  var teamName = teamInfo.teamName || 'Team';
+  var opponent = game.opponent || 'Opponent';
+  // Sheet format: quarters is an array [{positions, ourGsGoals, ourGaGoals, opponentGsGoals, opponentGaGoals, notes}]
+  var quarters = game.quarters || [];
+  var quarterNames = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+  // Compute per-quarter and total scores from quarters array
+  var totalUs = 0;
+  var totalThem = 0;
+  var quarterLines = [];
+  var lineupLines = [];
+
+  quarters.forEach(function(q, idx) {
+    var qName = quarterNames[idx] || ('Q' + (idx + 1));
+    var us = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+    var them = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+    totalUs += us;
+    totalThem += them;
+    var diff = us - them;
+    quarterLines.push(qName + ': Us ' + us + ' - Them ' + them + ' (' + (diff >= 0 ? '+' : '') + diff + ')');
+
+    if (q.positions && Object.keys(q.positions).length > 0) {
+      var parts = [];
+      ['GS', 'GA', 'WA', 'C', 'WD', 'GD', 'GK'].forEach(function(pos) {
+        if (q.positions[pos]) parts.push(pos + ': ' + q.positions[pos]);
+      });
+      if (parts.length > 0) lineupLines.push(qName + ': ' + parts.join(', '));
+    }
+    if (q.notes) lineupLines.push(qName + ' Notes: ' + q.notes);
+  });
+
+  var finalUs = totalUs;
+  var finalThem = totalThem;
+  var result = finalUs > finalThem ? 'Win' : (finalUs < finalThem ? 'Loss' : 'Draw');
+
+  var prompt = 'You are an expert netball coach assistant. Analyze this game and provide a concise summary.\n\n' +
+    getNetballKnowledgePreamble() +
+    '\n## GAME DATA\n\n' +
+    'Team: ' + teamName + '\n' +
+    'Opponent: ' + opponent + '\n' +
+    'Result: ' + result + ' ' + finalUs + '-' + finalThem + '\n\n' +
+    '## QUARTER SCORES\n' + (quarterLines.length > 0 ? quarterLines.join('\n') : 'No quarter data') + '\n\n';
+
+  if (lineupLines.length > 0) {
+    prompt += '## LINEUPS & NOTES\n' + lineupLines.join('\n') + '\n\n';
+  }
+
+  prompt += '---\nProvide a concise game summary (3-5 sentences) covering: result and margin, ' +
+    'quarter momentum shifts, key player contributions by name and position, ' +
+    'and one tactical observation. Use netball-specific language.';
+
+  var startMs = Date.now();
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var processingTimeMs = Date.now() - startMs;
+  var responseCode = response.getResponseCode();
+  var responseText = response.getContentText();
+
+  if (responseCode === 429) {
+    var quotaErr = new Error('Quota exceeded (HTTP 429)');
+    quotaErr.isQuotaError = true;
+    throw quotaErr;
+  }
+
+  if (responseCode !== 200) {
+    Logger.log('Gemini background error: ' + responseCode + ' - ' + responseText.substring(0, 200));
+    throw new Error('Gemini API error ' + responseCode + ': ' + responseText.substring(0, 100));
+  }
+
+  var json;
+  try {
+    json = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error('Invalid JSON from Gemini: ' + e.message);
+  }
+
+  if (!json.candidates || !json.candidates[0] || !json.candidates[0].content ||
+      !json.candidates[0].content.parts || !json.candidates[0].content.parts[0]) {
+    throw new Error('Unexpected Gemini response format');
+  }
+
+  var summaryText = json.candidates[0].content.parts[0].text;
+  var usageMetadata = json.usageMetadata || {};
+  var tokensUsed = (usageMetadata.promptTokenCount || 0) + (usageMetadata.candidatesTokenCount || 0);
+
+  return {
+    text: summaryText,
+    tokensUsed: tokensUsed,
+    processingTimeMs: processingTimeMs
+  };
+}
+
+/**
+ * Main background queue processor — called every 10 minutes via time-based trigger.
+ * Processes all ai_queue_* jobs: loads game data, calls Gemini, saves result, logs metrics.
+ * Performance budget: max 25 jobs per run, stops at 4.5 min to avoid Apps Script timeout.
+ */
+function processAIQueue() {
+  var startTime = Date.now();
+  Logger.log('processAIQueue: starting run at ' + new Date().toISOString());
+
+  var jobs = getQueuedJobs();
+  if (jobs.length === 0) {
+    Logger.log('processAIQueue: no jobs in queue');
+    return;
+  }
+
+  Logger.log('processAIQueue: ' + jobs.length + ' jobs found');
+
+  var maxJobs = 25; // Conservative batch size within 5-min execution limit
+  var processed = 0;
+  var succeeded = 0;
+  var failed = 0;
+
+  // Load master team list once for team name lookup
+  var teamList = null;
+  try {
+    teamList = loadMasterTeamList();
+  } catch (e) {
+    Logger.log('processAIQueue: could not load team list (non-fatal): ' + e.message);
+  }
+
+  var props = PropertiesService.getScriptProperties();
+
+  for (var i = 0; i < jobs.length && processed < maxJobs; i++) {
+    var jobEntry = jobs[i];
+    var key = jobEntry.key;
+    var job = jobEntry.job;
+
+    // Time budget check: stop at 4.5 min (270,000ms)
+    if (Date.now() - startTime > 270000) {
+      Logger.log('processAIQueue: approaching time limit, stopping after ' + processed + ' jobs');
+      break;
+    }
+
+    processed++;
+    Logger.log('processAIQueue: processing ' + key + ' (attempt ' + ((job.attempts || 0) + 1) + '/3)');
+
+    try {
+      // Load team data
+      var teamDataResult = loadTeamData(job.sheetName);
+      if (!teamDataResult || !teamDataResult.teamData) {
+        Logger.log('processAIQueue: team data not found for ' + job.sheetName + ', removing job');
+        props.deleteProperty(key);
+        logClientMetric('ai_queue_failed', 'data_missing', job.teamID,
+          JSON.stringify({ gameID: job.gameID, reason: 'Team data not found' }));
+        failed++;
+        continue;
+      }
+
+      var parsed;
+      try {
+        parsed = JSON.parse(teamDataResult.teamData);
+      } catch (parseErr) {
+        Logger.log('processAIQueue: invalid JSON for ' + job.sheetName + ', removing job');
+        props.deleteProperty(key);
+        logClientMetric('ai_queue_failed', 'invalid_json', job.teamID,
+          JSON.stringify({ gameID: job.gameID }));
+        failed++;
+        continue;
+      }
+
+      // Find the game — sheet format uses 'id', support both
+      var game = null;
+      var gameIndex = -1;
+      var games = parsed.games || [];
+      for (var j = 0; j < games.length; j++) {
+        if (games[j].id === job.gameID || games[j].gameID === job.gameID) {
+          game = games[j];
+          gameIndex = j;
+          break;
+        }
+      }
+
+      if (!game) {
+        Logger.log('processAIQueue: game ' + job.gameID + ' not found, removing job');
+        props.deleteProperty(key);
+        logClientMetric('ai_queue_failed', 'game_not_found', job.teamID,
+          JSON.stringify({ gameID: job.gameID }));
+        failed++;
+        continue;
+      }
+
+      // Change detection: skip if data is unchanged since queuing
+      var currentHash = calculateGameDataHash(game);
+      if (!job.forceRefresh && game.aiSummary &&
+          game.aiSummary.gameDataHash === currentHash &&
+          game.aiSummary.gameDataHash === job.lastKnownHash) {
+        Logger.log('processAIQueue: hash unchanged for ' + job.gameID + ', removing job (no-op)');
+        props.deleteProperty(key);
+        succeeded++;
+        continue;
+      }
+
+      // Resolve team name for prompt
+      var teamInfo = { teamName: job.teamID, season: '' };
+      if (teamList && Array.isArray(teamList)) {
+        for (var t = 0; t < teamList.length; t++) {
+          if (teamList[t].teamID === job.teamID) {
+            teamInfo = {
+              teamName: teamList[t].teamName || job.teamID,
+              season: teamList[t].season || ''
+            };
+            break;
+          }
+        }
+      }
+
+      // Call Gemini — try structured Event Analyzer first, fall back to plain text
+      var aiResult;
+      var useEventAnalyzer = true;
+      try {
+        aiResult = callGeminiEventAnalyzer(game, teamInfo);
+      } catch (analyzerErr) {
+        // If quota error, re-throw so retry logic handles it
+        if (analyzerErr.isQuotaError) throw analyzerErr;
+        Logger.log('processAIQueue: EventAnalyzer failed, falling back to plain text: ' + analyzerErr.message);
+        useEventAnalyzer = false;
+        aiResult = callGeminiBackgroundGameAI(game, teamInfo);
+      }
+
+      // Build aiSummary — structured if Event Analyzer succeeded, plain text if fallback
+      var aiSummary;
+      if (useEventAnalyzer) {
+        aiSummary = {
+          text: aiResult.summary,
+          eventAnalyzer: {
+            facts: aiResult.facts,
+            playerContributions: aiResult.playerContributions,
+            keyMoments: aiResult.keyMoments
+          },
+          gameDataHash: currentHash,
+          generatedAt: new Date().toISOString(),
+          background: true,
+          moduleVersion: 2
+        };
+      } else {
+        aiSummary = {
+          text: aiResult.text,
+          gameDataHash: currentHash,
+          generatedAt: new Date().toISOString(),
+          background: true,
+          moduleVersion: 1
+        };
+      }
+      // Use a script-level lock to prevent concurrent triggers overwriting each other.
+      // Re-read team data inside the lock to get the freshest base before writing.
+      var lock = LockService.getScriptLock();
+      var lockAcquired = false;
+      try {
+        lock.waitLock(20000); // Wait up to 20 seconds for lock
+        lockAcquired = true;
+
+        // Re-read freshest version of team data (Gemini call took 3-8s; another process may have written)
+        var freshDataResult = loadTeamData(job.sheetName);
+        var freshParsed = JSON.parse(freshDataResult.teamData || '{}');
+        var freshGameIndex = -1;
+        var freshGames = freshParsed.games || [];
+        for (var k = 0; k < freshGames.length; k++) {
+          if (freshGames[k].id === job.gameID || freshGames[k].gameID === job.gameID) {
+            freshGameIndex = k;
+            break;
+          }
+        }
+        if (freshGameIndex >= 0) {
+          var ss = getSpreadsheet();
+          var teamSheet = ss.getSheetByName(job.sheetName);
+          if (teamSheet) {
+            // Write aiSummary to C1 (separate AI map) to avoid 50k char limit in A1.
+            // C1 stores { gameID: aiSummary } — never touched by frontend syncs.
+            var existingAIJSON = teamSheet.getRange('C1').getValue();
+            var aiMap = {};
+            if (existingAIJSON) {
+              try { aiMap = JSON.parse(existingAIJSON); } catch (e) { /* start fresh */ }
+            }
+            aiMap[job.gameID] = aiSummary;
+            var aiPayload = JSON.stringify(aiMap);
+            teamSheet.getRange('C1').setValue(aiPayload);
+            SpreadsheetApp.flush();
+            Logger.log('processAIQueue: wrote aiSummary to C1 for ' + job.gameID + ' (' + aiPayload.length + ' bytes in C1)');
+
+            // Verification read: confirm C1 write persisted
+            var verifyAI = teamSheet.getRange('C1').getValue();
+            if (!verifyAI) {
+              throw new Error('Write verification failed: C1 is empty after setValue+flush');
+            }
+            try {
+              var verifyMap = JSON.parse(verifyAI);
+              var hasAI = verifyMap[job.gameID] && verifyMap[job.gameID].generatedAt;
+              Logger.log('processAIQueue: verify read — aiSummary present in C1: ' + hasAI);
+              if (!hasAI) {
+                throw new Error('Write verification failed: gameID not in C1 after write');
+              }
+            } catch (verifyErr) {
+              if (verifyErr.message.indexOf('Write verification') === 0) throw verifyErr;
+              Logger.log('processAIQueue: verify parse error (non-fatal): ' + verifyErr.message);
+            }
+          } else {
+            Logger.log('processAIQueue: sheet not found: ' + job.sheetName);
+            throw new Error('Sheet not found: ' + job.sheetName);
+          }
+        } else {
+          Logger.log('processAIQueue: game ' + job.gameID + ' not found in fresh data (' + freshGames.length + ' games)');
+          throw new Error('Game not found in fresh data: ' + job.gameID);
+        }
+      } catch (lockErr) {
+        Logger.log('processAIQueue: lock/write error: ' + lockErr.message);
+        throw lockErr; // Propagate to retry logic
+      } finally {
+        if (lockAcquired) lock.releaseLock();
+      }
+
+      // Log to AI_Knowledge_Base sheet
+      try {
+        var kbSheet = ensureAIKnowledgeBaseSheet();
+        var kbOutputJSON = useEventAnalyzer
+          ? JSON.stringify({ facts: aiResult.facts, playerContributions: aiResult.playerContributions, keyMoments: aiResult.keyMoments, summary: aiResult.summary })
+          : JSON.stringify({ summary: aiResult.text });
+        kbSheet.appendRow([
+          new Date().toISOString(),
+          job.teamID,
+          job.gameID,
+          'event_analyzer',
+          'success',
+          currentHash,
+          kbOutputJSON,
+          'gemini-2.0-flash',
+          aiResult.tokensUsed,
+          aiResult.processingTimeMs,
+          (job.attempts || 0) + 1,
+          null,
+          useEventAnalyzer ? '2.0' : '1.0',
+          null,
+          null
+        ]);
+      } catch (kbErr) {
+        Logger.log('processAIQueue: AI_Knowledge_Base write error (non-fatal): ' + kbErr.message);
+      }
+
+      // Remove from queue on success
+      props.deleteProperty(key);
+      succeeded++;
+      logClientMetric('ai_queue_success', aiResult.tokensUsed, job.teamID,
+        JSON.stringify({ gameID: job.gameID, processingTimeMs: aiResult.processingTimeMs }));
+      Logger.log('processAIQueue: completed ' + job.gameID + ' in ' + aiResult.processingTimeMs + 'ms');
+
+    } catch (jobErr) {
+      Logger.log('processAIQueue: error for ' + job.gameID + ': ' + jobErr.message);
+
+      var isQuota = jobErr.isQuotaError ||
+        jobErr.message.indexOf('429') !== -1 ||
+        jobErr.message.indexOf('Quota') !== -1;
+      var newAttempts = (job.attempts || 0) + 1;
+
+      if (newAttempts >= 3) {
+        // Max retries exhausted — remove job and log failure
+        props.deleteProperty(key);
+        failed++;
+        logClientMetric('ai_queue_failed', 'max_retries', job.teamID,
+          JSON.stringify({ gameID: job.gameID, lastError: jobErr.message, attempts: newAttempts }));
+        Logger.log('processAIQueue: job ' + job.gameID + ' failed after 3 attempts, removed');
+
+        // Log failure to AI_Knowledge_Base sheet
+        try {
+          var kbSheetFail = ensureAIKnowledgeBaseSheet();
+          kbSheetFail.appendRow([
+            new Date().toISOString(),
+            job.teamID,
+            job.gameID,
+            'event_analyzer',
+            'failed',
+            job.lastKnownHash || '',
+            null,
+            'gemini-2.0-flash',
+            0,
+            0,
+            newAttempts,
+            jobErr.message,
+            '1.0',
+            null,
+            null
+          ]);
+        } catch (kbErrFail) {
+          Logger.log('processAIQueue: KB failure row error (non-fatal): ' + kbErrFail.message);
+        }
+      } else {
+        // Update job with incremented attempt count and retry
+        job.attempts = newAttempts;
+        job.lastError = jobErr.message;
+        job.lastAttemptAt = new Date().toISOString();
+        props.setProperty(key, JSON.stringify(job));
+        logClientMetric('ai_queue_retry', newAttempts, job.teamID,
+          JSON.stringify({ gameID: job.gameID, isQuota: isQuota, error: jobErr.message }));
+        Logger.log('processAIQueue: job ' + job.gameID + ' will retry (attempt ' + newAttempts + '/3)');
+
+        // Quota error: stop processing remaining jobs this run to avoid wasting time
+        if (isQuota) {
+          Logger.log('processAIQueue: quota error detected, stopping batch early');
+          break;
+        }
+      }
+    }
+  }
+
+  var totalTimeMs = Date.now() - startTime;
+  Logger.log('processAIQueue: done — processed=' + processed +
+    ' succeeded=' + succeeded + ' failed=' + failed + ' time=' + totalTimeMs + 'ms');
+  logClientMetric('ai_queue_run', processed, 'system',
+    JSON.stringify({ succeeded: succeeded, failed: failed, totalTimeMs: totalTimeMs }));
+}
+
+/**
+ * Create the time-based trigger for processAIQueue (every 10 minutes).
+ * Run this once from the Apps Script console to set up automation.
+ * Safe to run multiple times — detects and skips if trigger already exists.
+ * @returns {Object} { success, message }
+ */
+function setupAIQueueTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'processAIQueue') {
+      Logger.log('setupAIQueueTrigger: trigger already exists');
+      return { success: true, message: 'Trigger already exists (processAIQueue every 10 min)' };
+    }
+  }
+  ScriptApp.newTrigger('processAIQueue')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+  Logger.log('setupAIQueueTrigger: created 10-minute trigger for processAIQueue');
+  return { success: true, message: 'Trigger created: processAIQueue every 10 minutes' };
+}
+
+/**
+ * Queue all eligible games for a single team through the Event Analyzer pipeline.
+ * Eligible = status 'normal' + at least one quarter with position data.
+ * @param {string} teamID
+ * @param {string} sheetName
+ * @param {boolean} forceRefresh - if true, re-queues even if AI summary is up-to-date
+ * @returns {Object} { queued, skipped, errors, details }
+ */
+function queueAllGamesForTeam(teamID, sheetName, forceRefresh) {
+  var queued = 0, skipped = 0, errors = 0;
+  var details = [];
+
+  try {
+    var teamDataResult = loadTeamData(sheetName);
+    if (!teamDataResult || !teamDataResult.teamData) {
+      return { success: false, error: 'Team data not found for sheet: ' + sheetName };
+    }
+    var parsed;
+    try { parsed = JSON.parse(teamDataResult.teamData); } catch(e) {
+      return { success: false, error: 'Invalid team data JSON for sheet: ' + sheetName };
+    }
+
+    var games = parsed.games || [];
+    for (var i = 0; i < games.length; i++) {
+      var game = games[i];
+      if (game.status !== 'normal') continue;
+
+      var quarters = game.quarters || [];
+      var hasPositions = quarters.some(function(q) {
+        return q && q.positions && Object.keys(q.positions).length > 0;
+      });
+      if (!hasPositions) {
+        skipped++;
+        continue;
+      }
+
+      var gameID = game.id || game.gameID;
+      var res = queueGameAI({ gameID: gameID, sheetName: sheetName, teamID: teamID, forceRefresh: forceRefresh || false });
+      if (res.success && res.queued) {
+        queued++;
+        details.push({ gameID: gameID, status: 'queued' });
+      } else if (res.success && res.skipped) {
+        skipped++;
+      } else {
+        errors++;
+        details.push({ gameID: gameID, status: 'error', error: res.error });
+      }
+    }
+  } catch (e) {
+    Logger.log('queueAllGamesForTeam error (team=' + teamID + '): ' + e.message);
+    return { success: false, error: e.message };
+  }
+
+  return { success: true, teamID: teamID, sheetName: sheetName, queued: queued, skipped: skipped, errors: errors, details: details };
+}
+
+/**
+ * Queue all eligible games for ALL active teams through the Event Analyzer pipeline.
+ * Run this once to bootstrap Pattern Detector data for all existing games.
+ * @param {boolean} forceRefresh - if true, re-queues even if AI summary is up-to-date
+ * @returns {Object} { success, teams, totalQueued, totalSkipped, totalErrors, results }
+ */
+function queueAllGames(forceRefresh) {
+  Logger.log('queueAllGames: start (forceRefresh=' + forceRefresh + ')');
+  var teams = loadMasterTeamList();
+  if (!Array.isArray(teams)) {
+    return { success: false, error: 'Failed to load team list: ' + (teams.error || 'unknown') };
+  }
+
+  var active = teams.filter(function(t) { return !t.archived && t.sheetName; });
+  var totalQueued = 0, totalSkipped = 0, totalErrors = 0;
+  var results = [];
+
+  for (var i = 0; i < active.length; i++) {
+    var team = active[i];
+    try {
+      var res = queueAllGamesForTeam(team.teamID, team.sheetName, forceRefresh);
+      totalQueued += res.queued || 0;
+      totalSkipped += res.skipped || 0;
+      totalErrors += res.errors || 0;
+      results.push({ teamID: team.teamID, name: team.name, queued: res.queued, skipped: res.skipped, errors: res.errors });
+    } catch (e) {
+      Logger.log('queueAllGames: error for team ' + team.teamID + ': ' + e.message);
+      totalErrors++;
+      results.push({ teamID: team.teamID, name: team.name, error: e.message });
+    }
+  }
+
+  Logger.log('queueAllGames: done — queued=' + totalQueued + ' skipped=' + totalSkipped + ' errors=' + totalErrors);
+  return { success: true, teams: active.length, totalQueued: totalQueued, totalSkipped: totalSkipped, totalErrors: totalErrors, results: results };
+}
+
+/**
+ * Set up time-based triggers for the Opposition Scouting pipeline:
+ * - Saturday 6 PM (Melbourne): collectOppositionFixtures (weekly)
+ * - Sunday 10 AM (Melbourne): processOppositionAIQueue (weekly)
+ * Safe to run multiple times — skips triggers that already exist.
+ * @returns {Object} { success, message, created }
+ */
+function setupOppositionTriggers() {
+  var created = [];
+  var triggers = ScriptApp.getProjectTriggers();
+  var existingHandlers = triggers.map(function(t) { return t.getHandlerFunction(); });
+
+  if (existingHandlers.indexOf('collectOppositionFixtures') === -1) {
+    ScriptApp.newTrigger('collectOppositionFixtures')
+      .timeBased()
+      .onWeekDay(ScriptApp.WeekDay.SATURDAY)
+      .atHour(18) // 6 PM — Apps Script uses server time; configured for Melbourne ~UTC+11
+      .create();
+    created.push('collectOppositionFixtures (Saturday 6 PM)');
+    Logger.log('setupOppositionTriggers: created Saturday trigger for collectOppositionFixtures');
+  } else {
+    Logger.log('setupOppositionTriggers: collectOppositionFixtures trigger already exists');
+  }
+
+  if (existingHandlers.indexOf('processOppositionAIQueue') === -1) {
+    ScriptApp.newTrigger('processOppositionAIQueue')
+      .timeBased()
+      .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+      .atHour(10) // 10 AM
+      .create();
+    created.push('processOppositionAIQueue (Sunday 10 AM)');
+    Logger.log('setupOppositionTriggers: created Sunday trigger for processOppositionAIQueue');
+  } else {
+    Logger.log('setupOppositionTriggers: processOppositionAIQueue trigger already exists');
+  }
+
+  var msg = created.length > 0
+    ? 'Created triggers: ' + created.join(', ')
+    : 'All opposition triggers already exist';
+  return { success: true, message: msg, created: created };
+}
+
+// ========================================
+// PATTERN DETECTOR (Phase 3)
+// Reads last N games' eventAnalyzer outputs and identifies multi-game trends.
+// Cached 1 week in AI_Knowledge_Base sheet and returned to frontend.
+// ========================================
+
+/**
+ * Generate or retrieve cached pattern analysis for a team.
+ * Reads the last `gameCount` games with aiSummary.eventAnalyzer data,
+ * calls Gemini for trend detection, and caches for 1 week.
+ * @param {string} teamID
+ * @param {string} sheetName
+ * @param {boolean} forceRefresh
+ * @returns {Object} PatternDetector result
+ */
+function generatePatternDetector(teamID, sheetName, forceRefresh) {
+  Logger.log('generatePatternDetector: start for ' + teamID);
+  var startTime = Date.now();
+
+  // Load team data (merges C1 aiSummary into games)
+  var teamDataResult = loadTeamData(sheetName);
+  if (teamDataResult.error) return { success: false, error: teamDataResult.error };
+  var teamData = JSON.parse(teamDataResult.teamData || '{}');
+
+  // Find games with eventAnalyzer data, sorted newest first
+  var games = (teamData.games || []).filter(function(g) {
+    return g.status === 'normal' && g.aiSummary && g.aiSummary.eventAnalyzer;
+  });
+  games.sort(function(a, b) {
+    // Sort by round descending
+    return (parseInt(b.round, 10) || 0) - (parseInt(a.round, 10) || 0);
+  });
+
+  var recentGames = games.slice(0, 5);
+
+  if (recentGames.length < 2) {
+    return { success: false, error: 'Not enough analyzed games yet (need at least 2 with AI summaries)' };
+  }
+
+  // Cache check: look for unexpired pattern in AI_Knowledge_Base
+  if (!forceRefresh) {
+    var cached = getPatternDetectorCache(teamID);
+    if (cached) {
+      Logger.log('generatePatternDetector: returning cached result for ' + teamID);
+      return { success: true, source: 'cache', cached: true, data: cached };
+    }
+  }
+
+  // Build prompt from recent game eventAnalyzer data
+  var gameContexts = recentGames.map(function(g) {
+    var ea = g.aiSummary.eventAnalyzer;
+    var facts = ea.facts || {};
+    var players = (ea.playerContributions || []).map(function(p) {
+      return p.name + ' (' + p.positions.join('/') + ') ' + p.goals + ' goals impact=' + p.impact;
+    }).join(', ');
+    return 'Round ' + g.round + ' vs ' + (g.opponent || '?') + ': ' +
+      (facts.result || '?') + ' ' + (facts.totalScore ? facts.totalScore.us + '-' + facts.totalScore.them : '') +
+      ' strongestQ=' + (facts.strongestQuarter || '?') +
+      ' weakestQ=' + (facts.weakestQuarter || '?') +
+      ' closingProblem=' + (facts.closingProblem || false) +
+      ' | Players: ' + (players || 'none');
+  }).join('\n');
+
+  // Get team name
+  var teamsList = loadMasterTeamList();
+  var teamName = teamID;
+  for (var i = 0; i < teamsList.length; i++) {
+    if (teamsList[i].teamID === teamID) { teamName = teamsList[i].teamName || teamID; break; }
+  }
+
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) return { success: false, error: 'GEMINI_API_KEY not configured' };
+
+  var prompt = 'You are a netball analyst detecting multi-game patterns for ' + teamName + '.\n\n' +
+    'RECENT GAME DATA (newest first, ' + recentGames.length + ' games):\n' + gameContexts + '\n\n' +
+    'Identify patterns across these games. Respond with JSON only (no markdown):\n' +
+    '{\n' +
+    '  "patterns": {\n' +
+    '    "closing": { "trend": "consistent_weakness|improving|stable|volatile", "severity": "high|medium|low|positive", "evidence": ["Round X: Q4 -3", ...], "since": "Round N" },\n' +
+    '    "defense": { "trend": "improving|declining|stable", "severity": "high|medium|low|positive", "evidence": [...] },\n' +
+    '    "attack": { "trend": "...", "severity": "...", "evidence": [...] },\n' +
+    '    "momentum": { "trend": "...", "severity": "...", "evidence": [...] }\n' +
+    '  },\n' +
+    '  "playerTrajectories": [\n' +
+    '    { "name": "...", "trend": "stable_high_performer|improving|declining|inconsistent", "consistency": "high|medium|low", "recentForm": "strong|average|weak", "note": "1 sentence" }\n' +
+    '  ],\n' +
+    '  "combinationEffectiveness": [\n' +
+    '    { "players": ["Name1", "Name2"], "positions": ["GS", "GA"], "gamesPlayed": N, "chemistry_level": "developing|established|elite", "note": "..." }\n' +
+    '  ],\n' +
+    '  "summary": "2-3 sentence overall pattern summary for the coach"\n' +
+    '}\n' +
+    'Base everything on the data above. If a pattern has fewer than 2 data points, mark confidence low.';
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  var payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 1500 }
+  };
+  var response = UrlFetchApp.fetch(url, {
+    method: 'POST', contentType: 'application/json',
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+
+  var processingTimeMs = Date.now() - startTime;
+  var responseCode = response.getResponseCode();
+  if (responseCode !== 200) {
+    var errText = response.getContentText();
+    if (errText.indexOf('429') !== -1 || errText.indexOf('RESOURCE_EXHAUSTED') !== -1) {
+      return { success: false, error: 'Gemini quota exceeded — try again in a few minutes' };
+    }
+    return { success: false, error: 'Gemini API error ' + responseCode };
+  }
+
+  var respData = JSON.parse(response.getContentText());
+  var tokensUsed = (respData.usageMetadata && respData.usageMetadata.totalTokenCount) || 0;
+  var text = respData.candidates[0].content.parts[0].text;
+  var parsed = JSON.parse(text);
+
+  var cacheUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  var result = {
+    teamID: teamID,
+    generatedAt: new Date().toISOString(),
+    cacheUntil: cacheUntil,
+    gameCount: recentGames.length,
+    patterns: parsed.patterns || {},
+    playerTrajectories: parsed.playerTrajectories || [],
+    combinationEffectiveness: parsed.combinationEffectiveness || [],
+    summary: parsed.summary || ''
+  };
+
+  // Store in AI_Knowledge_Base
+  try {
+    var kbSheet = ensureAIKnowledgeBaseSheet();
+    kbSheet.appendRow([
+      result.generatedAt, teamID, null, 'pattern_detector', 'success',
+      null, JSON.stringify(result), 'gemini-2.0-flash',
+      tokensUsed, processingTimeMs, 1, null, '1.0', cacheUntil,
+      'games_analyzed=' + recentGames.length
+    ]);
+  } catch (kbErr) {
+    Logger.log('generatePatternDetector: KB write error (non-fatal): ' + kbErr.message);
+  }
+
+  logClientMetric('pattern_detector_generated', tokensUsed, teamID,
+    JSON.stringify({ gameCount: recentGames.length, processingTimeMs: processingTimeMs }));
+  Logger.log('generatePatternDetector: done in ' + processingTimeMs + 'ms, ' + tokensUsed + ' tokens');
+
+  return { success: true, source: 'generated', cached: false, data: result };
+}
+
+/**
+ * Check AI_Knowledge_Base for an unexpired pattern_detector result for this team.
+ * @param {string} teamID
+ * @returns {Object|null}
+ */
+function getPatternDetectorCache(teamID) {
+  try {
+    var ss = getSpreadsheet();
+    var kbSheet = ss.getSheetByName('AI_Knowledge_Base');
+    if (!kbSheet) return null;
+    var data = kbSheet.getDataRange().getValues();
+    var now = new Date();
+    // Scan from newest (bottom) to find most recent valid pattern_detector for this team
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      if (row[1] === teamID && row[3] === 'pattern_detector' && row[4] === 'success') {
+        var cacheUntil = row[13] ? new Date(row[13]) : null;
+        if (cacheUntil && cacheUntil > now && row[6]) {
+          return JSON.parse(row[6]);
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('getPatternDetectorCache: error (non-fatal): ' + e.message);
+  }
+  return null;
+}
+
+// ========================================
+// OPPOSITION SCOUTING SYSTEM
+// ========================================
+
+/**
+ * Create the OppositionScouting sheet if it doesn't exist.
+ * Safe to call multiple times — skips if already present.
+ * @returns {Sheet}
+ */
+function ensureOppositionScoutingSheetExists() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('OppositionScouting');
+  if (sheet) return sheet;
+
+  sheet = ss.insertSheet('OppositionScouting');
+  var headers = ['Timestamp', 'TeamID', 'Opponent', 'Round', 'GameDate', 'AISummary', 'AnalyticsJSON', 'GeneratedAt', 'CacheUntil', 'Status'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  // Header formatting
+  var headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#4a4a4a');
+  headerRange.setFontColor('#ffffff');
+
+  // Column widths
+  var widths = [120, 100, 150, 80, 120, 400, 800, 200, 150, 100];
+  for (var i = 0; i < widths.length; i++) {
+    sheet.setColumnWidth(i + 1, widths[i]);
+  }
+
+  sheet.setFrozenRows(1);
+  Logger.log('ensureOppositionScoutingSheetExists: created OppositionScouting sheet');
+  return sheet;
+}
+
+/**
+ * Save an opposition scouting result to the OppositionScouting sheet.
+ * Appends a new row (does not deduplicate; query by teamID+opponent+round).
+ * @param {Object} data - { teamID, opponent, round, gameDate, aiSummary, analytics }
+ */
+function saveOppositionScoutingData(data) {
+  var sheet = ensureOppositionScoutingSheetExists();
+  var now = new Date().toISOString();
+  var cacheUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  sheet.appendRow([
+    now,                                          // A: Timestamp
+    data.teamID || '',                            // B: TeamID
+    data.opponent || '',                          // C: Opponent
+    data.round || 0,                              // D: Round
+    data.gameDate || '',                          // E: GameDate
+    data.aiSummary || '',                         // F: AISummary (plain text ~500 chars)
+    JSON.stringify(data.analytics || {}),         // G: AnalyticsJSON
+    data.generatedAt || now,                      // H: GeneratedAt
+    cacheUntil,                                   // I: CacheUntil
+    'ready'                                       // J: Status
+  ]);
+  Logger.log('saveOppositionScoutingData: saved ' + data.opponent + ' R' + data.round + ' for ' + data.teamID);
+}
+
+/**
+ * Calculate head-to-head history between this team and an opponent.
+ * @param {Object} teamData - parsed team data with games array
+ * @param {string} opponentName
+ * @returns {Object} { games, wins, losses, draws, formTrend, quarterTotals }
+ */
+function calculateHeadToHeadHistory(teamData, opponentName) {
+  var games = (teamData.games || []).filter(function(g) {
+    return g.status === 'normal' &&
+           g.opponent &&
+           g.opponent.toLowerCase().indexOf(opponentName.toLowerCase()) !== -1;
+  });
+
+  var wins = 0, losses = 0, draws = 0;
+  var formChars = [];
+  var quarterTotals = { Q1: { us: 0, them: 0 }, Q2: { us: 0, them: 0 }, Q3: { us: 0, them: 0 }, Q4: { us: 0, them: 0 } };
+
+  games.forEach(function(g) {
+    var quarters = g.quarters || [];
+    var usTotal = 0, themTotal = 0;
+    var qNames = ['Q1', 'Q2', 'Q3', 'Q4'];
+    quarters.forEach(function(q, idx) {
+      if (!q) return;
+      var usQ = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+      var themQ = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+      usTotal += usQ;
+      themTotal += themQ;
+      var qKey = qNames[idx];
+      if (qKey) {
+        quarterTotals[qKey].us += usQ;
+        quarterTotals[qKey].them += themQ;
+      }
+    });
+    if (usTotal > themTotal) { wins++; formChars.push('W'); }
+    else if (usTotal < themTotal) { losses++; formChars.push('L'); }
+    else { draws++; formChars.push('D'); }
+  });
+
+  return {
+    games: games.length,
+    wins: wins,
+    losses: losses,
+    draws: draws,
+    formTrend: formChars.join(''),
+    quarterTotals: quarterTotals
+  };
+}
+
+/**
+ * Generate all 26 opposition analytics using Gemini.
+ * Groups A-G: Quarter Strength, Relative Strength, Efficiency,
+ * Vulnerabilities, Predictive, Advanced Patterns, Situational.
+ * @param {Object} config - { teamName, opponent, round, ladderData, h2h, gameDate }
+ * @returns {Object} { summary, analytics, tokensUsed, processingTimeMs }
+ */
+function generateOppositionAnalytics(config) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured in Script Properties');
+
+  var ladderInfo = config.ladderData || {};
+  var h2h = config.h2h || {};
+
+  var prompt = 'You are a netball analyst. Generate opposition scouting for a team about to play ' + config.opponent + '.\n\n' +
+    'CONTEXT:\n' +
+    '- Our team: ' + config.teamName + '\n' +
+    '- Opponent: ' + config.opponent + '\n' +
+    '- Round: ' + config.round + '\n' +
+    '- Game date: ' + (config.gameDate || 'TBD') + '\n' +
+    '- Opponent ladder position: ' + (ladderInfo.position || 'unknown') + ' of ' + (ladderInfo.totalTeams || 'unknown') + '\n' +
+    '- Opponent record: ' + (ladderInfo.wins || 0) + 'W ' + (ladderInfo.losses || 0) + 'L ' + (ladderInfo.draws || 0) + 'D\n' +
+    '- Opponent form (recent): ' + (ladderInfo.form || 'unknown') + '\n' +
+    '- H2H history: ' + h2h.wins + 'W ' + h2h.losses + 'L ' + h2h.draws + 'D across ' + h2h.games + ' games\n' +
+    '- H2H quarter totals: Q1 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q1 ? h2h.quarterTotals.Q1.us : 0) +
+      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q1 ? h2h.quarterTotals.Q1.them : 0) +
+      ' | Q2 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q2 ? h2h.quarterTotals.Q2.us : 0) +
+      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q2 ? h2h.quarterTotals.Q2.them : 0) +
+      ' | Q3 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q3 ? h2h.quarterTotals.Q3.us : 0) +
+      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q3 ? h2h.quarterTotals.Q3.them : 0) +
+      ' | Q4 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q4 ? h2h.quarterTotals.Q4.us : 0) +
+      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q4 ? h2h.quarterTotals.Q4.them : 0) + '\n\n' +
+    'Respond with JSON only (no markdown). Schema:\n' +
+    '{\n' +
+    '  "summary": "2-3 sentence tactical summary for the coach (~300 chars)",\n' +
+    '  "groups": {\n' +
+    '    "A": {\n' +
+    '      "label": "Quarter Strength",\n' +
+    '      "insights": [\n' +
+    '        { "title": "Q1 Strength", "description": "...", "metric": "...", "confidence": "high|medium|low" },\n' +
+    '        { "title": "Q2 Strength", "description": "...", "metric": "...", "confidence": "..." },\n' +
+    '        { "title": "Q3 Strength", "description": "...", "metric": "...", "confidence": "..." },\n' +
+    '        { "title": "Q4 Strength", "description": "...", "metric": "...", "confidence": "..." }\n' +
+    '      ]\n' +
+    '    },\n' +
+    '    "B": { "label": "Relative Strength", "insights": [ 3 insights about matchup advantages ] },\n' +
+    '    "C": { "label": "Efficiency", "insights": [ 3 insights about shooting/possession ] },\n' +
+    '    "D": { "label": "Vulnerabilities", "insights": [ 3 insights about weaknesses to exploit ] },\n' +
+    '    "E": { "label": "Predictive", "insights": [ 3 insights about trajectory/momentum ] },\n' +
+    '    "F": { "label": "Advanced Patterns", "insights": [ 5 insights about formations/combos ] },\n' +
+    '    "G": { "label": "Situational", "insights": [ 2 insights about home/away/pressure ] }\n' +
+    '  }\n' +
+    '}\n' +
+    'Total: exactly 26 insights (4+3+3+3+3+5+2). Base analysis on the data provided. If data is limited, use low confidence.\n';
+
+  var startTime = Date.now();
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  var payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: 2048 }
+  };
+
+  var response = UrlFetchApp.fetch(url, {
+    method: 'POST',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var processingTimeMs = Date.now() - startTime;
+  var responseCode = response.getResponseCode();
+  if (responseCode !== 200) {
+    var errText = response.getContentText();
+    if (errText.indexOf('429') !== -1 || errText.indexOf('RESOURCE_EXHAUSTED') !== -1) {
+      var err = new Error('Gemini quota exceeded (429)');
+      err.isQuotaError = true;
+      throw err;
+    }
+    throw new Error('Gemini API error ' + responseCode + ': ' + errText.substring(0, 200));
+  }
+
+  var responseData = JSON.parse(response.getContentText());
+  var tokensUsed = (responseData.usageMetadata && responseData.usageMetadata.totalTokenCount) || 0;
+  var text = responseData.candidates[0].content.parts[0].text;
+  var parsed = JSON.parse(text);
+
+  return {
+    summary: parsed.summary || '',
+    analytics: { groups: parsed.groups || {}, summary: parsed.summary || '' },
+    tokensUsed: tokensUsed,
+    processingTimeMs: processingTimeMs
+  };
+}
+
+/**
+ * Fast data refresh (~2 sec) — fetches upcoming fixtures and ladder positions.
+ * No AI calls. Returns match list with ladder info.
+ * @param {string} teamID
+ * @returns {Object} { success, fixturesUpdated, matches, message }
+ */
+function collectOppositionFixturesImmediate(teamID) {
+  Logger.log('collectOppositionFixturesImmediate: start for ' + teamID);
+  var teamDataResult = loadTeamData('data_' + teamID.replace('team_', 'team_'));
+  if (teamDataResult.error) {
+    // Try finding the sheetName from master list
+    var teams = loadMasterTeamList();
+    var team = null;
+    for (var i = 0; i < teams.length; i++) {
+      if (teams[i].teamID === teamID) { team = teams[i]; break; }
+    }
+    if (!team) return { success: false, error: 'Team not found: ' + teamID };
+    teamDataResult = loadTeamData(team.sheetName);
+    if (teamDataResult.error) return { success: false, error: teamDataResult.error };
+  }
+
+  var teamData = JSON.parse(teamDataResult.teamData || '{}');
+  var upcoming = (teamData.games || []).filter(function(g) { return g.status === 'upcoming'; });
+
+  if (upcoming.length === 0) {
+    return { success: true, fixturesUpdated: 0, matches: [], message: 'No upcoming games found' };
+  }
+
+  // Try to get ladder data (non-fatal if unavailable)
+  var ladderData = null;
+  try {
+    var ladderResult = getSquadiLadderForTeam(teamID, true);
+    if (ladderResult && ladderResult.success) ladderData = ladderResult;
+  } catch (e) {
+    Logger.log('collectOppositionFixturesImmediate: ladder fetch failed (non-fatal): ' + e.message);
+  }
+
+  var matches = upcoming.map(function(g) {
+    var opponentLadder = null;
+    if (ladderData && ladderData.standings) {
+      var opp = g.opponent || '';
+      for (var j = 0; j < ladderData.standings.length; j++) {
+        if (fuzzyOpponentMatch(ladderData.standings[j].team || '', opp)) {
+          opponentLadder = ladderData.standings[j];
+          break;
+        }
+      }
+    }
+    return {
+      round: g.round || 0,
+      opponent: g.opponent || '',
+      date: g.date || '',
+      gameID: g.id || g.gameID || '',
+      ladderFetched: !!opponentLadder,
+      position: opponentLadder ? opponentLadder.position : null,
+      wins: opponentLadder ? opponentLadder.wins : null,
+      losses: opponentLadder ? opponentLadder.losses : null,
+      draws: opponentLadder ? opponentLadder.draws : null,
+      form: opponentLadder ? (opponentLadder.form || null) : null
+    };
+  });
+
+  Logger.log('collectOppositionFixturesImmediate: found ' + matches.length + ' upcoming games');
+  return {
+    success: true,
+    fixturesUpdated: matches.length,
+    matches: matches,
+    message: 'Fixture data refreshed for ' + matches.length + ' upcoming game(s)'
+  };
+}
+
+/**
+ * Queue an opposition AI job for background processing.
+ * Key: opposition_queue_{teamID}_{round}_{sheetName}
+ * @param {Object} jobData - { teamID, sheetName, opponent, round, gameDate }
+ * @returns {Object} { success, queued, queueKey }
+ */
+function queueOppositionAI(jobData) {
+  var props = PropertiesService.getScriptProperties();
+  var queueKey = 'opposition_queue_' + jobData.teamID + '_' + jobData.round + '_' + jobData.sheetName;
+  var job = {
+    teamID: jobData.teamID,
+    sheetName: jobData.sheetName,
+    opponent: jobData.opponent || '',
+    round: jobData.round || 0,
+    gameDate: jobData.gameDate || '',
+    queuedAt: new Date().toISOString(),
+    attempts: 0
+  };
+  props.setProperty(queueKey, JSON.stringify(job));
+  Logger.log('queueOppositionAI: queued ' + queueKey);
+  return { success: true, queued: true, queueKey: queueKey, message: 'Queued opposition AI for ' + job.opponent + ' R' + job.round };
+}
+
+/**
+ * Generate all 26 analytics immediately for a specific upcoming game.
+ * Slow (~15-30 sec) — coach-triggered for urgent needs.
+ * @param {string} teamID
+ * @param {string|number} round
+ * @returns {Object} { success, opponent, round, generated, generatedTimeMs, analytics, message }
+ */
+function generateOppositionInsightsImmediately(teamID, round, gameID) {
+  Logger.log('generateOppositionInsightsImmediately: start ' + teamID + ' R' + round + (gameID ? ' gameID=' + gameID : ''));
+  var startTime = Date.now();
+
+  // Load team data
+  var teams = loadMasterTeamList();
+  if (teams.error) return { success: false, error: teams.error };
+  var team = null;
+  for (var i = 0; i < teams.length; i++) {
+    if (teams[i].teamID === teamID) { team = teams[i]; break; }
+  }
+  if (!team) return { success: false, error: 'Team not found: ' + teamID };
+
+  var teamDataResult = loadTeamData(team.sheetName);
+  if (teamDataResult.error) return { success: false, error: teamDataResult.error };
+  var teamData = JSON.parse(teamDataResult.teamData || '{}');
+
+  // Find game: by explicit gameID, or by round+upcoming
+  var roundNum = parseInt(round, 10);
+  var game = null;
+  var games = teamData.games || [];
+  for (var j = 0; j < games.length; j++) {
+    if (gameID) {
+      // When gameID provided, match by ID regardless of status (allows testing with past games)
+      if (games[j].id === gameID || games[j].gameID === gameID) { game = games[j]; break; }
+    } else if (parseInt(games[j].round, 10) === roundNum && games[j].status === 'upcoming') {
+      game = games[j];
+      break;
+    }
+  }
+  if (!game) return { success: false, error: 'No upcoming game found for round ' + round };
+
+  var opponent = game.opponent || 'Unknown';
+
+  // Fetch ladder data (non-fatal)
+  var ladderData = null;
+  try {
+    var ladderResult = getSquadiLadderForTeam(teamID, true);
+    if (ladderResult && ladderResult.success && ladderResult.standings) {
+      for (var k = 0; k < ladderResult.standings.length; k++) {
+        if (fuzzyOpponentMatch(ladderResult.standings[k].team || '', opponent)) {
+          ladderData = ladderResult.standings[k];
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('generateOppositionInsightsImmediately: ladder fetch failed (non-fatal): ' + e.message);
+  }
+
+  // H2H history
+  var h2h = calculateHeadToHeadHistory(teamData, opponent);
+
+  // Generate analytics
+  var analyticsResult = generateOppositionAnalytics({
+    teamName: team.teamName || teamID,
+    opponent: opponent,
+    round: roundNum,
+    gameDate: game.date || '',
+    ladderData: ladderData || {},
+    h2h: h2h
+  });
+
+  // Save to sheet
+  saveOppositionScoutingData({
+    teamID: teamID,
+    opponent: opponent,
+    round: roundNum,
+    gameDate: game.date || '',
+    aiSummary: analyticsResult.summary,
+    analytics: analyticsResult.analytics,
+    generatedAt: new Date().toISOString()
+  });
+
+  var generatedTimeMs = Date.now() - startTime;
+  logClientMetric('opposition_scouting_generated', analyticsResult.tokensUsed, teamID,
+    JSON.stringify({ opponent: opponent, round: roundNum, generatedTimeMs: generatedTimeMs }));
+
+  Logger.log('generateOppositionInsightsImmediately: done for ' + opponent + ' R' + round + ' in ' + generatedTimeMs + 'ms');
+  return {
+    success: true,
+    opponent: opponent,
+    round: roundNum,
+    generated: true,
+    generatedTimeMs: generatedTimeMs,
+    analytics: analyticsResult.analytics,
+    summary: analyticsResult.summary,
+    message: 'Opposition insights generated for ' + opponent + ' (R' + round + ')'
+  };
+}
+
+/**
+ * Process all queued opposition AI jobs.
+ * Designed as a time-based trigger (Sunday 10 AM) but can also be called manually.
+ * Uses PropertiesService.getScriptProperties() (required for trigger context).
+ */
+function processOppositionAIQueue() {
+  var startTime = Date.now();
+  Logger.log('processOppositionAIQueue: starting at ' + new Date().toISOString());
+
+  var props = PropertiesService.getScriptProperties();
+  var allKeys = props.getKeys();
+  var oppKeys = allKeys.filter(function(k) { return k.indexOf('opposition_queue_') === 0; });
+
+  if (oppKeys.length === 0) {
+    Logger.log('processOppositionAIQueue: no jobs in queue');
+    return;
+  }
+
+  Logger.log('processOppositionAIQueue: ' + oppKeys.length + ' job(s) found');
+  var succeeded = 0, failed = 0;
+
+  for (var i = 0; i < oppKeys.length; i++) {
+    // Time budget: stop at 12 min (720,000ms) to stay well under 15-min trigger limit
+    if (Date.now() - startTime > 720000) {
+      Logger.log('processOppositionAIQueue: approaching time limit, stopping');
+      break;
+    }
+
+    var key = oppKeys[i];
+    var job;
+    try {
+      job = JSON.parse(props.getProperty(key) || '{}');
+    } catch (e) {
+      props.deleteProperty(key);
+      continue;
+    }
+
+    Logger.log('processOppositionAIQueue: processing ' + key + ' attempt ' + ((job.attempts || 0) + 1) + '/3');
+
+    try {
+      var teamDataResult = loadTeamData(job.sheetName);
+      if (teamDataResult.error) throw new Error('Team data error: ' + teamDataResult.error);
+
+      var teamData = JSON.parse(teamDataResult.teamData || '{}');
+      var teams = loadMasterTeamList();
+      var team = null;
+      for (var t = 0; t < teams.length; t++) {
+        if (teams[t].teamID === job.teamID) { team = teams[t]; break; }
+      }
+      var teamName = team ? (team.teamName || job.teamID) : job.teamID;
+
+      // Fetch fresh ladder
+      var ladderData = null;
+      try {
+        var lResult = getSquadiLadderForTeam(job.teamID, true);
+        if (lResult && lResult.success && lResult.standings) {
+          for (var s = 0; s < lResult.standings.length; s++) {
+            if (fuzzyOpponentMatch(lResult.standings[s].team || '', job.opponent)) {
+              ladderData = lResult.standings[s];
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        Logger.log('processOppositionAIQueue: ladder fetch failed (non-fatal): ' + e.message);
+      }
+
+      var h2h = calculateHeadToHeadHistory(teamData, job.opponent);
+
+      var analyticsResult = generateOppositionAnalytics({
+        teamName: teamName,
+        opponent: job.opponent,
+        round: job.round,
+        gameDate: job.gameDate || '',
+        ladderData: ladderData || {},
+        h2h: h2h
+      });
+
+      saveOppositionScoutingData({
+        teamID: job.teamID,
+        opponent: job.opponent,
+        round: job.round,
+        gameDate: job.gameDate || '',
+        aiSummary: analyticsResult.summary,
+        analytics: analyticsResult.analytics,
+        generatedAt: new Date().toISOString()
+      });
+
+      props.deleteProperty(key);
+      succeeded++;
+      logClientMetric('opposition_scouting_queued_done', analyticsResult.tokensUsed, job.teamID,
+        JSON.stringify({ opponent: job.opponent, round: job.round }));
+      Logger.log('processOppositionAIQueue: completed ' + job.opponent + ' R' + job.round);
+
+    } catch (jobErr) {
+      Logger.log('processOppositionAIQueue: error for ' + key + ': ' + jobErr.message);
+      var newAttempts = (job.attempts || 0) + 1;
+      if (newAttempts >= 3) {
+        props.deleteProperty(key);
+        failed++;
+        logClientMetric('opposition_scouting_failed', 'max_retries', job.teamID,
+          JSON.stringify({ opponent: job.opponent, round: job.round, error: jobErr.message }));
+        Logger.log('processOppositionAIQueue: job failed after 3 attempts — removed: ' + key);
+      } else {
+        job.attempts = newAttempts;
+        job.lastError = jobErr.message;
+        props.setProperty(key, JSON.stringify(job));
+      }
+    }
+  }
+
+  var totalMs = Date.now() - startTime;
+  logClientMetric('opposition_queue_run', succeeded, 'system',
+    JSON.stringify({ succeeded: succeeded, failed: failed, totalTimeMs: totalMs }));
+  Logger.log('processOppositionAIQueue: done — ' + succeeded + ' succeeded, ' + failed + ' failed in ' + totalMs + 'ms');
+}
+
+/**
+ * Get the most recent opposition scouting data for a team+opponent+round combination.
+ * @param {string} teamID
+ * @param {string} opponent
+ * @param {number} round
+ * @returns {Object|null}
+ */
+function getOppositionScoutingData(teamID, opponent, round) {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('OppositionScouting');
+  if (!sheet) return null;
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return null;
+
+  var roundNum = parseInt(round, 10);
+  var best = null;
+
+  for (var i = data.length - 1; i >= 1; i--) {  // newest first (last row = newest append)
+    var row = data[i];
+    if (row[1] === teamID && parseInt(row[3], 10) === roundNum &&
+        row[2] && row[2].toString().toLowerCase().indexOf(opponent.toLowerCase()) !== -1) {
+      best = {
+        timestamp: row[0],
+        teamID: row[1],
+        opponent: row[2],
+        round: row[3],
+        gameDate: row[4],
+        aiSummary: row[5],
+        analytics: row[6] ? JSON.parse(row[6]) : null,
+        generatedAt: row[7],
+        cacheUntil: row[8],
+        status: row[9]
+      };
+      break;
+    }
+  }
+
+  return best;
+}
+
+// ========================================
+// END OPPOSITION SCOUTING
+// ========================================
 
 // --- AI Insights using Gemini ---
 // Legacy function for GET requests (kept for backwards compatibility)
@@ -3676,6 +5232,138 @@ function getTrainingFocus(data) {
   }
 }
 
+/**
+ * Training Correlator (Phase 4) — structured JSON output.
+ * Same inputs as getTrainingFocus but returns machine-readable correlation data
+ * the frontend can render as priority cards with severity and catch-up flags.
+ *
+ * Returns: {
+ *   success, generatedAt,
+ *   teamFocus: [{ issue, priority:'high'|'medium'|'low', persistent, drills }],
+ *   individualFocus: [{ player, area, recommendation, catchUp }],
+ *   effectiveness: [{ issue, status:'improving'|'needs_work'|'unknown', detail }],
+ *   priorityThisWeek: [{ focus, rationale, type:'team'|'individual' }]
+ * }
+ */
+function generateTrainingCorrelation(data) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+
+  var prompt = getNetballKnowledgePreamble();
+  prompt += '\n\n# TRAINING CORRELATOR — STRUCTURED OUTPUT\n\n';
+  prompt += 'You are analyzing a junior netball team\'s coaching notes, training sessions, and attendance to produce a structured training correlation report.\n\n';
+
+  prompt += '## TEAM: ' + (data.teamName || 'Team') + '\n';
+  prompt += 'Record: ' + data.seasonRecord.wins + 'W-' + data.seasonRecord.losses + 'L-' + data.seasonRecord.draws + 'D\n\n';
+
+  if (data.recentGameNotes && data.recentGameNotes.length > 0) {
+    prompt += '## RECENT GAMES (last 3 with notes — primary focus)\n';
+    data.recentGameNotes.forEach(function(g) {
+      prompt += 'R' + g.round + ' vs ' + g.opponent + ' (' + g.result + '):\n';
+      g.notes.forEach(function(n) { prompt += '  ' + n.quarter + ': ' + n.text + '\n'; });
+    });
+    prompt += '\n';
+  }
+
+  if (data.earlierGameNotes && data.earlierGameNotes.length > 0) {
+    prompt += '## EARLIER SEASON (context — flag persistent issues)\n';
+    data.earlierGameNotes.forEach(function(g) {
+      prompt += 'R' + g.round + ' vs ' + g.opponent + ': ' + g.notes.map(function(n){ return n.text; }).join(' | ') + '\n';
+    });
+    prompt += '\n';
+  }
+
+  if (data.trainingSessions && data.trainingSessions.length > 0) {
+    prompt += '## TRAINING SESSIONS\n';
+    data.trainingSessions.forEach(function(s) {
+      prompt += s.date + ' — ' + s.focus;
+      if (s.attended && s.attended.length) prompt += ' | Attended: ' + s.attended.join(', ');
+      if (s.missed && s.missed.length) prompt += ' | Missed: ' + s.missed.join(', ');
+      if (s.notes) prompt += ' | Notes: ' + s.notes;
+      prompt += '\n';
+    });
+    prompt += '\n';
+  }
+
+  if (data.playerTrainingAttendance && Object.keys(data.playerTrainingAttendance).length > 0) {
+    prompt += '## PLAYER ATTENDANCE RATES\n';
+    Object.keys(data.playerTrainingAttendance).forEach(function(name) {
+      var a = data.playerTrainingAttendance[name];
+      prompt += name + ': ' + a.rate + '% (' + a.attended + '/' + (a.attended + a.missed) + ' sessions)\n';
+    });
+    prompt += '\n';
+  }
+
+  if (data.issueTimeline && data.issueTimeline.length > 0) {
+    prompt += '## ISSUE TIMELINE\n';
+    data.issueTimeline.forEach(function(iss) {
+      prompt += 'Issue "' + iss.issue + '" — first seen ' + iss.firstMentioned;
+      if (iss.stillAppearingFor && iss.stillAppearingFor.length) prompt += ' — STILL appearing for: ' + iss.stillAppearingFor.join(', ');
+      prompt += '\n';
+      if (iss.trainingSinceFirst && iss.trainingSinceFirst.length) {
+        iss.trainingSinceFirst.forEach(function(ts) {
+          prompt += '  Training: ' + ts.date + ' (' + ts.focus + ')';
+          if (ts.missed && ts.missed.length) prompt += ' MISSED by ' + ts.missed.join(', ');
+          prompt += '\n';
+        });
+      }
+    });
+    prompt += '\n';
+  }
+
+  prompt += '---\n\n';
+  prompt += 'Respond ONLY with a valid JSON object (no markdown, no code fences) in this exact schema:\n';
+  prompt += '{\n';
+  prompt += '  "teamFocus": [\n    { "issue": "string (max 60 chars)", "priority": "high|medium|low", "persistent": true|false, "drills": "string (1-2 specific drills, max 100 chars)" }\n  ],\n';
+  prompt += '  "individualFocus": [\n    { "player": "string", "area": "string (max 60 chars)", "recommendation": "string (max 100 chars)", "catchUp": true|false }\n  ],\n';
+  prompt += '  "effectiveness": [\n    { "issue": "string (max 60 chars)", "status": "improving|needs_work|unknown", "detail": "string (max 100 chars)" }\n  ],\n';
+  prompt += '  "priorityThisWeek": [\n    { "focus": "string (max 80 chars)", "rationale": "string (max 120 chars)", "type": "team|individual" }\n  ]\n';
+  prompt += '}\n\n';
+  prompt += 'Rules:\n';
+  prompt += '- teamFocus: 2-3 items max, ordered by priority (high first). Mark persistent:true if issue appeared both early and recent season.\n';
+  prompt += '- individualFocus: only include if a specific player is mentioned in RECENT game notes. Mark catchUp:true if they missed training on that skill.\n';
+  prompt += '- effectiveness: only if training sessions exist. "improving" = issue reduced after training. "needs_work" = persists despite training. "unknown" = insufficient data.\n';
+  prompt += '- priorityThisWeek: 2 items max. Type "individual" if a single player, "team" if group.\n';
+  prompt += '- Skip empty arrays (do not include empty [] arrays).\n';
+  prompt += '- Respond ONLY with the JSON. No other text.';
+
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 1200 }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+  if (code !== 200) {
+    try {
+      var errBody = JSON.parse(text);
+      throw new Error('Gemini: ' + (errBody.error && errBody.error.message ? errBody.error.message : text));
+    } catch (pe) { throw new Error('Gemini API error ' + code); }
+  }
+
+  var parsed = JSON.parse(text);
+  var rawText = parsed.candidates[0].content.parts[0].text || '';
+  // Strip possible markdown fences
+  rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  var correlation;
+  try {
+    correlation = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error('Gemini returned invalid JSON: ' + rawText.substring(0, 100));
+  }
+
+  return { success: true, generatedAt: new Date().toISOString(), correlation: correlation };
+}
+
 // --- Admin convenience functions (owner-only) ---
 function _requireOwnerOrThrow() {
   var props = PropertiesService.getScriptProperties();
@@ -4164,8 +5852,30 @@ function loadTeamData(sheetName) {
     }
     var teamDataJSON = teamSheet.getRange('A1').getValue();
     var statsDataJSON = teamSheet.getRange('B1').getValue();
+
+    // C1: separate AI summaries map { gameID: aiSummary } — avoids 50k char limit in A1
+    var aiDataJSON = teamSheet.getRange('C1').getValue();
+    var aiDataMerged = teamDataJSON;
+    if (aiDataJSON) {
+      try {
+        var aiMap = JSON.parse(aiDataJSON);
+        var parsed = JSON.parse(teamDataJSON || '{"players":[],"games":[]}');
+        var games = parsed.games || [];
+        for (var i = 0; i < games.length; i++) {
+          var gid = games[i].id || games[i].gameID;
+          if (gid && aiMap[gid]) {
+            games[i].aiSummary = aiMap[gid];
+          }
+        }
+        parsed.games = games;
+        aiDataMerged = JSON.stringify(parsed);
+      } catch (mergeErr) {
+        Logger.log('loadTeamData: C1 merge error (non-fatal): ' + mergeErr.message);
+      }
+    }
+
     return {
-      teamData: teamDataJSON || '{"players":[],"games":[]}',
+      teamData: aiDataMerged || '{"players":[],"games":[]}',
       statsData: statsDataJSON || null
     };
   } catch (e) {
@@ -4701,115 +6411,4 @@ function clearApplicationLogs(type) {
     logError('CLEAR_LOGS', e.message, { type: type });
     return { success: false, error: e.message };
   }
-}
-
-// ========================================
-// NIGHTLY BACKGROUND REFRESH
-// ========================================
-
-/**
- * Nightly trigger function — pre-fetches fixture and ladder data for all
- * configured active teams so client requests are served from cache.
- * Install once via installNightlyTrigger().
- */
-function nightlyRefresh() {
-  Logger.log('[NightlyRefresh] Starting at ' + new Date().toISOString());
-
-  var teams;
-  try {
-    teams = loadMasterTeamList();
-    if (teams.error) {
-      Logger.log('[NightlyRefresh] Failed to load teams: ' + teams.error);
-      return;
-    }
-  } catch (e) {
-    Logger.log('[NightlyRefresh] loadMasterTeamList threw: ' + e.message);
-    return;
-  }
-
-  var activeTeams = teams.filter(function(t) { return !t.archived; });
-  Logger.log('[NightlyRefresh] Processing ' + activeTeams.length + ' active teams');
-
-  var fixtureOk = 0, fixtureSkipped = 0, fixtureErr = 0;
-  var ladderOk = 0, ladderSkipped = 0, ladderErr = 0;
-
-  for (var i = 0; i < activeTeams.length; i++) {
-    var team = activeTeams[i];
-
-    // Pre-fetch fixture data for teams with resultsApi configured
-    if (team.resultsApi) {
-      try {
-        var fixtureResult = getFixtureDataForTeam(team.teamID, true);
-        if (fixtureResult && fixtureResult.success) {
-          fixtureOk++;
-          Logger.log('[NightlyRefresh] Fixture refreshed: ' + team.name);
-        } else {
-          fixtureErr++;
-          Logger.log('[NightlyRefresh] Fixture refresh failed for ' + team.name + ': ' + (fixtureResult && fixtureResult.error));
-        }
-      } catch (e) {
-        fixtureErr++;
-        Logger.log('[NightlyRefresh] Fixture error for ' + team.name + ': ' + e.message);
-      }
-    } else {
-      fixtureSkipped++;
-    }
-
-    // Pre-fetch ladder for teams with resultsApi or ladderApi configured
-    if (team.resultsApi || team.ladderApi) {
-      try {
-        var ladderResult = getSquadiLadderForTeam(team.teamID, true);
-        if (ladderResult && ladderResult.success) {
-          ladderOk++;
-          Logger.log('[NightlyRefresh] Ladder refreshed: ' + team.name);
-        } else {
-          ladderErr++;
-          Logger.log('[NightlyRefresh] Ladder refresh failed for ' + team.name + ': ' + (ladderResult && ladderResult.error));
-        }
-      } catch (e) {
-        ladderErr++;
-        Logger.log('[NightlyRefresh] Ladder error for ' + team.name + ': ' + e.message);
-      }
-    } else {
-      ladderSkipped++;
-    }
-  }
-
-  // Invalidate getTeams cache so next client request gets fresh data
-  try {
-    CacheService.getScriptCache().remove('getTeamsResponse');
-  } catch (e) {
-    Logger.log('[NightlyRefresh] Cache invalidation failed: ' + e.message);
-  }
-
-  var summary = 'fixture: ' + fixtureOk + ' ok / ' + fixtureErr + ' err / ' + fixtureSkipped + ' skipped, ' +
-                'ladder: ' + ladderOk + ' ok / ' + ladderErr + ' err / ' + ladderSkipped + ' skipped';
-  Logger.log('[NightlyRefresh] Done. ' + summary);
-  logClientMetric('nightly_refresh', 1, activeTeams.length, summary);
-}
-
-/**
- * One-time setup: install a nightly time-based trigger for nightlyRefresh().
- * Run this manually from the Apps Script editor after deploying.
- * Safe to re-run — removes any existing trigger first.
- */
-function installNightlyTrigger() {
-  // Remove any existing nightly trigger for this function
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'nightlyRefresh') {
-      ScriptApp.deleteTrigger(triggers[i]);
-      Logger.log('[installNightlyTrigger] Removed existing trigger');
-    }
-  }
-
-  // Create a new daily trigger at 2am
-  ScriptApp.newTrigger('nightlyRefresh')
-    .timeBased()
-    .everyDays(1)
-    .atHour(2)
-    .create();
-
-  Logger.log('[installNightlyTrigger] Nightly trigger installed (2am daily)');
-  return { success: true, message: 'Nightly trigger installed at 2am daily' };
 }

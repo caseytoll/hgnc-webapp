@@ -90,6 +90,18 @@ const helpContent = {
       <p><strong>What parents see:</strong> Game schedule, scores, player positions per quarter, team stats, and leaderboards. They cannot edit anything.</p>
     `,
   },
+  playerLibrary: {
+    title: 'Players (Career Tracking)',
+    icon: '&#128101;', // 👥
+    summary: 'Track players across multiple seasons with unique player codes.',
+    body: `
+      <p><strong>What is the Players tab?</strong> It tracks individual players across multiple teams and seasons, building a career history. Each player gets a unique 3-character code (e.g., "A7K") that stays with them.</p>
+      <p><strong>Adding a player:</strong> Open a player from your team's Roster tab, go to the Edit tab, and enable "Track career stats". The player appears in the Players list on the home screen.</p>
+      <p><strong>Cross-season linking:</strong> When the same player is on a new season's team, enabling career tracking automatically links them using their player code — even if another player has the same first name.</p>
+      <p><strong>Player codes:</strong> Each player is automatically assigned a short code visible in their detail modal. This code is used to identify them across seasons without storing personal information like last names.</p>
+      <p><strong>What you can see:</strong> Tap a player in the list to view their career stats — total games, goals, positions played, and a season-by-season breakdown.</p>
+    `,
+  },
   stats: {
     title: 'Stats & AI Insights',
     icon: '&#128200;', // 📈
@@ -110,7 +122,7 @@ const helpContent = {
 };
 
 // Section keys in display order
-const helpSectionOrder = ['gettingStarted', 'managingGames', 'scoring', 'planner', 'security', 'sharing', 'stats'];
+const helpSectionOrder = ['gettingStarted', 'managingGames', 'scoring', 'planner', 'security', 'sharing', 'playerLibrary', 'stats'];
 
 // ========================================
 // LAYER 1: HELP PAGE (full accordion view)
@@ -292,6 +304,7 @@ const contextHelpTopics = {
   },
   sharing: { title: 'Sharing with Parents', content: helpContent.sharing.body },
   games: { title: 'Managing Games', content: helpContent.managingGames.body },
+  playerLibrary: { title: 'Players (Career Tracking)', content: helpContent.playerLibrary.body },
 };
 
 export function showContextHelp(topic) {

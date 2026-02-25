@@ -226,6 +226,35 @@ export function cancelDebouncedSync() {
 }
 
 /**
+ * Fire-and-forget: queue a game for background AI summary generation.
+ * Called after a successful sync when the game has scores or lineup data.
+ * Non-blocking — failures are silently logged (the 10-min trigger will retry anyway).
+ * @param {string} gameID - PWA-format gameID
+ * @param {string} sheetName
+ * @param {string} teamID
+ */
+export function queueGameAIFireAndForget(gameID, sheetName, teamID) {
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+  if (isLocalDev) return; // Skip in local dev — no real sheet to write to
+
+  const baseUrl = API_CONFIG.baseUrl;
+  const url = new URL(baseUrl);
+  url.searchParams.set('api', 'true');
+  url.searchParams.set('action', 'queueGameAI');
+  url.searchParams.set('gameID', gameID);
+  url.searchParams.set('sheetName', sheetName);
+  url.searchParams.set('teamID', teamID);
+
+  fetch(url.toString(), { method: 'GET', redirect: 'follow' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.queued) console.log('[AI Queue] Game queued for background AI:', gameID);
+      else if (d.skipped) console.log('[AI Queue] AI already up-to-date for:', gameID);
+    })
+    .catch(err => console.warn('[AI Queue] Queue request failed (non-fatal):', err.message));
+}
+
+/**
  * Update team settings (name, year, season, archived) in the backend
  */
 export async function updateTeamSettings(teamID, settings) {
@@ -249,8 +278,11 @@ export async function updateTeamSettings(teamID, settings) {
   const pinToken = state.teamPinTokens?.[teamID];
   if (pinToken) url.searchParams.set('pinToken', pinToken);
 
+  console.log('[Sync] updateTeamSettings URL length:', url.toString().length);
   const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  console.log('[Sync] updateTeamSettings response status:', response.status);
   const data = await response.json();
+  console.log('[Sync] updateTeamSettings response:', JSON.stringify(data));
 
   if (data.error === 'AUTH_REQUIRED') {
     // Clear invalid token and notify

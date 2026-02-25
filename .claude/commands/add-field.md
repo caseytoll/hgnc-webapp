@@ -5,7 +5,7 @@ Guided walkthrough for adding a new field to the Team object. This field needs u
 ## Backend Changes (apps-script/Code.js)
 
 1. **`ensureTeamsSheetStructure()`** — Add column header for the new field
-2. **`loadMasterTeamList()`** — Read from the correct row index (0-indexed). Current columns: A(0)=TeamID, B(1)=Year, C(2)=Season, D(3)=TeamName, E(4)=SheetName, F(5)=LadderName, G(6)=LadderApi, H(7)=ResultsApi, I(8)=Archived, J(9)=PlayerCount, K(10)=LastModified, L(11)=PIN, M(12)=PinToken, N(13)=Coach
+2. **`loadMasterTeamList()`** — Read from the correct row index (0-indexed). Current columns: A(0)=TeamID, B(1)=Year, C(2)=Season, D(3)=TeamName, E(4)=SheetName, F(5)=LadderName, G(6)=LadderApi, H(7)=ResultsApi, I(8)=Archived, J(9)=PlayerCount, K(10)=LastModified, L(11)=PIN, M(12)=PinToken, N(13)=Coach, O(14)=Competition
 3. **`getTeams` response** — Include in the `pwaTeams` mapping (handleApiRequest)
 4. **`updateTeamSettings()`** — Handle in settings write
 5. **`createNewTeam()`** — Include in `appendRow` call (match column order)

@@ -413,7 +413,7 @@ function renderSchedule() {
         <div class="game-round">R${escapeHtml(game.round)}</div>
         <div class="game-info">
           <div class="game-opponent">${game.status === 'bye' ? 'Bye' : `vs ${escapeHtml(game.opponent || 'TBD')}`}</div>
-          <div class="game-meta">${escapeHtml(formatDate(game.date) || 'TBD')} • ${escapeHtml(game.time || '')} • ${escapeHtml(game.location || '')}</div>
+          <div class="game-meta"><span>${escapeHtml(formatDate(game.date) || 'TBD')} • ${escapeHtml(game.time || '')}</span><span>${escapeHtml(game.location || '')}</span></div>
         </div>
         <div class="game-score">
           ${scoreDisplay}${validationBadge}
@@ -572,6 +572,7 @@ window.openPlayerDetail = function(playerID) {
   const playerStats = calculatePlayerStats(player);
 
   openModal(escapeHtml(player.name), `
+    ${player.playerCode ? `<div style="text-align: center; margin-bottom: 12px;"><span class="player-code-badge">${escapeHtml(player.playerCode)}</span></div>` : ''}
     <div class="player-stats-grid">
       <div class="player-stat-card">
         <span class="player-stat-value">${playerStats.gamesPlayed}</span>
@@ -1772,13 +1773,6 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 
 window.addEventListener('DOMContentLoaded', () => {
   console.log('[Parent Portal] DOMContentLoaded - starting initialization');
-
-  // Add version indicator for debugging cache issues
-  const versionTag = document.createElement('div');
-  versionTag.id = 'version-tag';
-  versionTag.textContent = 'v2025-02-01h';
-  versionTag.style.cssText = 'position:fixed;bottom:80px;left:10px;background:#333;color:#0f0;padding:4px 8px;border-radius:4px;font-size:10px;z-index:9999;opacity:0.8;';
-  document.body.appendChild(versionTag);
 
   fetchAndRenderTeams();
 });

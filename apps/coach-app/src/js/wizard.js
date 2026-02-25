@@ -450,8 +450,9 @@ window.wizardHandleCoachChange = function() {
 // ─── Create team ──────────────────────────────────────────────────────────────
 
 window.addNewTeam = async function() {
-  const { name, year, season, coach, coachCustom, resultsApi } = wizardState.data;
+  const { name, year, season, coach, coachCustom, resultsApi, competitionType } = wizardState.data;
   const coachRaw = coach === COACH_OTHER_SENTINEL ? coachCustom : coach;
+  const competition = competitionType === 'Nillumbik Force' ? 'NFNA' : competitionType === 'NFNL' ? 'NFNL' : '';
 
   // Final guard — these are also validated per-step
   if (!name || name.length < 2 || name.length > 100) {
@@ -477,6 +478,7 @@ window.addNewTeam = async function() {
     url.searchParams.set('name', name);
     if (coachRaw) url.searchParams.set('coach', coachRaw);
     if (resultsApi) url.searchParams.set('resultsApi', resultsApi);
+    if (competition) url.searchParams.set('competition', competition);
 
     const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
     const data = await response.json();

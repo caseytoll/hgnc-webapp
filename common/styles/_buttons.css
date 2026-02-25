@@ -125,9 +125,9 @@
   font-size: 0.75rem;
 }
 
-/* positioned on splash screen */
+/* positioned on splash screen — clear iPhone status bar */
 .splash-help-btn {
   position: absolute;
-  top: var(--space-lg);
+  top: calc(env(safe-area-inset-top, 0px) + var(--space-md));
   right: var(--space-lg);
 }

@@ -80,30 +80,31 @@ Current production API: https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJ
 
 **Prerequisites:** Node.js 20+, npm 9+, clasp (for Apps Script deployment)
 
+### Team Creation Wizard
+
+The Coach's App uses a 6-step wizard for creating new teams:
+
+1. **Team Info** - Name and year
+2. **Competition Type** - NFNL, Nillumbik Force, or Other
+3. **Season** - Season 1/2/Other (skipped for Nillumbik Force, uses 'Nillumbik Force' label)
+4. **Coach** - Optional coach selection
+5. **Integration Setup** - Competition-specific:
+   - **NFNL**: Ladder URL (MyGameDay) for auto-sync + results API
+   - **Nillumbik Force**: Fixture sync (GameDay or Squadi/Netball Connect) with auto-detect
+   - **Other**: No integration setup
+6. **Review** - Confirm all settings before creation
+
+Validation happens at each step with duplicate team detection. The wizard saves competition type, season, coach, and integration config (ladderUrl or resultsApi) via the createTeam API.
+
+**Squadi Auto-Detect**: Click "Auto-Detect from Squadi" in Team Settings to discover HG teams from Squadi/Netball Connect competitions. Detects both "HG" and "Hazel Glen" team name prefixes. Auto-detection caches results for performance (use "Force Rescan" to refresh).
+
 ### Directory Structure
 
 ```
 webapp-local-dev/
 ├── apps/
 │   ├── coach-app/           # Coach's App (Full Editing)
-│   │   ├── src/js/app.js    # Entry point: theme, init, module imports (~250 lines)
-│   │   ├── src/js/state.js  # Shared state object, cache, localStorage
-│   │   ├── src/js/data-loader.js  # Team/data loading, fixture sync, metrics
-│   │   ├── src/js/rendering.js    # Main app, ladder, schedule, roster rendering
-│   │   ├── src/js/scoring.js      # Score inputs, quarter notes, availability
-│   │   ├── src/js/stats.js        # Stats rendering (all tabs)
-│   │   ├── src/js/training.js     # Training session CRUD, AI focus
-│   │   ├── src/js/game-detail.js  # Game detail, share/export, lineup builder
-│   │   ├── src/js/lineup-planner.js # Desktop 4-quarter planner
-│   │   ├── src/js/player.js       # Player + game management
-│   │   ├── src/js/player-library.js # Career stats tracking
-│   │   ├── src/js/team-settings.js  # Team/game settings
-│   │   ├── src/js/team-selector.js  # Team list rendering, PIN entry
-│   │   ├── src/js/wizard.js       # Create team wizard (6-step)
-│   │   ├── src/js/system-settings.js # System settings, cache mgmt
-│   │   ├── src/js/sync.js         # Google Sheets sync, debounce
-│   │   ├── src/js/ui.js           # View/tab/modal/toast, loading states
-│   │   ├── src/js/helpers.js      # Shared helper functions
+│   │   ├── src/js/app.js    # Main app logic, global state object
 │   │   ├── src/js/api.js    # Data transformation (sheet ↔ PWA format)
 │   │   ├── src/js/config.js # API endpoint, useMockData toggle
 │   │   └── src/js/*.test.js # Test files
@@ -130,12 +131,11 @@ webapp-local-dev/
 ### Key Patterns
 
 - Single HTML file per app with `<div class="view">` sections (show/hide via `display`)
-- Shared `state` object exported from `state.js`, imported by all feature modules
-- Coach app is split into ~18 ES modules (see directory structure above); `app.js` is just the entry point (~250 lines)
+- Global `state` object in app.js holds current team, game, players
 - All onclick handlers attached to `window` (e.g., `window.selectGame = ...`)
 - Always use `escapeHtml()` for user input to prevent XSS
 - Always use `formatAIContent()` for rendering AI-generated text (escapes HTML first, then applies markdown formatting)
-- CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility. Each app's `styles.css` uses `@import` to pull in `common/styles/shared.css`, then adds app-specific overrides. Shared CSS changes go in `common/styles/shared.css`; coach-only styles stay in coach's `styles.css`; portal-only styles stay in portal's `styles.css`
+- CSS imported via JS (`import '../css/styles.css'`) for Vite 7.x compatibility. Each app's `styles.css` uses `@import` to pull in `common/styles/shared.css`, then adds app-specific overrides. Shared CSS changes go in `common/styles/shared.css`; coach-only styles (scoring inputs, planner, PIN, AI, training, ladder) stay in coach's `styles.css`; portal-only styles (read-only scoring display) stay in portal's `styles.css`
 - Shared modules imported from `../../common/` in both apps
 - Name validation (`validatePlayerName`, `validateTeamName`, `validateOpponentName`) requires 2-100 chars with at least one letter
 - No linter configured; code style is vanilla JS with ES modules
@@ -195,23 +195,307 @@ When modifying UI in one app, check if the other needs the same change:
 ### Coach's App Specifics
 
 - **Service worker:** Auto-updates with build timestamp version. Users see "Update now" banner.
-- **Notes quick-insert:** Each quarter's notes section has quick-insert buttons (player names, groups, timestamp)
+- **Notes quick-insert:** Each quarter's notes section has quick-insert buttons:
+  - Player first names (from quarter lineup, or all team players if no lineup set)
+  - Group buttons: Team, Opp, Goalers, Midcourt, Defence
+  - Timestamp button inserts `[h:mmam/pm]` format
 - **Scoring panel:** Accordion-style quarters with score steppers and notes
 - **Offline support:** Data saved to localStorage first, synced when online
-- **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate. Team data uses `lastModified` version check with TTL fallback.
+- **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate (serve cache, refresh in background). Team data uses `lastModified` version check with TTL fallback. Player library loads in background (non-blocking).
+- **Squadi Auto-Discovery:** Team Settings includes "Auto-Detect from Squadi" button that scans Squadi API for HG teams and auto-fills competition/division/team configuration. Results cached in `Squadi_Lookup` sheet tab with 6-month TTL. Force rescan available for updated competitions.
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
-- **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). 440px sidebar + 2×2 quarter grid. Features drag-and-drop, auto-fill, copy/paste, undo stack, position color coding, player load summary.
+- **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). Features:
+  - **Layout:** Fixed-position overlay breaking out of #app's 430px max-width. 440px sidebar (bench + position history) + 2×2 quarter grid
+  - **Position color coding:** Shooters (GS/GA) = pink, Midcourt (WA/C/WD) = blue, Defence (GD/GK) = green
+  - **Fav position tags:** Small colored tags next to bench player names showing their preferred positions
+  - **Off indicator:** Each quarter card footer shows which players are sitting out
+  - **Player load summary:** Grid below quarters showing Q1-Q4 on/off dots per player with imbalance highlighting
+  - **Copy quarter:** Copy/Paste buttons in quarter headers to duplicate lineups between quarters
+  - **Undo:** Up to 20-deep undo stack covering all mutations (assign, copy, auto-fill, drag)
+  - **Hover highlights:** Hovering a bench player highlights their fav/historical positions across all quarter slots
+  - **Drag and drop:** HTML5 DnD for bench-to-slot, slot-to-slot (swap), and slot-to-bench (unassign)
+  - **Auto-fill:** Fills active quarter using scoring algorithm (+10 fav position, +N history count, -5 per existing quarter for load balance)
+  - **State:** `_plannerActiveQuarter`, `_plannerUndoStack`, `_plannerCopySource`, `_plannerDragPlayer`, `_plannerDragSource`
+  - **Helper functions:** `getPosGroup()`, `getPlannerAvailablePlayers()`, `getPlannerPositionStats()` (cached per render cycle)
+
+### AI Features (Gemini-powered)
+
+The app uses Google's Gemini API for AI-generated insights. API key stored in Apps Script properties.
+
+**AI Insights (Stats → Overview tab):**
+- Analyzes team performance, leaderboards, combinations
+- Includes opponent difficulty context: per-game opponent ladder rank, strength of schedule rating, and full division W-L-D standings
+- Generates season summary, strengths, areas to improve, lineup recommendations
+- Cached in `state.currentTeamData.aiInsights`
+
+**Training Sessions (Training tab → Training Sessions section):**
+- Record training sessions with date, focus area, notes, and player attendance
+- Track who attended each session via attendance checklist
+- View session history sorted by date (most recent first)
+- Edit or delete existing sessions
+- Stored in `state.currentTeamData.trainingSessions[]`
+
+**AI Training Focus / Training Correlator (Training tab → AI Training Focus section):**
+- Calls `generateTrainingCorrelation` (POST) → structured JSON with 4 sections rendered as cards:
+  - **Priority This Week** — top 2 focus items with rationale
+  - **Team Focus Areas** — 2-3 issues with priority (high/medium/low), persistent flag, drill suggestions
+  - **Individual Focus** — per-player areas with catch-up flag if they missed relevant training
+  - **Training Effectiveness** — per-issue status (improving/needs_work/unknown) from correlation
+- History entries stored in `state.currentTeamData.trainingFocusHistory[]` (newest first, max 5)
+- New entries: `{ correlation, generatedAt, gameCount, noteCount, recentGames }` (structured)
+- Old entries: `{ text, generatedAt, ... }` (plain markdown, still renders via `formatAIContent`)
+- Rendered by `renderCorrelationCards()` in `training.js`
+
+**Pattern Detector (Stats → Patterns tab):**
+- Reads last 5 games with `aiSummary.eventAnalyzer` data (populated by background AI queue)
+- Calls `generatePatternDetector` via **GET** (not POST — POST handler lowercases action names)
+- Returns `{ success, data: { patterns, playerTrajectories, combinationEffectiveness, summary } }`
+- Frontend extracts from `data.data` (backend wraps in a `data` envelope)
+- Cached 1 week in AI_Knowledge_Base sheet; cached locally in `state.currentTeamData.patternInsights`
+- Requires ≥2 games with Event Analyzer data; use `queueAllGames` API action to bootstrap
+
+**Background AI Queue (Event Analyzer pipeline):**
+- `queueGameAI({ gameID, sheetName, teamID, forceRefresh })` — queues one game
+- `queueAllGames(forceRefresh)` — queues all normal games with lineup data across all active teams
+- `processAIQueueManual` GET action — runs the queue immediately (for manual bootstrap)
+- Queue stored in PropertiesService with keys `ai_queue_{gameID}_{sheetName}`
+- 10-minute trigger: `setupAIQueueTrigger` GET action (idempotent)
+
+**Opposition Scouting Hub (standalone view):**
+- Opened from game detail "Scouting" button or Lineup Planner "Scout" button
+- Session cache: `state._scoutingCache[opp_{teamID}_{opponent}_{round}]`
+- Closes back to originating view (game-detail-view or planner-view)
+- Two manual refresh modes: fast data only (`refreshOppositionMatches`) or full AI (`generateOppositionInsightsImmediate`)
+- Weekly automation: `collectOppositionFixtures` Saturday 6 PM + `processOppositionAIQueue` Sunday 10 AM
+- Triggers set up via `setupOppositionTriggers` GET action (idempotent)
+
+**Game AI Summary (Game detail → AI Summary button):**
+- Per-game analysis with player contributions and quarter breakdown
+
+**Player AI Insights (Player stats modal):**
+- Individual player analysis with position versatility and development suggestions
+
+### Opponent Difficulty Ratings
+
+Coach-app only (parent portal has no ladder data). Uses cached ladder data from localStorage — no additional API calls.
+
+- **`getOpponentDifficulty(opponentName)`** — Reads `ladder.cache.{teamID}` from localStorage, fuzzy-matches opponent to ladder row via `fuzzyOpponentMatch()`. Returns `{ position, totalTeams, tier, label }` or `null`
+- **Tiers:** `top` (top 25% of ladder), `mid` (middle 50%), `bottom` (bottom 25%). Color-coded: red/amber/green
+- **Game list badges:** Colored pill badge (e.g. "1st", "5th") next to opponent name in `renderSchedule()`. Skipped for bye games
+- **Strength of Schedule:** Metric card in stats overview showing 1-100 rating (higher = harder schedule). Clickable modal shows per-opponent breakdown with W/L badges and ladder positions
+- **SoS formula:** `(totalTeams - avgOpponentPosition) / (totalTeams - 1) * 100`. Labels: >= 70 "Tough", >= 40 "Average", < 40 "Easy"
+- **AI context:** `fetchAIInsights()` includes `opponentRank` per game, `strengthOfSchedule` summary, and `divisionContext` (all division team W-L-D records from `state.divisionResults`)
+- **Graceful degradation:** All features return `null`/hidden when no ladder data available
 
 ### Parent Portal Specifics
 
-- **No service worker:** Always fetches fresh data from API
+- **No service worker:** Parent portal has no SW - always fetches fresh data from API
 - **Read-only:** No edit functionality, but can view all stats and lineups
 - **Team URLs:** `/teams/{slug}` format, e.g., `/teams/hazel-glen-6`
+- **Player stats modal:** Shows games, quarters, goals, positions played, and all season games
 - **Dark/light theme:** Toggle in header, persisted to localStorage
 
 ---
 
+## Data Structures
+
+```javascript
+// Team (from getTeams API) — hasPin is boolean, raw PIN never exposed
+{ teamID, teamName, year, season, sheetName, archived, ladderUrl, resultsApi, hasPin, coach, competitionType }
+// competitionType: Not stored in backend, inferred from resultsApi/ladderUrl (NFNL, Nillumbik Force, or Other)
+// season: 'Season 1', 'Season 2', 'Nillumbik Force', 'Other', or 'NFNL' (legacy)
+
+// Team Data (from getTeamData API) - NOTE: does NOT include teamName, year, or season
+{
+  teamID, sheetName,
+  players: [{ id, name, fillIn, favPosition }],
+  games: [{ gameID, round, opponent, date, location, status, captain, scores, lineup, fixtureMatchId, fixtureScore }],  // status: upcoming|normal|abandoned|forfeit|bye
+  trainingSessions: [{ sessionID, date, attendedPlayerIDs, focus, notes }],  // Optional
+  trainingFocusHistory: [{ text, generatedAt, gameCount, noteCount, recentGames }]  // Optional, max 5
+}
+
+// Lineup (per game, per quarter)
+{
+  Q1: { GS, GA, WA, C, WD, GD, GK, ourGsGoals, ourGaGoals, oppGsGoals, oppGaGoals, notes },
+  Q2: { ... }, Q3: { ... }, Q4: { ... }
+}
+
+// Training Session (stored in teamData.trainingSessions)
+{
+  sessionID: "ts-1706900000000",  // Timestamp-based ID
+  date: "2026-02-05",
+  attendedPlayerIDs: ["p1", "p2", "p3"],  // Who came to training
+  focus: "Footwork and landing technique",  // Brief summary
+  notes: "Worked on 3-step landing drill. Most players improving."
+}
+
+// Fixture fields (optional, per game — set by fixture sync)
+{
+  fixtureMatchId: 12345,              // Links game to external fixture entry (Squadi match ID or GameDay match ID)
+  fixtureScore: { us: 25, opponent: 18 }  // Official total from API (null if match not ended)
+}
+
+// ResultsApi config (Teams sheet column H — JSON string, per-team)
+// Squadi:
+{ "source": "squadi", "competitionId": 4650, "divisionId": 29570, "squadiTeamName": "HG 11 Flames", "competitionKey": "75e568d0-..." }
+// GameDay:
+{ "source": "gameday", "compID": "655969", "client": "0-9074-0-655969-0", "teamName": "Hazel Glen 6", "roundOffset": 3 }
+```
+
+**Positions:** GS, GA, WA, C, WD, GD, GK
+
+---
+
+## API
+
+**Endpoints** (via Apps Script):
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| `ping` | Health check | - |
+| `getTeams` | List all teams | - |
+| `getTeamData` | Get team details | `teamID`, `sheetName` |
+| `saveTeamData` | Save team data | `sheetName`, `teamData` (JSON) |
+| `createTeam` | Create new team | `year`, `season`, `name`, `coach`, `ladderUrl`, `resultsApi` (all optional except year/season/name) |
+| `updateTeam` | Update team settings | `teamID`, `settings` (JSON) |
+| `validateTeamPIN` | Check team PIN | `teamID`, `pin` |
+| `setTeamPIN` | Set/change/remove PIN | `teamID`, `pin`, `pinToken` |
+| `revokeTeamAccess` | Invalidate all device tokens | `teamID`, `pinToken` |
+| `getPlayerLibrary` | Get career tracking data | - |
+| `savePlayerLibrary` | Save career tracking data | `playerLibrary` (JSON) |
+| `getAIInsights` | AI season analysis (POST) | `analytics` (JSON with team stats) |
+| `getGameAIInsights` | AI game summary (POST) | `gameData` (JSON with game details) |
+| `getPlayerAIInsights` | AI player analysis (POST) | `playerData` (JSON with player stats) |
+| `getTrainingFocus` | AI training suggestions (POST) | `trainingData` (JSON with notes, rolling window) |
+| `getTeamRow` | Get raw team row (admin) | `teamID` |
+| `logClientMetric` | Log diagnostic metric | `name`, `value`, `teams`, `extra` |
+| `getDiagnostics` | Retrieve diagnostic logs | `limit` (optional, default 50) |
+| `getFixtureData` | Fetch fixture data for team | `teamID`, `forceRefresh` (optional) |
+| `getSquadiLadder` | Fetch ladder/standings for team | `teamID` |
+| `autoDetectSquadi` | Auto-discover Squadi team config | `forceRescan` (optional) |
+| `rebuildPlayerCounts` | Rebuild player count cache | - |
+| `queueAllGames` | Queue all active teams' games for Event Analyzer | `forceRefresh` (optional) |
+| `generatePatternDetector` | Generate/retrieve pattern analysis (GET only) | `teamID`, `sheetName`, `forceRefresh` |
+| `generateOppositionInsightsImmediate` | Generate 26 opposition analytics now | `teamID`, `round`, `gameID` |
+| `refreshOppositionMatches` | Fetch fixture + ladder data (no AI) | `teamID` |
+| `getOppositionScouting` | Retrieve stored scouting data | `teamID`, `opponent`, `round` |
+| `setupOppositionTriggers` | Create Sat/Sun automation triggers (idempotent) | - |
+| `generateTrainingCorrelation` | Training Correlator — structured JSON (POST) | `trainingData` (JSON) |
+
+**Local dev:** Vite proxy at `/gas-proxy` bypasses CORS (configured in `vite.config.js`)
+
+---
+
+## Data Sync
+
+Data syncs to Google Sheets at these points:
+- **Player/game operations** - Adding, editing, or deleting syncs immediately
+- **Lineup changes** - Saved to localStorage immediately, synced when closing game detail view (batch sync)
+- **Team settings** - Immediately via `updateTeam` API
+
+Data is always saved to localStorage first for offline support, then synced to the backend when online. The `closeGameDetail` function guards against parallel syncs via `syncInProgress` flag.
+
+**Stale Data Protection:** The app tracks a `_lastModified` timestamp in the data. Before saving, the server checks if its data is newer than what the client saw. If another device/tab has updated the data, the save is rejected and the user's view is refreshed with the latest data. This prevents old browser tabs from overwriting newer changes.
+
+**PIN Auth on Writes:** `saveTeamData` (POST-only, no GET handler) and `updateTeam` (GET) check the `pinToken` parameter against the Teams sheet. If the team has a PIN and the token doesn't match, the request returns `AUTH_REQUIRED`. The frontend handles this by clearing the stored token and prompting for re-authentication.
+
+**Google Sheet tabs:** Teams, Fixture_Results, Ladder_Archive, Settings, Diagnostics, PlayerLibrary, Squadi_Lookup
+
+**Teams sheet columns:** A=TeamID, B=Year, C=Season, D=TeamName, E=SheetName, F=LadderName, G=LadderApi, H=ResultsApi, I=Archived, J=PlayerCount, K=LastModified, L=PIN, M=PinToken, N=Coach
+
+**Squadi_Lookup sheet columns:** A=CompetitionId, B=CompetitionName, C=OrgKey, D=DivisionId, E=DivisionName, F=TeamName, G=DiscoveredAt
+
+---
+
+## Ladder & Fixture Integration
+
+### Ladder Sources
+
+Teams can get ladder/standings data from three sources, configured in Team Settings:
+
+| Source | Config | How It Works |
+|--------|--------|--------------|
+| **NFNL** (static) | `ladderUrl` field | GitHub Action scrapes HTML daily → `public/ladder-<teamID>.json` |
+| **Squadi** (live) | `resultsApi` with `source: "squadi"` | Backend fetches from Squadi API → `getSquadiLadder` action |
+| **GameDay** (computed) | `resultsApi` with `source: "gameday"` | Backend computes standings from fixture match results (W×4 + D×2 points) |
+
+- **NFNL scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes JSON. Supports `--api` and `--out` CLI args. Has 15s fetch timeout.
+- **Automation:** `.github/workflows/daily-ladder.yml` runs scraper daily, commits to main
+- **GameDay ladder:** GameDay renders tables via client-side JS (can't scrape server-side), so `computeGameDayLadder()` in Code.js calculates standings from fixture match results
+
+```bash
+# NFNL local run
+node scripts/fetch-ladder.js --teams ./public/teams.json --out public/
+
+# NFNL production (using Apps Script API)
+GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
+  node scripts/fetch-ladder.js --api "$GS_API_URL" --out public/
+```
+
+### Fixture Sync (Auto-Populate Games)
+
+Teams with `resultsApi` configured get automatic game population from external fixture data:
+
+- **Trigger:** Runs after team data loads, if team has fixture config and device is online (non-blocking)
+- **Sources:** Squadi API (`fetchSquadiFixtureData`) or GameDay HTML scraping (`fetchGameDayFixtureData`)
+- **Merge algorithm:**
+  1. Match fixture to existing game by `fixtureMatchId` first
+  2. Fall back to fuzzy match: same round + similar opponent name (via `fuzzyOpponentMatch()`)
+  3. Existing game: fill empty fields only (date, time, location, opponent) — **never overwrite** manual data (scores, lineup, notes, captain)
+  4. New game: create with fixture data, status from fixture, scores = null (user enters manually)
+  5. Status only upgrades from `upcoming` → fixture status (never downgrades manual status)
+  6. `fixtureScore` always updated when match has ended (for score validation display)
+- **Score validation:** When a game has both `fixtureScore` and manual scores, shows match/mismatch badge
+- **Caching:** Backend caches fixture data in CacheService (6-hour TTL), key includes config hash for cache invalidation on config changes
+
+### GameDay-Specific Config
+
+- **`roundOffset`:** Offsets round numbers for teams with pre-season grading games. E.g., if a team played 3 grading rounds before the main competition, set `roundOffset: 3` so GameDay Round 1 becomes app Round 4.
+- **`compID`** and **`client`:** Found in GameDay fixture page URLs (e.g., `mygameday.app/comp/655969/...`)
+- **`teamName`:** Must match exactly how the team appears on GameDay (case-insensitive matching used internally)
+
+### Squadi Auto-Discovery
+
+The "Auto-Detect from Squadi" feature eliminates manual configuration for new teams:
+
+- **Trigger:** "Auto-Detect from Squadi" button in Team Settings → Squadi section
+- **API Access:** Uses public Squadi fixture API (no authentication required)
+- **Scanning:** Probes competition IDs sequentially, looking for divisions containing "HG" teams
+- **Caching:** Results stored in `Squadi_Lookup` sheet with 6-month TTL
+- **UI Flow:** Shows picker modal with discovered teams, auto-fills config fields on selection, and automatically saves the configuration
+- **Force Rescan:** Available to refresh cached data for new seasons/competitions
+
+---
+
 ## Change Checklists
+> NOTE: 2026-02-22 session added printable lineup sheet, help fixes, UI tweaks, and documentation (see RELEASE_NOTES/v2026-02-22.md for details).
+
+### Adding a field to the Team object
+
+The team object is mapped/copied in multiple places. When adding a new field:
+
+1. **Backend `Code.js`:**
+   - `ensureTeamsSheetStructure()` — add column header
+   - `loadMasterTeamList()` — read from row array (0-indexed)
+   - `getTeams` response — include in `pwaTeams` mapping
+   - `updateTeamSettings()` — handle in settings write
+   - `createNewTeam()` — include in `appendRow` call
+   - `createTeam` API action — read from `e.parameter`
+
+2. **Frontend `app.js`:**
+   - Initial teams load (~line 719) — add default if needed
+   - Background revalidation `freshTeams` mapping — include field with default
+   - Background revalidation change-detection signature — include if changes should trigger UI refresh
+   - `saveTeamSettings()` — read from form, update `state.currentTeam`, `state.currentTeamData` (if applicable), `teamInList`, send to API, AND add to rollback
+   - `openTeamSettings()` — add form field
+   - `openAddTeamModal()` / `addNewTeam()` — add form field and include in API call
+
+### Adding a security check
+
+- **Grep for ALL handlers** of the action being secured — `Code.js` has both GET (`doGet > handleApiRequest`) and POST (`doPost`) paths. `saveTeamData` is POST-only; other actions use GET.
+- **Grep for ALL callers** that hit the secured endpoint — there are TWO code paths that POST to `saveTeamData`: `saveTeamDataWithProtection()` in `api.js` and `syncToGoogleSheets()` in `app.js`. Both must include auth tokens.
+- Consider abuse scenarios: rate limiting, brute force, lockout
+- Auth checks should fail-open on errors (don't block saves due to transient issues) but log the failure
 
 ### General
 
@@ -222,14 +506,186 @@ When modifying UI in one app, check if the other needs the same change:
 
 ---
 
+## Opposition Scouting System
+
+### Overview
+
+Opposition Scouting is a tactical preparation system that analyzes upcoming opponents. **Currently implemented:** Scouting Hub view, manual refresh, session cache, and weekly automation triggers. **Pending (Track C/D):** Lineup Planner sidebar integration, Tactical Advisor, Season Strategist.
+
+### Data Sources
+
+The Opposition Scouting system uses three data sources:
+
+| Source | Endpoint | Data | Freshness |
+|--------|----------|------|-----------|
+| **Ladder** | `getSquadiLadder(teamID)` | Team position, W-L-D, form, points | Live (cached 6 hours) |
+| **H2H History** | Internal (game history) | Head-to-head games, outcomes, form | Season-long archive |
+| **Quarterly Scores** | Team game data | Opponent quarterly totals | As-played |
+
+### 26 Opposition Analytics (Groups A-G)
+
+**Group A - Quarter Strength (4 insights)**
+- Q1/Q2/Q3/Q4 opponent strength analysis
+- Identifies which quarters opponent is strongest
+
+**Group B - Relative Strength (3 insights)**
+- Relative to our team's strengths
+- Matchup-specific advantages/disadvantages
+
+**Group C - Efficiency (3 insights)**
+- Shooting accuracy, possession control
+- Offensive efficiency (scoring rate)
+
+**Group D - Vulnerabilities (3 insights)**
+- Defensive weaknesses
+- Tactical gaps to exploit
+
+**Group E - Predictive (3 insights)**
+- Season trajectory
+- Momentum analysis
+- Injury/roster impact
+
+**Group F - Advanced Patterns (5 insights)**
+- Key player combinations
+- Formation preferences
+- Position-specific strengths
+
+**Group G - Situational (2 insights)**
+- Home/away performance
+- Performance under pressure
+
+### Processing Pipeline
+
+**Saturday 6 PM - Fixture Collection**
+```
+collectOppositionFixtures(teamID)
+├─ Load team data
+├─ Find all upcoming games (status === 'upcoming')
+├─ For each opponent:
+│  ├─ Fetch fresh ladder position (live or cached)
+│  ├─ Queue for AI generation
+│  └─ Set status: 'pending_ai'
+└─ Ready for Sunday processing
+```
+
+**Sunday 10 AM - AI Generation**
+```
+processOppositionAIQueue()
+├─ Get all opposition_queue_* properties
+├─ For each job:
+│  ├─ Load team data
+│  ├─ Fetch fresh ladder + H2H history
+│  ├─ Generate all 26 analytics (Gemini calls)
+│  ├─ Save to OppositionScouting sheet
+│  ├─ Update frontend cache (1-week TTL)
+│  └─ Set status: 'ready'
+└─ Ready by Monday morning for coach review
+```
+
+**Anytime - Manual Refresh**
+```
+Coach clicks "Refresh Opposition Data" → Choose:
+├─ Fast Data Only (2 sec)
+│  └─ Fetch fresh fixtures + ladder positions (no AI)
+└─ Complete Insights (15-30 sec)
+   └─ Generate all 26 analytics immediately
+```
+
+### OppositionScouting Sheet
+
+Stores opposition analytics for every team-opponent-round combination.
+
+| Column | Name | Purpose |
+|--------|------|---------|
+| A | Timestamp | When row created |
+| B | TeamID | Which team planning |
+| C | Opponent | Opponent name |
+| D | Round | Which round |
+| E | GameDate | When scheduled |
+| F | AISummary | Narrative summary (~500 chars) |
+| G | AnalyticsJSON | Full 26 insights as JSON |
+| H | GeneratedAt | When AI completed |
+| I | CacheUntil | When cache expires |
+| J | Status | ready / processing / failed |
+
+Setup function: `ensureOppositionScoutingSheetExists()` (called once at deployment)
+
+### Frontend Integration
+
+**Scouting Hub** (Standalone Page)
+- View all 26 analytics grouped by A-G
+- Narrative summary at top
+- Refresh button + status indicator
+- Accessed from: Navigation menu OR game detail "View Full Scouting"
+
+**Planner Modal** (Sidebar)
+- Curated "key insights" (top 5 recommendations)
+- Quick-scan format (2-3 sentences per insight)
+- Accessed from: Lineup Planner "Opposition" button
+- Updates auto when clicking between games
+
+**Cache & Performance**
+- Frontend cache: localStorage under key `opposition_cache`
+- Cache key: `opposition_{teamID}_{opponent}_{round}`
+- TTL: 7 days (or until CacheUntil from sheet)
+- Automatic refresh: Sunday 10 AM, or coach can force anytime
+
+### API Endpoints
+
+| Action | Purpose | Speed | When Used |
+|--------|---------|-------|-----------|
+| `refreshOppositionMatches` | Fetch fixture + ladder (no AI) | 2 sec | Fast refresh, coach-triggered |
+| `generateOppositionInsightsImmediate` | Generate all 26 insights now | 15-30 sec | Complete refresh, coach-triggered |
+| `queueOppositionAI` | Queue for Sunday processing | <1 sec | Saturday 6 PM trigger (internal) |
+| `processOppositionAIQueue` | Process all queued jobs | 5-15 min | Sunday 10 AM trigger (time-based) |
+
+### Queue Management
+
+**PropertiesService Queue** (same as Background AI game queue)
+- Stored in: `PropertiesService.getScriptProperties()` (script-level, shared)
+- Key namespace: `opposition_queue_{teamID}_{round}_{sheetName}`
+- No collision with game AI queue (`ai_queue_*` keys)
+- Retry logic: Max 3 attempts if failures occur
+
+**Important:** Always use `getScriptProperties()` for time-triggered functions (no user context)
+
+### Coach Experience Timeline
+
+**Typical Week:**
+```
+Monday morning     → Coach reviews game (just played)
+Tuesday-Thursday   → Sees Opposition Scouting Hub (auto-generated Sunday)
+Friday afternoon   → Uses curated insights in Lineup Planner (modal view)
+Friday/Saturday    → Finalizes team sheet based on insights + game plan
+Sunday 10 AM       → AI generates next opposition scouting (automated)
+```
+
+### Conflict Resolution
+
+The Opposition Scouting + Planner Integration resolves 5 conflicts:
+
+1. **PropertiesService scope** ✅ Fixed: Use `getScriptProperties()` (not `getUserProperties()`)
+2. **OppositionScouting sheet** ✅ Fixed: Add `ensureOppositionScoutingSheetExists()` function
+3. **Manual refresh API** ✅ Fixed: Define `refreshOppositionMatches` + `generateOppositionInsightsImmediate` actions
+4. **Sheet structure docs** ✅ Fixed: Reference section above + Backend Spec
+5. **Cache key specificity** ✅ Fixed: Use `opposition_{teamID}_{opponent}_{round}` (includes round to avoid collisions)
+
+### Related Documentation
+
+- **Full plan:** [OPPOSITION_SCOUTING_PLANNER_INTEGRATION.md](../planning/OPPOSITION_SCOUTING_PLANNER_INTEGRATION.md)
+- **Original scouting plan:** [OPPOSITION_SCOUTING_PLAN.md](../planning/OPPOSITION_SCOUTING_PLAN.md)
+- **Conflict analysis:** [CONFLICT_ANALYSIS_AND_FIXES.md](../planning/CONFLICT_ANALYSIS_AND_FIXES.md)
+- **Backend specification:** [OPPOSITION_SCOUTING_BACKEND_SPEC.md](../planning/OPPOSITION_SCOUTING_BACKEND_SPEC.md)
+
+---
+
 ## Troubleshooting
 
 **Safari + localhost:** Use network IP (`http://192.168.x.x:3000/`) instead of localhost.
 
-**Vite parse errors:** Check brace balance (run from `apps/coach-app/`):
+**Vite parse errors:** Check brace balance:
 ```bash
 node --check src/js/app.js
-node --check src/js/data-loader.js  # or whichever module has the error
 ```
 
 **Toggle data source:** Dev panel (bottom-right, localhost only) or set `useMockData: true` in config.js.
@@ -240,15 +696,51 @@ node --check src/js/data-loader.js  # or whichever module has the error
 
 **Monitor workflow issues:** If `Resource not accessible by integration`, add `permissions: issues: write` to workflow YAML.
 
+**Pattern Detector / GET-only actions returning "unknown post action":** The POST handler lowercases action names before switching. Any action that lives only in the GET handler (`handleApiRequest`) must be called via GET with URL params — not POST with a JSON body. Use `URL.searchParams` to build the request. Actions that take large payloads (training data, analytics) use POST correctly.
+
 ---
 
-## Skills Reference (lazy-loaded — invoke with /command-name)
+## Using Gemini CLI for Codebase Analysis
 
-- `/data-ref` — Data structures, API endpoints, sheet schema, sync behavior
-- `/fixture-ladder` — Ladder sources, fixture sync algorithm, GameDay/Squadi config
-- `/ai-features` — Gemini AI insights, training focus, opponent difficulty ratings
-- `/add-field` — Checklist for adding a new Team object field
-- `/security-check` — Checklist for adding security checks
-- `/gemini-tips` — Using Gemini CLI for codebase analysis
-- `/review` — Project code review checklist
-- `/deploy-coach`, `/deploy-parent`, `/deploy-backend`, `/deploy-all` — Deployment
+Use `gemini -p` with the `@` syntax to analyze multiple files or directories when you need broad codebase understanding. Gemini's large context window can handle the entire codebase at once.
+
+### Project-Specific Examples
+
+```bash
+# Understand how both apps share code
+gemini -p "@apps/coach-app/src/js/ @apps/parent-portal/src/js/ @common/ How do the two apps share common modules? What's duplicated vs shared?"
+
+# Analyze the data flow from API to UI
+gemini -p "@apps/coach-app/src/js/api.js @apps/coach-app/src/js/app.js @apps-script/Code.js Trace how team data flows from Google Sheets through the API to the UI"
+
+# Check stats calculation consistency
+gemini -p "@common/stats-calculations.js @common/mock-data.js @apps/coach-app/src/js/app.js Are stats calculated consistently between mock data and live data?"
+
+# Review all test coverage
+gemini -p "@apps/coach-app/src/js/*.test.js @apps/parent-portal/src/js/*.test.js @common/ What functionality is tested vs untested?"
+
+# Understand lineup data structure usage
+gemini -p "@apps/ @common/ How is the lineup data structure (Q1-Q4 with positions) used throughout the codebase?"
+
+# Check for XSS protection
+gemini -p "@apps/ @common/utils.js Where is escapeHtml() used? Are there any places rendering user input without escaping?"
+
+# Analyze offline/sync behavior
+gemini -p "@apps/coach-app/src/js/app.js @apps/coach-app/src/js/api.js How does localStorage caching work with the API sync?"
+```
+
+### When to Use Gemini
+
+Use `gemini -p` when:
+- Analyzing patterns across both apps and common modules
+- Tracing data flow from Apps Script backend through to UI
+- Checking consistency between coach-app and parent-portal implementations
+- Reviewing test coverage across the monorepo
+- Understanding how shared modules are used differently by each app
+
+### Syntax Notes
+
+- `@path/` includes a directory recursively
+- `@file.js` includes a single file
+- Paths are relative to current working directory
+- Run from project root for the examples above

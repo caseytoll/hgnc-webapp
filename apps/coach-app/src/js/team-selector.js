@@ -21,14 +21,28 @@ function renderTeamCard(team, cssClass) {
       <div class="team-card-icon">🏐</div>
       <div class="team-card-info">
         <div class="team-card-name">${escapeHtml(team.teamName)}</div>
-        <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players</div>
+        <div class="team-card-meta">${escapeHtml(team.year)} ${escapeHtml(team.season)} • ${escapeHtml(team.playerCount)} players${team.coach ? ` • ${escapeHtml(team.coach)}` : ''}</div>
       </div>
       ${lockIndicator}
     </div>`;
 }
 
+// Competition display config: logo paths and full names
+const COMPETITIONS = {
+  NFNA: { name: 'Nillumbik Force Netball Association', logo: '/assets/comp-logos/nfna.jpg' },
+  NFNL: { name: 'Northern Football Netball League', logo: '/assets/comp-logos/nfnl.png' }
+};
+
 function sortTeams(teams) {
-  return teams.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.teamName || '').localeCompare(b.teamName || ''));
+  // Sort by coach name (no coach last), then year descending, then team name
+  return teams.sort((a, b) => {
+    const aCoach = a.coach || '';
+    const bCoach = b.coach || '';
+    if (aCoach && !bCoach) return -1;
+    if (!aCoach && bCoach) return 1;
+    if (aCoach !== bCoach) return aCoach.localeCompare(bCoach);
+    return (b.year || 0) - (a.year || 0) || (a.teamName || '').localeCompare(b.teamName || '');
+  });
 }
 
 function renderTeamList() {
@@ -42,82 +56,42 @@ function renderTeamList() {
   if (activeTeams.length === 0) {
     container.innerHTML = '<div class="empty-state"><p>No active teams available</p></div>';
   } else {
-    // Separate into "my teams" (have pinToken) and others
-    const myTeams = activeTeams.filter(t => state.teamPinTokens[t.teamID]);
-    const otherTeams = activeTeams.filter(t => !state.teamPinTokens[t.teamID]);
-
-    // Group others by coach
-    const byCoach = {};
+    // Group by competition, then sort within each group by coach
+    const byComp = {};
     const unassigned = [];
-    otherTeams.forEach(team => {
-      if (team.coach) {
-        if (!byCoach[team.coach]) byCoach[team.coach] = [];
-        byCoach[team.coach].push(team);
+    activeTeams.forEach(team => {
+      // Use explicit competition field, or infer from season for legacy teams
+      const comp = team.competition || (team.season === 'NFNL' ? 'NFNL' : 'NFNA');
+      if (comp) {
+        if (!byComp[comp]) byComp[comp] = [];
+        byComp[comp].push(team);
       } else {
         unassigned.push(team);
       }
     });
-    const coachNames = Object.keys(byCoach).sort((a, b) => a.localeCompare(b));
 
+    // Render competition sections in alphabetical order
+    const compKeys = Object.keys(byComp).sort((a, b) => a.localeCompare(b));
     let html = '';
 
-    // My Teams section (always expanded)
-    if (myTeams.length > 0) {
+    compKeys.forEach(comp => {
+      const info = COMPETITIONS[comp] || { name: comp, logo: '' };
+      const teams = sortTeams(byComp[comp]);
       html += `
-        <div class="coach-section">
-          <div class="coach-section-header my-teams-header">
-            <span>My Teams</span>
-            <span class="coach-section-count">${myTeams.length}</span>
+        <div class="comp-section">
+          <div class="comp-section-header">
+            ${info.logo ? `<img class="comp-logo" src="${escapeAttr(info.logo)}" alt="${escapeAttr(info.name)}">` : ''}
+            <span class="comp-name">${escapeHtml(info.name)}</span>
           </div>
-          <div class="coach-section-content">
-            ${sortTeams(myTeams).map(t => renderTeamCard(t, 'active')).join('')}
+          <div class="comp-section-content">
+            ${teams.map(t => renderTeamCard(t, 'active')).join('')}
           </div>
-        </div>`;
-    }
-
-    // Per-coach sections (collapsible)
-    coachNames.forEach(coach => {
-      const teams = byCoach[coach];
-      const isCollapsed = state.collapsedCoachSections[coach] !== false; // default collapsed
-      html += `
-        <div class="coach-section">
-          <button class="coach-section-header" onclick="toggleCoachSection('${escapeAttr(coach)}')">
-            <div class="coach-section-title">
-              <svg class="coach-section-icon ${isCollapsed ? '' : 'expanded'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-              <span>${escapeHtml(coach)}</span>
-              <span class="coach-section-count">${teams.length}</span>
-            </div>
-          </button>
-          ${!isCollapsed ? `
-            <div class="coach-section-content">
-              ${sortTeams(teams).map(t => renderTeamCard(t, 'active')).join('')}
-            </div>
-          ` : ''}
         </div>`;
     });
 
-    // Unassigned teams section
+    // Teams with no competition assigned
     if (unassigned.length > 0) {
-      const isCollapsed = state.collapsedCoachSections['_unassigned'] !== false;
-      html += `
-        <div class="coach-section">
-          <button class="coach-section-header" onclick="toggleCoachSection('_unassigned')">
-            <div class="coach-section-title">
-              <svg class="coach-section-icon ${isCollapsed ? '' : 'expanded'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-              <span>Other Teams</span>
-              <span class="coach-section-count">${unassigned.length}</span>
-            </div>
-          </button>
-          ${!isCollapsed ? `
-            <div class="coach-section-content">
-              ${sortTeams(unassigned).map(t => renderTeamCard(t, 'active')).join('')}
-            </div>
-          ` : ''}
-        </div>`;
+      html += sortTeams(unassigned).map(t => renderTeamCard(t, 'active')).join('');
     }
 
     container.innerHTML = html;
@@ -150,11 +124,6 @@ function renderTeamList() {
 }
 window.renderTeamList = renderTeamList;
 
-window.toggleCoachSection = function(coachName) {
-  const current = state.collapsedCoachSections[coachName];
-  state.collapsedCoachSections[coachName] = current === false ? true : false;
-  renderTeamList();
-};
 
 window.toggleArchivedTeams = function() {
   state.showArchivedTeams = !state.showArchivedTeams;

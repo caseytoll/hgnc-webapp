@@ -14,6 +14,7 @@ export function transformTeamDataFromSheet(data, teamID) {
   const players = (data.players || []).map((p) => ({
     id: p.id,
     name: p.name,
+    playerCode: p.playerCode || '',
     fillIn: p.isFillIn || p.fillIn || false,
     favPosition: normalizeFavPositions(p.favoritePosition || p.favPosition),
   }));

@@ -182,7 +182,10 @@ function renderTrainingFocus() {
       ? `<div class="ai-stale-warning" style="background: var(--warning-bg, rgba(245, 158, 11, 0.1)); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px;">New notes added since last analysis. Generate new suggestions to include them.</div>`
       : '';
 
-  let html = formatAIContent(selected.text);
+  // Structured correlation cards (new) or legacy markdown (old)
+  const contentHtml = selected.correlation
+    ? renderCorrelationCards(selected.correlation)
+    : `<div class="ai-insights-content">${formatAIContent(selected.text || '')}</div>`;
 
   // Build history tabs
   const historyTabs = history
@@ -198,7 +201,7 @@ function renderTrainingFocus() {
       <div class="stats-section-title" style="display: flex; justify-content: space-between; align-items: center;">
         <span>AI Training Focus</span>
         <div style="display: flex; gap: 8px;">
-          <button class="btn btn-sm" onclick="useTrainingSuggestion()">Use This</button>
+          ${selected.text ? `<button class="btn btn-sm" onclick="useTrainingSuggestion()">Use This</button>` : ''}
           <button class="btn btn-sm" onclick="shareAIReport('training')">Share</button>
           <button class="btn btn-sm btn-danger" onclick="deleteTrainingPlan(${selectedIndex})">Delete</button>
           <button class="btn btn-sm" onclick="fetchTrainingFocus()">+ New</button>
@@ -216,7 +219,7 @@ function renderTrainingFocus() {
       }
 
       ${staleWarning}
-      <div class="ai-insights-content">${html}</div>
+      ${contentHtml}
       <div class="ai-meta" style="margin-top: 12px; font-size: 12px; color: var(--text-tertiary);">
         Generated: ${escapeHtml(selectedDate)} (from ${selected.noteCount || 0} notes across ${selected.gameCount || 0} games)
         ${selected.recentGames ? ` • Focused on last ${selected.recentGames} games` : ''}
@@ -225,6 +228,85 @@ function renderTrainingFocus() {
       <div id="training-focus-container"></div>
     </div>
   `;
+}
+
+// Render structured Training Correlator cards from JSON correlation data
+function renderCorrelationCards(corr) {
+  const priorityIcon = { high: '🔴', medium: '🟡', low: '🟢' };
+  const statusLabel = { improving: 'Improving', needs_work: 'Needs Work', unknown: 'Unknown' };
+  const statusClass = { improving: 'badge-success', needs_work: 'badge-error', unknown: 'badge-info' };
+
+  let html = '';
+
+  // Priority This Week
+  if (corr.priorityThisWeek && corr.priorityThisWeek.length) {
+    html += `<div class="corr-section corr-priority">
+      <div class="corr-section-title">🎯 Priority This Week</div>
+      <div class="corr-cards">`;
+    corr.priorityThisWeek.forEach((p) => {
+      html += `<div class="corr-card corr-card-priority">
+        <div class="corr-card-label">${escapeHtml(p.focus)}</div>
+        <div class="corr-card-meta">${escapeHtml(p.rationale)}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Team Focus Areas
+  if (corr.teamFocus && corr.teamFocus.length) {
+    html += `<div class="corr-section">
+      <div class="corr-section-title">👥 Team Focus Areas</div>
+      <div class="corr-cards">`;
+    corr.teamFocus.forEach((f) => {
+      const icon = priorityIcon[f.priority] || '🟡';
+      html += `<div class="corr-card">
+        <div class="corr-card-header">
+          <span class="corr-card-label">${icon} ${escapeHtml(f.issue)}</span>
+          ${f.persistent ? `<span class="badge badge-warning" title="Recurring issue from earlier in the season">Persistent</span>` : ''}
+        </div>
+        ${f.drills ? `<div class="corr-card-meta">Drills: ${escapeHtml(f.drills)}</div>` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Individual Focus Areas
+  if (corr.individualFocus && corr.individualFocus.length) {
+    html += `<div class="corr-section">
+      <div class="corr-section-title">🏃 Individual Focus</div>
+      <div class="corr-cards">`;
+    corr.individualFocus.forEach((f) => {
+      html += `<div class="corr-card">
+        <div class="corr-card-header">
+          <span class="corr-card-label">${escapeHtml(f.player)} — ${escapeHtml(f.area)}</span>
+          ${f.catchUp ? `<span class="badge badge-warning" title="Missed training on this skill">Catch-up needed</span>` : ''}
+        </div>
+        <div class="corr-card-meta">${escapeHtml(f.recommendation)}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Training Effectiveness
+  if (corr.effectiveness && corr.effectiveness.length) {
+    html += `<div class="corr-section">
+      <div class="corr-section-title">📊 Training Effectiveness</div>
+      <div class="corr-cards">`;
+    corr.effectiveness.forEach((e) => {
+      const cls = statusClass[e.status] || 'badge-info';
+      const lbl = statusLabel[e.status] || e.status;
+      html += `<div class="corr-card">
+        <div class="corr-card-header">
+          <span class="corr-card-label">${escapeHtml(e.issue)}</span>
+          <span class="badge ${cls}">${escapeHtml(lbl)}</span>
+        </div>
+        ${e.detail ? `<div class="corr-card-meta">${escapeHtml(e.detail)}</div>` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  return html ? `<div class="corr-container">${html}</div>` : '<p class="text-muted">No insights available.</p>';
 }
 
 // Select a training history entry to view
@@ -1356,7 +1438,7 @@ window.fetchTrainingFocus = async function (forceRefresh = false) {
 
   // Show loading state
   if (container) {
-    container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing game notes...</p></div>';
+    container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Analyzing game notes and training data…</p></div>';
   }
 
   try {
@@ -1364,32 +1446,30 @@ window.fetchTrainingFocus = async function (forceRefresh = false) {
     const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
     const trainingData = buildTrainingPayload();
 
-    // POST training data to backend
+    // POST to structured Training Correlator endpoint
     const response = await fetch(baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         api: true,
-        action: 'getTrainingFocus',
+        action: 'generateTrainingCorrelation',
         trainingData: trainingData,
       }),
       redirect: 'follow',
     });
     const data = await response.json();
 
-    if (data.success && data.suggestions) {
-      // Create new history entry
+    if (data.success && data.correlation) {
       const currentNoteCount = countTotalNotes();
       const currentGameCount = state.analytics?.advanced?.gameCount || 0;
       const newEntry = {
-        text: data.suggestions,
-        generatedAt: new Date().toISOString(),
+        correlation: data.correlation,
+        generatedAt: data.generatedAt || new Date().toISOString(),
         gameCount: currentGameCount,
         noteCount: currentNoteCount,
         recentGames: trainingData.recentGameNotes.length,
       };
 
-      // Add to history (newest first, max 5 entries)
       if (!state.currentTeamData.trainingFocusHistory) {
         state.currentTeamData.trainingFocusHistory = [];
       }
@@ -1398,22 +1478,15 @@ window.fetchTrainingFocus = async function (forceRefresh = false) {
         state.currentTeamData.trainingFocusHistory.pop();
       }
 
-      // Reset selected index to show latest
       state.selectedTrainingHistoryIndex = 0;
-
-      // Remove old format if present
       delete state.currentTeamData.trainingFocus;
 
-      // Save and sync
       saveToLocalStorage();
       await syncToGoogleSheets();
-
-      // Re-render the training tab to show results
       renderTraining();
-
-      showToast('Training suggestions generated', 'success');
+      showToast('Training correlation ready', 'success');
     } else {
-      throw new Error(data.error || 'Failed to get training suggestions');
+      throw new Error(data.error || 'Failed to get training correlation');
     }
   } catch (err) {
     console.error('[Training Focus] Error:', err);

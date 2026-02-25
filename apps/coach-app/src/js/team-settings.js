@@ -13,6 +13,8 @@ import { haptic } from '../../../../common/share-utils.js';
 
 window.openTeamSettings = function () {
   const team = state.currentTeam;
+  console.log('[TeamSettings] openTeamSettings: team.coach =', JSON.stringify(team.coach), 'teamID =', team.teamID);
+  console.log('[TeamSettings] teams list coach values:', state.teams.map(t => t.teamName + ':' + (t.coach || '(none)')).join(', '));
   const isArchived = team.archived || false;
   // Generate canonical parent portal link
   const slugify = (s) =>
@@ -60,6 +62,14 @@ window.openTeamSettings = function () {
         <option value="${COACH_OTHER_SENTINEL}">Other...</option>
       </select>
       <input type="text" class="form-input" id="edit-team-coach-custom" maxlength="50" placeholder="Enter coach name" style="display:none;margin-top:6px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Competition</label>
+      <select class="form-select" id="edit-team-competition">
+        <option value="">— None —</option>
+        <option value="NFNA" ${team.competition === 'NFNA' ? 'selected' : ''}>NFNA — Nillumbik Force Netball Association</option>
+        <option value="NFNL" ${team.competition === 'NFNL' ? 'selected' : ''}>NFNL — Northern Football Netball League</option>
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Ladder URL <span class="form-label-desc">(optional, for NFNL ladder)</span></label>
@@ -664,7 +674,7 @@ function fillSquadiFields(opt) {
 }
 
 window.saveTeamSettings = async function () {
-  if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: starting execution');
+  console.log('[TeamSettings] saveTeamSettings called');
   const nameInput = document.getElementById('edit-team-name');
   const name = nameInput.value.trim();
   const yearInput = document.getElementById('edit-team-year');
@@ -674,6 +684,7 @@ window.saveTeamSettings = async function () {
   const ladderUrl = ladderUrlInput.value.trim();
   const coachSelect = document.getElementById('edit-team-coach');
   const coachCustom = document.getElementById('edit-team-coach-custom');
+  console.log('[TeamSettings] coach select value:', coachSelect?.value, 'custom display:', coachCustom?.style.display, 'custom value:', coachCustom?.value);
   const coachRaw =
     coachCustom && coachCustom.style.display !== 'none'
       ? coachCustom.value.trim()
@@ -681,6 +692,8 @@ window.saveTeamSettings = async function () {
         ? coachSelect.value
         : '';
   const coach = coachRaw === COACH_OTHER_SENTINEL ? '' : coachRaw;
+  console.log('[TeamSettings] coachRaw:', coachRaw, '→ coach:', coach);
+  const competition = document.getElementById('edit-team-competition')?.value || '';
 
   // Build fixture config from form fields
   const fixtureSource = document.getElementById('edit-fixture-source')?.value || '';
@@ -776,6 +789,7 @@ window.saveTeamSettings = async function () {
   const oldYear = state.currentTeam.year;
   const oldSeason = state.currentTeam.season;
   const oldCoach = state.currentTeam.coach;
+  const oldCompetition = state.currentTeam.competition;
   const oldLadderUrl = state.currentTeam.ladderUrl;
   const oldResultsApi = state.currentTeam.resultsApi;
 
@@ -792,6 +806,7 @@ window.saveTeamSettings = async function () {
     state.currentTeam.ladderUrl = ladderUrl;
     state.currentTeam.resultsApi = resultsApi;
     state.currentTeam.coach = coach;
+    state.currentTeam.competition = competition;
 
     // Also update in currentTeamData
     if (state.currentTeamData) {
@@ -810,27 +825,28 @@ window.saveTeamSettings = async function () {
       teamInList.ladderUrl = ladderUrl;
       teamInList.resultsApi = resultsApi;
       teamInList.coach = coach;
+      teamInList.competition = competition;
     }
 
     // Save to backend
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling updateTeamSettings API');
-    await updateTeamSettings(state.currentTeam.teamID, { teamName: name, year, season, ladderUrl, resultsApi, coach });
+    const payload = { teamName: name, year, season, ladderUrl, resultsApi, coach, competition };
+    console.log('[TeamSettings] calling updateTeamSettings API with:', JSON.stringify(payload));
+    await updateTeamSettings(state.currentTeam.teamID, payload);
 
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: API call successful, saving to localStorage');
+    console.log('[TeamSettings] API call successful, saving to localStorage');
     saveToLocalStorage();
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: calling renderMainApp');
     renderMainApp();
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: showing success toast');
+    try { window.renderTeamList(); } catch (_e) { /* team list may not be visible */ }
     showToast('Team updated', 'success');
-    if (API_CONFIG.debug) console.log('[DEBUG] saveTeamSettings: completed successfully');
+    console.log('[TeamSettings] completed successfully');
   } catch (error) {
-    if (API_CONFIG.debug) console.error('[DEBUG] saveTeamSettings: ERROR -', error);
-    console.error('[App] Failed to save team settings:', error);
+    console.error('[TeamSettings] ERROR:', error.message, error);
     // Rollback
     state.currentTeam.teamName = oldName;
     state.currentTeam.year = oldYear;
     state.currentTeam.season = oldSeason;
     state.currentTeam.coach = oldCoach;
+    state.currentTeam.competition = oldCompetition;
     state.currentTeam.ladderUrl = oldLadderUrl;
     state.currentTeam.resultsApi = oldResultsApi;
     if (state.currentTeamData) {
@@ -845,6 +861,7 @@ window.saveTeamSettings = async function () {
       rollbackTeam.year = oldYear;
       rollbackTeam.season = oldSeason;
       rollbackTeam.coach = oldCoach;
+      rollbackTeam.competition = oldCompetition;
       rollbackTeam.ladderUrl = oldLadderUrl;
       rollbackTeam.resultsApi = oldResultsApi;
     }

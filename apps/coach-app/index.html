@@ -80,6 +80,7 @@
             <button class="sort-toggle" id="library-sort-btn" onclick="cyclePlayerSort()" title="Change sort order">
               <span id="sort-label">Recent</span>
             </button>
+            <button class="context-help-btn help-btn-sm" onclick="showContextHelp('playerLibrary')" aria-label="Help">?</button>
           </div>
           <div id="library-player-list" class="library-player-list">
             <!-- Players loaded dynamically -->
@@ -282,6 +283,12 @@
             </svg>
             AI Summary
           </button>
+          <button class="share-action-btn" onclick="openOppositionScouting('game-detail-view')" id="game-scouting-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/>
+            </svg>
+            Scouting
+          </button>
         </div>
 
         <!-- Game Tabs (workflow order: Availability → Lineup → Scoring → Notes) -->
@@ -338,6 +345,7 @@
         </div>
         <div class="planner-header-actions">
           <button class="context-help-btn" onclick="event.stopPropagation(); showContextHelp('planner')" aria-label="Help">?</button>
+          <button class="planner-scout-btn" onclick="openScoutingFromPlanner()" title="Opposition Scouting">Scout</button>
           <button class="planner-autofill-btn" onclick="plannerAutoFill()">Auto-fill</button>
           <button class="planner-undo-btn" id="planner-undo-btn" onclick="plannerUndo()" disabled>Undo</button>
         </div>
@@ -384,6 +392,24 @@
     </div>
 
     <!-- ========================================
+         OPPOSITION SCOUTING HUB VIEW
+         ======================================== -->
+    <div id="opposition-scouting-view" class="view">
+      <header class="scouting-header">
+        <button class="icon-btn" onclick="closeOppositionScouting()" aria-label="Back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <div class="scouting-header-title">
+          <h1>Opposition Scouting</h1>
+          <span id="scouting-header-subtitle" class="subtitle"></span>
+        </div>
+      </header>
+      <div id="scouting-content" class="scouting-content"></div>
+    </div>
+
+    <!-- ========================================
          LOADING OVERLAY
          ======================================== -->
     <div id="loading-overlay" class="loading-overlay hidden">
@@ -427,26 +453,6 @@
       </div>
     </div>
 
-    <!-- ========================================
-         DEV TOOLS (bottom corner)
-         ======================================== -->
-    <div id="dev-indicator" class="dev-indicator" onclick="toggleDevPanel()">DEV</div>
-    <div id="dev-panel" class="dev-panel hidden">
-      <h4>Developer Tools</h4>
-      <div class="dev-row">
-        <label>Data Source:</label>
-        <select id="data-source-select" onchange="setDataSource(this.value)">
-          <option value="mock">Mock Data</option>
-          <option value="api">Live API</option>
-        </select>
-      </div>
-      <div class="dev-row">
-        <button onclick="reloadData()">Reload Data</button>
-        <button onclick="clearCache()">Clear Cache</button>
-        <button onclick="exportMockData()">Export Mock Data</button>
-      </div>
-      <div class="dev-status" id="dev-status">Ready</div>
-    </div>
   </div>
 
   <!-- Scripts -->

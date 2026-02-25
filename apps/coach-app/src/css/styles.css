@@ -2123,6 +2123,41 @@
   padding: 4px 0 0 0;
 }
 
+/* Competition section (team-selector landing page) */
+.comp-section {
+  margin-bottom: 12px;
+}
+
+.comp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  margin-bottom: 6px;
+}
+
+.comp-logo {
+  width: auto;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.comp-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.comp-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* ========================================
    SCORE VALIDATION (Fixture Sync)
    ======================================== */
@@ -2300,5 +2335,413 @@
   text-overflow: clip !important;
   vertical-align: middle; /* ensure team name lines up with logo */
   text-align: left;
+}
+
+/* ========================================
+   PATTERN DETECTOR (Stats Patterns tab)
+   ======================================== */
+
+/* Trend badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+.badge-success { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.badge-error   { background: rgba(239, 68, 68, 0.15);  color: #dc2626; }
+.badge-info    { background: rgba(99, 102, 241, 0.15); color: #4f46e5; }
+.badge-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+
+[data-theme="dark"] .badge-success { background: rgba(34, 197, 94, 0.2);  color: #4ade80; }
+[data-theme="dark"] .badge-error   { background: rgba(239, 68, 68, 0.2);  color: #f87171; }
+[data-theme="dark"] .badge-info    { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+[data-theme="dark"] .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+/* Pattern cards grid */
+.pattern-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.pattern-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pattern-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pattern-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+  min-width: 60px;
+}
+
+.pattern-confidence {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.pattern-card-desc {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pattern-card-games {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Player trajectories list */
+.pattern-trajectories,
+.pattern-combos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pattern-trajectory-row,
+.pattern-combo-row {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: start;
+  gap: 8px;
+}
+
+.pattern-trajectory-name,
+.pattern-combo-players {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.pattern-trajectory-desc,
+.pattern-combo-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  grid-column: 1 / -1;
+}
+
+.pattern-combo-games {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  grid-column: 1 / -1;
+}
+
+/* ========================================
+   TRAINING CORRELATOR CARDS (Phase 4)
+   ======================================== */
+
+.corr-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.corr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.corr-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.corr-section.corr-priority .corr-card {
+  border-left: 3px solid var(--primary-500);
+  background: linear-gradient(135deg, var(--bg-card), rgba(124, 58, 237, 0.04));
+}
+
+.corr-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.corr-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  padding: 10px 12px;
+}
+
+.corr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.corr-card-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.corr-card-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ========================================
+   OPPOSITION SCOUTING HUB
+   ======================================== */
+
+/* Header */
+.scouting-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.scouting-header-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.scouting-header-title h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Scrollable content area */
+.scouting-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Sections */
+.scouting-section {
+  margin-bottom: 20px;
+}
+
+.scouting-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.scouting-group-label {
+  background: var(--primary);
+  color: white;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* AI Summary card */
+.scouting-summary-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  border-left: 3px solid var(--primary);
+}
+
+/* Insights grid */
+.scouting-insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 380px) {
+  .scouting-insights-grid { grid-template-columns: 1fr; }
+}
+
+.scouting-insight-card {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scouting-insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.scouting-insight-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  line-height: 1.3;
+}
+
+.scouting-insight-conf {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.conf-high   { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.conf-medium { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.conf-low    { background: rgba(161, 161, 170, 0.15); color: var(--text-tertiary); }
+
+[data-theme="dark"] .conf-high   { background: rgba(34, 197, 94, 0.2);  color: #4ade80; }
+[data-theme="dark"] .conf-medium { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+[data-theme="dark"] .conf-low    { background: rgba(161, 161, 170, 0.2); color: var(--text-tertiary); }
+
+.scouting-insight-metric {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.scouting-insight-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Empty state */
+.scouting-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 12px;
+}
+
+.scouting-empty-icon {
+  font-size: 40px;
+}
+
+.scouting-empty h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.scouting-empty p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Loading state */
+.scouting-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.scouting-loading .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.scouting-loading-sub {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* Footer */
+.scouting-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.scouting-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.scouting-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Planner "Scout" button */
+.planner-scout-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.planner-scout-btn:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-300);
 }
 
