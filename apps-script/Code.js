@@ -465,6 +465,17 @@ function getSpreadsheet() {
           }
           break;
 
+        case 'backfillDivisionScoutingAllDivisions':
+          try {
+            var forceRefresh = e.parameter.forceRefresh === 'true';
+            var backfillResult = backfillDivisionScoutingAllDivisions(forceRefresh);
+            result = { success: true, summary: backfillResult };
+          } catch (errBackfill) {
+            Logger.log('backfillDivisionScoutingAllDivisions error: ' + errBackfill.message);
+            result = { success: false, error: errBackfill.message };
+          }
+          break;
+
         case 'validateTeamPIN':
           var pinTeamID = e.parameter.teamID || '';
           var pinAttempt = e.parameter.pin || '';
@@ -791,11 +802,12 @@ function getSpreadsheet() {
           var pdTeamID = e.parameter.teamID || '';
           var pdSheetName = e.parameter.sheetName || '';
           var pdForce = e.parameter.forceRefresh === 'true';
+          var pdTeamName = e.parameter.teamName || '';
           if (!pdTeamID || !pdSheetName) {
             result = { success: false, error: 'teamID and sheetName are required' };
           } else {
             try {
-              result = generatePatternDetector(pdTeamID, pdSheetName, pdForce);
+              result = generatePatternDetector(pdTeamID, pdSheetName, pdForce, pdTeamName);
             } catch (errPD) {
               Logger.log('generatePatternDetector error: ' + errPD.message);
               result = { success: false, error: errPD.message };
@@ -854,6 +866,37 @@ function getSpreadsheet() {
           break;
         }
 
+        case 'getOppositionInsightsCurated': {
+          var curTeamID = e.parameter.teamID || '';
+          var curOpponent = e.parameter.opponent || '';
+          var curRound = e.parameter.round || '';
+          if (!curTeamID || !curOpponent || !curRound) {
+            result = { success: false, error: 'teamID, opponent, and round are required' };
+          } else {
+            try {
+              var fullScoutingData = getOppositionScoutingData(curTeamID, curOpponent, parseInt(curRound, 10));
+              if (!fullScoutingData) {
+                result = { success: false, error: 'No scouting data found for curation' };
+              } else {
+                var curated = curateTop5Insights(fullScoutingData.analytics);
+                result = {
+                  success: true,
+                  opponent: curOpponent,
+                  round: curRound,
+                  aiSummary: fullScoutingData.aiSummary,
+                  insights: curated,
+                  generatedAt: fullScoutingData.generatedAt,
+                  message: 'Top 5 insights curated for planner'
+                };
+              }
+            } catch (errCur) {
+              Logger.log('getOppositionInsightsCurated error: ' + errCur.message);
+              result = { success: false, error: errCur.message };
+            }
+          }
+          break;
+        }
+
         case 'processOppositionAIQueueManual': {
           try {
             processOppositionAIQueue();
@@ -861,6 +904,226 @@ function getSpreadsheet() {
           } catch (errOppQueue) {
             Logger.log('processOppositionAIQueueManual error: ' + errOppQueue.message);
             result = { success: false, error: errOppQueue.message };
+          }
+          break;
+        }
+
+        case 'fetchAllDivisionFixtures': {
+          var fadfForce = e.parameter.forceRefresh === 'true';
+          try {
+            result = fetchAllDivisionFixtures(fadfForce);
+          } catch (errFadf) {
+            Logger.log('fetchAllDivisionFixtures error: ' + errFadf.message);
+            result = { success: false, error: errFadf.message };
+          }
+          break;
+        }
+
+        case 'fetchDivisionFixtures': {
+          var fdfTeamID = e.parameter.teamID || '';
+          var fdfForce = e.parameter.forceRefresh === 'true';
+          if (!fdfTeamID) {
+            result = { success: false, error: 'teamID is required' };
+          } else {
+            try {
+              result = fetchAndStoreDivisionFixtures(fdfTeamID, fdfForce);
+            } catch (errFdf) {
+              Logger.log('fetchDivisionFixtures error: ' + errFdf.message);
+              result = { success: false, error: errFdf.message };
+            }
+          }
+          break;
+        }
+
+        case 'probeSquadiMatchDetail': {
+          var psdMatchId = e.parameter.matchId || '';
+          var psdRoundId = e.parameter.roundId || '';
+          var psdTeam1Id = e.parameter.team1Id || '';
+          var psdTeam2Id = e.parameter.team2Id || '';
+          var psdCompId = e.parameter.competitionId || '';
+          var psdDivId = e.parameter.divisionId || '';
+          var psdCompKey = e.parameter.competitionKey || '';
+          if (!psdMatchId) {
+            result = { success: false, error: 'matchId is required' };
+          } else {
+            try {
+              result = probeSquadiMatchDetail(parseInt(psdMatchId, 10) || psdMatchId, {
+                roundId: psdRoundId,
+                team1Id: psdTeam1Id,
+                team2Id: psdTeam2Id,
+                competitionId: psdCompId,
+                divisionId: psdDivId,
+                competitionKey: psdCompKey
+              });
+            } catch (errPsd) {
+              Logger.log('probeSquadiMatchDetail error: ' + errPsd.message);
+              result = { success: false, error: errPsd.message };
+            }
+          }
+          break;
+        }
+
+        case 'debugSquadiEndpoint': {
+          // Generic endpoint tester - tests any Squadi endpoint path with auth
+          var dseEndpoint = e.parameter.endpoint || '';  // e.g., "/livescores/matches/public/scoreBreakdown"
+          var dseMatchId = e.parameter.matchId || '';
+          var dseCompKey = e.parameter.competitionKey || '';
+          var dseCustomToken = e.parameter.customToken || '';  // Optional: override token
+          if (!dseEndpoint) {
+            result = { success: false, error: 'endpoint path required (e.g., /livescores/matches/public/scoreBreakdown)' };
+          } else {
+            try {
+              var AUTH_TOKEN = dseCustomToken || loadAuthToken();
+              var headers = {
+                'Accept': 'application/json',
+                'Origin': 'https://registration.netballconnect.com',
+                'Referer': 'https://registration.netballconnect.com/',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+              };
+              if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
+                headers['Authorization'] = AUTH_TOKEN;
+              }
+              
+              var url = 'https://api-netball.squadi.com' + dseEndpoint;
+              if (dseMatchId) url += (url.indexOf('?') > -1 ? '&' : '?') + 'matchId=' + dseMatchId;
+              if (dseCompKey) url += (url.indexOf('?') > -1 ? '&' : '?') + 'competitionUniqueKey=' + dseCompKey;
+              
+              var response = UrlFetchApp.fetch(url, {
+                method: 'get',
+                headers: headers,
+                muteHttpExceptions: true
+              });
+              var code = response.getResponseCode();
+              var body = response.getContentText();
+              
+              result = { 
+                success: code === 200, 
+                status: code, 
+                url: url,
+                bodyPreview: body.substring(0, 500),
+                bodyLength: body.length
+              };
+              
+              if (code === 200 && body.length > 2 && body.charAt(0) === '{') {
+                try {
+                  result.data = JSON.parse(body);
+                  // Check for quarter data
+                  var qData = extractMatchQuarterScores(result.data);
+                  if (qData) {
+                    result.hasQuarters = true;
+                    result.quarters = qData;
+                  }
+                } catch (parseErr) {
+                  result.parseError = parseErr.message;
+                }
+              }
+            } catch (errDse) {
+              result = { success: false, error: errDse.message };
+            }
+          }
+          break;
+        }
+
+        case 'debugGameSummary': {
+          // Fetch full gameSummary for inspection
+          var dgsMatchId = e.parameter.matchId || '';
+          var dgsCompKey = e.parameter.competitionKey || '';
+          if (!dgsMatchId || !dgsCompKey) {
+            result = { success: false, error: 'matchId and competitionKey required' };
+          } else {
+            try {
+              var AUTH_TOKEN = loadAuthToken();
+              var headers = {
+                'Accept': 'application/json',
+                'Origin': 'https://registration.netballconnect.com',
+                'Referer': 'https://registration.netballconnect.com/',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+              };
+              if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
+                headers['Authorization'] = AUTH_TOKEN;
+              }
+              var url = 'https://api-netball.squadi.com/livescores/matches/public/gameSummary?matchId=' + dgsMatchId + '&competitionUniqueKey=' + dgsCompKey;
+              var response = UrlFetchApp.fetch(url, {
+                method: 'get',
+                headers: headers,
+                muteHttpExceptions: true
+              });
+              var code = response.getResponseCode();
+              var body = response.getContentText();
+              if (code === 200) {
+                result = { success: true, status: code, data: JSON.parse(body) };
+              } else {
+                result = { success: false, status: code, body: body };
+              }
+            } catch (errDgs) {
+              result = { success: false, error: errDgs.message };
+            }
+          }
+          break;
+        }
+
+        case 'debugSquadiMatch': {
+          // Returns the raw match object for a given matchId from the round/matches endpoint
+          // so we can inspect all available fields for quarter score data
+          var dsmTeamID = e.parameter.teamID || '';
+          var dsmMatchId = parseInt(e.parameter.matchId || '0', 10);
+          if (!dsmTeamID || !dsmMatchId) {
+            result = { success: false, error: 'teamID and matchId are required' };
+          } else {
+            try {
+              var dsmTeams = loadMasterTeamList();
+              var dsmTeam = null;
+              for (var dsmI = 0; dsmI < dsmTeams.length; dsmI++) {
+                if (dsmTeams[dsmI].teamID === dsmTeamID) { dsmTeam = dsmTeams[dsmI]; break; }
+              }
+              if (!dsmTeam) {
+                result = { success: false, error: 'Team not found' };
+              } else {
+                var dsmCfg = dsmTeam.resultsApi ? JSON.parse(dsmTeam.resultsApi) : null;
+                if (!dsmCfg || dsmCfg.source !== 'squadi') {
+                  result = { success: false, error: 'Team has no Squadi config' };
+                } else {
+                  var dsmApi = fetchSquadiFixtures(dsmCfg.competitionId, dsmCfg.divisionId);
+                  var dsmMatch = null;
+                  if (dsmApi.rounds) {
+                    dsmApi.rounds.forEach(function(r) {
+                      (r.matches || []).forEach(function(m) {
+                        if ((m.matchId || m.id) === dsmMatchId) dsmMatch = m;
+                      });
+                    });
+                  }
+                  result = dsmMatch
+                    ? { success: true, matchId: dsmMatchId, match: dsmMatch }
+                    : { success: false, error: 'Match ' + dsmMatchId + ' not found in API response' };
+                }
+              }
+            } catch (errDsm) {
+              result = { success: false, error: errDsm.message };
+            }
+          }
+          break;
+        }
+
+        case 'getQueueHealth': {
+          // Queue health monitoring (for admin dashboard)
+          try {
+            var props = PropertiesService.getScriptProperties();
+            var lastRun = props.getProperty('ai_queue_last_run') || 'Never';
+            var lastSuccess = props.getProperty('ai_queue_last_success') || 'Never';
+            var metricsJSON = props.getProperty('ai_queue_metrics') || '{}';
+            var metrics = JSON.parse(metricsJSON);
+            var currentJobs = getQueuedJobs().length;
+            
+            result = {
+              success: true,
+              lastRun: lastRun,
+              lastSuccess: lastSuccess,
+              pendingJobs: currentJobs,
+              metrics: metrics,
+              status: currentJobs > 100 ? 'warning' : (currentJobs > 50 ? 'caution' : 'ok')
+            };
+          } catch (healthErr) {
+            result = { success: false, error: healthErr.message };
           }
           break;
         }
@@ -897,6 +1160,41 @@ function getSpreadsheet() {
               };
             } catch (dbgErr) {
               result = { success: false, error: dbgErr.message };
+            }
+          }
+          break;
+        }
+
+        case 'generateTacticalAdvisor': {
+          var taTeamID = e.parameter.teamID || '';
+          var taSheetName = e.parameter.sheetName || '';
+          var taForce = e.parameter.forceRefresh === 'true';
+          var taRound = parseInt(e.parameter.round || '0', 10);
+          if (!taTeamID || !taSheetName || taRound === 0) {
+            result = { success: false, error: 'teamID, sheetName, and round are required' };
+          } else {
+            try {
+              result = generateTacticalAdvisor(taTeamID, taSheetName, taForce, taRound);
+            } catch (errTA) {
+              Logger.log('generateTacticalAdvisor error: ' + errTA.message);
+              result = { success: false, error: errTA.message };
+            }
+          }
+          break;
+        }
+
+        case 'generateSeasonStrategist': {
+          var ssTeamID = e.parameter.teamID || '';
+          var ssSheetName = e.parameter.sheetName || '';
+          var ssForce = e.parameter.forceRefresh === 'true';
+          if (!ssTeamID || !ssSheetName) {
+            result = { success: false, error: 'teamID and sheetName are required' };
+          } else {
+            try {
+              result = generateSeasonStrategist(ssTeamID, ssSheetName, ssForce);
+            } catch (errSS) {
+              Logger.log('generateSeasonStrategist error: ' + errSS.message);
+              result = { success: false, error: errSS.message };
             }
           }
           break;
@@ -1299,6 +1597,31 @@ function determineResultId(row, scoreIndex, opponentScoreIndex, resultIndex) {
   if (score < opponentScore) return 2; // Loss
   if (score === opponentScore) return 3; // Draw
   return 2; // Default to loss
+}
+
+// Helper function for fuzzy opponent name matching
+// Handles variations like "Montmorency" vs "Montmorency 1", "HG 11 Fire" vs "Fire"
+function fuzzyOpponentMatch(existing, fixture) {
+  if (!existing || !fixture) return false;
+  var norm = function(s) { return String(s).toLowerCase().trim().replace(/\s+/g, ' '); };
+  var a = norm(existing);
+  var b = norm(fixture);
+  if (a === b) return true;
+  // Check if one contains the other
+  if (a.indexOf(b) > -1 || b.indexOf(a) > -1) return true;
+  // Check with all spaces removed (handles "Kilmore 10" vs "Kilmore10")
+  var noSpaceA = a.replace(/\s/g, '');
+  var noSpaceB = b.replace(/\s/g, '');
+  if (noSpaceA === noSpaceB) return true;
+  // Check if the last word(s) match (e.g. "Fire" matches "HG 11 Fire")
+  var wordsA = a.split(' ');
+  var wordsB = b.split(' ');
+  if (wordsA.length > 1 && wordsB.length > 1) {
+    var lastA = wordsA[wordsA.length - 1];
+    var lastB = wordsB[wordsB.length - 1];
+    if (lastA === lastB && lastA.length > 2) return true;
+  }
+  return false;
 }
 
 /**
@@ -3496,6 +3819,20 @@ function processAIQueue() {
     ' succeeded=' + succeeded + ' failed=' + failed + ' time=' + totalTimeMs + 'ms');
   logClientMetric('ai_queue_run', processed, 'system',
     JSON.stringify({ succeeded: succeeded, failed: failed, totalTimeMs: totalTimeMs }));
+
+  // Store queue health metrics in PropertiesService for monitoring
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('ai_queue_last_run', new Date().toISOString());
+  if (succeeded > 0) {
+    props.setProperty('ai_queue_last_success', new Date().toISOString());
+  }
+  props.setProperty('ai_queue_metrics', JSON.stringify({
+    lastRun: new Date().toISOString(),
+    processed: processed,
+    succeeded: succeeded,
+    failed: failed,
+    durationMs: totalTimeMs
+  }));
 }
 
 /**
@@ -3654,6 +3991,118 @@ function setupOppositionTriggers() {
   return { success: true, message: msg, created: created };
 }
 
+/**
+ * Saturday 6 PM trigger: Collect all upcoming games from active teams and queue for opposition AI processing.
+ * Iterates through all active teams, loads their data, finds upcoming games, and queues each for Sunday morning processing.
+ * This is a weekly automation trigger — runs every Saturday at 6 PM Melbourne time.
+ * @returns {Object} { success, teamsProcessed, totalQueued, totalSkipped, message }
+ */
+function collectOppositionFixtures() {
+  Logger.log('collectOppositionFixtures: Saturday collection start');
+  var startTime = Date.now();
+  
+  var teams = loadMasterTeamList();
+  if (!Array.isArray(teams)) {
+    Logger.log('collectOppositionFixtures: failed to load master team list');
+    return { success: false, error: 'Failed to load team list' };
+  }
+
+  var active = teams.filter(function(t) { return !t.archived && t.sheetName; });
+  var teamsProcessed = 0;
+  var totalQueued = 0;
+  var totalSkipped = 0;
+  var results = [];
+
+  for (var i = 0; i < active.length; i++) {
+    var team = active[i];
+    try {
+      var teamDataResult = loadTeamData(team.sheetName);
+      if (!teamDataResult || !teamDataResult.teamData) {
+        Logger.log('collectOppositionFixtures: skipping team (no data) ' + team.teamID);
+        results.push({ teamID: team.teamID, teamName: team.name, upcomingGames: 0, queued: 0, status: 'no_data' });
+        continue;
+      }
+
+      var parsed;
+      try {
+        parsed = JSON.parse(teamDataResult.teamData);
+      } catch (e) {
+        Logger.log('collectOppositionFixtures: skipping team (parse error) ' + team.teamID);
+        results.push({ teamID: team.teamID, teamName: team.name, upcomingGames: 0, queued: 0, status: 'parse_error' });
+        continue;
+      }
+
+      var games = parsed.games || [];
+      var upcoming = games.filter(function(g) { return g.status === 'upcoming'; });
+
+      if (upcoming.length === 0) {
+        Logger.log('collectOppositionFixtures: no upcoming games for team ' + team.teamID);
+        results.push({ teamID: team.teamID, teamName: team.name, upcomingGames: 0, queued: 0, status: 'no_upcoming' });
+        totalSkipped++;
+        continue;
+      }
+
+      teamsProcessed++;
+      var teamQueued = 0;
+
+      // Queue each upcoming game for opposition analysis
+      for (var j = 0; j < upcoming.length; j++) {
+        var game = upcoming[j];
+        var opponent = game.opponent || '';
+        var round = game.round || 0;
+        var gameDate = game.date || '';
+
+        try {
+          var queueResult = queueOppositionAI({
+            teamID: team.teamID,
+            sheetName: team.sheetName,
+            opponent: opponent,
+            round: round,
+            gameDate: gameDate
+          });
+
+          if (queueResult.success && queueResult.queued) {
+            teamQueued++;
+            totalQueued++;
+          }
+        } catch (qErr) {
+          Logger.log('collectOppositionFixtures: error queuing opposition for ' + opponent + ': ' + qErr.message);
+        }
+      }
+
+      results.push({
+        teamID: team.teamID,
+        teamName: team.name,
+        upcomingGames: upcoming.length,
+        queued: teamQueued,
+        status: 'success'
+      });
+      Logger.log('collectOppositionFixtures: team ' + team.teamID + ' — ' + upcoming.length + ' upcoming games, ' + teamQueued + ' queued');
+
+    } catch (e) {
+      Logger.log('collectOppositionFixtures: error processing team ' + team.teamID + ': ' + e.message);
+      results.push({ teamID: team.teamID, teamName: team.name, error: e.message, status: 'error' });
+    }
+  }
+
+  var processingTimeMs = Date.now() - startTime;
+  var msg = 'Collected opposition fixtures from ' + teamsProcessed + ' active teams; queued ' + totalQueued + ' games for AI processing';
+  
+  Logger.log('collectOppositionFixtures: done — ' + msg + ' (' + processingTimeMs + 'ms)');
+  logClientMetric('opposition_fixture_collection', totalQueued, 'system',
+    JSON.stringify({ teamsProcessed: teamsProcessed, totalQueued: totalQueued, processingTimeMs: processingTimeMs }));
+
+  return {
+    success: true,
+    teamsProcessed: teamsProcessed,
+    totalQueued: totalQueued,
+    totalSkipped: totalSkipped,
+    processingTimeMs: processingTimeMs,
+    message: msg,
+    results: results
+  };
+}
+
 // ========================================
 // PATTERN DETECTOR (Phase 3)
 // Reads last N games' eventAnalyzer outputs and identifies multi-game trends.
@@ -3669,7 +4118,7 @@ function setupOppositionTriggers() {
  * @param {boolean} forceRefresh
  * @returns {Object} PatternDetector result
  */
-function generatePatternDetector(teamID, sheetName, forceRefresh) {
+function generatePatternDetector(teamID, sheetName, forceRefresh, teamNameHint) {
   Logger.log('generatePatternDetector: start for ' + teamID);
   var startTime = Date.now();
 
@@ -3717,12 +4166,15 @@ function generatePatternDetector(teamID, sheetName, forceRefresh) {
       ' | Players: ' + (players || 'none');
   }).join('\n');
 
-  // Get team name
-  var teamsList = loadMasterTeamList();
-  var teamName = teamID;
-  for (var i = 0; i < teamsList.length; i++) {
-    if (teamsList[i].teamID === teamID) { teamName = teamsList[i].teamName || teamID; break; }
+  // Get team name — prefer hint passed from frontend (avoids extra loadMasterTeamList call)
+  var teamName = teamNameHint || '';
+  if (!teamName) {
+    var teamsList = loadMasterTeamList();
+    for (var i = 0; i < teamsList.length; i++) {
+      if (teamsList[i].teamID === teamID) { teamName = teamsList[i].name || teamID; break; }
+    }
   }
+  if (!teamName) teamName = teamID;
 
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) return { success: false, error: 'GEMINI_API_KEY not configured' };
@@ -3832,6 +4284,93 @@ function getPatternDetectorCache(teamID) {
   return null;
 }
 
+/**
+ * Get cached Training Correlator output from AI_Knowledge_Base sheet
+ */
+function getTrainingCorrelatorCache(teamID) {
+  try {
+    var ss = getSpreadsheet();
+    var kbSheet = ss.getSheetByName('AI_Knowledge_Base');
+    if (!kbSheet) return null;
+    var data = kbSheet.getDataRange().getValues();
+    var now = new Date();
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      if (row[1] === teamID && row[3] === 'training_correlator' && row[4] === 'ready' && row[6]) {
+        var cacheUntil = row[13] ? new Date(row[13]) : null;
+        if (cacheUntil && cacheUntil > now) {
+          try {
+            return JSON.parse(row[6]);
+          } catch (pe) {
+            Logger.log('getTrainingCorrelatorCache: parse error: ' + pe.message);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('getTrainingCorrelatorCache: error (non-fatal): ' + e.message);
+  }
+  return null;
+}
+
+/**
+ * Get cached Event Analyzer output from AI_Knowledge_Base sheet
+ */
+function getGameAISummaryCache(teamID) {
+  try {
+    var ss = getSpreadsheet();
+    var kbSheet = ss.getSheetByName('AI_Knowledge_Base');
+    if (!kbSheet) return null;
+    var data = kbSheet.getDataRange().getValues();
+    var now = new Date();
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      if (row[1] === teamID && row[3] === 'event_analyzer' && row[4] === 'ready' && row[6]) {
+        var cacheUntil = row[13] ? new Date(row[13]) : null;
+        if (cacheUntil && cacheUntil > now) {
+          try {
+            return JSON.parse(row[6]);
+          } catch (pe) {
+            Logger.log('getGameAISummaryCache: parse error: ' + pe.message);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('getGameAISummaryCache: error (non-fatal): ' + e.message);
+  }
+  return null;
+}
+
+/**
+ * Get cached ladder data from CacheService
+ */
+function getCachedLadderData(teamID) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var cachedKey = 'ladder_' + teamID;
+    var cached = cache.get(cachedKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    Logger.log('getCachedLadderData: error (non-fatal): ' + e.message);
+  }
+  return null;
+}
+
+/**
+ * Get the AI_Knowledge_Base sheet (ensures it exists)
+ */
+function getAIKnowledgeBaseSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('AI_Knowledge_Base');
+  if (!sheet) {
+    sheet = ensureAIKnowledgeBaseSheet();
+  }
+  return sheet;
+}
+
 // ========================================
 // OPPOSITION SCOUTING SYSTEM
 // ========================================
@@ -3910,21 +4449,37 @@ function calculateHeadToHeadHistory(teamData, opponentName) {
   var quarterTotals = { Q1: { us: 0, them: 0 }, Q2: { us: 0, them: 0 }, Q3: { us: 0, them: 0 }, Q4: { us: 0, them: 0 } };
 
   games.forEach(function(g) {
-    var quarters = g.quarters || [];
     var usTotal = 0, themTotal = 0;
     var qNames = ['Q1', 'Q2', 'Q3', 'Q4'];
-    quarters.forEach(function(q, idx) {
-      if (!q) return;
-      var usQ = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
-      var themQ = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
-      usTotal += usQ;
-      themTotal += themQ;
-      var qKey = qNames[idx];
-      if (qKey) {
+
+    if (g.quarterScores) {
+      qNames.forEach(function(qKey) {
+        var q = g.quarterScores[qKey];
+        if (!q) return;
+        var usQ = q.us != null ? parseInt(q.us, 10) : 0;
+        var themQ = q.opponent != null ? parseInt(q.opponent, 10) : 0;
+        if (isNaN(usQ)) usQ = 0;
+        if (isNaN(themQ)) themQ = 0;
+        usTotal += usQ;
+        themTotal += themQ;
         quarterTotals[qKey].us += usQ;
         quarterTotals[qKey].them += themQ;
-      }
-    });
+      });
+    } else {
+      var quarters = g.quarters || [];
+      quarters.forEach(function(q, idx) {
+        if (!q) return;
+        var usQ = (q.ourGsGoals || 0) + (q.ourGaGoals || 0);
+        var themQ = (q.opponentGsGoals || 0) + (q.opponentGaGoals || 0);
+        usTotal += usQ;
+        themTotal += themQ;
+        var qKey = qNames[idx];
+        if (qKey) {
+          quarterTotals[qKey].us += usQ;
+          quarterTotals[qKey].them += themQ;
+        }
+      });
+    }
     if (usTotal > themTotal) { wins++; formChars.push('W'); }
     else if (usTotal < themTotal) { losses++; formChars.push('L'); }
     else { draws++; formChars.push('D'); }
@@ -3953,6 +4508,7 @@ function generateOppositionAnalytics(config) {
 
   var ladderInfo = config.ladderData || {};
   var h2h = config.h2h || {};
+  var ds = config.opponentDivisionStats || null;
 
   var prompt = 'You are a netball analyst. Generate opposition scouting for a team about to play ' + config.opponent + '.\n\n' +
     'CONTEXT:\n' +
@@ -3963,15 +4519,34 @@ function generateOppositionAnalytics(config) {
     '- Opponent ladder position: ' + (ladderInfo.position || 'unknown') + ' of ' + (ladderInfo.totalTeams || 'unknown') + '\n' +
     '- Opponent record: ' + (ladderInfo.wins || 0) + 'W ' + (ladderInfo.losses || 0) + 'L ' + (ladderInfo.draws || 0) + 'D\n' +
     '- Opponent form (recent): ' + (ladderInfo.form || 'unknown') + '\n' +
-    '- H2H history: ' + h2h.wins + 'W ' + h2h.losses + 'L ' + h2h.draws + 'D across ' + h2h.games + ' games\n' +
-    '- H2H quarter totals: Q1 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q1 ? h2h.quarterTotals.Q1.us : 0) +
+    '- H2H history vs us: ' + h2h.wins + 'W ' + h2h.losses + 'L ' + h2h.draws + 'D across ' + h2h.games + ' games\n' +
+    '- H2H quarter totals (cumulative across all H2H games): Q1 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q1 ? h2h.quarterTotals.Q1.us : 0) +
       ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q1 ? h2h.quarterTotals.Q1.them : 0) +
       ' | Q2 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q2 ? h2h.quarterTotals.Q2.us : 0) +
       ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q2 ? h2h.quarterTotals.Q2.them : 0) +
       ' | Q3 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q3 ? h2h.quarterTotals.Q3.us : 0) +
       ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q3 ? h2h.quarterTotals.Q3.them : 0) +
       ' | Q4 us ' + (h2h.quarterTotals && h2h.quarterTotals.Q4 ? h2h.quarterTotals.Q4.us : 0) +
-      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q4 ? h2h.quarterTotals.Q4.them : 0) + '\n\n' +
+      ' them ' + (h2h.quarterTotals && h2h.quarterTotals.Q4 ? h2h.quarterTotals.Q4.them : 0) + '\n' +
+    (ds ? (
+      '\n## OPPONENT\'S FULL SEASON RESULTS (all division games)\n' +
+      '- Season record: ' + ds.wins + 'W ' + ds.losses + 'L ' + ds.draws + 'D from ' + ds.totalGames + ' games\n' +
+      '- Avg goals for: ' + ds.avgGoalsFor + '  Avg goals against: ' + ds.avgGoalsAgainst + '  Avg margin: ' + (ds.avgMargin > 0 ? '+' : '') + ds.avgMargin + '\n' +
+      '- Recent form (last 5): ' + (ds.form || 'unknown') + '\n' +
+      (ds.quarterGames ? (
+        '- Quarter averages (from ' + ds.quarterGames + ' games with quarter data): ' +
+        'Q1 ' + (ds.quarterAverages && ds.quarterAverages.Q1 ? ds.quarterAverages.Q1.for + '-' + ds.quarterAverages.Q1.against : 'n/a') + ' | ' +
+        'Q2 ' + (ds.quarterAverages && ds.quarterAverages.Q2 ? ds.quarterAverages.Q2.for + '-' + ds.quarterAverages.Q2.against : 'n/a') + ' | ' +
+        'Q3 ' + (ds.quarterAverages && ds.quarterAverages.Q3 ? ds.quarterAverages.Q3.for + '-' + ds.quarterAverages.Q3.against : 'n/a') + ' | ' +
+        'Q4 ' + (ds.quarterAverages && ds.quarterAverages.Q4 ? ds.quarterAverages.Q4.for + '-' + ds.quarterAverages.Q4.against : 'n/a') + '\n'
+      ) : '') +
+      (ds.biggestWin ? '- Biggest win: ' + ds.biggestWin.goalsFor + '-' + ds.biggestWin.goalsAgainst + ' (R' + ds.biggestWin.round + ' vs ' + ds.biggestWin.vs + ')\n' : '') +
+      (ds.biggestLoss ? '- Biggest loss: ' + ds.biggestLoss.goalsFor + '-' + ds.biggestLoss.goalsAgainst + ' (R' + ds.biggestLoss.round + ' vs ' + ds.biggestLoss.vs + ')\n' : '') +
+      '- Game-by-game results:\n' +
+      ds.games.map(function(g) {
+        return '  R' + g.round + ' vs ' + g.vs + ': ' + g.result + ' ' + g.goalsFor + '-' + g.goalsAgainst + ' (margin ' + (g.margin > 0 ? '+' : '') + g.margin + ')';
+      }).join('\n') + '\n'
+    ) : '') +
     'Respond with JSON only (no markdown). Schema:\n' +
     '{\n' +
     '  "summary": "2-3 sentence tactical summary for the coach (~300 chars)",\n' +
@@ -4135,6 +4710,710 @@ function queueOppositionAI(jobData) {
  * @param {string|number} round
  * @returns {Object} { success, opponent, round, generated, generatedTimeMs, analytics, message }
  */
+/**
+ * Fetch all division fixtures and extract the opponent's full season record
+ * against every other team. Uses Squadi API (same call as fixture sync).
+ * Returns null if the team has no Squadi config or the fetch fails.
+ *
+ * @param {string} teamID
+ * @param {string} opponentName
+ * @returns {Object|null} {
+ *   games: [{ round, vs, goalsFor, goalsAgainst, margin, result }],
+ *   wins, losses, draws, totalGames,
+ *   avgGoalsFor, avgGoalsAgainst, avgMargin,
+ *   biggestWin, biggestLoss,
+ *   form  // last 5 results, newest last
+ * }
+ */
+function fetchOpponentDivisionStats(teamID, opponentName) {
+  try {
+    // Get team's resultsApi config to find competitionId/divisionId
+    var teams = loadMasterTeamList();
+    var team = null;
+    for (var i = 0; i < teams.length; i++) {
+      if (teams[i].teamID === teamID) { team = teams[i]; break; }
+    }
+    if (!team) return null;
+
+    var config = null;
+    try { config = team.resultsApi ? JSON.parse(team.resultsApi) : null; } catch(e) { return null; }
+    if (!config || config.source !== 'squadi' || !config.competitionId || !config.divisionId) return null;
+
+    Logger.log('fetchOpponentDivisionStats: looking up division fixtures for ' + opponentName);
+
+    // Try sheet cache first (populated by fetchAndStoreDivisionFixtures)
+    var storedMatches = getStoredDivisionFixtures(config.competitionId, config.divisionId);
+    var games = [];
+
+    if (storedMatches && storedMatches.length > 0) {
+      Logger.log('fetchOpponentDivisionStats: using ' + storedMatches.length + ' cached matches from sheet');
+      storedMatches.forEach(function(match) {
+        if (match.status !== 'ENDED') return;
+        var isOpp1 = fuzzyOpponentMatch(match.team1, opponentName);
+        var isOpp2 = fuzzyOpponentMatch(match.team2, opponentName);
+        if (!isOpp1 && !isOpp2) return;
+
+        var goalsFor = isOpp1 ? match.team1Total : match.team2Total;
+        var goalsAgainst = isOpp1 ? match.team2Total : match.team1Total;
+        var vs = isOpp1 ? match.team2 : match.team1;
+
+        if (goalsFor == null || goalsAgainst == null) return;
+
+        var margin = goalsFor - goalsAgainst;
+        var result = margin > 0 ? 'W' : margin < 0 ? 'L' : 'D';
+
+        // Include quarter scores if available
+        var quarters = null;
+        if (isOpp1 && match.team1Q1 != null) {
+          quarters = {
+            team: [match.team1Q1, match.team1Q2, match.team1Q3, match.team1Q4],
+            opp:  [match.team2Q1, match.team2Q2, match.team2Q3, match.team2Q4]
+          };
+        } else if (isOpp2 && match.team2Q1 != null) {
+          quarters = {
+            team: [match.team2Q1, match.team2Q2, match.team2Q3, match.team2Q4],
+            opp:  [match.team1Q1, match.team1Q2, match.team1Q3, match.team1Q4]
+          };
+        }
+
+        games.push({ round: match.round, vs: vs, goalsFor: goalsFor, goalsAgainst: goalsAgainst,
+                     margin: margin, result: result, quarters: quarters });
+      });
+    } else {
+      // Fall back to live API (and store for next time)
+      Logger.log('fetchOpponentDivisionStats: no cached data — fetching from Squadi API');
+      var apiResult = fetchSquadiFixtures(config.competitionId, config.divisionId);
+      if (apiResult.error || !apiResult.rounds) return null;
+
+      // Store for future calls (non-blocking, best-effort)
+      try { fetchAndStoreDivisionFixtures(teamID, false); } catch(e) {}
+
+      apiResult.rounds.forEach(function(round) {
+        var roundNum = parseInt((round.name || '').replace(/[^0-9]/g, ''), 10) || 0;
+        (round.matches || []).forEach(function(match) {
+          if (match.matchStatus !== 'ENDED') return;
+          var t1 = (match.team1 && match.team1.name) || '';
+          var t2 = (match.team2 && match.team2.name) || '';
+          var isOpp1 = fuzzyOpponentMatch(t1, opponentName);
+          var isOpp2 = fuzzyOpponentMatch(t2, opponentName);
+          if (!isOpp1 && !isOpp2) return;
+
+          var goalsFor = isOpp1 ? match.team1Score : match.team2Score;
+          var goalsAgainst = isOpp1 ? match.team2Score : match.team1Score;
+          var vs = isOpp1 ? t2 : t1;
+
+          if (goalsFor == null || goalsAgainst == null) return;
+
+          var margin = goalsFor - goalsAgainst;
+          var result = margin > 0 ? 'W' : margin < 0 ? 'L' : 'D';
+          games.push({ round: roundNum, vs: vs, goalsFor: goalsFor, goalsAgainst: goalsAgainst,
+                       margin: margin, result: result });
+        });
+      });
+    }
+
+    games.sort(function(a, b) { return a.round - b.round; });
+
+    if (games.length === 0) return null;
+
+    var wins = 0, losses = 0, draws = 0;
+    var totalFor = 0, totalAgainst = 0;
+    var biggestWin = null, biggestLoss = null;
+    var quarterTotals = { Q1: { for: 0, against: 0 }, Q2: { for: 0, against: 0 }, Q3: { for: 0, against: 0 }, Q4: { for: 0, against: 0 } };
+    var quarterGames = 0;
+
+    games.forEach(function(g) {
+      totalFor += g.goalsFor;
+      totalAgainst += g.goalsAgainst;
+      if (g.result === 'W') {
+        wins++;
+        if (!biggestWin || g.margin > biggestWin.margin) biggestWin = g;
+      } else if (g.result === 'L') {
+        losses++;
+        if (!biggestLoss || g.margin < biggestLoss.margin) biggestLoss = g;
+      } else {
+        draws++;
+      }
+
+      if (g.quarters && g.quarters.team && g.quarters.opp && g.quarters.team.length >= 4) {
+        quarterGames++;
+        ['Q1', 'Q2', 'Q3', 'Q4'].forEach(function(qKey, idx) {
+          var qFor = parseInt(g.quarters.team[idx], 10);
+          var qAgainst = parseInt(g.quarters.opp[idx], 10);
+          if (isNaN(qFor)) qFor = 0;
+          if (isNaN(qAgainst)) qAgainst = 0;
+          quarterTotals[qKey].for += qFor;
+          quarterTotals[qKey].against += qAgainst;
+        });
+      }
+    });
+
+    var n = games.length;
+    var form = games.slice(-5).map(function(g) { return g.result; }).join('');
+
+    Logger.log('fetchOpponentDivisionStats: ' + opponentName + ' — ' + wins + 'W ' + losses + 'L ' + draws + 'D from ' + n + ' division games');
+
+    var quarterAverages = null;
+    if (quarterGames > 0) {
+      quarterAverages = {
+        Q1: { for: Math.round(quarterTotals.Q1.for / quarterGames * 10) / 10, against: Math.round(quarterTotals.Q1.against / quarterGames * 10) / 10 },
+        Q2: { for: Math.round(quarterTotals.Q2.for / quarterGames * 10) / 10, against: Math.round(quarterTotals.Q2.against / quarterGames * 10) / 10 },
+        Q3: { for: Math.round(quarterTotals.Q3.for / quarterGames * 10) / 10, against: Math.round(quarterTotals.Q3.against / quarterGames * 10) / 10 },
+        Q4: { for: Math.round(quarterTotals.Q4.for / quarterGames * 10) / 10, against: Math.round(quarterTotals.Q4.against / quarterGames * 10) / 10 }
+      };
+    }
+
+    return {
+      games: games,
+      wins: wins,
+      losses: losses,
+      draws: draws,
+      totalGames: n,
+      avgGoalsFor: Math.round(totalFor / n * 10) / 10,
+      avgGoalsAgainst: Math.round(totalAgainst / n * 10) / 10,
+      avgMargin: Math.round((totalFor - totalAgainst) / n * 10) / 10,
+      biggestWin: biggestWin,
+      biggestLoss: biggestLoss,
+      form: form,
+      quarterTotals: quarterTotals,
+      quarterAverages: quarterAverages,
+      quarterGames: quarterGames
+    };
+  } catch (e) {
+    Logger.log('fetchOpponentDivisionStats: failed (non-fatal): ' + e.message);
+    return null;
+  }
+}
+
+// ========================================
+// DIVISION FIXTURES SHEET CACHE
+// Stores all division matches (from Squadi API) so the data only needs
+// to be fetched once per season. Quarter scores populated if endpoint found.
+// ========================================
+
+/**
+ * Ensure the Division_Fixtures sheet exists with correct column headers.
+ * Columns: CompetitionId, DivisionId, MatchId, Round, Team1, Team2,
+ *          Team1Total, Team2Total, T1Q1-Q4, T2Q1-Q4, Status, MatchDate, FetchedAt
+ * @returns {Sheet}
+ */
+function ensureDivisionFixturesSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('Division_Fixtures');
+  if (sheet) return sheet;
+
+  sheet = ss.insertSheet('Division_Fixtures');
+  var headers = [
+    'CompetitionId', 'DivisionId', 'MatchId', 'Round', 'Team1', 'Team2',
+    'Team1Total', 'Team2Total',
+    'Team1Q1', 'Team1Q2', 'Team1Q3', 'Team1Q4',
+    'Team2Q1', 'Team2Q2', 'Team2Q3', 'Team2Q4',
+    'Status', 'MatchDate', 'FetchedAt'
+  ];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  var headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#4a4a4a');
+  headerRange.setFontColor('#ffffff');
+
+  var widths = [110, 100, 90, 60, 150, 150, 80, 80, 60, 60, 60, 60, 60, 60, 60, 60, 90, 120, 150];
+  for (var i = 0; i < widths.length; i++) {
+    sheet.setColumnWidth(i + 1, widths[i]);
+  }
+  sheet.setFrozenRows(1);
+  Logger.log('ensureDivisionFixturesSheet: created Division_Fixtures sheet');
+  return sheet;
+}
+
+/**
+ * Read all stored matches for a competition/division from the sheet.
+ * @param {number|string} competitionId
+ * @param {number|string} divisionId
+ * @returns {Array} Array of match objects, or empty array if none found
+ */
+function getStoredDivisionFixtures(competitionId, divisionId) {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('Division_Fixtures');
+  if (!sheet) return [];
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+
+  var cid = String(competitionId);
+  var did = String(divisionId);
+  var matches = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[0]) !== cid || String(row[1]) !== did) continue;
+    matches.push({
+      matchId: row[2],
+      round: parseInt(row[3], 10) || 0,
+      team1: row[4] || '',
+      team2: row[5] || '',
+      team1Total: row[6] != null ? parseInt(row[6], 10) : null,
+      team2Total: row[7] != null ? parseInt(row[7], 10) : null,
+      team1Q1: row[8] != null && row[8] !== '' ? parseInt(row[8], 10) : null,
+      team1Q2: row[9] != null && row[9] !== '' ? parseInt(row[9], 10) : null,
+      team1Q3: row[10] != null && row[10] !== '' ? parseInt(row[10], 10) : null,
+      team1Q4: row[11] != null && row[11] !== '' ? parseInt(row[11], 10) : null,
+      team2Q1: row[12] != null && row[12] !== '' ? parseInt(row[12], 10) : null,
+      team2Q2: row[13] != null && row[13] !== '' ? parseInt(row[13], 10) : null,
+      team2Q3: row[14] != null && row[14] !== '' ? parseInt(row[14], 10) : null,
+      team2Q4: row[15] != null && row[15] !== '' ? parseInt(row[15], 10) : null,
+      status: row[16] || '',
+      matchDate: row[17] || '',
+      fetchedAt: row[18] || ''
+    });
+  }
+  return matches;
+}
+
+/**
+ * Try to discover a Squadi endpoint that returns quarter-by-quarter scores for a match.
+ * Tries several URL patterns and returns the first successful one with quarter data.
+ * This is a diagnostic/probe tool — run once to discover the endpoint pattern.
+ * @param {number|string} matchId - Squadi match ID (integer)
+ * @returns {Object} { success, endpoint, quarters, rawResponse } or { success: false, tried, error }
+ */
+function probeSquadiMatchDetail(matchId, extra) {
+  extra = extra || {};
+  var roundId = extra.roundId || '';
+  var team1Id = extra.team1Id || '';
+  var team2Id = extra.team2Id || '';
+  var competitionId = extra.competitionId || '';
+  var divisionId = extra.divisionId || '';
+  var competitionKey = extra.competitionKey || '';
+
+  var AUTH_TOKEN = loadAuthToken();
+  var hasAuth = AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE';
+
+  var headersAuth = {
+    'Accept': 'application/json',
+    'Origin': 'https://registration.netballconnect.com',
+    'Referer': 'https://registration.netballconnect.com/',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+  };
+  if (hasAuth) headersAuth['Authorization'] = AUTH_TOKEN;
+
+  // Also try without auth (some endpoints are truly public) — using mobile UA for Squadi WAF bypass
+  var headersNoAuth = {
+    'Accept': 'application/json',
+    'Origin': 'https://registration.netballconnect.com',
+    'Referer': 'https://registration.netballconnect.com/',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+  };
+
+  var base = 'https://api-netball.squadi.com';
+
+  // Build exhaustive candidate list, including round/team-based variants if IDs provided
+  var endpoints = [
+    // CONFIRMED PUBLIC ENDPOINT for period scores (2026-02-25) — Requires proper User-Agent
+    { url: base + '/livescores/matches/periodScores?matchId=' + matchId, auth: false },
+    // Path-based match ID
+    { url: base + '/livescores/match/' + matchId, auth: true },
+    { url: base + '/livescores/match/' + matchId, auth: false },
+    { url: base + '/livescores/matches/' + matchId, auth: true },
+    { url: base + '/livescores/match/detail/' + matchId, auth: true },
+    { url: base + '/livescores/match/' + matchId + '/scores', auth: true },
+    { url: base + '/livescores/match/' + matchId + '/quarters', auth: true },
+    { url: base + '/livescores/match/' + matchId + '/periods', auth: true },
+    { url: base + '/livescores/match/' + matchId + '/result', auth: true },
+    { url: base + '/livescores/match/' + matchId + '/score', auth: true },
+    { url: base + '/livescores/round/match/' + matchId, auth: true },
+    { url: base + '/livescores/round/matches/' + matchId, auth: true },
+    { url: base + '/livescores/round/matches/' + matchId + '/scores', auth: true },
+    { url: base + '/livescores/score/' + matchId, auth: true },
+    { url: base + '/livescores/scores/' + matchId, auth: true },
+    { url: base + '/livescores/matchscore/' + matchId, auth: true },
+    // Query param style (matchId as param)
+    { url: base + '/livescores/match?matchId=' + matchId, auth: true },
+    { url: base + '/livescores/match?id=' + matchId, auth: true },
+    { url: base + '/livescores/scores?matchId=' + matchId, auth: true },
+    { url: base + '/livescores/score?matchId=' + matchId, auth: true },
+    // competitions namespace
+    { url: base + '/competitions/match/' + matchId, auth: true },
+    { url: base + '/competitions/match/' + matchId + '/scores', auth: true },
+    { url: base + '/competitions/game/' + matchId, auth: true },
+    { url: base + '/api/match/' + matchId, auth: true },
+    { url: base + '/api/match/' + matchId + '/scores', auth: true },
+    { url: base + '/api/game/' + matchId, auth: true }
+  ];
+
+  // If roundId provided, try round-scoped variants
+  if (roundId) {
+    endpoints.push({ url: base + '/livescores/round/' + roundId + '/match/' + matchId, auth: true });
+    endpoints.push({ url: base + '/livescores/round/' + roundId + '/matches/' + matchId, auth: true });
+    endpoints.push({ url: base + '/livescores/round/' + roundId + '/scores', auth: true });
+    endpoints.push({ url: base + '/livescores/round/' + roundId + '/match/' + matchId + '/scores', auth: true });
+    // Query param with roundId
+    endpoints.push({ url: base + '/livescores/round/matches?roundId=' + roundId + '&matchId=' + matchId, auth: true });
+    endpoints.push({ url: base + '/livescores/match?roundId=' + roundId + '&matchId=' + matchId, auth: true });
+  }
+
+  // If competitionId + divisionId + matchId — query param combo
+  if (competitionId && divisionId) {
+    endpoints.push({ url: base + '/livescores/round/matches?competitionId=' + competitionId + '&divisionId=' + divisionId + '&matchId=' + matchId, auth: true });
+    endpoints.push({ url: base + '/livescores/match?competitionId=' + competitionId + '&divisionId=' + divisionId + '&matchId=' + matchId, auth: true });
+  }
+
+  // Game Summary endpoint (found 2026-02-25 via Proxyman - may contain quarter breakdowns!)
+  if (competitionKey) {
+    endpoints.push({ url: base + '/livescores/matches/public/gameSummary?matchId=' + matchId + '&competitionUniqueKey=' + competitionKey, auth: true });
+    endpoints.push({ url: base + '/livescores/matches/public/gameSummary?matchId=' + matchId + '&competitionUniqueKey=' + competitionKey, auth: false });
+  }
+
+  // Match Center endpoints (seen in Netball Connect app — has Score Breakdown, Action Log, Player Stats tabs)
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId, auth: false });
+  endpoints.push({ url: base + '/livescores/match-center/' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/matchcenter/' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId + '/scoreBreakdown', auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId + '/score-breakdown', auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId + '/scores', auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter/' + matchId + '/quarters', auth: true });
+  endpoints.push({ url: base + '/matchCenter/' + matchId, auth: true });
+  endpoints.push({ url: base + '/matchCenter/' + matchId, auth: false });
+  endpoints.push({ url: base + '/matchCenter/' + matchId + '/scoreBreakdown', auth: true });
+  endpoints.push({ url: base + '/livescores/scoreBreakdown/' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/scoreBreakdown?matchId=' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/matchCenter?matchId=' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/actionLog/' + matchId, auth: true });
+  endpoints.push({ url: base + '/livescores/playerStats/' + matchId, auth: true });
+
+  var tried = [];
+  var hits200 = []; // All 200s (even without quarter data — useful for narrowing down)
+
+  for (var i = 0; i < endpoints.length; i++) {
+    var ep = endpoints[i];
+    var hdrs = ep.auth ? headersAuth : headersNoAuth;
+    try {
+      var response = UrlFetchApp.fetch(ep.url, {
+        method: 'get',
+        headers: hdrs,
+        muteHttpExceptions: true
+      });
+      var code = response.getResponseCode();
+      var body = response.getContentText();
+      var entry = { url: ep.url, auth: ep.auth, status: code };
+
+      if (code === 200 && body && body.length > 2) {
+        var parsed;
+        try { parsed = JSON.parse(body); } catch(e) {
+          entry.note = 'non-JSON 200';
+          tried.push(entry);
+          continue;
+        }
+
+        var quarters = extractMatchQuarterScores(parsed);
+        entry.preview = body.substring(0, 300);
+        entry.keys = Object.keys(parsed).slice(0, 20); // Top-level keys to see structure
+        entry.hasQuarters = !!quarters;
+        hits200.push(entry);
+
+        if (quarters) {
+          Logger.log('probeSquadiMatchDetail: FOUND quarters at ' + ep.url);
+          return {
+            success: true,
+            endpoint: ep.url,
+            matchId: matchId,
+            quarters: quarters,
+            rawPreview: body.substring(0, 800),
+            tried: tried,
+            hits200: hits200
+          };
+        }
+      } else {
+        entry.preview = body.substring(0, 100);
+        tried.push(entry);
+      }
+    } catch (e) {
+      tried.push({ url: ep.url, auth: ep.auth, error: e.message });
+    }
+  }
+
+  // Return all 200s even if no quarter data — shows which endpoints exist
+  return {
+    success: false,
+    matchId: matchId,
+    hits200: hits200,
+    tried: tried,
+    error: hits200.length > 0
+      ? 'Found ' + hits200.length + ' endpoint(s) returning 200 but none had quarter scores — check hits200[].preview for response structure'
+      : 'No endpoints returned 200 — all returned 4xx/5xx or network errors'
+  };
+}
+
+/**
+ * Extract quarter scores from a Squadi match detail response.
+ * Tries several known response shapes.
+ * @param {Object} data - Parsed JSON from match detail endpoint
+ * @returns {Object|null} { team1: [q1,q2,q3,q4], team2: [q1,q2,q3,q4] } or null
+ */
+function extractMatchQuarterScores(data) {
+  // Shape 0: data IS an array of periods (Squadi periodScores endpoint format)
+  // Returns: [{ period: 1, team1Score: 3, team2Score: 0 }, ...]
+  if (Array.isArray(data) && data.length >= 4) {
+    var t0 = [], t0b = [];
+    for (var z = 0; z < Math.min(4, data.length); z++) {
+      var pe = data[z] || {};
+      t0.push(pe.team1Score !== undefined ? pe.team1Score : (pe.homeScore || pe.team1Goals || 0));
+      t0b.push(pe.team2Score !== undefined ? pe.team2Score : (pe.awayScore || pe.team2Goals || 0));
+    }
+    return normalizeQuarterScores({ team1: t0, team2: t0b });
+  }
+
+  // Shape 1: data.quarters = [{ team1Goals, team2Goals }, ...]
+  if (data.quarters && Array.isArray(data.quarters) && data.quarters.length >= 4) {
+    var t1 = [], t2 = [];
+    for (var i = 0; i < 4; i++) {
+      var q = data.quarters[i] || {};
+      t1.push(q.team1Goals || q.homeGoals || q.homeScore || 0);
+      t2.push(q.team2Goals || q.awayGoals || q.awayScore || 0);
+    }
+    return normalizeQuarterScores({ team1: t1, team2: t2 });
+  }
+
+  // Shape 2: data.periods = [...]
+  if (data.periods && Array.isArray(data.periods) && data.periods.length >= 4) {
+    var t1b = [], t2b = [];
+    for (var j = 0; j < 4; j++) {
+      var p = data.periods[j] || {};
+      t1b.push(p.team1Score || p.homeScore || p.team1Goals || 0);
+      t2b.push(p.team2Score || p.awayScore || p.team2Goals || 0);
+    }
+    return normalizeQuarterScores({ team1: t1b, team2: t2b });
+  }
+
+  // Shape 3: data.match.quarters or data.match.periods
+  if (data.match) {
+    return extractMatchQuarterScores(data.match);
+  }
+
+  // Shape 4: direct quarter fields on response root or nested match object
+  if (data.team1Q1 !== undefined || data.homeQ1 !== undefined) {
+    var prefix1 = data.team1Q1 !== undefined ? 'team1' : 'home';
+    var prefix2 = data.team2Q1 !== undefined ? 'team2' : 'away';
+    return normalizeQuarterScores({
+      team1: [data[prefix1 + 'Q1'] || 0, data[prefix1 + 'Q2'] || 0, data[prefix1 + 'Q3'] || 0, data[prefix1 + 'Q4'] || 0],
+      team2: [data[prefix2 + 'Q1'] || 0, data[prefix2 + 'Q2'] || 0, data[prefix2 + 'Q3'] || 0, data[prefix2 + 'Q4'] || 0]
+    });
+  }
+
+  return null;
+}
+
+function normalizeQuarterScores(quarters) {
+  if (!quarters || !quarters.team1 || !quarters.team2) return quarters;
+
+  return {
+    team1: normalizeCumulativeScores(quarters.team1),
+    team2: normalizeCumulativeScores(quarters.team2)
+  };
+}
+
+function normalizeCumulativeScores(arr) {
+  if (!Array.isArray(arr) || arr.length < 2) return arr;
+
+  var numeric = arr.map(function(value) {
+    var n = parseInt(value, 10);
+    return isNaN(n) ? 0 : n;
+  });
+
+  var isNonDecreasing = true;
+  var hasIncrease = false;
+  for (var i = 1; i < numeric.length; i++) {
+    if (numeric[i] < numeric[i - 1]) {
+      isNonDecreasing = false;
+      break;
+    }
+    if (numeric[i] > numeric[i - 1]) hasIncrease = true;
+  }
+
+  if (!isNonDecreasing || !hasIncrease) return numeric;
+
+  var deltas = [numeric[0]];
+  for (var j = 1; j < numeric.length; j++) {
+    deltas.push(numeric[j] - numeric[j - 1]);
+  }
+
+  return deltas;
+}
+
+/**
+ * Fetch ALL division matches from the Squadi API and store in Division_Fixtures sheet.
+ * On subsequent calls, returns cached data from the sheet (unless forceRefresh=true).
+ * Quarter scores are stored if a match detail endpoint is discovered.
+ *
+ * @param {string} teamID
+ * @param {boolean} forceRefresh - Clear and re-fetch even if data exists
+ * @returns {Object} { success, cached, stored, matchCount, hasQuarters, message }
+ */
+function fetchAndStoreDivisionFixtures(teamID, forceRefresh) {
+  var teams = loadMasterTeamList();
+  var team = null;
+  for (var i = 0; i < teams.length; i++) {
+    if (teams[i].teamID === teamID) { team = teams[i]; break; }
+  }
+  if (!team) return { success: false, error: 'Team not found: ' + teamID };
+
+  var config = null;
+  try { config = team.resultsApi ? JSON.parse(team.resultsApi) : null; } catch(e) {}
+  if (!config || config.source !== 'squadi' || !config.competitionId || !config.divisionId) {
+    return { success: false, error: 'Team has no Squadi config' };
+  }
+
+  var competitionId = config.competitionId;
+  var divisionId = config.divisionId;
+
+  // Check sheet cache first (unless forceRefresh)
+  if (!forceRefresh) {
+    var existing = getStoredDivisionFixtures(competitionId, divisionId);
+    if (existing && existing.length > 0) {
+      Logger.log('fetchAndStoreDivisionFixtures: returning ' + existing.length + ' cached matches');
+      return { success: true, cached: true, matchCount: existing.length, matches: existing,
+               message: 'Using cached data (' + existing.length + ' matches)' };
+    }
+  }
+
+  Logger.log('fetchAndStoreDivisionFixtures: fetching from Squadi API for comp=' + competitionId + ' div=' + divisionId);
+
+  // Fetch all rounds from Squadi
+  var apiResult = fetchSquadiFixtures(competitionId, divisionId);
+  if (apiResult.error) return { success: false, error: apiResult.error };
+
+  var sheet = ensureDivisionFixturesSheet();
+  var now = new Date().toISOString();
+
+  // If forceRefresh, clear existing rows for this comp/div
+  if (forceRefresh) {
+    var allData = sheet.getDataRange().getValues();
+    var rowsToDelete = [];
+    for (var d = allData.length - 1; d >= 1; d--) {
+      if (String(allData[d][0]) === String(competitionId) && String(allData[d][1]) === String(divisionId)) {
+        rowsToDelete.push(d + 1); // 1-indexed sheet row
+      }
+    }
+    // Delete from bottom to avoid row-shift issues
+    for (var dr = 0; dr < rowsToDelete.length; dr++) {
+      sheet.deleteRow(rowsToDelete[dr]);
+    }
+    Logger.log('fetchAndStoreDivisionFixtures: cleared ' + rowsToDelete.length + ' existing rows');
+  }
+
+  // Build rows to insert
+  var rows = [];
+  var endedMatchIds = []; // Collect ended match IDs to probe for quarters
+
+  apiResult.rounds.forEach(function(round) {
+    var roundNum = parseInt((round.name || '').replace(/[^0-9]/g, ''), 10) || 0;
+    (round.matches || []).forEach(function(match) {
+      var matchId = match.matchId || match.id || 0;
+      if (!matchId) return;
+
+      var t1Name = (match.team1 && match.team1.name) || '';
+      var t2Name = (match.team2 && match.team2.name) || '';
+      var t1Total = (match.team1Score != null) ? parseInt(match.team1Score, 10) : null;
+      var t2Total = (match.team2Score != null) ? parseInt(match.team2Score, 10) : null;
+      var status = match.matchStatus || '';
+      var matchDate = match.matchDay || match.scheduledTime || match.date || '';
+
+      if (status === 'ENDED') endedMatchIds.push(matchId);
+
+      rows.push([
+        competitionId, divisionId, matchId, roundNum,
+        t1Name, t2Name, t1Total, t2Total,
+        null, null, null, null, // T1Q1-Q4 (populated after probe)
+        null, null, null, null, // T2Q1-Q4
+        status, matchDate, now
+      ]);
+    });
+  });
+
+  if (rows.length === 0) {
+    return { success: true, stored: 0, matchCount: 0, message: 'No matches found in API response' };
+  }
+
+  // Write base rows (totals only) first
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  Logger.log('fetchAndStoreDivisionFixtures: stored ' + rows.length + ' matches');
+
+  // Probe ONE ended match to check if quarter endpoint exists
+  var hasQuarters = false;
+  var probeEndpoint = null;
+  if (endedMatchIds.length > 0) {
+    var probeResult = probeSquadiMatchDetail(endedMatchIds[0]);
+    if (probeResult && probeResult.success && probeResult.quarters) {
+      hasQuarters = true;
+      probeEndpoint = probeResult.endpoint;
+      Logger.log('fetchAndStoreDivisionFixtures: quarter endpoint found: ' + probeEndpoint);
+      // Store the discovered endpoint in script properties for future use
+      try {
+        PropertiesService.getScriptProperties().setProperty('SQUADI_QUARTER_ENDPOINT', probeEndpoint.replace(String(endedMatchIds[0]), '{matchId}'));
+      } catch(e) {}
+    } else {
+      Logger.log('fetchAndStoreDivisionFixtures: no quarter endpoint found (probe returned: ' + JSON.stringify(probeResult).substring(0, 200) + ')');
+    }
+  }
+
+  return {
+    success: true,
+    cached: false,
+    stored: rows.length,
+    matchCount: rows.length,
+    hasQuarters: hasQuarters,
+    probeEndpoint: probeEndpoint,
+    message: 'Stored ' + rows.length + ' matches' + (hasQuarters ? ' with quarter scores' : ' (totals only — no quarter endpoint found)')
+  };
+}
+
+/**
+ * Fetch and store division fixtures for ALL active teams that have Squadi config.
+ * Skips teams that already have cached data (unless forceRefresh=true).
+ * Safe to run multiple times — idempotent per team.
+ * @param {boolean} forceRefresh
+ * @returns {Object} { success, results: [{ teamID, teamName, ... }], totalStored, skipped }
+ */
+function fetchAllDivisionFixtures(forceRefresh) {
+  var teams = loadMasterTeamList();
+  var results = [];
+  var totalStored = 0;
+  var skipped = 0;
+
+  for (var i = 0; i < teams.length; i++) {
+    var team = teams[i];
+    if (team.archived) continue;
+
+    var config = null;
+    try { config = team.resultsApi ? JSON.parse(team.resultsApi) : null; } catch(e) {}
+    if (!config || config.source !== 'squadi' || !config.competitionId || !config.divisionId) {
+      skipped++;
+      continue;
+    }
+
+    Logger.log('fetchAllDivisionFixtures: processing ' + (team.name || team.teamID));
+    var r = { teamID: team.teamID, teamName: team.name || team.teamID };
+    try {
+      var outcome = fetchAndStoreDivisionFixtures(team.teamID, forceRefresh);
+      r.success = outcome.success;
+      r.cached = outcome.cached || false;
+      r.stored = outcome.stored || 0;
+      r.matchCount = outcome.matchCount || 0;
+      r.hasQuarters = outcome.hasQuarters || false;
+      r.message = outcome.message || outcome.error || '';
+      if (outcome.success) totalStored += (outcome.stored || 0);
+    } catch (e) {
+      r.success = false;
+      r.message = e.message;
+    }
+    results.push(r);
+  }
+
+  Logger.log('fetchAllDivisionFixtures: done — ' + results.length + ' teams processed, ' + totalStored + ' matches stored, ' + skipped + ' skipped (no Squadi config)');
+  return { success: true, results: results, totalStored: totalStored, skipped: skipped };
+}
+
 function generateOppositionInsightsImmediately(teamID, round, gameID) {
   Logger.log('generateOppositionInsightsImmediately: start ' + teamID + ' R' + round + (gameID ? ' gameID=' + gameID : ''));
   var startTime = Date.now();
@@ -4185,17 +5464,26 @@ function generateOppositionInsightsImmediately(teamID, round, gameID) {
     Logger.log('generateOppositionInsightsImmediately: ladder fetch failed (non-fatal): ' + e.message);
   }
 
-  // H2H history
+  // H2H history (our games vs this opponent)
   var h2h = calculateHeadToHeadHistory(teamData, opponent);
+
+  // Full division stats for the opponent (their results vs all other teams)
+  var opponentDivisionStats = null;
+  try {
+    opponentDivisionStats = fetchOpponentDivisionStats(teamID, opponent);
+  } catch (e) {
+    Logger.log('generateOppositionInsightsImmediately: opponentDivisionStats failed (non-fatal): ' + e.message);
+  }
 
   // Generate analytics
   var analyticsResult = generateOppositionAnalytics({
-    teamName: team.teamName || teamID,
+    teamName: team.name || teamID,
     opponent: opponent,
     round: roundNum,
     gameDate: game.date || '',
     ladderData: ladderData || {},
-    h2h: h2h
+    h2h: h2h,
+    opponentDivisionStats: opponentDivisionStats
   });
 
   // Save to sheet
@@ -4275,7 +5563,7 @@ function processOppositionAIQueue() {
       for (var t = 0; t < teams.length; t++) {
         if (teams[t].teamID === job.teamID) { team = teams[t]; break; }
       }
-      var teamName = team ? (team.teamName || job.teamID) : job.teamID;
+      var teamName = team ? (team.name || job.teamID) : job.teamID;
 
       // Fetch fresh ladder
       var ladderData = null;
@@ -4295,13 +5583,17 @@ function processOppositionAIQueue() {
 
       var h2h = calculateHeadToHeadHistory(teamData, job.opponent);
 
+      var oppDivStats = null;
+      try { oppDivStats = fetchOpponentDivisionStats(job.teamID, job.opponent); } catch(e) {}
+
       var analyticsResult = generateOppositionAnalytics({
         teamName: teamName,
         opponent: job.opponent,
         round: job.round,
         gameDate: job.gameDate || '',
         ladderData: ladderData || {},
-        h2h: h2h
+        h2h: h2h,
+        opponentDivisionStats: oppDivStats
       });
 
       saveOppositionScoutingData({
@@ -4382,6 +5674,83 @@ function getOppositionScoutingData(teamID, opponent, round) {
   }
 
   return best;
+}
+
+/**
+ * Curate opposition analytics down to top 5 insights for planner modal.
+ * Strategy: Prioritize vulnerabilities (tactical value) + high confidence + key patterns.
+ * Group priority: D (Vulnerabilities) > A (Quarter Strength) > F (Patterns) > others
+ * @param {Object} fullAnalytics - full 26-insight analytics from generateOppositionAnalytics
+ * @returns {Array} top 5 curated insights in priority order
+ */
+function curateTop5Insights(fullAnalytics) {
+  if (!fullAnalytics || !fullAnalytics.groups) {
+    return [];
+  }
+
+  var groups = fullAnalytics.groups;
+  var prioritized = [];
+
+  // Helper: assign priority score to each insight
+  var scorerFn = function(insight, groupKey) {
+    var baseScore = 0;
+    var confidence = (insight.confidence || 'low').toLowerCase();
+    var confidenceScore = confidence === 'high' ? 3 : confidence === 'medium' ? 2 : 1;
+
+    // Group priority
+    var groupScores = {
+      'D': 100,  // Vulnerabilities (most tactical)
+      'A': 80,   // Quarter Strength (immediate relevance)
+      'F': 70,   // Advanced Patterns (tactical depth)
+      'B': 50,   // Relative Strength
+      'C': 50,   // Efficiency
+      'E': 50,   // Predictive
+      'G': 40    // Situational (least tactical)
+    };
+
+    baseScore = groupScores[groupKey] || 0;
+    return baseScore + (confidenceScore * 5);  // Add confidence tiebreaker
+  };
+
+  // Flatten all insights with their group context and scores
+  Object.keys(groups).forEach(function(groupKey) {
+    var group = groups[groupKey];
+    if (group.insights && Array.isArray(group.insights)) {
+      group.insights.forEach(function(insight) {
+        prioritized.push({
+          insight: insight,
+          groupKey: groupKey,
+          groupLabel: group.label || groupKey,
+          score: scorerFn(insight, groupKey)
+        });
+      });
+    }
+  });
+
+  // Sort by score descending, then by confidence, then by group order
+  prioritized.sort(function(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    var confOrder = { 'high': 0, 'medium': 1, 'low': 2 };
+    var aConf = confOrder[(a.insight.confidence || 'low').toLowerCase()] || 2;
+    var bConf = confOrder[(b.insight.confidence || 'low').toLowerCase()] || 2;
+    if (aConf !== bConf) return aConf - bConf;
+    return 0;
+  });
+
+  // Take top 5, add enriched metadata
+  var curated = prioritized.slice(0, 5).map(function(item) {
+    return {
+      title: item.insight.title,
+      description: item.insight.description,
+      metric: item.insight.metric,
+      confidence: item.insight.confidence,
+      groupKey: item.groupKey,
+      groupLabel: item.groupLabel,
+      priority: item.score
+    };
+  });
+
+  return curated;
 }
 
 // ========================================
@@ -5362,6 +6731,503 @@ function generateTrainingCorrelation(data) {
   }
 
   return { success: true, generatedAt: new Date().toISOString(), correlation: correlation };
+}
+
+/**
+ * PHASE 5: TACTICAL ADVISOR MODULE
+ * 
+ * Generates actionable lineup recommendations by analyzing pattern detector + training correlator outputs.
+ * References previous module outputs instead of raw game data (efficient + authoritative).
+ * Includes quarter-specific strategy guidance.
+ * 
+ * @param {string} teamID - Team identifier
+ * @param {string} sheetName - Spreadsheet name (for data storage)
+ * @param {boolean} forceRefresh - Force regeneration (skip cache)
+ * @param {number} upcomingRound - Round number for which to generate recommendations
+ * @returns {Object} { success, data: { recommendations, quarterStrategy, watchList }, cacheUntil, generatedAt }
+ */
+function generateTacticalAdvisor(teamID, sheetName, forceRefresh, upcomingRound) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+
+  // Check cache first
+  var cachedResult = getTacticalAdvisorCache(teamID);
+  if (cachedResult && !forceRefresh) {
+    return { success: true, cached: true, data: cachedResult.data, cacheUntil: cachedResult.cacheUntil };
+  }
+
+  // Load team data to get context
+  var teamData = loadTeamData(teamID, sheetName);
+  if (!teamData) throw new Error('Team data not found');
+
+  var teamName = teamData.teamName || 'Team';
+  var games = teamData.games || [];
+  var players = teamData.players || [];
+
+  // Get last 5 games for context
+  var recentGames = games.slice(-5).filter(function(g) { 
+    return g.status === 'normal' && g.scores;
+  });
+
+  // Load Pattern Detector output (identifies trends)
+  var patternCache = getPatternDetectorCache(teamID);
+  var patterns = patternCache ? patternCache : null;
+
+  // Load Training Correlator output (identifies what's working)
+  var trainingCache = getTrainingCorrelatorCache(teamID);
+  var trainingCorrelation = trainingCache ? trainingCache : null;
+
+  // Build Tactical Advisor prompt
+  var prompt = getNetballKnowledgePreamble();
+  prompt += '\n\n# TACTICAL ADVISOR — LINEUP RECOMMENDATIONS\n\n';
+  prompt += 'You are an expert netball coach generating specific, actionable lineup recommendations for an upcoming game.\n\n';
+
+  prompt += '## TEAM: ' + teamName + '\n';
+  if (recentGames.length > 0) {
+    var lastGame = recentGames[recentGames.length - 1];
+    prompt += 'Last Game: R' + lastGame.round + ' vs ' + lastGame.opponent + ' (' + 
+      (lastGame.scores ? lastGame.scores.us + '-' + lastGame.scores.opponent : '') + ')\n';
+  }
+  prompt += 'Upcoming Round: ' + upcomingRound + '\n\n';
+
+  // Add Pattern Detector insights
+  if (patterns) {
+    prompt += '## PATTERN INSIGHTS (from last 5 games)\n';
+    if (patterns.patterns && typeof patterns.patterns === 'object') {
+      Object.keys(patterns.patterns).forEach(function(patternType) {
+        var p = patterns.patterns[patternType];
+        prompt += '• ' + patternType + ': ' + p.trend + ' (severity: ' + (p.severity || 'medium') + ')\n';
+        if (p.evidence && p.evidence.length > 0) {
+          prompt += '  Evidence: ' + p.evidence.join('; ') + '\n';
+        }
+      });
+    }
+    if (patterns.playerTrajectories && patterns.playerTrajectories.length > 0) {
+      prompt += '\nPlayer Trajectories:\n';
+      patterns.playerTrajectories.forEach(function(pt) {
+        prompt += '  ' + pt.name + ': ' + pt.trend + ' (' + pt.recentForm + ')\n';
+      });
+    }
+    if (patterns.combinationEffectiveness && patterns.combinationEffectiveness.length > 0) {
+      prompt += '\nCombinations:\n';
+      patterns.combinationEffectiveness.forEach(function(ce) {
+        prompt += '  ' + ce.players.join('-') + ': ' + ce.chemistry_level + '\n';
+      });
+    }
+    prompt += '\n';
+  }
+
+  // Add Training Correlator insights
+  if (trainingCorrelation) {
+    prompt += '## TRAINING EFFECTIVENESS\n';
+    if (trainingCorrelation.teamFocus && trainingCorrelation.teamFocus.length > 0) {
+      prompt += 'Team Focus: ';
+      var focusItems = [];
+      trainingCorrelation.teamFocus.forEach(function(tf) {
+        focusItems.push(tf.issue + ' (' + tf.priority + ', ' + (tf.drills || '') + ')');
+      });
+      prompt += focusItems.join(' | ') + '\n';
+    }
+    if (trainingCorrelation.effectiveness && trainingCorrelation.effectiveness.length > 0) {
+      prompt += 'Status: ';
+      var statusItems = [];
+      trainingCorrelation.effectiveness.forEach(function(eff) {
+        statusItems.push(eff.issue + ' → ' + eff.status);
+      });
+      prompt += statusItems.join(' | ') + '\n';
+    }
+    prompt += '\n';
+  }
+
+  // Add recent game performance
+  if (recentGames.length > 0) {
+    prompt += '## RECENT PERFORMANCE\n';
+    recentGames.forEach(function(g) {
+      prompt += 'R' + g.round + ' vs ' + g.opponent + ': ' + g.scores.us + '-' + g.scores.opponent;
+      if (g.lineup && g.lineup.Q4) {
+        prompt += ' | Q4 notes: ' + (g.lineup.Q4.notes || 'none');
+      }
+      prompt += '\n';
+    });
+    prompt += '\n';
+  }
+
+  // Add player roster
+  if (players.length > 0) {
+    prompt += '## ROSTER\n';
+    prompt += 'Players: ' + players.map(function(p) { return p.name + (p.favPosition ? ' (' + p.favPosition + ')' : ''); }).join(', ') + '\n\n';
+  }
+
+  prompt += '---\n\n';
+  prompt += 'Generate SPECIFIC, ACTIONABLE lineup recommendations in this JSON schema:\n';
+  prompt += '{\n';
+  prompt += '  "recommendations": [\n';
+  prompt += '    { "priority": "high|medium|low", "recommendation": "action (e.g., rotate shooters in Q4)", "rationale": "evidence (e.g., Q4 fatigue pattern)", "evidence": "linked data", "implementation": "specific how-to" }\n';
+  prompt += '  ],\n';
+  prompt += '  "quarterStrategy": {\n';
+  prompt += '    "Q1": "specific tactical guidance (e.g., establish momentum with best lineup)",\n';
+  prompt += '    "Q2": "tactical guidance",\n';
+  prompt += '    "Q3": "tactical guidance",\n';
+  prompt += '    "Q4": "tactical guidance (closing game)"\n';
+  prompt += '  },\n';
+  prompt += '  "watchList": ["metric 1", "metric 2", "metric 3"]\n';
+  prompt += '}\n\n';
+  prompt += 'Rules:\n';
+  prompt += '- Recommendations: 2-4 items, ordered by priority. Must reference patterns detected or training insights.\n';
+  prompt += '- Evidence: Quote specific data from patterns or training (e.g., "Q4 avg -3" or "GS-GA combo 25 goals effective").\n';
+  prompt += '- Implementation: Who? What substitution or role change? When in game?\n';
+  prompt += '- Quarter Strategy: 1-2 sentences per quarter, focused on tactical adjustments needed.\n';
+  prompt += '- Watch List: 2-4 metrics to monitor during game (e.g., "Q4 scoring vs Q3", "Rotation effectiveness").\n';
+  prompt += '- Respond ONLY with the JSON.';
+
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 2000 }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+  if (code !== 200) {
+    try {
+      var errBody = JSON.parse(text);
+      throw new Error('Gemini: ' + (errBody.error && errBody.error.message ? errBody.error.message : text));
+    } catch (pe) { throw new Error('Gemini API error ' + code); }
+  }
+
+  var parsed = JSON.parse(text);
+  var rawText = parsed.candidates[0].content.parts[0].text || '';
+  rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  var tacticalData;
+  try {
+    tacticalData = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error('Gemini returned invalid JSON: ' + rawText.substring(0, 100));
+  }
+
+  // Store in AI_Knowledge_Base sheet
+  saveTacticalAdvisorToSheet(teamID, sheetName, upcomingRound, tacticalData);
+
+  var cacheUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 1 week
+  return {
+    success: true,
+    data: tacticalData,
+    generatedAt: new Date().toISOString(),
+    cacheUntil: cacheUntil,
+    round: upcomingRound
+  };
+}
+
+/**
+ * Retrieve cached Tactical Advisor data from AI_Knowledge_Base sheet
+ */
+function getTacticalAdvisorCache(teamID) {
+  var sheet = getAIKnowledgeBaseSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row[1] === teamID && row[5] === 'tactical_advisor') {
+      var cacheUntil = new Date(row[13]);
+      if (new Date() < cacheUntil && row[6]) {
+        try {
+          return {
+            data: JSON.parse(row[6]),
+            cacheUntil: row[13]
+          };
+        } catch (e) {
+          // Continue searching if parse fails
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Save Tactical Advisor output to AI_Knowledge_Base sheet
+ */
+function saveTacticalAdvisorToSheet(teamID, sheetName, round, tacticalData) {
+  var sheet = getAIKnowledgeBaseSheet();
+  var now = new Date().toISOString();
+  var cacheUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  
+  sheet.appendRow([
+    now,              // Timestamp
+    teamID,           // TeamID
+    '',               // GameID (not applicable for tactical advisor)
+    'tactical_advisor', // ModuleType
+    'ready',          // Status
+    'tactical_R' + round, // GameDataHash (for tactical, use round identifier)
+    JSON.stringify(tacticalData), // OutputJSON
+    'gemini-2.0-flash', // ModelUsed
+    '',               // TokensUsed (could be populated from API response)
+    '',               // ProcessingTimeMs
+    '1',              // Attempts
+    '',               // LastError
+    '1.0',            // Version
+    cacheUntil,       // CacheUntil
+    'Generated for R' + round // Notes
+  ]);
+}
+
+/**
+ * PHASE 6: SEASON STRATEGIST MODULE
+ * 
+ * Generates comprehensive season-level strategic analysis by synthesizing all module outputs.
+ * Includes competition context (ladder position) and mental resilience guidance.
+ * Uses gemini-1.5-pro for complex multi-source reasoning.
+ * 
+ * @param {string} teamID - Team identifier
+ * @param {string} sheetName - Spreadsheet name (for data storage)
+ * @param {boolean} forceRefresh - Force regeneration (skip cache)
+ * @returns {Object} { success, data: { competitivePosition, strengths, vulnerabilities, mentality }, cacheUntil, generatedAt }
+ */
+function generateSeasonStrategist(teamID, sheetName, forceRefresh) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+
+  // Check cache first
+  var cachedResult = getSeasonStrategistCache(teamID);
+  if (cachedResult && !forceRefresh) {
+    return { success: true, cached: true, data: cachedResult.data, cacheUntil: cachedResult.cacheUntil };
+  }
+
+  // Load team data
+  var teamData = loadTeamData(teamID, sheetName);
+  if (!teamData) throw new Error('Team data not found');
+
+  var teamName = teamData.teamName || 'Team';
+  var games = teamData.games || [];
+  
+  // Calculate season record
+  var wins = 0, losses = 0, draws = 0;
+  games.forEach(function(g) {
+    if (g.status === 'normal' && g.scores) {
+      if (g.scores.us > g.scores.opponent) wins++;
+      else if (g.scores.us < g.scores.opponent) losses++;
+      else draws++;
+    }
+  });
+
+  // Load all cached AI module outputs for synthesis
+  var eventAnalyzer = getGameAISummaryCache(teamID);
+  var patternDetector = getPatternDetectorCache(teamID);
+  var trainingCorrelator = getTrainingCorrelatorCache(teamID);
+  var tacticalAdvisor = getTacticalAdvisorCache(teamID, sheetName);
+
+  // Get ladder position for context
+  var ladderData = getCachedLadderData(teamID);
+
+  // Build Season Strategist prompt
+  var prompt = getNetballKnowledgePreamble();
+  prompt += '\n\n# SEASON STRATEGIST — STRATEGIC OVERVIEW\n\n';
+  prompt += 'You are an expert netball coach synthesizing season data to provide strategic direction and competitive context.\n\n';
+
+  prompt += '## SEASON RECORD\n';
+  prompt += teamName + ': ' + wins + 'W-' + losses + 'L-' + draws + 'D';
+  if (games.length > 0) {
+    prompt += ' (' + (wins + losses + draws) + ' games played)\n';
+  }
+  prompt += '\n';
+
+  // Add ladder context if available
+  if (ladderData && ladderData.teams && ladderData.teams.length > 0) {
+    var teamLadder = null;
+    ladderData.teams.forEach(function(t) {
+      if (fuzzyOpponentMatch(t.name || '', teamName)) {
+        teamLadder = t;
+      }
+    });
+    if (teamLadder) {
+      prompt += '## COMPETITIVE POSITION\n';
+      prompt += 'Ladder: ' + teamLadder.position + ' of ' + ladderData.teams.length + '\n';
+      prompt += 'Points: ' + (teamLadder.points || 'N/A') + '\n';
+      if (teamLadder.points !== undefined && ladderData.teams.length > 0) {
+        var topPoints = ladderData.teams[0].points || 0;
+        var lastPoints = ladderData.teams[ladderData.teams.length - 1].points || 0;
+        var pointsRange = topPoints - lastPoints;
+        var ourPoints = teamLadder.points || 0;
+        var percentile = pointsRange > 0 ? Math.round((1 - (topPoints - ourPoints) / pointsRange) * 100) : 50;
+        prompt += 'Strength: Top ' + percentile + '% of competition\n';
+      }
+      prompt += '\n';
+    }
+  }
+
+  // Summarize each module's output
+  if (patternDetector) {
+    prompt += '## PATTERNS DETECTED\n';
+    if (patternDetector.patterns && typeof patternDetector.patterns === 'object') {
+      var patternCount = 0;
+      Object.keys(patternDetector.patterns).forEach(function(patternType) {
+        if (patternCount < 3) {
+          var p = patternDetector.patterns[patternType];
+          prompt += '• ' + patternType + ': ' + p.trend + '\n';
+          patternCount++;
+        }
+      });
+    }
+    prompt += '\n';
+  }
+
+  if (trainingCorrelator) {
+    prompt += '## TRAINING IMPACT\n';
+    if (trainingCorrelator.teamFocus && trainingCorrelator.teamFocus.length > 0) {
+      var bestImprovement = trainingCorrelator.teamFocus[0];
+      prompt += 'Primary focus: ' + bestImprovement.issue + ' (Priority: ' + bestImprovement.priority + ')\n';
+    }
+    if (trainingCorrelator.effectiveness && trainingCorrelator.effectiveness.length > 0) {
+      var improving = trainingCorrelator.effectiveness.filter(function(e) { return e.status === 'improving'; });
+      if (improving.length > 0) {
+        prompt += 'Improving: ' + improving.map(function(i) { return i.issue; }).join(', ') + '\n';
+      }
+    }
+    prompt += '\n';
+  }
+
+  if (tacticalAdvisor) {
+    prompt += '## TACTICAL RECOMMENDATIONS\n';
+    if (tacticalAdvisor.recommendations && tacticalAdvisor.recommendations.length > 0) {
+      var highPriority = tacticalAdvisor.recommendations.filter(function(r) { return r.priority === 'high'; });
+      if (highPriority.length > 0) {
+        prompt += 'High priority: ' + highPriority.map(function(h) { return h.recommendation; }).join('; ') + '\n';
+      }
+    }
+    prompt += '\n';
+  }
+
+  prompt += '---\n\n';
+  prompt += 'Generate a strategic overview in this JSON schema:\n';
+  prompt += '{\n';
+  prompt += '  "competitivePosition": {\n';
+  prompt += '    "ladder": "string (e.g., 4th of 12)",\n';
+  prompt += '    "trend": "improving|stable|declining",\n';
+  prompt += '    "realisticGoal": "string (e.g., Top 4 finish)",\n';
+  prompt += '    "path": "string (e.g., Need 3+ wins from 5 remaining)"\n';
+  prompt += '  },\n';
+  prompt += '  "strengths": [\n';
+  prompt += '    { "strength": "string", "tacticalUse": "how to maximize this" }\n';
+  prompt += '  ],\n';
+  prompt += '  "vulnerabilities": [\n';
+  prompt += '    { "vulnerability": "string", "severity": "high|medium|low", "timeline": "when it matters", "mitigation": "how to address" }\n';
+  prompt += '  ],\n';
+  prompt += '  "mentality": "string (1-2 sentences on mental focus for rest of season)"\n';
+  prompt += '}\n\n';
+  prompt += 'Rules:\n';
+  prompt += '- competitivePosition.ladder: Based on current ladder data if available, otherwise estimate from record.\n';
+  prompt += '- trend: Is team moving up/down/stable in ladder or record?\n';
+  prompt += '- realisticGoal: Achievable goal based on current position and remaining fixtures.\n';
+  prompt += '- path: How many wins needed, which teams to beat, what needs to happen.\n';
+  prompt += '- strengths: 2-3 items, each with specific tactical application.\n';
+  prompt += '- vulnerabilities: 2-3 items, each with severity and concrete mitigation.\n';
+  prompt += '- mentality: Focus on psychological resilience (e.g., "Focus on our game execution, control what we control, build momentum").\n';
+  prompt += '- Respond ONLY with the JSON.';
+
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2500 }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+  if (code !== 200) {
+    try {
+      var errBody = JSON.parse(text);
+      throw new Error('Gemini: ' + (errBody.error && errBody.error.message ? errBody.error.message : text));
+    } catch (pe) { throw new Error('Gemini API error ' + code); }
+  }
+
+  var parsed = JSON.parse(text);
+  var rawText = parsed.candidates[0].content.parts[0].text || '';
+  rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  var strategistData;
+  try {
+    strategistData = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error('Gemini returned invalid JSON: ' + rawText.substring(0, 100));
+  }
+
+  // Store in AI_Knowledge_Base sheet
+  saveSeasonStrategistToSheet(teamID, sheetName, strategistData);
+
+  var cacheUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 2 weeks
+  return {
+    success: true,
+    data: strategistData,
+    generatedAt: new Date().toISOString(),
+    cacheUntil: cacheUntil
+  };
+}
+
+/**
+ * Retrieve cached Season Strategist data from AI_Knowledge_Base sheet
+ */
+function getSeasonStrategistCache(teamID) {
+  var sheet = getAIKnowledgeBaseSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row[1] === teamID && row[5] === 'season_strategist') {
+      var cacheUntil = new Date(row[13]);
+      if (new Date() < cacheUntil && row[6]) {
+        try {
+          return {
+            data: JSON.parse(row[6]),
+            cacheUntil: row[13]
+          };
+        } catch (e) {
+          // Continue searching if parse fails
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Save Season Strategist output to AI_Knowledge_Base sheet
+ */
+function saveSeasonStrategistToSheet(teamID, sheetName, strategistData) {
+  var sheet = getAIKnowledgeBaseSheet();
+  var now = new Date().toISOString();
+  var cacheUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  
+  sheet.appendRow([
+    now,              // Timestamp
+    teamID,           // TeamID
+    '',               // GameID (not applicable for season strategy)
+    'season_strategist', // ModuleType
+    'ready',          // Status
+    'season_strategy', // GameDataHash
+    JSON.stringify(strategistData), // OutputJSON
+    'gemini-1.5-pro', // ModelUsed
+    '',               // TokensUsed
+    '',               // ProcessingTimeMs
+    '1',              // Attempts
+    '',               // LastError
+    '1.0',            // Version
+    cacheUntil,       // CacheUntil
+    'Season strategic overview' // Notes
+  ]);
 }
 
 // --- Admin convenience functions (owner-only) ---
@@ -6411,4 +8277,523 @@ function clearApplicationLogs(type) {
     logError('CLEAR_LOGS', e.message, { type: type });
     return { success: false, error: e.message };
   }
+}
+
+/**
+ * BACKFILL: Fetch quarter scores for ALL games of ALL teams across all divisions.
+ * Queries Squadi API for each game and stores quarter data in game objects.
+ * Safe to run multiple times (skips games that already have quarter data).
+ *
+ * @param {boolean} forceRefresh - Force re-fetch even if quarters exist (false = skip games with data)
+ * @returns {Object} Summary with stats on backfilled games
+ */
+function backfillQuarterScoresAllTeams(forceRefresh) {
+  forceRefresh = forceRefresh === true; // Explicit true only
+  
+  var teams = loadMasterTeamList();
+  var summary = {
+    teamsProcessed: 0,
+    gamesProcessed: 0,
+    gamesWithQuarters: 0,
+    quartersFetched: 0,
+    errors: [],
+    teamResults: []
+  };
+
+  Logger.log('=== BACKFILL START: ' + teams.length + ' teams ===');
+
+  teams.forEach(function(team) {
+    if (team.archived) return; // Skip archived teams
+    
+    var result = backfillQuarterScoresForTeam(team.teamID, team.sheetName, forceRefresh);
+    summary.teamsProcessed++;
+    summary.gamesProcessed += result.gamesProcessed || 0;
+    summary.gamesWithQuarters += result.gamesWithQuarters || 0;
+    summary.quartersFetched += result.quartersFetched || 0;
+    
+    if (result.errors && result.errors.length > 0) {
+      summary.errors = summary.errors.concat(result.errors);
+    }
+    
+    var displayName = team.teamName || team.name || team.teamID || 'Unknown';
+    summary.teamResults.push({
+      teamID: team.teamID,
+      teamName: displayName,
+      sheetName: team.sheetName,
+      gamesProcessed: result.gamesProcessed || 0,
+      quartersFetched: result.quartersFetched || 0,
+      success: result.success
+    });
+    
+    Logger.log('Team ' + displayName + ': ' + (result.quartersFetched || 0) + ' quarters fetched, ' + (result.gamesProcessed || 0) + ' games checked');
+  });
+
+  Logger.log('=== BACKFILL COMPLETE ===');
+  Logger.log('Teams: ' + summary.teamsProcessed + ', Games: ' + summary.gamesProcessed + ', Quarters Fetched: ' + summary.quartersFetched);
+  
+  return summary;
+}
+
+/**
+ * BACKFILL: For a single team, fetch quarter scores for all games.
+ *
+ * @param {string} teamID
+ * @param {string} sheetName
+ * @param {boolean} forceRefresh
+ * @returns {Object} { success, gamesProcessed, quartersFetched, errors }
+ */
+function backfillQuarterScoresForTeam(teamID, sheetName, forceRefresh) {
+  var result = {
+    success: false,
+    gamesProcessed: 0,
+    gamesWithQuarters: 0,
+    quartersFetched: 0,
+    errors: []
+  };
+
+  if (!teamID || !sheetName) {
+    result.errors.push('Invalid teamID or sheetName');
+    return result;
+  }
+
+  // Load team data
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    result.errors.push('Sheet not found: ' + sheetName);
+    return result;
+  }
+
+  var teamDataStr = sheet.getRange('A1').getValue();
+  if (!teamDataStr) {
+    result.errors.push('Team data not found in ' + sheetName);
+    return result;
+  }
+
+  var teamData;
+  try {
+    teamData = JSON.parse(teamDataStr);
+  } catch(e) {
+    result.errors.push('Failed to parse team data: ' + e.message);
+    return result;
+  }
+
+  if (!teamData.games || teamData.games.length === 0) {
+    result.success = true;
+    return result;
+  }
+
+  // Process each game
+  var updated = false;
+  var updateCount = 0;
+
+  teamData.games.forEach(function(game, idx) {
+    result.gamesProcessed++;
+
+    // Skip upcoming/bye/abandoned games
+    if (game.status === 'upcoming' || game.status === 'bye' || game.status === 'abandoned' || game.status === 'forfeit') {
+      return;
+    }
+
+    // Skip if already has quarter data and not forcing refresh
+    if (!forceRefresh && game.quarterScores && Object.keys(game.quarterScores).length > 0) {
+      result.gamesWithQuarters++;
+      return;
+    }
+
+    // Try to get fixtureMatchId from game
+    var matchId = game.fixtureMatchId;
+    if (!matchId) {
+      // Try to infer from fixture data if available
+      return; // Can't fetch without match ID
+    }
+
+    // Fetch quarter scores from Squadi
+    var probeResult = probeSquadiMatchDetail(matchId);
+    var quarters = probeResult && probeResult.quarters ? probeResult.quarters : probeResult;
+    if (quarters && quarters.team1 && quarters.team1.length === 4) {
+      // Successfully fetched quarters
+      game.quarterScores = {
+        Q1: { us: quarters.team1[0], opponent: quarters.team2[0] },
+        Q2: { us: quarters.team1[1], opponent: quarters.team2[1] },
+        Q3: { us: quarters.team1[2], opponent: quarters.team2[2] },
+        Q4: { us: quarters.team1[3], opponent: quarters.team2[3] }
+      };
+
+      result.quartersFetched++;
+      updateCount++;
+      updated = true;
+
+      Logger.log('  Game ' + game.round + ' vs ' + game.opponent + ': Q1 ' + quarters.team1[0] + '-' + quarters.team2[0] + 
+                 ', Q2 ' + quarters.team1[1] + '-' + quarters.team2[1] + 
+                 ', Q3 ' + quarters.team1[2] + '-' + quarters.team2[2] + 
+                 ', Q4 ' + quarters.team1[3] + '-' + quarters.team2[3]);
+    }
+  });
+
+  // Save team data if we updated anything
+  if (updated) {
+    teamData._lastModified = Date.now();
+    sheet.getRange('A1').setValue(JSON.stringify(teamData));
+    Logger.log('Saved team data with ' + updateCount + ' games updated');
+  }
+
+  result.success = true;
+  return result;
+}
+
+
+
+/**
+ * SCOUTING: Backfill Division_Fixtures sheet with quarter scores for all games.
+ * This populates the sheet that AI opposition scouting reads from, enabling AI to use quarter data.
+ *
+ * @param {boolean} forceRefresh - Force re-fetch all games (default false)
+ * @returns {Object} Summary of backfilled games
+ */
+function backfillDivisionScoutingAllDivisions(forceRefresh) {
+  forceRefresh = forceRefresh === true;
+  
+  var teams = loadMasterTeamList();
+  var divisions = {}; // Map: competitionId_divisionId → {competitionId, divisionId, teams}
+  
+  // Collect all unique divisions your teams compete in
+  teams.forEach(function(team) {
+    if (team.archived) return;
+    
+    var config = null;
+    try { config = team.resultsApi ? JSON.parse(team.resultsApi) : null; } catch(e) {}
+    
+    if (!config || config.source !== 'squadi' || !config.competitionId || !config.divisionId) {
+      return; // Skip teams without Squadi config
+    }
+    
+    var key = config.competitionId + '_' + config.divisionId;
+    if (!divisions[key]) {
+      divisions[key] = {
+        competitionId: config.competitionId,
+        divisionId: config.divisionId,
+        competitionKey: config.competitionKey || '',
+        teams: []
+      };
+    }
+    divisions[key].teams.push(team);
+  });
+  
+  Logger.log('Found ' + Object.keys(divisions).length + ' unique divisions to scout');
+  
+  var summary = {
+    divisionsProcessed: 0,
+    totalGamesProcessed: 0,
+    totalGamesSaved: 0,
+    totalQuartersFetched: 0,
+    errors: []
+  };
+  
+  // Backfill each division
+  Object.keys(divisions).forEach(function(key) {
+    var divInfo = divisions[key];
+    var result = backfillDivisionScoutingForDivision(
+      divInfo.competitionId,
+      divInfo.divisionId,
+      divInfo.competitionKey || '',
+      forceRefresh
+    );
+    
+    summary.divisionsProcessed++;
+    summary.totalGamesProcessed += result.gamesProcessed || 0;
+    summary.totalGamesSaved += result.gamesSaved || 0;
+    summary.totalQuartersFetched += result.quartersFetched || 0;
+    
+    if (result.errors && result.errors.length > 0) {
+      summary.errors = summary.errors.concat(result.errors);
+    }
+    
+    Logger.log('Division ' + divInfo.competitionId + '-' + divInfo.divisionId + 
+               ': saved ' + (result.gamesSaved || 0) + ' games, ' + (result.quartersFetched || 0) + ' with quarters | ' +
+               'skipped: ' + (result.skippedBye || 0) + ' bye, ' + (result.skippedNotEnded || 0) + ' not ended, ' +
+               (result.skippedNoQuarters || 0) + ' no quarter data');
+  });
+  
+  Logger.log('=== SCOUTING COMPLETE ===');
+  Logger.log('Divisions: ' + summary.divisionsProcessed + ', Saved: ' + summary.totalGamesSaved + 
+             ' games (' + summary.totalQuartersFetched + ' with quarters)');
+  
+  return summary;
+}
+
+/**
+ * SCOUTING: For one division, fetch all games and quarter scores.
+ *
+ * @param {number} competitionId
+ * @param {number} divisionId
+ * @param {boolean} forceRefresh
+ * @returns {Object} { gamesProcessed, quartersFetched, errors }
+ */
+function backfillDivisionScoutingForDivision(competitionId, divisionId, competitionKey, forceRefresh) {
+  Logger.log('backfillDivisionScoutingForDivision: comp=' + competitionId + ', div=' + divisionId + ', forceRefresh=' + forceRefresh);
+  
+  var result = {
+    gamesProcessed: 0,        // Total matches found (including byes)
+    gamesSaved: 0,            // Rows actually added to sheet
+    quartersFetched: 0,       // Ended games with quarter data
+    skippedBye: 0,           // Bye games (not saved)
+    skippedNotEnded: 0,      // Games saved but not yet ended (quarters pending)
+    skippedNoQuarters: 0,    // Ended games but no quarter data in Squadi
+    errors: []
+  };
+  
+  if (!competitionId || !divisionId) {
+    result.errors.push('Invalid competitionId or divisionId');
+    return result;
+  }
+  
+  // Fetch all games in this division from Squadi
+  Logger.log('Fetching division games: comp=' + competitionId + ', div=' + divisionId);
+  
+  var apiResult = fetchSquadiFixtures(competitionId, divisionId);
+  if (apiResult.error) {
+    result.errors.push('Squadi API error: ' + apiResult.error);
+    return result;
+  }
+  
+  Logger.log('Fixture returned ' + (apiResult.rounds || []).length + ' rounds');
+  
+  var sheet = ensureDivisionFixturesSheet();
+  var now = new Date().toISOString();
+  
+  // Load existing rows for this division to avoid duplicates
+  var allData = sheet.getDataRange().getValues();
+  var existingMatchIds = {};
+  for (var e = 1; e < allData.length; e++) {
+    var existingRow = allData[e];
+    if (String(existingRow[0]) === String(competitionId) && String(existingRow[1]) === String(divisionId)) {
+      existingMatchIds[String(existingRow[2])] = e + 1; // matchId (col 2) → row number (1-indexed)
+    }
+  }
+  
+  // If forceRefresh, delete existing rows for this division
+  if (forceRefresh) {
+    var rowsToDelete = Object.keys(existingMatchIds).map(function(k) { return existingMatchIds[k]; }).sort(function(a,b) { return b - a; });
+    for (var dr = 0; dr < rowsToDelete.length; dr++) {
+      sheet.deleteRow(rowsToDelete[dr]);
+    }
+    Logger.log('Cleared ' + rowsToDelete.length + ' existing rows for this division');
+    existingMatchIds = {}; // Reset tracking
+  } else {
+    Logger.log('Not forcing refresh - will skip ' + Object.keys(existingMatchIds).length + ' existing matches');
+  }
+  
+  // Process each game in each round
+  (apiResult.rounds || []).forEach(function(round) {
+    var roundNum = parseInt((round.name || '').replace(/[^0-9]/g, ''), 10) || 0;
+    var matchCount = (round.matches || []).length;
+    Logger.log('Round ' + roundNum + ': ' + matchCount + ' matches');
+    
+    (round.matches || []).forEach(function(match) {
+      var matchId = match.matchId || match.id;
+      if (!matchId) {
+        Logger.log('  Match with no ID - skipping');
+        return;
+      }
+      
+      result.gamesProcessed++;
+      
+      var team1Name = (match.team1 && match.team1.name) || '';
+      var team2Name = (match.team2 && match.team2.name) || '';
+      var team1Total = (match.team1Score != null) ? parseInt(match.team1Score, 10) : null;
+      var team2Total = (match.team2Score != null) ? parseInt(match.team2Score, 10) : null;
+      var status = match.matchStatus || '';
+      var matchDate = match.matchDay || match.scheduledTime || match.date || '';
+      
+      // Skip Bye games (no real match data)
+      if (team1Name.toLowerCase().indexOf('bye') >= 0 || team2Name.toLowerCase().indexOf('bye') >= 0) {
+        result.skippedBye++;
+        Logger.log('  Match ' + matchId + ': ' + team1Name + ' vs ' + team2Name + ' (BYE - skipped)');
+        return;
+      }
+      
+      // Skip if already exists (unless forceRefresh)
+      if (existingMatchIds[String(matchId)]) {
+        Logger.log('  Match ' + matchId + ': ' + team1Name + ' vs ' + team2Name + ' (duplicate - skipped)');
+        return;
+      }
+      
+      // Create row for Division_Fixtures sheet format
+      // Cols: competitionId, divisionId, matchId, round, team1, team2, team1Total, team2Total,
+      //       team1Q1, team1Q2, team1Q3, team1Q4, team2Q1, team2Q2, team2Q3, team2Q4,
+      //       status, matchDate, fetchedAt
+      var row = [
+        competitionId,
+        divisionId,
+        matchId,
+        roundNum,
+        team1Name,
+        team2Name,
+        team1Total,
+        team2Total,
+        null, null, null, null,  // team1 Q1-Q4 (will fill below if available)
+        null, null, null, null,  // team2 Q1-Q4
+        status,
+        matchDate,
+        now
+      ];
+      
+      // Only try to fetch quarters for ended games with scores
+      var isEnded = status === 'ENDED' && team1Total != null && team2Total != null;
+      
+      if (isEnded) {
+        // Add small delay to avoid rate limiting (100ms between requests)
+        Utilities.sleep(100);
+        
+        // Fetch quarter scores with full context
+        var probeResult = probeSquadiMatchDetail(matchId, {
+          competitionId: competitionId,
+          divisionId: divisionId,
+          competitionKey: competitionKey,
+          roundId: match.roundId || '',
+          team1Id: (match.team1 && match.team1.id) || '',
+          team2Id: (match.team2 && match.team2.id) || ''
+        });
+        var quarters = probeResult && probeResult.quarters ? probeResult.quarters : probeResult;
+        
+        // Fill in quarter scores if available
+        // Handle both { team1: [...], team2: [...] } and { success, quarters: {...} } shapes
+        var t1Arr = quarters && quarters.team1;
+        var t2Arr = quarters && quarters.team2;
+        
+        if (t1Arr && t2Arr && t1Arr.length >= 4 && t2Arr.length >= 4) {
+          row[8] = t1Arr[0];   // team1 Q1
+          row[9] = t1Arr[1];   // team1 Q2
+          row[10] = t1Arr[2];  // team1 Q3
+          row[11] = t1Arr[3];  // team1 Q4
+          row[12] = t2Arr[0];  // team2 Q1
+          row[13] = t2Arr[1];  // team2 Q2
+          row[14] = t2Arr[2];  // team2 Q3
+          row[15] = t2Arr[3];  // team2 Q4
+          
+          result.quartersFetched++;
+          
+          Logger.log('  R' + roundNum + ': ' + team1Name + ' ' + t1Arr.join('-') + ' vs ' + 
+                     team2Name + ' ' + t2Arr.join('-'));
+        } else {
+          result.skippedNoQuarters++;
+          Logger.log('  R' + roundNum + ': ' + team1Name + ' vs ' + team2Name + ' (ended, no quarter data)');
+        }
+      } else {
+        result.skippedNotEnded++;
+        Logger.log('  R' + roundNum + ': ' + team1Name + ' vs ' + team2Name + ' (' + status + ', quarters pending)');
+      }
+      
+      // Always append the row (with or without quarter scores)
+      result.gamesSaved++;
+      sheet.appendRow(row);
+    });
+  });
+  
+  return result;
+}
+
+/**
+ * SCOUTING: Get all games vs a specific opponent across the season for scouting.
+ *
+ * @param {string} opponentName - Name of opponent to search for
+ * @returns {Array} Matching rows from DivisionScouting sheet
+ */
+function getOpponentScoutingData(opponentName) {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('DivisionScouting');
+  if (!sheet) return [];
+  
+  var data = sheet.getDataRange().getValues();
+  data.shift(); // Skip header
+  
+  var matches = [];
+  data.forEach(function(row) {
+    var teamA = String(row[3] || '').toLowerCase();
+    var teamB = String(row[4] || '').toLowerCase();
+    var search = opponentName.toLowerCase();
+    
+    if (teamA.includes(search) || teamB.includes(search)) {
+      matches.push({
+        round: row[2],
+        teamA: row[3],
+        teamB: row[4],
+        date: row[5],
+        quarters: {
+          Q1: { A: row[6], B: row[7] },
+          Q2: { A: row[8], B: row[9] },
+          Q3: { A: row[10], B: row[11] },
+          Q4: { A: row[12], B: row[13] }
+        },
+        final: { A: row[14], B: row[15] },
+        matchId: row[16]
+      });
+    }
+  });
+  
+  return matches;
+}
+
+/**
+ * SCOUTING: Analyze opponent trends across all their games in the division.
+ *
+ * @param {string} opponentName
+ * @returns {Object} Opponent analysis with trends
+ */
+function analyzeOpponentTrends(opponentName) {
+  var games = getOpponentScoutingData(opponentName);
+  
+  if (games.length === 0) {
+    return { error: 'No games found for opponent: ' + opponentName };
+  }
+  
+  // Find if this team is Team A or Team B in each game
+  var stats = {
+    opponentName: opponentName,
+    gamesAnalyzed: games.length,
+    totalWins: 0,
+    totalLosses: 0,
+    totalDraws: 0,
+    avgScoreFor: 0,
+    avgScoreAgainst: 0,
+    totalScoreFor: 0,
+    totalScoreAgainst: 0,
+    quarterTrends: { Q1: { for: 0, against: 0 }, Q2: { for: 0, against: 0 }, Q3: { for: 0, against: 0 }, Q4: { for: 0, against: 0 } },
+    games: games
+  };
+  
+  games.forEach(function(game) {
+    var isTeamA = String(game.teamA).toLowerCase().includes(opponentName.toLowerCase());
+    var scoreFor = isTeamA ? game.final.A : game.final.B;
+    var scoreAgainst = isTeamA ? game.final.B : game.final.A;
+    
+    stats.totalScoreFor += scoreFor;
+    stats.totalScoreAgainst += scoreAgainst;
+    
+    // Determine W/L/D
+    if (scoreFor > scoreAgainst) stats.totalWins++;
+    else if (scoreFor < scoreAgainst) stats.totalLosses++;
+    else stats.totalDraws++;
+    
+    // Quarter trends
+    Object.keys(game.quarters).forEach(function(q) {
+      var quarterData = game.quarters[q];
+      var qFor = isTeamA ? quarterData.A : quarterData.B;
+      var qAgainst = isTeamA ? quarterData.B : quarterData.A;
+      stats.quarterTrends[q].for += qFor;
+      stats.quarterTrends[q].against += qAgainst;
+    });
+  });
+  
+  stats.avgScoreFor = Math.round(stats.totalScoreFor / stats.gamesAnalyzed * 10) / 10;
+  stats.avgScoreAgainst = Math.round(stats.totalScoreAgainst / stats.gamesAnalyzed * 10) / 10;
+  
+  // Calculate quarter averages
+  Object.keys(stats.quarterTrends).forEach(function(q) {
+    var trend = stats.quarterTrends[q];
+    trend.avgFor = Math.round(trend.for / stats.gamesAnalyzed * 10) / 10;
+    trend.avgAgainst = Math.round(trend.against / stats.gamesAnalyzed * 10) / 10;
+  });
+  
+  return stats;
 }
