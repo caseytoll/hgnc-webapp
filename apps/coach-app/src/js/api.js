@@ -446,6 +446,10 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     if (g.aiSummary) {
       game.aiSummary = g.aiSummary;
     }
+    // Preserve opposition scouting insights if present
+    if (g.scoutingInsights) {
+      game.scoutingInsights = g.scoutingInsights;
+    }
     // Preserve fixture linking fields
     if (g.fixtureMatchId) {
       game.fixtureMatchId = g.fixtureMatchId;
@@ -608,6 +612,10 @@ export function transformTeamDataToSheet(pwaData) {
     // Preserve AI summary if present
     if (g.aiSummary) {
       game.aiSummary = g.aiSummary;
+    }
+    // Preserve opposition scouting insights if present
+    if (g.scoutingInsights) {
+      game.scoutingInsights = g.scoutingInsights;
     }
     // Preserve fixture linking fields
     if (g.fixtureMatchId) {

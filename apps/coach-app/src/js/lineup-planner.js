@@ -3,6 +3,7 @@ import { debouncedSync } from './sync.js';
 import { escapeHtml, escapeAttr } from '../../../../common/utils.js';
 import { normalizeFavPositions } from './helpers.js';
 import { haptic } from '../../../../common/share-utils.js';
+import { API_CONFIG } from './config.js';
 
 // ========================================
 // LINEUP PLANNER (Desktop 4-Quarter View)
@@ -684,3 +685,138 @@ window.plannerAutoFill = function () {
   updatePlannerUndoBtn();
   showToast(`Auto-filled ${activeQ}: ${fillCount} player${fillCount !== 1 ? 's' : ''} assigned`, 'success');
 };
+// ========================================
+// OPPOSITION SCOUTING FROM PLANNER
+// ========================================
+
+/**
+ * Open opposition scouting from planner view (Scout button).
+ * Fetches curated top 5 insights and displays them to guide formation decisions.
+ * @returns {void}
+ */
+window.openScoutingFromPlanner = function () {
+  // Validate current game context
+  if (!state.currentGame) {
+    window.showToast('No game selected', 'error');
+    return;
+  }
+
+  if (!state.currentGame.opponent) {
+    window.showToast('Game has no opponent', 'error');
+    return;
+  }
+
+  const teamID = state.currentTeam.teamID;
+  const opponent = state.currentGame.opponent;
+  const round = state.currentGame.round || 0;
+
+  // Check cache first
+  const cacheKey = `planner_scouting_${teamID}_${opponent.toLowerCase().replace(/\s+/g, '_')}_${round}`;
+  const cached = localStorage.getItem(cacheKey);
+
+  if (cached) {
+    try {
+      const scoutingData = JSON.parse(cached);
+      _renderScoutingFromPlanner(scoutingData);
+      window.showView('opposition-scouting-view');
+      return;
+    } catch (cacheErr) {
+      console.log('Cache parse error (non-fatal):', cacheErr.message);
+    }
+  }
+
+  // Fetch curated insights from backend
+  window.showToast('Loading opposition insights...', 'info');
+  const url = new URL(API_CONFIG.baseUrl);
+  url.searchParams.set('action', 'getOppositionInsightsCurated');
+  url.searchParams.set('teamID', teamID);
+  url.searchParams.set('opponent', opponent);
+  url.searchParams.set('round', round);
+
+  fetch(url.toString(), { method: 'GET' })
+    .then(res => res.json())
+    .then(result => {
+      if (!result.success) {
+        window.showToast(result.error || 'Failed to load opposition insights', 'error');
+        return;
+      }
+
+      // Cache the result
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+      } catch (e) {
+        console.log('Cache write warning (non-fatal):', e.message);
+      }
+
+      _renderScoutingFromPlanner(result);
+      window.showView('opposition-scouting-view');
+      window.showToast('Opposition insights loaded', 'success');
+    })
+    .catch(err => {
+      console.log('openScoutingFromPlanner fetch error:', err);
+      window.showToast('Failed to fetch opposition insights: ' + err.message, 'error');
+    });
+};
+
+/**
+ * Render curated opposition insights for planner context.
+ * @param {Object} scoutingResult - API response with curated insights
+ */
+function _renderScoutingFromPlanner(scoutingResult) {
+  const insights = scoutingResult.insights || [];
+  const opponent = scoutingResult.opponent || 'Unknown';
+  const aiSummary = scoutingResult.aiSummary || '';
+
+  // Build insights cards (curated top 5)
+  const insightCards = insights.map(ins => {
+    const confidence = ins.confidence || 'low';
+    const confClass = confidence === 'high' ? 'conf-high' : confidence === 'medium' ? 'conf-medium' : 'conf-low';
+    return `
+      <div class="scouting-insight-card">
+        <div class="scouting-insight-header">
+          <span class="scouting-insight-title">${escapeHtml(ins.title || '')}</span>
+          <span class="scouting-insight-conf ${confClass}">${escapeHtml(confidence)}</span>
+          <span class="scouting-insight-group">${escapeHtml(ins.groupLabel || ins.groupKey || '')}</span>
+        </div>
+        ${ins.metric ? `<div class="scouting-insight-metric">${escapeHtml(ins.metric)}</div>` : ''}
+        <p class="scouting-insight-desc">${escapeHtml(ins.description || '')}</p>
+      </div>
+    `;
+  }).join('');
+
+  // Render mini scouting view
+  const html = `
+    <div class="scouting-mini-container">
+      <div class="scouting-mini-header">
+        <h3>Opposition: ${escapeHtml(opponent)}</h3>
+        <p class="scouting-mini-subtext">Top 5 Key Insights for Formation</p>
+      </div>
+
+      ${aiSummary ? `
+        <div class="scouting-mini-summary">
+          <strong>Tactical Notes:</strong>
+          <p>${escapeHtml(aiSummary)}</p>
+        </div>
+      ` : ''}
+
+      <div class="scouting-mini-insights">
+        ${insightCards || '<p>No insights available</p>'}
+      </div>
+
+      <div class="scouting-mini-footer">
+        <button class="btn btn-secondary" onclick="closePlannerView()">Back to Planner</button>
+      </div>
+    </div>
+  `;
+
+  // Inject into opposition-scouting-view content area
+  const contentArea = document.querySelector('#opposition-scouting-view .scouting-content') ||
+                      document.querySelector('#opposition-scouting-view');
+  if (contentArea) {
+    const existing = contentArea.querySelector('.scouting-mini-container');
+    if (existing) existing.remove();
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    contentArea.appendChild(container.firstElementChild);
+  }
+}

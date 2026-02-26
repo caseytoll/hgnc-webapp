@@ -2745,3 +2745,34 @@
   border-color: var(--primary-300);
 }
 
+/* ========================================
+   TEAM LIST FILTERS (20+ TEAMS)
+   ======================================== */
+
+.team-list-filters {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.team-list-filters input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-list-filters select {
+  min-width: 200px;
+}
+
+@media (max-width: 600px) {
+  .team-list-filters {
+    flex-direction: column;
+  }
+  
+  .team-list-filters select {
+    min-width: 100%;
+  }
+}

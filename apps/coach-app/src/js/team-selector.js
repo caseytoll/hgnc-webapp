@@ -10,14 +10,18 @@ import { validateTeamPIN } from './api.js';
 // TEAM SELECTOR RENDERING
 // ========================================
 
-function renderTeamCard(team, cssClass) {
+function renderTeamCard(team, cssClass, competition = '') {
   const hasPin = team.hasPin;
   const hasToken = !!state.teamPinTokens[team.teamID];
   const lockIndicator = hasPin
     ? (hasToken ? '<div class="team-card-lock unlocked">🔓</div>' : '<div class="team-card-lock">🔒</div>')
     : '<div class="team-card-arrow">→</div>';
+  const searchText = `${team.teamName} ${team.year} ${team.season} ${team.coach || ''} ${competition}`.toLowerCase();
   return `
-    <div class="team-card ${cssClass}" onclick="selectTeam('${escapeAttr(team.teamID)}')">
+    <div class="team-card ${cssClass}" 
+         onclick="selectTeam('${escapeAttr(team.teamID)}')" 
+         data-competition="${escapeAttr(competition)}"
+         data-search="${escapeAttr(searchText)}">
       <div class="team-card-icon">🏐</div>
       <div class="team-card-info">
         <div class="team-card-name">${escapeHtml(team.teamName)}</div>
@@ -53,8 +57,37 @@ function renderTeamList() {
   const activeTeams = state.teams.filter(team => !team.archived);
   const showArchived = state.showArchivedTeams ?? false;
 
+  // Quick search and filter bar (for 20+ teams)
+  const competitions = [...new Set(activeTeams.map(t => t.competition || (t.season === 'NFNL' ? 'NFNL' : 'NFNA')))].sort();
+  const filterHtml = competitions.length > 1 ? `
+    <div class="team-list-filters">
+      <input type="text" 
+             id="team-quick-search" 
+             class="form-input" 
+             placeholder="Search teams..."
+             oninput="quickSearchTeams(this.value)"
+             autocomplete="off">
+      <select id="competition-filter" 
+              class="form-select" 
+              onchange="filterTeamsByCompetition(this.value)">
+        <option value="">All Competitions (${activeTeams.length})</option>
+        ${competitions.map(comp => {
+          const info = COMPETITIONS[comp] || { name: comp };
+          const count = activeTeams.filter(t => (t.competition || (t.season === 'NFNL' ? 'NFNL' : 'NFNA')) === comp).length;
+          return `<option value="${escapeAttr(comp)}">${escapeHtml(info.name)} (${count})</option>`;
+        }).join('')}
+      </select>
+    </div>
+  ` : '';
+
+  if (filterHtml) {
+    container.innerHTML = filterHtml;
+  } else {
+    container.innerHTML = '';
+  }
+
   if (activeTeams.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No active teams available</p></div>';
+    container.innerHTML += '<div class="empty-state"><p>No active teams available</p></div>';
   } else {
     // Group by competition, then sort within each group by coach
     const byComp = {};
@@ -72,29 +105,30 @@ function renderTeamList() {
 
     // Render competition sections in alphabetical order
     const compKeys = Object.keys(byComp).sort((a, b) => a.localeCompare(b));
-    let html = '';
+    let html = '<div id="team-list-items">';
 
     compKeys.forEach(comp => {
       const info = COMPETITIONS[comp] || { name: comp, logo: '' };
       const teams = sortTeams(byComp[comp]);
       html += `
-        <div class="comp-section">
+        <div class="comp-section" data-competition="${escapeAttr(comp)}">
           <div class="comp-section-header">
             ${info.logo ? `<img class="comp-logo" src="${escapeAttr(info.logo)}" alt="${escapeAttr(info.name)}">` : ''}
             <span class="comp-name">${escapeHtml(info.name)}</span>
           </div>
           <div class="comp-section-content">
-            ${teams.map(t => renderTeamCard(t, 'active')).join('')}
+            ${teams.map(t => renderTeamCard(t, 'active', comp)).join('')}
           </div>
         </div>`;
     });
 
     // Teams with no competition assigned
     if (unassigned.length > 0) {
-      html += sortTeams(unassigned).map(t => renderTeamCard(t, 'active')).join('');
+      html += sortTeams(unassigned).map(t => renderTeamCard(t, 'active', '')).join('');
     }
 
-    container.innerHTML = html;
+    html += '</div>';
+    container.innerHTML += html;
   }
 
   // Archived teams section
@@ -128,6 +162,57 @@ window.renderTeamList = renderTeamList;
 window.toggleArchivedTeams = function() {
   state.showArchivedTeams = !state.showArchivedTeams;
   renderTeamList();
+};
+
+// Quick search for teams (20+ team optimization)
+window.quickSearchTeams = function(query) {
+  const compSections = document.querySelectorAll('.comp-section');
+  const teamCards = document.querySelectorAll('.team-card');
+  
+  if (!query || query.length < 2) {
+    // Show all
+    compSections.forEach(s => s.style.display = '');
+    teamCards.forEach(c => c.style.display = '');
+    return;
+  }
+  
+  const lowerQuery = query.toLowerCase();
+  let visibleCount = 0;
+  
+  teamCards.forEach(card => {
+    const searchText = card.dataset.search || '';
+    if (searchText.indexOf(lowerQuery) !== -1) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Hide empty competition sections
+  compSections.forEach(section => {
+    const visibleCards = section.querySelectorAll('.team-card:not([style*="display: none"])');
+    section.style.display = visibleCards.length > 0 ? '' : 'none';
+  });
+};
+
+// Filter teams by competition (20+ team optimization)
+window.filterTeamsByCompetition = function(comp) {
+  const compSections = document.querySelectorAll('.comp-section');
+  
+  if (!comp) {
+    // Show all competitions
+    compSections.forEach(s => s.style.display = '');
+    return;
+  }
+  
+  compSections.forEach(section => {
+    if (section.dataset.competition === comp) {
+      section.style.display = '';
+    } else {
+      section.style.display = 'none';
+    }
+  });
 };
 
 window.selectTeam = function(teamID) {

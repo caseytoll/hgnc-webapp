@@ -471,6 +471,16 @@ window.fetchAIInsights = async function (forceRefresh = false) {
       })(),
     };
 
+    // Rate limit check (prevent quota abuse)
+    if (!window._lastSeasonAICall) window._lastSeasonAICall = 0;
+    const now = Date.now();
+    if (!forceRefresh && now - window._lastSeasonAICall < 5000) {
+      const waitSec = Math.ceil((5000 - (now - window._lastSeasonAICall)) / 1000);
+      window.showToast(`Please wait ${waitSec}s before refreshing`, 'info');
+      return;
+    }
+    window._lastSeasonAICall = now;
+
     // POST analytics to backend (text/plain avoids CORS preflight with Apps Script)
     const response = await fetch(baseUrl, {
       method: 'POST',
@@ -1720,6 +1730,7 @@ window.fetchPatternDetector = async function (forceRefresh = false) {
     pdUrl.searchParams.set('action', 'generatePatternDetector');
     pdUrl.searchParams.set('teamID', state.currentTeam.teamID);
     pdUrl.searchParams.set('sheetName', state.currentTeam.sheetName);
+    pdUrl.searchParams.set('teamName', state.currentTeam.teamName || '');
     if (forceRefresh) pdUrl.searchParams.set('forceRefresh', 'true');
 
     const response = await fetch(pdUrl.toString(), { method: 'GET', redirect: 'follow' });

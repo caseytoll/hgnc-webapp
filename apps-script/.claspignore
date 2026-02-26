@@ -1,0 +1,2 @@
+# Ignore bundled webapp assets that should not execute in Apps Script runtime
+netball-app.js

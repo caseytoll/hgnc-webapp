@@ -4,8 +4,9 @@
 // Accessible from: game detail "Scouting" button + lineup planner "Scout" button
 // Closing returns to the originating view.
 
-import { state } from './state.js';
+import { state, saveToLocalStorage } from './state.js';
 import { API_CONFIG } from './config.js';
+import { syncToGoogleSheets, updateSyncIndicator } from './sync.js';
 import { escapeHtml } from '../../../../common/utils.js';
 
 let _scoutingOrigin = 'game-detail-view'; // view to return to on close
@@ -28,10 +29,15 @@ window.openOppositionScouting = function (origin = 'game-detail-view') {
   }
   _scoutingOrigin = origin;
 
-  // Check session cache
-  const cached = state._scoutingCache?.[_getCacheKey(state.currentTeam?.teamID, game.opponent, game.round)];
+  // Check team data first (persistent storage)
+  let cached = game.scoutingInsights || null;
 
-  _renderScoutingHub(game, cached || null);
+  // Fall back to session cache if not in team data
+  if (!cached) {
+    cached = state._scoutingCache?.[_getCacheKey(state.currentTeam?.teamID, game.opponent, game.round)] || null;
+  }
+
+  _renderScoutingHub(game, cached);
   window.showView('opposition-scouting-view');
 };
 
@@ -148,12 +154,25 @@ function _renderInsightCard(ins) {
 // ----------------------------------------
 // API: Generate insights (full AI, ~30 sec)
 // ----------------------------------------
+// AI cooldown tracking (prevent rate limit abuse)
+let _lastAICallTime = 0;
+const AI_COOLDOWN_MS = 3000; // 3 seconds between calls
+
 window.generateOppositionInsights = async function () {
   const game = state.currentGame;
   if (!game || !state.currentTeam) {
     window.showToast('No game/team loaded', 'error');
     return;
   }
+
+  // Rate limit check
+  const now = Date.now();
+  if (now - _lastAICallTime < AI_COOLDOWN_MS) {
+    const waitSec = Math.ceil((AI_COOLDOWN_MS - (now - _lastAICallTime)) / 1000);
+    window.showToast(`Please wait ${waitSec}s before generating again`, 'info');
+    return;
+  }
+  _lastAICallTime = now;
 
   const actionArea = document.getElementById('scouting-action-area');
   const content = document.getElementById('scouting-content');
@@ -172,18 +191,14 @@ window.generateOppositionInsights = async function () {
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
     const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
 
-    const response = await fetch(baseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        api: true,
-        action: 'generateOppositionInsightsImmediate',
-        teamID: state.currentTeam.teamID,
-        round: game.round,
-        gameID: game.id || game.gameID,
-      }),
-      redirect: 'follow',
-    });
+    const insightUrl = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+    insightUrl.searchParams.set('api', 'true');
+    insightUrl.searchParams.set('action', 'generateOppositionInsightsImmediate');
+    insightUrl.searchParams.set('teamID', state.currentTeam.teamID);
+    insightUrl.searchParams.set('round', game.round);
+    insightUrl.searchParams.set('gameID', game.id || game.gameID || '');
+
+    const response = await fetch(insightUrl.toString(), { method: 'GET', redirect: 'follow' });
 
     const data = await response.json();
 
@@ -195,9 +210,27 @@ window.generateOppositionInsights = async function () {
         opponent: data.opponent || game.opponent,
         round: data.round || game.round,
       };
+      
       // Store in session cache
       if (!state._scoutingCache) state._scoutingCache = {};
       state._scoutingCache[_getCacheKey(state.currentTeam.teamID, game.opponent, game.round)] = cached;
+
+      // Store in team data for persistence
+      game.scoutingInsights = cached;
+
+      // Persist to backend
+      try {
+        updateSyncIndicator('syncing');
+        await syncToGoogleSheets();
+        updateSyncIndicator('synced');
+        saveToLocalStorage();
+        console.log('[Opposition Scouting] Saved to team data');
+      } catch (syncErr) {
+        console.error('[Opposition Scouting] Sync error:', syncErr);
+        // Data is still in memory and localStorage, just not on server yet
+        updateSyncIndicator('syncing');
+        window.showToast('Saved locally, will sync when online', 'warning');
+      }
 
       _renderScoutingHub(game, cached);
       window.showToast('Opposition scouting ready', 'success');
