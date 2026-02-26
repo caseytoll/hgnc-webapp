@@ -4432,6 +4432,44 @@ function saveOppositionScoutingData(data) {
 }
 
 /**
+ * Extract age group from team name and season.
+ * For NFNL, returns "Adult (Opens)".
+ * For NFNA teams, extracts U-number from name (e.g., "U11 Flames" → "U11").
+ * @param {string} teamName - Team name (e.g., "U11 Flames", "Hazel Glen 6")
+ * @param {string} season - Season field (e.g., "Season 1", "NFNL", "Nillumbik Force")
+ * @returns {string} Age group identifier (e.g., "U11", "U13", "Adult (Opens)", "Developmental")
+ */
+function extractAgeGroup(teamName, season) {
+  if (!teamName) teamName = '';
+  if (!season) season = '';
+  
+  // NFNL = Adult competitive
+  if (season === 'NFNL' || season === 'Adult' || season.indexOf('NFNL') !== -1) {
+    return 'Adult (Opens)';
+  }
+  
+  // Nillumbik Force = Developmental/composite
+  if (season && season.indexOf('Nillumbik Force') !== -1) {
+    return 'Nillumbik Force';
+  }
+  
+  // Extract U-number from team name (e.g., "U11 Flames" → "U11")
+  var match = teamName.match(/\bU(\d{2})\b/i);
+  if (match && match[1]) {
+    return 'U' + match[1];
+  }
+  
+  // Fallback: try to find just a U and number (e.g., "U 13" or "u-15")
+  var altMatch = teamName.match(/[Uu]\s*[\-]?\s*(\d{2})/);
+  if (altMatch && altMatch[1]) {
+    return 'U' + altMatch[1];
+  }
+  
+  // Default fallback
+  return 'Developmental';
+}
+
+/**
  * Calculate head-to-head history between this team and an opponent.
  * @param {Object} teamData - parsed team data with games array
  * @param {string} opponentName
@@ -4510,8 +4548,9 @@ function generateOppositionAnalytics(config) {
   var h2h = config.h2h || {};
   var ds = config.opponentDivisionStats || null;
 
-  var prompt = 'You are a netball analyst. Generate opposition scouting for a team about to play ' + config.opponent + '.\n\n' +
+  var prompt = 'You are a netball analyst. Generate opposition scouting for a ' + (config.ageGroup || 'competitive') + ' team about to play ' + config.opponent + '.\n\n' +
     'CONTEXT:\n' +
+    '- Age Group: ' + (config.ageGroup || 'Unknown') + '\n' +
     '- Our team: ' + config.teamName + '\n' +
     '- Opponent: ' + config.opponent + '\n' +
     '- Round: ' + config.round + '\n' +
@@ -4568,6 +4607,25 @@ function generateOppositionAnalytics(config) {
     '    "G": { "label": "Situational", "insights": [ 2 insights about home/away/pressure ] }\n' +
     '  }\n' +
     '}\n' +
+    // Age-appropriate guidance
+    (config.ageGroup && config.ageGroup.match(/u11|u13/i) ? (
+      'IMPORTANT: For ' + config.ageGroup + ' (developmental age):\n' +
+      '- Emphasize positive messaging and skill-building opportunities\n' +
+      '- Avoid over-tactical interpretation; inconsistency is normal at this age\n' +
+      '- Frame observations as learning opportunities (e.g., "they can improve..." not "they fail...")\n' +
+      '- Focus on positioning improvement, communication, and execution fundamentals\n'
+    ) : config.ageGroup && config.ageGroup.match(/u15|u17/i) ? (
+      'IMPORTANT: For ' + config.ageGroup + ' (competitive/developmental):\n' +
+      '- Balance tactical depth with acknowledgment of development stage\n' +
+      '- Look for patterns in consistency and decision-making\n' +
+      '- Emphasize mental resilience and in-game adjustments\n' +
+      '- Connect observations to both competitive advantage AND development\n'
+    ) : (
+      'IMPORTANT: For ' + config.ageGroup + ' (adult/competitive):\n' +
+      '- Full tactical analysis expected\n' +
+      '- Focus on strategic patterns, competitive advantages, and vulnerabilities\n' +
+      '- Consider game-sense, positioning excellence, and execution under pressure\n'
+    )) +
     'Total: exactly 26 insights (4+3+3+3+3+5+2). Base analysis on the data provided. If data is limited, use low confidence.\n';
 
   var startTime = Date.now();
@@ -5475,12 +5533,17 @@ function generateOppositionInsightsImmediately(teamID, round, gameID) {
     Logger.log('generateOppositionInsightsImmediately: opponentDivisionStats failed (non-fatal): ' + e.message);
   }
 
+  // Extract age group from team name and season (e.g., "U11 Flames" → "U11", NFNL → "Adult (Opens)")
+  var ageGroup = extractAgeGroup(team.name, team.season);
+
   // Generate analytics
   var analyticsResult = generateOppositionAnalytics({
     teamName: team.name || teamID,
     opponent: opponent,
     round: roundNum,
     gameDate: game.date || '',
+    ageGroup: ageGroup,           // ← ADD: Age group for contextualization
+    season: team.season || '',    // ← ADD: Season type (NFNL, Season 1, etc)
     ladderData: ladderData || {},
     h2h: h2h,
     opponentDivisionStats: opponentDivisionStats
