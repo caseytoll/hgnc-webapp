@@ -4549,6 +4549,31 @@ function generateOppositionAnalytics(config) {
   var ds = config.opponentDivisionStats || null;
 
   var prompt = 'You are a netball analyst. Generate opposition scouting for a ' + (config.ageGroup || 'competitive') + ' team about to play ' + config.opponent + '.\n\n' +
+    '## NETBALL CONTEXT (What Goal Stats Tell Us)\n\n' +
+    'AVAILABLE DATA: Goal totals per quarter, season records, head-to-head history, and ladder position.\n' +
+    'DATA LIMITATIONS: We have ONLY goal-scoring stats. We do NOT have: individual player data, positional rotation data, formation information, or contact/penalty rates.\n\n' +
+    'WHAT GOAL STATS REVEAL:\n' +
+    '- Quarter patterns: Opponent\'s relative strength in each quarter (e.g., Q1 avg 9.8 goals = weak opener vs Q2 11.1 goals = strong early momentum)\n' +
+    '- Scoring differential: Goals for minus against per quarter reveals defensive consistency\n' +
+    '- Form trend: Recent 5-game pattern shows momentum and confidence\n' +
+    '- Consistency: High variance in quarter scores = unpredictable, low variance = stable\n' +
+    '- Margin analysis: Win/loss margins show how competitive games are (big wins suggest dominant periods, narrow losses suggest resilience)\n\n' +
+    'AGE-APPROPRIATE GOAL SCORING NORMS (what\'s "normal" for each competition):\n' +
+    '- U11: 8-15 goals/game typical (2-3 per quarter per team)\n' +
+    '- U13: 15-28 goals/game typical (4-7 per quarter per team)\n' +
+    '- U15: 25-40 goals/game typical (6-10 per quarter per team)\n' +
+    '- Adult: 35-55+ goals/game typical (8-14 per quarter per team)\n' +
+    'Use these benchmarks to contextualize opponent scoring. High variance is NORMAL at junior levels.\n\n' +
+    'WHAT WE CANNOT INFER (avoid these):\n' +
+    '- Individual player strengths/weaknesses (no player data)\n' +
+    '- Position-specific excellence or formations (no lineup or position data)\n' +
+    '- Penalty/foul patterns (no contact data)\n' +
+    '- Whether high Q4 goals reflect strong closing power vs opponent fatigue (context needed)\n' +
+    '- Why patterns exist (underlying tactical reasons without defensive/offensive composition data)\n\n' +
+    'CONFIDENCE LEVELS:\n' +
+    '- "high": Based on 6+ games of quarter data with clear trends (>1 goal average difference)\n' +
+    '- "medium": 4-5 games of data OR 1-goal difference pattern\n' +
+    '- "low": <3 games of quarter data, inconsistent patterns, or limited H2H history\n\n' +
     'CONTEXT:\n' +
     '- Age Group: ' + (config.ageGroup || 'Unknown') + '\n' +
     '- Our team: ' + config.teamName + '\n' +
@@ -4626,7 +4651,10 @@ function generateOppositionAnalytics(config) {
       '- Focus on strategic patterns, competitive advantages, and vulnerabilities\n' +
       '- Consider game-sense, positioning excellence, and execution under pressure\n'
     )) +
-    'Total: exactly 26 insights (4+3+3+3+3+5+2). Base analysis on the data provided. If data is limited, use low confidence.\n';
+    'CRITICAL: Respect the data limitations outlined above. Do NOT speculate about formations, player combos, \n' +
+    'or positional excellence without explicit evidence in the goal stats. Mark insights as "low confidence" \n' +
+    'if inference goes beyond what goal-only data can support.\n\n' +
+    'Total: exactly 26 insights (4+3+3+3+3+5+2). Base analysis on the data provided. Assign confidence based on data volume and clarity.\n';
 
   var startTime = Date.now();
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
