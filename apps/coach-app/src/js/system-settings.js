@@ -123,6 +123,16 @@ function renderSystemSettings() {
     </div>
 
     <div class="settings-section">
+      <h3>Queue Health <button class="btn btn-xs btn-outline" onclick="loadQueueHealth()" style="margin-left: 8px;">Refresh</button></h3>
+      <div id="queue-health-container">
+        <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+          <div class="spinner" style="margin: 0 auto 8px;"></div>
+          <p>Loading queue status...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h3>Actions</h3>
       <button class="btn btn-secondary" onclick="clearAllCaches()" style="width: 100%; margin-bottom: 8px;">
         Clear Cache & Reload
@@ -254,12 +264,58 @@ window.deleteTeam = async function(teamID, teamName) {
     saveToLocalStorage();
 
     window.renderTeamList();
-    showToast(`Team "${teamName}" deleted`, 'success');
-
-  } catch (error) {
-    console.error('[DeleteTeam] Error:', error);
-    showToast(`Failed to delete team: ${error.message}`, 'error');
+  } catch (err) {
+    console.error('[Delete Team] Error:', err);
+    window.showToast(`Failed to delete team: ${err.message}`, 'error');
   } finally {
     hideLoading();
+  }
+};
+
+/**
+ * Load queue health status (for 20+ team monitoring)
+ */
+window.loadQueueHealth = async function() {
+  const container = document.getElementById('queue-health-container');
+  if (!container) return;
+  
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+    const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+    url.searchParams.set('action', 'getQueueHealth');
+    url.searchParams.set('api', 'true');
+    
+    const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+    const data = await response.json();
+    
+    if (data.success) {
+      const lastRunAgo = data.lastRun !== 'Never' ? formatCacheAge(data.lastRun) : 'Never';
+      const lastSuccessAgo = data.lastSuccess !== 'Never' ? formatCacheAge(data.lastSuccess) : 'Never';
+      const metrics = data.metrics || {};
+      
+      let statusBadge = '';
+      if (data.status === 'ok') {
+        statusBadge = '<span style="color: var(--success-500); font-weight: 600;">✓ Healthy</span>';
+      } else if (data.status === 'caution') {
+        statusBadge = '<span style="color: var(--warning-500); font-weight: 600;">⚠ Caution</span>';
+      } else {
+        statusBadge = '<span style="color: var(--error-500); font-weight: 600;">⚠ Warning</span>';
+      }
+      
+      container.innerHTML = `
+        <div class="settings-row"><span>Status</span><span>${statusBadge}</span></div>
+        <div class="settings-row"><span>Pending Jobs</span><span>${data.pendingJobs || 0}</span></div>
+        <div class="settings-row"><span>Last Run</span><span>${lastRunAgo}</span></div>
+        <div class="settings-row"><span>Last Success</span><span>${lastSuccessAgo}</span></div>
+        ${metrics.processed ? `<div class="settings-row"><span>Last Batch</span><span>${metrics.succeeded || 0} succeeded, ${metrics.failed || 0} failed</span></div>` : ''}
+        ${metrics.durationMs ? `<div class="settings-row"><span>Last Duration</span><span>${Math.round(metrics.durationMs / 1000)}s</span></div>` : ''}
+      `;
+    } else {
+      container.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--text-secondary);">Failed to load: ${escapeHtml(data.error || 'Unknown error')}</div>`;
+    }
+  } catch (err) {
+    console.error('[Queue Health] Error:', err);
+    container.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--text-secondary);">Failed to load: ${escapeHtml(err.message)}</div>`;
   }
 };
