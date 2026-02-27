@@ -317,18 +317,19 @@ function renderGameClock(game, overrideTimeRemaining) {
     if (clockData.inBreak) {
       clockContainer.innerHTML = `
         <div class="clock-content">
+          ${scoreDisplay ? `<span class="clock-score">${scoreDisplay}</span><span class="clock-separator">|</span>` : ''}
           <svg class="clock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
           <span class="clock-break">${clockData.breakType}</span>
           <span class="clock-badge">Estimated</span>
-          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
         </div>
       `;
     } else {
       clockContainer.innerHTML = `
         <div class="clock-content">
+          ${scoreDisplay ? `<span class="clock-score">${scoreDisplay}</span><span class="clock-separator">|</span>` : ''}
           <svg class="clock-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
@@ -337,7 +338,6 @@ function renderGameClock(game, overrideTimeRemaining) {
           <span class="clock-separator">—</span>
           <span class="clock-time">${formatTimeRemaining(displayTime)} remaining</span>
           <span class="clock-badge">Estimated</span>
-          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
         </div>
       `;
     }
