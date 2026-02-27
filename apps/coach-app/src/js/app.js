@@ -141,9 +141,8 @@ function loadTheme() {
     console.warn('[App] loadTheme: localStorage unavailable', e && e.message ? e.message : e);
   }
 
-  // Check system preference
-  const prefersDark = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) || false;
-  document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  // Default to dark theme for new users
+  document.documentElement.setAttribute('data-theme', 'dark');
 }
 
 window.toggleTheme = function() {

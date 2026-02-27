@@ -611,8 +611,10 @@ async function loadTeamData(teamID) {
         }
         // Parse teamData if it's a string (API returns JSON string)
         const teamDataObj = typeof data.teamData === 'string' ? JSON.parse(data.teamData) : data.teamData;
+        // Get teamName from the teams list (needed for logo lookup)
+        const teamName = serverTeam?.teamName || '';
         // Transform data from Sheet format to PWA format
-        state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID);
+        state.currentTeamData = transformTeamDataFromSheet(teamDataObj, teamID, teamName);
 
         // Update localStorage cache for offline fallback
         updateTeamCache(teamID, state.currentTeamData);

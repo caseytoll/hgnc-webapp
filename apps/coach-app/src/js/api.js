@@ -502,21 +502,9 @@ export function transformTeamDataFromSheet(data, teamID, teamName = '') {
     // Preserve server timestamp for stale data detection
     _lastModified: data._lastModified || null
   };
-  // Map team-level logo into PWA model (usable as `ourLogo`)
-  // 1) Check if the server data has an explicit logo URL
-  const serverLogo = data.logoUrl || data.teamLogo || data.teamLogoUrl || data.logo || (data.team && data.team.logoUrl) || null;
-  result.ourLogo = serverLogo;
-
-  // 2) Fall back to club-logos.json lookup by club slug then team slug
-  if (!result.ourLogo) {
-    const tname = result.teamName || (data.team && data.team.name) || '';
-    if (tname.trim()) {
-      const clubSlug = clubSlugFor(tname);
-      const teamSlug = slugifyTeamName(tname);
-      const fallbackPath = '/assets/team-logos/hazel-glen.png';
-      result.ourLogo = clubLogos[clubSlug] || clubLogos[teamSlug] || fallbackPath;
-    }
-  }
+  // Set Hazel Glen logo for all teams (this is a Hazel Glen club app)
+  result.ourLogo = '/assets/team-logos/hazel-glen.png';
+  
   // Propagate ourLogo onto each game if not already present (helps header rendering)
   result.games.forEach(g => {
     if (!g.ourLogo) g.ourLogo = result.ourLogo;

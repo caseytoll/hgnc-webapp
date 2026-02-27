@@ -2752,10 +2752,10 @@
 .team-list-filters {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--bg-secondary);
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .team-list-filters input[type="text"] {
