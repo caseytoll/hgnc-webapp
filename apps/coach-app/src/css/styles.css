@@ -27,7 +27,7 @@
 
 .scoring-sticky-headers {
   position: sticky;
-  top: calc(var(--safe-top) + 52px + var(--clock-sticky-offset, 0px));
+  top: calc(var(--safe-top) + 52px + var(--clock-sticky-offset, 65px));
   z-index: 98;
   display: flex;
   flex-direction: column;
@@ -85,7 +85,7 @@
 
 .scoring-quarter-content.expanded {
   position: sticky;
-  top: var(--clock-sticky-offset, 52px);
+  top: var(--clock-sticky-offset, 65px);
   z-index: 99;
   display: block;
 }
@@ -2798,6 +2798,7 @@
   margin-bottom: var(--space-md);
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-height: 65px;
 }
 
 .clock-content {
