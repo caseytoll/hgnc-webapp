@@ -1002,7 +1002,7 @@ function getSpreadsheet() {
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
               };
               if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
-                headers['Authorization'] = AUTH_TOKEN;
+                headers['Authorization'] = 'Bearer ' + AUTH_TOKEN;
               }
               
               var url = 'https://api-netball.squadi.com' + dseEndpoint;
@@ -1061,7 +1061,7 @@ function getSpreadsheet() {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
               };
               if (AUTH_TOKEN && AUTH_TOKEN !== 'PASTE_NEW_TOKEN_HERE') {
-                headers['Authorization'] = AUTH_TOKEN;
+                headers['Authorization'] = 'Bearer ' + AUTH_TOKEN;
               }
               var url = 'https://api-netball.squadi.com/livescores/matches/public/gameSummary?matchId=' + dgsMatchId + '&competitionUniqueKey=' + dgsCompKey;
               var response = UrlFetchApp.fetch(url, {
@@ -1750,7 +1750,7 @@ function getLadderData() {
   var options = {
     'method' : 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN,
+      'Authorization': 'Bearer ' + AUTH_TOKEN,
       'Accept': 'application/json',
       'Origin': 'https://registration.netballconnect.com',
       'Referer': 'https://registration.netballconnect.com/',
@@ -1802,7 +1802,7 @@ function getMatchResults() {
   var options = {
     'method' : 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN,
+      'Authorization': 'Bearer ' + AUTH_TOKEN,
       'Accept': 'application/json',
       'Origin': 'https://registration.netballconnect.com',
       'Referer': 'https://registration.netballconnect.com/',
@@ -1906,7 +1906,7 @@ function fetchSquadiFixtures(competitionId, divisionId) {
   var options = {
     'method': 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN,
+      'Authorization': 'Bearer ' + AUTH_TOKEN,
       'Accept': 'application/json',
       'Origin': 'https://registration.netballconnect.com',
       'Referer': 'https://registration.netballconnect.com/',
@@ -1948,7 +1948,7 @@ function discoverSquadiCompetitions(orgKey) {
   }
 
   var headers = {
-    'Authorization': AUTH_TOKEN,
+    'Authorization': 'Bearer ' + AUTH_TOKEN,
     'Accept': 'application/json',
     'Origin': 'https://registration.netballconnect.com',
     'Referer': 'https://registration.netballconnect.com/',
@@ -2101,7 +2101,7 @@ function scanSquadiCompetitions(forceRescan) {
         var response = UrlFetchApp.fetch(url, {
           'method': 'get',
           'headers': {
-            'Authorization': AUTH_TOKEN,
+            'Authorization': 'Bearer ' + AUTH_TOKEN,
             'Accept': 'application/json',
             'Origin': 'https://registration.netballconnect.com',
             'Referer': 'https://registration.netballconnect.com/',
@@ -2937,7 +2937,7 @@ function fetchSquadiLadderData(config) {
   var options = {
     'method': 'get',
     'headers': {
-      'Authorization': AUTH_TOKEN,
+      'Authorization': 'Bearer ' + AUTH_TOKEN,
       'Accept': 'application/json',
       'Origin': 'https://registration.netballconnect.com',
       'Referer': 'https://registration.netballconnect.com/',
@@ -5135,7 +5135,7 @@ function probeSquadiMatchDetail(matchId, extra) {
     'Referer': 'https://registration.netballconnect.com/',
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
   };
-  if (hasAuth) headersAuth['Authorization'] = AUTH_TOKEN;
+  if (hasAuth) headersAuth['Authorization'] = 'Bearer ' + AUTH_TOKEN;
 
   // Also try without auth (some endpoints are truly public) — using mobile UA for Squadi WAF bypass
   var headersNoAuth = {
