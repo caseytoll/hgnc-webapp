@@ -168,7 +168,7 @@ export function isGameToday(game) {
 /**
  * Initialize and display estimated game clock in game detail view.
  * Only shows if game is today and has required timing data.
- * Updates every 10 seconds. Cleans up on view close.
+ * Counts down by second locally, resyncs every 10 seconds to prevent drift.
  */
 export function initGameClock(game) {
   // Clean up any existing clock first
@@ -190,19 +190,46 @@ export function initGameClock(game) {
     return;
   }
 
-  // Initial render
-  renderGameClock(game);
+  // Get initial clock estimation
+  const initialClock = estimateGameClock(game);
+  if (!initialClock) {
+    return; // No timing data
+  }
 
-  // Update every 10 seconds
+  // Local counter for smooth second-by-second countdown
+  let localTimeRemaining = initialClock.timeRemaining;
+  let updateCount = 0;
+  const RESYNC_INTERVAL = 10; // Resync every 10 second updates
+
+  // Initial render
+  renderGameClock(game, localTimeRemaining);
+
+  // Update every second (smooth countdown with periodic resync)
   state._clockUpdateInterval = setInterval(() => {
-    renderGameClock(game);
-  }, 10000);
+    // Decrement local time
+    localTimeRemaining = Math.max(0, localTimeRemaining - 1);
+    updateCount++;
+
+    // Resync from actual time every 10 seconds to prevent drift
+    if (updateCount % RESYNC_INTERVAL === 0) {
+      const actualClock = estimateGameClock(game);
+      if (actualClock && !actualClock.matchEnded) {
+        localTimeRemaining = actualClock.timeRemaining;
+        console.log('[GameClock] Resynced. Q' + actualClock.quarter + ', ' + formatTimeRemaining(localTimeRemaining) + ' remaining');
+      }
+    }
+
+    // Render with local time
+    renderGameClock(game, localTimeRemaining);
+  }, 1000);
 }
 
 /**
  * Render the clock display in the DOM
+ * @param {Object} game - Game object
+ * @param {number} overrideTimeRemaining - Optional time to display (from local countdown)
  */
-function renderGameClock(game) {
+function renderGameClock(game, overrideTimeRemaining) {
   try {
     const clockData = estimateGameClock(game);
     
@@ -234,7 +261,9 @@ function renderGameClock(game) {
       }
     }
 
-    // Render clock content
+    // Render clock content - use override time if provided (from local countdown)
+    const displayTime = overrideTimeRemaining !== undefined ? overrideTimeRemaining : clockData.timeRemaining;
+    
     if (clockData.inBreak) {
       clockContainer.innerHTML = `
         <div class="clock-content">
@@ -255,7 +284,7 @@ function renderGameClock(game) {
           </svg>
           <span class="clock-quarter">Q${clockData.quarter}</span>
           <span class="clock-separator">—</span>
-          <span class="clock-time">${formatTimeRemaining(clockData.timeRemaining)} remaining</span>
+          <span class="clock-time">${formatTimeRemaining(displayTime)} remaining</span>
           <span class="clock-badge">Estimated</span>
         </div>
       `;

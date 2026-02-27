@@ -11,9 +11,21 @@ describe('Game Clock Estimation', () => {
       expect(estimateGameClock(game)).toBeNull();
     });
 
-    it('returns null if no matchDuration', () => {
-      const game = { startTime: new Date().toISOString() };
-      expect(estimateGameClock(game)).toBeNull();
+    it('uses default 40-minute matchDuration if not provided', () => {
+      const now = new Date('2026-02-27T19:00:00Z');
+      const game = {
+        startTime: '2026-02-27T19:00:00Z'
+        // No matchDuration provided - should use default 40
+      };
+      
+      const clock = estimateGameClock(game, now);
+      expect(clock).toEqual({
+        quarter: 1,
+        timeRemaining: 600, // 10 minutes = 600 seconds (40/4)
+        inBreak: false,
+        breakType: null,
+        matchEnded: false
+      });
     });
 
     it('returns null if game hasn\'t started yet', () => {
