@@ -88,13 +88,19 @@
   top: var(--clock-sticky-offset, 52px);
   z-index: 99;
   display: block;
+}
 
 .game-detail-content.scoring-sticky-mode {
   -webkit-overflow-scrolling: auto;
 }
+
+.scoring-autosave-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   padding: var(--space-sm);
   margin-bottom: var(--space-md);
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--text-secondary);
   opacity: 0.5;
   transition: opacity 0.3s ease, color 0.3s ease;
