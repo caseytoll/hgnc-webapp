@@ -23,6 +23,9 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
+  position: sticky;
+  top: calc(var(--safe-top) + 100px);
+  z-index: 99;
 }
 
 .scoring-quarter-header:active {
