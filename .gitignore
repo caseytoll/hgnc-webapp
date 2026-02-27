@@ -28,3 +28,15 @@ public/assets/
 /backups/
 /viewer/
 /src/
+
+# Vulnerability disclosure and sensitive research documents
+docs/squadi-*
+docs/*vulnerability*
+docs/*disclosure*
+docs/evidence/
+docs/netball-knowledge-base.md
+planning/SQUADI_*
+planning/NETBALL_CONNECT_*
+planning/API_DISCOVERY_*
+planning/API_ENDPOINT_*
+planning/API_TESTING_*
