@@ -97,6 +97,7 @@ function renderPlannerView() {
   renderPlannerBench();
   renderPlannerPositionHistory();
   renderPlannerLoadSummary();
+  renderTacticalAdvisor();
 }
 
 function renderPlannerQuarters() {
@@ -685,6 +686,126 @@ window.plannerAutoFill = function () {
   updatePlannerUndoBtn();
   showToast(`Auto-filled ${activeQ}: ${fillCount} player${fillCount !== 1 ? 's' : ''} assigned`, 'success');
 };
+// ========================================
+// TACTICAL ADVISOR (sidebar panel)
+// ========================================
+
+/**
+ * Curate top N insights from analytics groups, prioritising Vulnerabilities,
+ * Quarter Strength, Patterns, then remaining groups, sorted by confidence.
+ */
+function _curateTopInsights(groups, max) {
+  const priority = ['D', 'A', 'F', 'B', 'C', 'E', 'G'];
+  const confScore = { high: 3, medium: 2, low: 1 };
+  const all = [];
+  priority.forEach(key => {
+    const group = groups[key];
+    if (!group?.insights?.length) return;
+    group.insights.forEach(ins => {
+      all.push({ ...ins, groupKey: key, groupLabel: group.label || key });
+    });
+  });
+  all.sort((a, b) => {
+    const aPri = priority.indexOf(a.groupKey);
+    const bPri = priority.indexOf(b.groupKey);
+    if (aPri !== bPri) return aPri - bPri;
+    return (confScore[b.confidence] || 0) - (confScore[a.confidence] || 0);
+  });
+  return all.slice(0, max);
+}
+
+function renderTacticalAdvisor() {
+  const content = document.getElementById('planner-tactical-content');
+  if (!content) return;
+
+  const game = state.currentGame;
+  const team = state.currentTeam;
+  if (!game || !team) {
+    content.innerHTML = '<p class="planner-tactical-empty">No game selected.</p>';
+    return;
+  }
+
+  // Check all cache sources
+  let scoutingData = null;
+
+  // 1. Persistent game storage
+  if (game.scoutingInsights?.analytics) {
+    scoutingData = game.scoutingInsights;
+  }
+
+  // 2. Session cache
+  if (!scoutingData) {
+    const oppKey = `opp_${team.teamID}_${String(game.opponent || '').toLowerCase().replace(/\s+/g, '_')}_${game.round}`;
+    scoutingData = state._scoutingCache?.[oppKey] || null;
+  }
+
+  // 3. Planner localStorage cache (already-curated shape from openScoutingFromPlanner)
+  let plannerCached = null;
+  if (!scoutingData) {
+    const plannerKey = `planner_scouting_${team.teamID}_${(game.opponent || '').toLowerCase().replace(/\s+/g, '_')}_${game.round || 0}`;
+    try {
+      const raw = localStorage.getItem(plannerKey);
+      if (raw) plannerCached = JSON.parse(raw);
+    } catch (_e) {}
+  }
+
+  // Empty state
+  if (!scoutingData && !plannerCached) {
+    content.innerHTML = `
+      <div class="planner-tactical-empty">
+        <p>No scouting data for R${escapeHtml(String(game.round || '?'))} vs ${escapeHtml(game.opponent || '?')}</p>
+        <button class="btn btn-sm btn-primary" onclick="openOppositionScouting('planner-view')" style="margin-top:8px">Generate Insights</button>
+      </div>
+    `;
+    return;
+  }
+
+  // Curate top 5
+  let insights = [];
+  if (scoutingData?.analytics?.groups) {
+    insights = _curateTopInsights(scoutingData.analytics.groups, 5);
+  } else if (plannerCached?.insights?.length) {
+    insights = plannerCached.insights.slice(0, 5);
+  }
+
+  if (!insights.length) {
+    content.innerHTML = '<p class="planner-tactical-empty">No insights available.</p>';
+    return;
+  }
+
+  const cards = insights.map(ins => {
+    const conf = ins.confidence || 'low';
+    const confClass = conf === 'high' ? 'conf-high' : conf === 'medium' ? 'conf-medium' : 'conf-low';
+    return `
+      <div class="planner-tactical-card">
+        <div class="planner-tactical-card-header">
+          <span class="planner-tactical-card-title">${escapeHtml(ins.title || '')}</span>
+          <span class="scouting-insight-conf ${confClass}">${escapeHtml(conf)}</span>
+        </div>
+        <p class="planner-tactical-card-desc">${escapeHtml(ins.description || '')}</p>
+      </div>
+    `;
+  }).join('');
+
+  const generatedAt = (scoutingData || plannerCached)?.generatedAt;
+  const generatedDate = generatedAt
+    ? new Date(generatedAt).toLocaleString('en-AU', { day: 'numeric', month: 'short' })
+    : '';
+
+  content.innerHTML = `
+    ${cards}
+    <div class="planner-tactical-footer">
+      ${generatedDate ? `<span class="planner-tactical-meta">Generated ${escapeHtml(generatedDate)}</span>` : ''}
+      <button class="btn btn-sm btn-ghost" onclick="openOppositionScouting('planner-view')">Full Hub →</button>
+    </div>
+  `;
+}
+
+window.refreshTacticalAdvisor = function () {
+  renderTacticalAdvisor();
+  window.showToast('Tactical notes refreshed', 'info');
+};
+
 // ========================================
 // OPPOSITION SCOUTING FROM PLANNER
 // ========================================
