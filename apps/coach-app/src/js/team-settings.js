@@ -485,7 +485,7 @@ window.autoDetectSquadi = async function () {
           options.push({
             competitionId: comp.id,
             competitionName: comp.name,
-            competitionKey: comp.orgKey,
+            competitionKey: comp.competitionKey,
             divisionId: div.id,
             divisionName: div.name,
             teamName,
