@@ -318,8 +318,8 @@ function renderGameClock(game, overrideTimeRemaining) {
           <span class="clock-quarter">Q${clockData.quarter}</span>
           <span class="clock-separator">—</span>
           <span class="clock-time">${formatTimeRemaining(displayTime)} remaining</span>
-          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
           <span class="clock-badge">Estimated</span>
+          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
         </div>
       `;
     }

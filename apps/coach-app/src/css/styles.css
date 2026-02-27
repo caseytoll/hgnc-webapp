@@ -2804,13 +2804,7 @@
   font-weight: 500;
 }
 
-.clock-score {
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-
 .clock-badge {
-  margin-left: auto;
   padding: 2px 8px;
   background: rgba(255, 255, 255, 0.25);
   border-radius: var(--radius-sm);
@@ -2818,6 +2812,10 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.clock-score {
+  margin-left: auto;
 }
 
 @media (max-width: 600px) {
