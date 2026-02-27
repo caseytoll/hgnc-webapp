@@ -132,6 +132,7 @@
 
 #finalize-game-btn {
   padding: 8px 12px;
+  min-height: 33px;
 }
 
 @keyframes spin {
