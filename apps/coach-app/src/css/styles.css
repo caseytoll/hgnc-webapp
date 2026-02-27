@@ -131,7 +131,7 @@
 }
 
 #finalize-game-btn {
-  padding: 10px var(--space-lg);
+  padding: 8px 12px;
 }
 
 @keyframes spin {
