@@ -2797,13 +2797,27 @@
 .clock-content {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--space-sm);
   font-size: 1rem;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.clock-score-section {
+  min-width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.clock-icon-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 45px;
+  flex-shrink: 0;
 }
 
 .clock-icon {
@@ -2823,6 +2837,7 @@
 .clock-time,
 .clock-break {
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .clock-badge {
@@ -2833,6 +2848,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .clock-score {
