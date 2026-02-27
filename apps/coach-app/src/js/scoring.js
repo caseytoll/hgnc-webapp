@@ -146,8 +146,10 @@ export function renderScoringInputs() {
 
   container.innerHTML = `
     <div class="scoring-panel-header">
-      <span class="scoring-panel-title">Score by Quarter</span>
-      ${contextHelpIcon('scoring')}
+      <div class="scoring-panel-title-wrapper">
+        <span class="scoring-panel-title">Score by Quarter</span>
+        ${contextHelpIcon('scoring')}
+      </div>
     </div>
     ${['Q1', 'Q2', 'Q3', 'Q4']
       .map((q) => {

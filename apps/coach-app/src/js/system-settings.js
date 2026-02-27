@@ -173,6 +173,24 @@ window.clearAllCaches = function() {
   // Save cleared state to localStorage
   saveToLocalStorage();
 
+  // Clear service worker caches
+  if ('caches' in window) {
+    caches.keys().then(cacheNames => {
+      cacheNames.forEach(cacheName => {
+        caches.delete(cacheName);
+      });
+    });
+  }
+
+  // Force service worker update
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        registration.update();
+      });
+    });
+  }
+
   showToast('Cache cleared', 'success');
 
   // Reload after short delay to show toast
