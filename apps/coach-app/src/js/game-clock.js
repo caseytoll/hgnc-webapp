@@ -297,17 +297,18 @@ function renderGameClock(game, overrideTimeRemaining) {
       clockContainer.id = 'estimated-game-clock';
       clockContainer.className = 'estimated-clock-banner';
       
-      // Insert BEFORE .game-detail-content (outside scrolling container) for proper sticky positioning
+      // Insert before sticky scoring headers when present, otherwise before game content
+      const stickyHeaders = document.getElementById('scoring-sticky-headers');
       const gameContent = document.querySelector('.game-detail-content');
-      if (gameContent && gameContent.parentElement) {
+      if (stickyHeaders && stickyHeaders.parentElement) {
+        stickyHeaders.parentElement.insertBefore(clockContainer, stickyHeaders);
+      } else if (gameContent && gameContent.parentElement) {
         gameContent.parentElement.insertBefore(clockContainer, gameContent);
-      } else {
+      } else if (gameContent) {
         // Fallback: insert at start of game-detail-content if no parent
-        if (gameContent) {
-          gameContent.insertBefore(clockContainer, gameContent.firstChild);
-        } else {
-          return; // No insertion point found
-        }
+        gameContent.insertBefore(clockContainer, gameContent.firstChild);
+      } else {
+        return; // No insertion point found
       }
     }
 

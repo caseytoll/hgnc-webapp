@@ -56,6 +56,11 @@ window.switchGameTab = function (tabId) {
   document.querySelectorAll('.game-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.id === `game-panel-${tabId}`);
   });
+
+  const stickyHeaders = document.getElementById('scoring-sticky-headers');
+  if (stickyHeaders) {
+    stickyHeaders.classList.toggle('hidden', tabId !== 'scoring');
+  }
 };
 
 // ========================================
