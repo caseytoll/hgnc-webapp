@@ -966,15 +966,24 @@ window.saveGameSettings = function () {
   showToast('Game updated', 'success');
 };
 
-window.deleteGame = function () {
+window.deleteGame = async function () {
   if (!confirm('Delete this game?')) return;
 
   state.currentTeamData.games = state.currentTeamData.games.filter((g) => g.gameID !== state.currentGame.gameID);
 
   saveToLocalStorage();
-
   closeModal();
-  closeGameDetail(); // This triggers sync to API
+  state.currentGame = null;
+
+  try {
+    await syncToGoogleSheets();
+  } catch (err) {
+    console.error('[DeleteGame] Sync failed:', err);
+    showToast('Game deleted locally, will sync when online', 'warning');
+  }
+
+  showView('main-app-view');
+  window.renderSchedule();
   showToast('Game deleted', 'info');
 };
 
