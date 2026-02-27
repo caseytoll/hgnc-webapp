@@ -24,7 +24,7 @@
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
   position: sticky;
-  top: calc(var(--safe-top) + 100px);
+  top: 0;
   z-index: 99;
 }
 
