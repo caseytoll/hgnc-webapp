@@ -205,12 +205,14 @@ function calculateRunningScore(game) {
 
 function updateClockStickyOffset(clockContainer) {
   if (!clockContainer) return;
-  // Use requestAnimationFrame to ensure layout has settled after flex reflow
+  // Double requestAnimationFrame ensures measurement happens after multiple layout cycles
   requestAnimationFrame(() => {
-    const styles = getComputedStyle(clockContainer);
-    const marginBottom = parseFloat(styles.marginBottom) || 0;
-    const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
-    document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+    requestAnimationFrame(() => {
+      const styles = getComputedStyle(clockContainer);
+      const marginBottom = parseFloat(styles.marginBottom) || 0;
+      const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
+      document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+    });
   });
 }
 
