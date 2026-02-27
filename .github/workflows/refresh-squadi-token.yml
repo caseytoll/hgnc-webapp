@@ -42,8 +42,8 @@ jobs:
           GS_API_URL: https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec
           TOKEN: ${{ steps.get-token.outputs.token }}
         run: |
-          RESPONSE=$(curl -sS -X GET \
-            "${GS_API_URL}?action=updatesquaditoken&token=${TOKEN}")
+          RESPONSE=$(curl -sS -L -X GET \
+            "${GS_API_URL}?api=true&action=updatesquaditoken&token=${TOKEN}")
           echo "API Response: $RESPONSE"
           
           if echo "$RESPONSE" | grep -q '"success":true'; then
