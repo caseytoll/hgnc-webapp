@@ -23,6 +23,11 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 90px;
+  z-index: 98;
+  will-change: position;
 }
 
 .scoring-sticky-headers {
@@ -50,6 +55,7 @@
   margin-bottom: 0;
   background: var(--bg-card);
   border-bottom-color: var(--border-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .scoring-quarter-header .accordion-icon {
@@ -85,7 +91,7 @@
 }
 
 .game-detail-content.scoring-sticky-mode {
-  -webkit-overflow-scrolling: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .scoring-autosave-indicator {
