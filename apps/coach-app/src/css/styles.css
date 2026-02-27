@@ -2766,7 +2766,7 @@
 
 .estimated-clock-banner {
   position: sticky;
-  top: 0;
+  top: calc(var(--safe-top) + 52px);
   z-index: 100;
   background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
   color: white;
