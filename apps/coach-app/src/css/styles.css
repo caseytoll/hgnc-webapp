@@ -130,6 +130,10 @@
   animation: spin 1s linear infinite;
 }
 
+#finalize-game-btn {
+  padding: 10px var(--space-lg);
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

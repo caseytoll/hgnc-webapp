@@ -197,7 +197,7 @@ export function renderScoringInputs() {
       <span>Auto-saved</span>
     </div>
 
-    <button class="btn btn-primary btn-block" onclick="finalizeGame()">
+    <button id="finalize-game-btn" class="btn btn-primary btn-block" onclick="finalizeGame()">
       Finalize Game
     </button>
   `;
