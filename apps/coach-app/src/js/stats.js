@@ -266,6 +266,16 @@ function renderStatsOverview(container) {
         </button>
       </div>
     </div>
+
+    <!-- Season Strategy -->
+    <div class="stats-section">
+      <div class="stats-section-title">Season Strategy</div>
+      <div id="season-strategy-container">
+        <button class="btn btn-primary" onclick="fetchSeasonStrategy()" id="season-strategy-btn">
+          Get Season Strategy
+        </button>
+      </div>
+    </div>
   `;
 }
 
@@ -538,6 +548,137 @@ window.fetchAIInsights = async function (forceRefresh = false) {
       '<button class="btn btn-primary" onclick="fetchAIInsights(true)">Try Again</button></div>';
   }
 };
+
+// ========================================
+// SEASON STRATEGIST
+// ========================================
+
+window.fetchSeasonStrategy = async function (forceRefresh = false) {
+  const container = document.getElementById('season-strategy-container');
+  if (!state.currentTeam || !state.currentTeamData) {
+    window.showToast('No team data loaded', 'error');
+    return;
+  }
+
+  // Show cached data if available
+  if (!forceRefresh && state.currentTeamData.seasonStrategy?.data) {
+    _renderSeasonStrategy(
+      state.currentTeamData.seasonStrategy.data,
+      state.currentTeamData.seasonStrategy.generatedAt
+    );
+    return;
+  }
+
+  container.innerHTML = '<div class="ai-loading"><div class="spinner"></div><p>Generating season strategy (~15 sec)…</p></div>';
+
+  try {
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168');
+    const baseUrl = isLocalDev ? '/__api/gas-proxy' : API_CONFIG.baseUrl;
+    const url = new URL(baseUrl, isLocalDev ? window.location.origin : undefined);
+    url.searchParams.set('api', 'true');
+    url.searchParams.set('action', 'generateSeasonStrategist');
+    url.searchParams.set('teamID', state.currentTeam.teamID);
+    url.searchParams.set('sheetName', state.currentTeam.sheetName);
+    if (forceRefresh) url.searchParams.set('forceRefresh', 'true');
+
+    const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+    const result = await response.json();
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Strategy generation failed');
+    }
+
+    // Cache in state and persist
+    state.currentTeamData.seasonStrategy = {
+      data: result.data,
+      generatedAt: result.generatedAt || new Date().toISOString(),
+      cacheUntil: result.cacheUntil,
+    };
+    saveToLocalStorage();
+
+    _renderSeasonStrategy(result.data, state.currentTeamData.seasonStrategy.generatedAt);
+  } catch (err) {
+    console.error('[SeasonStrategy] Error:', err);
+    if (container) {
+      container.innerHTML =
+        '<div class="ai-error"><p>Failed to get strategy: ' +
+        escapeHtml(err.message) +
+        '</p><button class="btn btn-primary" onclick="fetchSeasonStrategy(true)">Try Again</button></div>';
+    }
+  }
+};
+
+function _renderSeasonStrategy(data, generatedAt) {
+  const container = document.getElementById('season-strategy-container');
+  if (!container) return;
+
+  const pos = data.competitivePosition || {};
+  const trendIcon = pos.trend === 'improving' ? '↑' : pos.trend === 'declining' ? '↓' : '→';
+  const trendClass = pos.trend === 'improving' ? 'trend-up' : pos.trend === 'declining' ? 'trend-down' : 'trend-stable';
+
+  const strengthCards = (data.strengths || []).map(s => `
+    <div class="strategy-item">
+      <div class="strategy-item-title">${escapeHtml(s.strength || '')}</div>
+      <div class="strategy-item-sub">${escapeHtml(s.tacticalUse || '')}</div>
+    </div>
+  `).join('');
+
+  const vulnCards = (data.vulnerabilities || []).map(v => {
+    const sev = v.severity || 'low';
+    const sevClass = sev === 'high' ? 'sev-high' : sev === 'medium' ? 'sev-med' : 'sev-low';
+    return `
+      <div class="strategy-item">
+        <div class="strategy-item-header">
+          <span class="strategy-item-title">${escapeHtml(v.vulnerability || '')}</span>
+          <span class="strategy-sev ${sevClass}">${escapeHtml(sev)}</span>
+        </div>
+        ${v.timeline ? `<div class="strategy-item-sub">${escapeHtml(v.timeline)}</div>` : ''}
+        ${v.mitigation ? `<div class="strategy-item-mitigation">${escapeHtml(v.mitigation)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const genDate = generatedAt
+    ? new Date(generatedAt).toLocaleDateString('en-AU')
+    : '';
+
+  container.innerHTML = `
+    <div class="strategy-position-card">
+      <div class="strategy-position-row">
+        <span class="strategy-position-label">Position</span>
+        <span class="strategy-position-value">${escapeHtml(pos.ladder || '—')}</span>
+        <span class="strategy-trend ${trendClass}">${trendIcon} ${escapeHtml(pos.trend || '')}</span>
+      </div>
+      ${pos.realisticGoal ? `<div class="strategy-goal">${escapeHtml(pos.realisticGoal)}</div>` : ''}
+      ${pos.path ? `<div class="strategy-path">${escapeHtml(pos.path)}</div>` : ''}
+    </div>
+
+    ${strengthCards ? `
+    <div class="strategy-group">
+      <div class="strategy-group-title">Strengths</div>
+      ${strengthCards}
+    </div>` : ''}
+
+    ${vulnCards ? `
+    <div class="strategy-group">
+      <div class="strategy-group-title">Vulnerabilities</div>
+      ${vulnCards}
+    </div>` : ''}
+
+    ${data.mentality ? `
+    <div class="strategy-mentality">
+      <div class="strategy-group-title">Mental Focus</div>
+      <p>${escapeHtml(data.mentality)}</p>
+    </div>` : ''}
+
+    <div class="ai-meta" style="margin-top:12px;font-size:12px;color:var(--text-tertiary)">
+      ${genDate ? `Generated: ${escapeHtml(genDate)}` : ''}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-secondary" onclick="fetchSeasonStrategy(true)">Refresh Strategy</button>
+    </div>
+  `;
+}
 
 // Show game AI summary in modal
 window.showGameAISummary = async function (forceRefresh = false) {
