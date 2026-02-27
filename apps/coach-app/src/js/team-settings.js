@@ -508,7 +508,7 @@ window.autoDetectSquadi = async function () {
           `<div class="sos-opponent-row" style="cursor:pointer;padding:10px 8px" onclick="pickSquadiOption(${idx})">
         <div>
           <strong>${escapeHtml(opt.teamName)}</strong>
-          <div style="font-size:12px;color:var(--text-secondary)">${escapeHtml(opt.divisionName)} — ${escapeHtml(opt.competitionName)}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${escapeHtml(opt.divisionName)} (Div ${escapeHtml(opt.divisionId)}) — ${escapeHtml(opt.competitionName)}</div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`
