@@ -282,13 +282,17 @@ function renderGameClock(game, overrideTimeRemaining) {
       clockContainer.id = 'estimated-game-clock';
       clockContainer.className = 'estimated-clock-banner';
       
-      // Insert at top of game detail content (after header, before score card)
+      // Insert BEFORE .game-detail-content (outside scrolling container) for proper sticky positioning
       const gameContent = document.querySelector('.game-detail-content');
-      if (gameContent) {
-        gameContent.insertBefore(clockContainer, gameContent.firstChild);
+      if (gameContent && gameContent.parentElement) {
+        gameContent.parentElement.insertBefore(clockContainer, gameContent);
       } else {
-        // Fallback: couldn't find insertion point, don't show clock
-        return;
+        // Fallback: insert at start of game-detail-content if no parent
+        if (gameContent) {
+          gameContent.insertBefore(clockContainer, gameContent.firstChild);
+        } else {
+          return; // No insertion point found
+        }
       }
     }
 
@@ -306,6 +310,7 @@ function renderGameClock(game, overrideTimeRemaining) {
           </svg>
           <span class="clock-break">${clockData.breakType}</span>
           <span class="clock-badge">Estimated</span>
+          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
         </div>
       `;
     } else {
