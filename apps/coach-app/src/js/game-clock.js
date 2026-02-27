@@ -205,10 +205,13 @@ function calculateRunningScore(game) {
 
 function updateClockStickyOffset(clockContainer) {
   if (!clockContainer) return;
-  const styles = getComputedStyle(clockContainer);
-  const marginBottom = parseFloat(styles.marginBottom) || 0;
-  const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
-  document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+  // Use requestAnimationFrame to ensure layout has settled after flex reflow
+  requestAnimationFrame(() => {
+    const styles = getComputedStyle(clockContainer);
+    const marginBottom = parseFloat(styles.marginBottom) || 0;
+    const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
+    document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+  });
 }
 
 /**
