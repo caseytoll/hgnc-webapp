@@ -160,38 +160,11 @@ function renderBasicInfoStep() {
 }
 
 function renderSquadiStep() {
-  const { loading, loaded, options, error } = wizardState.squadi;
-  const selectedConfig = wizardState.data.resultsApi ? JSON.parse(wizardState.data.resultsApi) : null;
-
-  let body;
-  if (loading || (!loaded && !error)) {
-    body = `<div class="squadi-loading"><div class="loading-spinner"></div><p>Looking up Hazel Glen teams…</p></div>`;
-  } else if (error) {
-    body = `<div class="squadi-error"><p>Couldn't load the team list. Try refreshing, or skip and configure fixture sync later in Team Settings.</p></div>`;
-  } else if (options.length === 0) {
-    body = `<div class="squadi-empty"><p>No Hazel Glen teams found in Squadi. You can skip this and configure fixture sync later in Team Settings.</p></div>`;
-  } else {
-    body = `
-      <div class="squadi-teams-list">
-        ${options.map((opt, i) => {
-          const isSelected = selectedConfig && selectedConfig.divisionId === opt.divisionId;
-          return `
-            <button class="squadi-team-item${isSelected ? ' selected' : ''}"
-                    onclick="wizardPickSquadiTeam(${i})">
-              <span class="squadi-team-name">${escapeHtml(opt.teamName)}</span>
-              <span class="squadi-team-division">${escapeHtml(opt.divisionName)} · ${escapeHtml(opt.competitionName)}</span>
-            </button>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-
   return buildProgressBar() + `
-    <p class="wizard-step-hint">Connect this team to Squadi for automatic fixture syncing.</p>
-    ${body}
-    <div class="squadi-actions">
-      <button class="btn btn-ghost btn-sm" onclick="wizardRefreshSquadi()">↻ Refresh list</button>
+    <p class="wizard-step-hint">Fixture Sync</p>
+    <div class="notice notice-warning" style="padding:10px 12px;border-radius:8px;background:var(--warning-50,#fffbeb);border:1px solid var(--warning-200,#fde68a);margin-bottom:12px">
+      <p style="margin:0 0 4px;font-weight:600;font-size:0.85rem">Netball Connect / Squadi sync is currently unavailable</p>
+      <p style="margin:0;font-size:0.8rem;color:var(--gray-600)">You can configure GameDay fixture sync in Team Settings after creating the team.</p>
     </div>
   `;
 }

@@ -90,7 +90,7 @@ window.openTeamSettings = function () {
       <select class="form-select" id="edit-fixture-source" onchange="window._toggleFixtureSource(this.value)">
         <option value="">— None —</option>
         <option value="gameday" ${currentSource === 'gameday' ? 'selected' : ''}>GameDay (NFNL, etc.)</option>
-        <option value="squadi" ${currentSource === 'squadi' ? 'selected' : ''}>Netball Connect / Squadi</option>
+        <option value="squadi" ${currentSource === 'squadi' ? 'selected' : ''} disabled>Netball Connect / Squadi (unavailable)</option>
       </select>
       <div id="fixture-gameday-fields" style="display:${currentSource === 'gameday' ? 'block' : 'none'};margin-top:8px">
         <p class="form-hint" style="margin-bottom:8px">Find these values in the GameDay fixture URL for your competition.</p>
@@ -117,29 +117,11 @@ window.openTeamSettings = function () {
         </div>
       </div>
       <div id="fixture-squadi-fields" style="display:${currentSource === 'squadi' ? 'block' : 'none'};margin-top:8px">
-        <p class="form-hint" style="margin-bottom:8px">Find these values in your browser's Network tab on the Netball Connect fixtures page.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div>
-            <label class="form-label form-label-sm">Competition ID</label>
-            <input type="number" class="form-input" id="edit-squadi-competition-id" placeholder="e.g. 4650" value="${sc.competitionId || ''}">
-          </div>
-          <div>
-            <label class="form-label form-label-sm">Division ID</label>
-            <input type="number" class="form-input" id="edit-squadi-division-id" placeholder="e.g. 29570" value="${sc.divisionId || ''}">
-          </div>
+        <div class="notice notice-warning" style="padding:10px 12px;border-radius:8px;background:var(--warning-50,#fffbeb);border:1px solid var(--warning-200,#fde68a)">
+          <p style="margin:0 0 4px;font-weight:600;font-size:0.85rem">Netball Connect / Squadi sync is currently unavailable</p>
+          <p style="margin:0;font-size:0.8rem;color:var(--gray-600)">Fixture sync and ladder data for this team are paused. Existing games and scores are unaffected.</p>
         </div>
-        <div style="margin-top:8px">
-          <label class="form-label form-label-sm">Team Name (as shown in Squadi)</label>
-          <input type="text" class="form-input" id="edit-squadi-team-name" maxlength="100" placeholder="e.g. HG 11 Flames" value="${escapeAttr(sc.squadiTeamName || '')}">
-        </div>
-        <div style="margin-top:8px">
-          <label class="form-label form-label-sm">Competition Key <span class="form-label-desc">(optional, for ladder)</span></label>
-          <input type="text" class="form-input" id="edit-squadi-competition-key" maxlength="100" placeholder="UUID format" value="${escapeAttr(sc.competitionKey || '')}">
-        </div>
-        <div style="margin-top:12px;text-align:center">
-          <button type="button" class="btn btn-sm btn-outline" onclick="autoDetectSquadi()" id="btn-auto-detect-squadi">Auto-Detect from Squadi</button>
-          <p class="form-hint" style="margin-top:4px">Scans Squadi for HG teams and fills the fields above automatically.</p>
-        </div>
+        ${sc.competitionId ? `<p class="form-hint" style="margin-top:8px">Previously configured: Competition ${sc.competitionId}, Division ${sc.divisionId || '—'}, Team "${escapeHtml(sc.squadiTeamName || '')}"</p>` : ''}
       </div>
     </div>`;
     })()}

@@ -415,9 +415,6 @@ async function syncFixtureData(team, teamData, force) {
     const data = await response.json();
 
     if (!data.success || !data.teamFixtures?.length) {
-      if (data.error === 'AUTH_TOKEN_EXPIRED') {
-        showToast('Squadi auth token expired. Contact admin.', 'warning');
-      }
       return;
     }
 
