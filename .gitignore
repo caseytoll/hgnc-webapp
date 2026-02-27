@@ -29,6 +29,16 @@ public/assets/
 /viewer/
 /src/
 
+# Club data exports — contain real player names and game history
+google_sheet_csv/
+
+# Environment files (never commit — contain deployment URLs and config)
+.env
+.env.local
+.env.*.local
+apps/parent-portal/.env
+apps/coach-app/.env
+
 # Vulnerability disclosure and sensitive research documents
 docs/squadi-*
 docs/*vulnerability*
