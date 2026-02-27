@@ -24,8 +24,15 @@
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
   position: sticky;
-  top: 50px;
+  top: 52px;
   z-index: 99;
+}
+
+/* Mobile adjustment for iPhone sticky positioning with -webkit-overflow-scrolling */
+@media (max-width: 640px) {
+  .scoring-quarter-header {
+    top: 64px;
+  }
 }
 
 .scoring-quarter-header:active {
