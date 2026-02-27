@@ -57,34 +57,19 @@ function renderTeamList() {
   const activeTeams = state.teams.filter(team => !team.archived);
   const showArchived = state.showArchivedTeams ?? false;
 
-  // Quick search and filter bar (for 20+ teams)
-  const competitions = [...new Set(activeTeams.map(t => t.competition || (t.season === 'NFNL' ? 'NFNL' : 'NFNA')))].sort();
-  const filterHtml = competitions.length > 1 ? `
-    <div class="team-list-filters">
+  // Quick search box (for 20+ teams)
+  const searchHtml = activeTeams.length > 0 ? `
+    <div class="team-search-bar">
       <input type="text" 
              id="team-quick-search" 
              class="form-input" 
-             placeholder="Search teams..."
+             placeholder="🔍 Search teams by name, coach, year..."
              oninput="quickSearchTeams(this.value)"
              autocomplete="off">
-      <select id="competition-filter" 
-              class="form-select" 
-              onchange="filterTeamsByCompetition(this.value)">
-        <option value="">All Competitions (${activeTeams.length})</option>
-        ${competitions.map(comp => {
-          const info = COMPETITIONS[comp] || { name: comp };
-          const count = activeTeams.filter(t => (t.competition || (t.season === 'NFNL' ? 'NFNL' : 'NFNA')) === comp).length;
-          return `<option value="${escapeAttr(comp)}">${escapeHtml(info.name)} (${count})</option>`;
-        }).join('')}
-      </select>
     </div>
   ` : '';
 
-  if (filterHtml) {
-    container.innerHTML = filterHtml;
-  } else {
-    container.innerHTML = '';
-  }
+  container.innerHTML = searchHtml;
 
   if (activeTeams.length === 0) {
     container.innerHTML += '<div class="empty-state"><p>No active teams available</p></div>';

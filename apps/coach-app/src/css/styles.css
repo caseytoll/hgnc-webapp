@@ -2746,33 +2746,16 @@
 }
 
 /* ========================================
-   TEAM LIST FILTERS (20+ TEAMS)
+   TEAM SEARCH (20+ TEAMS)
    ======================================== */
 
-.team-list-filters {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: transparent;
-  border-radius: var(--radius-md);
+.team-search-bar {
+  padding: 0 var(--space-md) var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
-.team-list-filters input[type="text"] {
-  flex: 1;
-  min-width: 0;
-}
-
-.team-list-filters select {
-  min-width: 200px;
-}
-
-@media (max-width: 600px) {
-  .team-list-filters {
-    flex-direction: column;
-  }
-  
-  .team-list-filters select {
-    min-width: 100%;
-  }
+.team-search-bar input[type="text"] {
+  width: 100%;
+  font-size: 0.95rem;
+  padding: var(--space-sm) var(--space-md);
 }
