@@ -1,0 +1,60 @@
+name: Refresh Squadi Token
+
+on:
+  schedule:
+    # Run every Sunday at 10 AM UTC (8 PM Melbourne time)
+    - cron: '0 10 * * 0'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  refresh-token:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Fetch Squadi token
+        id: get-token
+        env:
+          SQUADI_EMAIL: ${{ secrets.SQUADI_EMAIL }}
+          SQUADI_PASSWORD: ${{ secrets.SQUADI_PASSWORD }}
+        run: |
+          TOKEN=$(node scripts/get-squadi-token.cjs)
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to retrieve token"
+            exit 1
+          fi
+          echo "Token retrieved successfully (${#TOKEN} characters)"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Update Apps Script token
+        env:
+          GS_API_URL: https://script.google.com/macros/s/AKfycbz3DmnPOLstWmOmJs4nzDQn42XXWe0E2ujLpmfo4e4WZFkInXxUdeL8-W0SImYj9EQj/exec
+          TOKEN: ${{ steps.get-token.outputs.token }}
+        run: |
+          RESPONSE=$(curl -sS -X GET \
+            "${GS_API_URL}?action=updatesquaditoken&token=${TOKEN}")
+          echo "API Response: $RESPONSE"
+          
+          if echo "$RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Token updated successfully"
+          else
+            echo "❌ Failed to update token"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Squadi token refresh failed. Check the logs above for details."

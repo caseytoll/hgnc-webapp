@@ -300,6 +300,27 @@ function getSpreadsheet() {
           result = { success: true, message: 'pong', timestamp: new Date().toISOString() };
           break;
 
+        case 'updatesquaditoken':
+          try {
+            var newToken = e.parameter.token || '';
+            if (!newToken) {
+              result = { success: false, error: 'Token parameter required' };
+              break;
+            }
+            var ss = getSpreadsheet();
+            var settingsSheet = ss.getSheetByName('Settings');
+            if (!settingsSheet) {
+              settingsSheet = ss.insertSheet('Settings');
+              settingsSheet.getRange('A1').setValue('AUTH_TOKEN');
+            }
+            settingsSheet.getRange('B1').setValue(newToken);
+            result = { success: true, message: 'Token updated', timestamp: new Date().toISOString() };
+          } catch (errToken) {
+            Logger.log('updateSquadiToken error: ' + errToken.message);
+            result = { success: false, error: errToken.message };
+          }
+          break;
+
         case 'getTeams':
           // Instrumentation: measure cache read, teams load, cache put, and total time
           var apiStart = new Date().getTime();
