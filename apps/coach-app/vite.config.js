@@ -3,16 +3,17 @@ import { createViteConfig } from '../../common/build/vite.config.shared.js';
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
-// Calculate app version for build
-// Increment revision letter (a, b, c...) for multiple deploys on the same day
-const REVISION = 'd'
-
+// Calculate app version for build with timestamp
 const now = new Date()
 const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }))
 const year = melbourneTime.getFullYear()
 const month = String(melbourneTime.getMonth() + 1).padStart(2, '0')
 const day = String(melbourneTime.getDate()).padStart(2, '0')
-const appVersion = `${year}-${month}-${day}${REVISION}`
+const hour = String(melbourneTime.getHours()).padStart(2, '0')
+const minute = String(melbourneTime.getMinutes()).padStart(2, '0')
+
+// Version format: YYYY-MM-DD-HH-MM (e.g., 2026-02-27-14-27)
+const appVersion = `${year}-${month}-${day}-${hour}-${minute}`
 
 // Plugin to inject build timestamp into service worker and app version
 function buildVersionPlugin() {
@@ -23,9 +24,6 @@ function buildVersionPlugin() {
       return html.replace('__APP_VERSION__', appVersion)
     },
     writeBundle() {
-      const hour = String(melbourneTime.getHours()).padStart(2, '0')
-      const minute = String(melbourneTime.getMinutes()).padStart(2, '0')
-
       const buildTime = `${year}${month}${day}${hour}${minute}`
 
       // Update service worker
