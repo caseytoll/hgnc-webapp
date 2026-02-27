@@ -7728,10 +7728,15 @@ function updateTeamSettings(teamID, settings) {
         }
 
         Logger.log("updateTeamSettings successful for row " + row);
-        // Invalidate cached teams list to reflect changes immediately
+        // Invalidate caches to reflect changes immediately
         try {
           var cache = CacheService.getScriptCache();
           cache.remove('getTeamsResponse');
+          // Also invalidate ladder cache if resultsApi changed (new fixture/ladder config)
+          if (settings.resultsApi !== undefined) {
+            cache.remove('LADDER_' + teamID);
+            Logger.log('updateTeamSettings: invalidated ladder cache for team ' + teamID);
+          }
           Logger.log('updateTeamSettings: invalidated getTeams cache');
         } catch (e) {
           Logger.log('updateTeamSettings: failed to invalidate cache: ' + e.message);
