@@ -26,12 +26,25 @@ import { state } from './state.js';
 export function estimateGameClock(game, now = new Date()) {
   try {
     // Get timing data from fixtureData or direct properties
-    const startTime = game.startTime || game.fixtureData?.startTime;
-    const matchDuration = game.matchDuration || game.fixtureData?.matchDuration;
+    let startTime = game.startTime || game.fixtureData?.startTime;
+    let matchDuration = game.matchDuration || game.fixtureData?.matchDuration;
     
-    // Validation: need startTime and matchDuration
-    if (!startTime || !matchDuration) {
-      console.log('[GameClock] Missing timing data:', { hasStartTime: !!startTime, hasMatchDuration: !!matchDuration, game });
+    // Fallback: try to construct startTime from game.date + game.time (for manual games)
+    if (!startTime && game.date && game.time) {
+      const dateStr = `${game.date} ${game.time}`;
+      startTime = dateStr;
+      console.log('[GameClock] Using fallback date+time:', dateStr);
+    }
+    
+    // Use default matchDuration of 40 minutes if not available
+    if (!matchDuration) {
+      matchDuration = 40; // Standard NFNA match duration
+      console.log('[GameClock] Using default matchDuration: 40 minutes');
+    }
+    
+    // Validation: need startTime for clock to work
+    if (!startTime) {
+      console.log('[GameClock] Missing start time. Fixture data needed for clock display.');
       return null;
     }
 
@@ -168,9 +181,12 @@ export function initGameClock(game) {
   }
 
   // Check if timing data is available
-  const hasTimingData = (game.startTime || game.fixtureData?.startTime) && (game.matchDuration || game.fixtureData?.matchDuration);
+  const hasDirectTiming = (game.startTime || game.fixtureData?.startTime) && (game.matchDuration || game.fixtureData?.matchDuration);
+  const hasDateTiming = game.date && game.time;
+  const hasTimingData = hasDirectTiming || hasDateTiming;
+  
   if (!hasTimingData) {
-    console.log('[GameClock] No timing data found. Fixture data needed for clock display.');
+    console.log('[GameClock] No timing data found. Need fixtureData or date+time on game object.');
     return;
   }
 
