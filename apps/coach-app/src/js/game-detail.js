@@ -36,6 +36,7 @@ import {
 } from '../../../../common/share-utils.js';
 import html2canvas from 'html2canvas';
 import { showLoading, hideLoading } from './ui.js';
+import { initGameClock, cleanupGameClock } from './game-clock.js';
 
 // ========================================
 // GAME DETAIL
@@ -67,9 +68,23 @@ window.openGameDetail = function(gameID) {
   if (window.isReadOnlyView) {
     try { showReadOnlyPill(state.currentTeamData?.teamName || state.currentTeamData?.name); } catch (_e) { /* noop */ }
   }
+
+  // Initialize estimated game clock (display only, safe to fail)
+  try {
+    initGameClock(game);
+  } catch (error) {
+    console.warn('[GameDetail] Clock initialization failed (non-critical):', error);
+  }
 };
 
 window.closeGameDetail = async function() {
+  // Clean up game clock (safe to call even if not running)
+  try {
+    cleanupGameClock();
+  } catch (error) {
+    console.warn('[GameDetail] Clock cleanup failed (non-critical):', error);
+  }
+
   // Cancel any pending debounced sync
   cancelDebouncedSync();
 

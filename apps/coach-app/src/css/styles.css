@@ -2759,3 +2759,70 @@
   font-size: 0.95rem;
   padding: var(--space-sm) var(--space-md);
 }
+
+/* ========================================
+   ESTIMATED GAME CLOCK (DISPLAY ONLY)
+   ======================================== */
+
+.estimated-clock-banner {
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.clock-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.clock-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.clock-quarter {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.clock-separator {
+  opacity: 0.7;
+}
+
+.clock-time,
+.clock-break {
+  font-weight: 500;
+}
+
+.clock-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 600px) {
+  .clock-content {
+    font-size: 0.9rem;
+  }
+  
+  .clock-quarter {
+    font-size: 1rem;
+  }
+  
+  .clock-badge {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+  }
+}
