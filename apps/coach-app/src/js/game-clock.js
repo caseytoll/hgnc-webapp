@@ -166,6 +166,37 @@ export function isGameToday(game) {
 }
 
 /**
+ * Calculate running score from game lineup
+ * Sums up goals from all quarters with score data
+ * @param {Object} game - Game object with lineup data
+ * @returns {Object|null} { our: number, opponent: number } or null if no lineup
+ */
+function calculateRunningScore(game) {
+  try {
+    if (!game.lineup || typeof game.lineup !== 'object') {
+      return null;
+    }
+    
+    let ourScore = 0;
+    let oppScore = 0;
+    
+    // Sum goals from each quarter
+    for (let q = 1; q <= 4; q++) {
+      const quarter = game.lineup[`Q${q}`];
+      if (quarter) {
+        ourScore += (quarter.ourGsGoals || 0) + (quarter.ourGaGoals || 0);
+        oppScore += (quarter.oppGsGoals || 0) + (quarter.oppGaGoals || 0);
+      }
+    }
+    
+    return { our: ourScore, opponent: oppScore };
+  } catch (error) {
+    console.error('[GameClock] Error calculating score:', error);
+    return null;
+  }
+}
+
+/**
  * Initialize and display estimated game clock in game detail view.
  * Only shows if game is today and has required timing data.
  * Counts down by second locally, resyncs every 10 seconds to prevent drift.
@@ -263,6 +294,8 @@ function renderGameClock(game, overrideTimeRemaining) {
 
     // Render clock content - use override time if provided (from local countdown)
     const displayTime = overrideTimeRemaining !== undefined ? overrideTimeRemaining : clockData.timeRemaining;
+    const score = calculateRunningScore(game);
+    const scoreDisplay = score ? `Score: ${score.our} – ${score.opponent}` : '';
     
     if (clockData.inBreak) {
       clockContainer.innerHTML = `
@@ -285,6 +318,7 @@ function renderGameClock(game, overrideTimeRemaining) {
           <span class="clock-quarter">Q${clockData.quarter}</span>
           <span class="clock-separator">—</span>
           <span class="clock-time">${formatTimeRemaining(displayTime)} remaining</span>
+          ${scoreDisplay ? `<span class="clock-separator">|</span><span class="clock-score">${scoreDisplay}</span>` : ''}
           <span class="clock-badge">Estimated</span>
         </div>
       `;
