@@ -211,7 +211,9 @@ function updateClockStickyOffset(clockContainer) {
       const styles = getComputedStyle(clockContainer);
       const marginBottom = parseFloat(styles.marginBottom) || 0;
       const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
-      document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+      // Add 6px safety buffer to ensure Q1 header doesn't get covered
+      const safeHeight = height + 6;
+      document.documentElement.style.setProperty('--clock-sticky-offset', `${safeHeight}px`);
     });
   });
 }

@@ -164,7 +164,7 @@ function formatCacheAge(isoTime) {
 /**
  * Clear all caches and reload the app
  */
-window.clearAllCaches = function() {
+window.clearAllCaches = async function() {
   // Clear in-memory caches
   Object.keys(apiTeamCache).forEach(k => delete apiTeamCache[k]);
   Object.keys(teamCacheMetadata).forEach(k => delete teamCacheMetadata[k]);
@@ -173,22 +173,24 @@ window.clearAllCaches = function() {
   // Save cleared state to localStorage
   saveToLocalStorage();
 
-  // Clear service worker caches
+  // Clear service worker caches (wait for completion)
   if ('caches' in window) {
-    caches.keys().then(cacheNames => {
-      cacheNames.forEach(cacheName => {
-        caches.delete(cacheName);
-      });
-    });
+    try {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+    } catch (err) {
+      console.error('Error clearing caches:', err);
+    }
   }
 
   // Force service worker update
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(registration => {
-        registration.update();
-      });
-    });
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.update()));
+    } catch (err) {
+      console.error('Error updating service worker:', err);
+    }
   }
 
   showToast('Cache cleared', 'success');
