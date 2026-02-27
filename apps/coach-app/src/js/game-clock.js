@@ -203,50 +203,6 @@ function calculateRunningScore(game) {
   }
 }
 
-function updateClockStickyOffset(clockContainer) {
-  if (!clockContainer) return;
-  // Double requestAnimationFrame ensures measurement happens after multiple layout cycles
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const styles = getComputedStyle(clockContainer);
-      const marginBottom = parseFloat(styles.marginBottom) || 0;
-      const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
-      // Force a hardcoded minimum to ensure Q1 text always visible
-      const safeHeight = Math.max(height + 20, 90);
-      document.documentElement.style.setProperty('--clock-sticky-offset', `${safeHeight}px`);
-      
-      // TEMPORARY DEBUG: Show measurements on screen
-      let debugOverlay = document.getElementById('debug-clock-measurements');
-      if (!debugOverlay) {
-        debugOverlay = document.createElement('div');
-        debugOverlay.id = 'debug-clock-measurements';
-        debugOverlay.style.cssText = `
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          background: rgba(0,0,0,0.9);
-          color: lime;
-          padding: 12px;
-          border-radius: 8px;
-          font-family: monospace;
-          font-size: 10px;
-          z-index: 99999;
-          max-width: 200px;
-          line-height: 1.4;
-        `;
-        document.body.appendChild(debugOverlay);
-      }
-      debugOverlay.innerHTML = `
-        <div>Banner Height: ${height - marginBottom}px</div>
-        <div>Margin Bottom: ${marginBottom}px</div>
-        <div>Total Height: ${height}px</div>
-        <div>Buffer: 20px (min 90px)</div>
-        <div><strong>Final Offset: ${safeHeight}px</strong></div>
-        <div>Safe Top: ${getComputedStyle(document.documentElement).getPropertyValue('--safe-top') || '0px'}</div>
-      `;
-    });
-  });
-}
 
 /**
  * Initialize and display estimated game clock in game detail view.
@@ -383,7 +339,6 @@ function renderGameClock(game, overrideTimeRemaining) {
       `;
     }
 
-    updateClockStickyOffset(clockContainer);
   } catch (error) {
     console.error('[GameClock] Render error:', error);
     // Silent fail - don't break the app

@@ -15,19 +15,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-md);
+  padding: 10px var(--space-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-sm);
+  margin-bottom: 6px;
   cursor: pointer;
   transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
-  position: -webkit-sticky;
-  position: sticky;
-  top: 90px;
-  z-index: 98;
-  will-change: position;
 }
 
 .scoring-sticky-headers {
@@ -81,8 +76,8 @@
   border: 1px solid var(--border-color);
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
-  padding: var(--space-md);
-  margin-bottom: var(--space-md);
+  padding: 12px var(--space-md);
+  margin-bottom: 8px;
   animation: accordionOpen 0.2s ease-out;
 }
 
@@ -168,8 +163,8 @@
 .scoring-team-section {
   background: rgba(168, 85, 247, 0.1);
   border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-sm);
+  padding: 8px var(--space-md);
+  margin-bottom: 6px;
 }
 
 .scoring-team-section.opponent {
@@ -199,7 +194,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-sm) 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border-light);
 }
 
