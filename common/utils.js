@@ -301,6 +301,8 @@ export function clubSlugFor(teamName) {
     dc: 'diamond-creek',
     diamond: 'diamond-creek',
     'diamond-creek': 'diamond-creek',
+    vp: 'vic-police',
+    'vic-police': 'vic-police',
     eltham: 'eltham',
     heat: 'heat',
     hurstbridge: 'hurstbridge',
