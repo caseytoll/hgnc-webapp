@@ -2808,10 +2808,10 @@
 }
 
 .clock-badge {
-  padding: 2px 8px;
+  padding: 2px 6px;
   background: rgba(255, 255, 255, 0.25);
   border-radius: var(--radius-sm);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2831,7 +2831,7 @@
   }
   
   .clock-badge {
-    font-size: 0.65rem;
-    padding: 1px 6px;
+    font-size: 0.6rem;
+    padding: 1px 4px;
   }
 }
