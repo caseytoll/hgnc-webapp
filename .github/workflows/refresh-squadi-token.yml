@@ -2,8 +2,8 @@ name: Refresh Squadi Token
 
 on:
   schedule:
-    # Run every Sunday at 10 AM UTC (8 PM Melbourne time)
-    - cron: '0 10 * * 0'
+    # Run daily at 2 AM UTC (12 PM Melbourne time)
+    - cron: '0 2 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
