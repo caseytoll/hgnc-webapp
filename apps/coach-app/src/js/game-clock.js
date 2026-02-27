@@ -211,8 +211,8 @@ function updateClockStickyOffset(clockContainer) {
       const styles = getComputedStyle(clockContainer);
       const marginBottom = parseFloat(styles.marginBottom) || 0;
       const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
-      // Enough buffer for Q1 header top padding clearance
-      const safeHeight = height + 20;
+      // Force a hardcoded minimum to ensure Q1 text always visible
+      const safeHeight = Math.max(height + 20, 90);
       document.documentElement.style.setProperty('--clock-sticky-offset', `${safeHeight}px`);
       
       // TEMPORARY DEBUG: Show measurements on screen
@@ -240,7 +240,7 @@ function updateClockStickyOffset(clockContainer) {
         <div>Banner Height: ${height - marginBottom}px</div>
         <div>Margin Bottom: ${marginBottom}px</div>
         <div>Total Height: ${height}px</div>
-        <div>Buffer: 20px</div>
+        <div>Buffer: 20px (min 90px)</div>
         <div><strong>Final Offset: ${safeHeight}px</strong></div>
         <div>Safe Top: ${getComputedStyle(document.documentElement).getPropertyValue('--safe-top') || '0px'}</div>
       `;
