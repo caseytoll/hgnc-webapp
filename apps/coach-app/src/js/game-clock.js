@@ -111,10 +111,17 @@ export function estimateGameClock(game, now = new Date()) {
         const breakEnd = qEnd + breakDuration;
 
         if (elapsed >= qEnd && elapsed < breakEnd) {
+          // Map quarter index to break terminology
+          const breakTypeMap = {
+            0: 'Quarter Time',  // End of Q1
+            1: 'Half Time',     // End of Q2
+            2: '3/4 Time'       // End of Q3
+          };
+          
           return {
             quarter: q + 1,
             inBreak: true,
-            breakType: (q === 1) ? 'Half Time' : 'Quarter Break',
+            breakType: breakTypeMap[q],
             timeRemaining: 0,
             matchEnded: false
           };
