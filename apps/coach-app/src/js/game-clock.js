@@ -203,6 +203,14 @@ function calculateRunningScore(game) {
   }
 }
 
+function updateClockStickyOffset(clockContainer) {
+  if (!clockContainer) return;
+  const styles = getComputedStyle(clockContainer);
+  const marginBottom = parseFloat(styles.marginBottom) || 0;
+  const height = Math.ceil(clockContainer.getBoundingClientRect().height + marginBottom);
+  document.documentElement.style.setProperty('--clock-sticky-offset', `${height}px`);
+}
+
 /**
  * Initialize and display estimated game clock in game detail view.
  * Only shows if game is today and has required timing data.
@@ -335,6 +343,8 @@ function renderGameClock(game, overrideTimeRemaining) {
         </div>
       `;
     }
+
+    updateClockStickyOffset(clockContainer);
   } catch (error) {
     console.error('[GameClock] Render error:', error);
     // Silent fail - don't break the app
@@ -357,6 +367,8 @@ export function cleanupGameClock() {
   if (existingClock) {
     existingClock.remove();
   }
+
+  document.documentElement.style.removeProperty('--clock-sticky-offset');
 }
 
 // Expose for window access (onclick handlers, etc.)
