@@ -25,34 +25,35 @@ import { state } from './state.js';
  */
 export function estimateGameClock(game, now = new Date()) {
   try {
+    // Get timing data from fixtureData or direct properties
+    const startTime = game.startTime || game.fixtureData?.startTime;
+    const matchDuration = game.matchDuration || game.fixtureData?.matchDuration;
+    
     // Validation: need startTime and matchDuration
-    if (!game.startTime || !game.matchDuration) {
+    if (!startTime || !matchDuration) {
+      console.log('[GameClock] Missing timing data:', { hasStartTime: !!startTime, hasMatchDuration: !!matchDuration, game });
       return null;
     }
 
     // Parse start time (could be ISO string or Date object)
-    let startTime;
-    if (typeof game.startTime === 'string') {
-      startTime = new Date(game.startTime);
-    } else if (game.startTime instanceof Date) {
-      startTime = game.startTime;
+    let parsedStartTime;
+    if (typeof startTime === 'string') {
+      parsedStartTime = new Date(startTime);
+    } else if (startTime instanceof Date) {
+      parsedStartTime = startTime;
     } else {
-      // Try to construct from date + time fields
-      if (game.date && game.time) {
-        const dateStr = `${game.date} ${game.time}`;
-        startTime = new Date(dateStr);
-      } else {
-        return null;
-      }
+      console.log('[GameClock] Invalid startTime format:', startTime);
+      return null;
     }
 
     // Validate parsed start time
-    if (isNaN(startTime.getTime())) {
+    if (isNaN(parsedStartTime.getTime())) {
+      console.log('[GameClock] Invalid parsed startTime:', parsedStartTime);
       return null;
     }
 
     // Calculate elapsed wall clock time (in minutes)
-    const elapsed = (now - startTime) / 1000 / 60;
+    const elapsed = (now - parsedStartTime) / 1000 / 60;
 
     // If game hasn't started yet, return null
     if (elapsed < 0) {
@@ -60,9 +61,9 @@ export function estimateGameClock(game, now = new Date()) {
     }
 
     // Match configuration (with sensible defaults)
-    const QUARTER_MIN = game.matchDuration / 4; // e.g., 40 / 4 = 10 minutes
-    const BREAK_MIN = game.breakDuration || 1; // Default 1 minute
-    const MAIN_BREAK_MIN = game.mainBreakDuration || 2; // Default 2 minutes (half-time)
+    const QUARTER_MIN = matchDuration / 4; // e.g., 40 / 4 = 10 minutes
+    const BREAK_MIN = (game.breakDuration || game.fixtureData?.breakDuration) || 1; // Default 1 minute
+    const MAIN_BREAK_MIN = (game.mainBreakDuration || game.fixtureData?.mainBreakDuration) || 2; // Default 2 minutes (half-time)
 
     // Calculate quarter start boundaries (including breaks)
     const quarterStarts = [
@@ -160,8 +161,16 @@ export function initGameClock(game) {
   // Clean up any existing clock first
   cleanupGameClock();
 
-  // Only show clock if game is today and has timing data
-  if (!isGameToday(game) || !game.startTime || !game.matchDuration) {
+  // Check if game is today
+  if (!isGameToday(game)) {
+    console.log('[GameClock] Game is not today, skipping clock');
+    return;
+  }
+
+  // Check if timing data is available
+  const hasTimingData = (game.startTime || game.fixtureData?.startTime) && (game.matchDuration || game.fixtureData?.matchDuration);
+  if (!hasTimingData) {
+    console.log('[GameClock] No timing data found. Fixture data needed for clock display.');
     return;
   }
 
