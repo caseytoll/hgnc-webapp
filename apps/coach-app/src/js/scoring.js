@@ -144,12 +144,17 @@ export function renderScoringInputs() {
   // Default to Q1 expanded
   const expandedQuarter = state.expandedScoringQuarter || 'Q1';
 
-  const headerHtml = `${['Q1', 'Q2', 'Q3', 'Q4']
-    .map((q) => {
-      const qData = lineup[q] || {};
-      const qTotal = calcQuarterTotal(qData);
-      const isExpanded = q === expandedQuarter;
-      return `
+  container.innerHTML = `
+    <div class="scoring-panel-header">
+      <span class="scoring-panel-title">Score by Quarter</span>
+      ${contextHelpIcon('scoring')}
+    </div>
+    ${['Q1', 'Q2', 'Q3', 'Q4']
+      .map((q) => {
+        const qData = lineup[q] || {};
+        const qTotal = calcQuarterTotal(qData);
+        const isExpanded = q === expandedQuarter;
+        return `
         <div class="scoring-quarter-header${isExpanded ? ' expanded' : ''}" data-quarter="${escapeAttr(q)}" onclick="toggleScoringQuarter('${escapeAttr(q)}')">
           <div class="quarter-header-left">
             <span class="quarter-name">${escapeHtml(q)}</span>
@@ -159,28 +164,6 @@ export function renderScoringInputs() {
             <path d="M6 9l6 6 6-6"/>
           </svg>
         </div>
-      `;
-    })
-    .join('')}`;
-
-  const stickyHeaders = document.getElementById('scoring-sticky-headers');
-  if (stickyHeaders) {
-    stickyHeaders.innerHTML = headerHtml;
-    const scoringPanel = document.getElementById('game-panel-scoring');
-    const isActive = scoringPanel?.classList.contains('active');
-    stickyHeaders.classList.toggle('hidden', !isActive);
-  }
-
-  container.innerHTML = `
-    <div class="scoring-panel-header">
-      <span class="scoring-panel-title">Score by Quarter</span>
-      ${contextHelpIcon('scoring')}
-    </div>
-    ${['Q1', 'Q2', 'Q3', 'Q4']
-      .map((q) => {
-        const qData = lineup[q] || {};
-        const isExpanded = q === expandedQuarter;
-        return `
         <div class="scoring-quarter-content${isExpanded ? ' expanded' : ''}" data-quarter="${escapeAttr(q)}">
           <div class="scoring-team-section">
             <div class="scoring-team-label">Our Scorers</div>

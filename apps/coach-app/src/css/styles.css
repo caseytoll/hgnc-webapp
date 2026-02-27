@@ -84,26 +84,14 @@
 }
 
 .scoring-quarter-content.expanded {
+  position: sticky;
+  top: var(--clock-sticky-offset, 52px);
+  z-index: 99;
   display: block;
-}
 
-@keyframes accordionOpen {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.game-detail-content.scoring-sticky-mode {
+  -webkit-overflow-scrolling: auto;
 }
-
-/* Auto-save/sync indicator */
-.scoring-autosave-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
   padding: var(--space-sm);
   margin-bottom: var(--space-md);
   font-size: 0.75rem;

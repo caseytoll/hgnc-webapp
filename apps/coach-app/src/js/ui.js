@@ -57,9 +57,9 @@ window.switchGameTab = function (tabId) {
     panel.classList.toggle('active', panel.id === `game-panel-${tabId}`);
   });
 
-  const stickyHeaders = document.getElementById('scoring-sticky-headers');
-  if (stickyHeaders) {
-    stickyHeaders.classList.toggle('hidden', tabId !== 'scoring');
+  const gameContent = document.querySelector('.game-detail-content');
+  if (gameContent) {
+    gameContent.classList.toggle('scoring-sticky-mode', tabId === 'scoring');
   }
 };
 
