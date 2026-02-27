@@ -287,7 +287,7 @@ export function getInitials(name) {
  * - Recognises common abbreviations (e.g. "HG" -> "hazel-glen", "DC" -> "dc")
  * - Falls back to the first one or two words slugified
  * @param {string} teamName
- * @returns {string} club slug (suitable for `/assets/team-logos/{slug}.svg`)
+ * @returns {string} club slug (use with club-logos.json for correct file extension)
  */
 export function clubSlugFor(teamName) {
   if (!teamName || typeof teamName !== 'string') return 'hazel-glen';
