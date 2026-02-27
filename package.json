@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
+    "puppeteer": "^24.37.5",
     "wrangler": "^4.63.0"
   }
 }

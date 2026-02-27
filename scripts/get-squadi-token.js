@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // headless script that logs into Squadi and prints the current API token
-// usage: SQUADI_EMAIL=... SQUADI_PASSWORD=... node scripts/get-squadi-token.js
+// usage: SQUADI_EMAIL=... SQUADI_PASSWORD=... node scripts/get-squadi-token.cjs
 
 const puppeteer = require('puppeteer');
 
@@ -15,8 +15,8 @@ async function main() {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
-  // navigate to the normal login page, which will set the auth cookie
-  await page.goto('https://www.squadi.net/Account/Login', { waitUntil: 'networkidle2' });
+  // navigate to the Netball Connect login page (Squadi-branded wrapper)
+  await page.goto('https://registration.netballconnect.com/', { waitUntil: 'networkidle2' });
 
   // fill the form and submit
   await page.type('#Email', email);

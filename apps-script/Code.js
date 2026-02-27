@@ -2000,6 +2000,18 @@ function ensureSquadiLookupSheet() {
 }
 
 /**
+ * Get competitionKey for known Squadi competitions.
+ * These are manually maintained as the API doesn't always provide them.
+ * Format: { competitionId: competitionKey_UUID }
+ */
+function getKnownCompetitionKeys() {
+  return {
+    4171: '',  // NFNA - TODO: Add competitionKey when available (currently revoked token)
+    4650: '75e568d0-565e-41e6-82e0-f57b9654e3d2'  // HG 11 Flames test
+  };
+}
+
+/**
  * Scan Squadi competition IDs to find divisions with HG teams.
  * Uses the PUBLIC fixture API (no auth token required).
  * Writes discovered data to Squadi_Lookup sheet.
@@ -2214,6 +2226,7 @@ function autoDetectSquadiConfig(forceRescan) {
 
 /**
  * Groups flat Squadi_Lookup rows into competition > division > teams hierarchy.
+ * Adds competitionKey from known keys lookup.
  */
 function groupLookupData(rows) {
   var compMap = {};
@@ -2234,7 +2247,8 @@ function groupLookupData(rows) {
     compMap[compId].divisions[divId].teams.push(teamName);
   }
 
-  // Convert to arrays
+  // Convert to arrays and add competitionKey from known lookup
+  var knownKeys = getKnownCompetitionKeys();
   var result = [];
   var compKeys = Object.keys(compMap);
   for (var c = 0; c < compKeys.length; c++) {
@@ -2244,7 +2258,14 @@ function groupLookupData(rows) {
     for (var d = 0; d < divKeys.length; d++) {
       divs.push(comp.divisions[divKeys[d]]);
     }
-    result.push({ id: comp.id, name: comp.name, orgKey: comp.orgKey, divisions: divs });
+    var competitionKey = knownKeys[comp.id] || '';
+    result.push({ 
+      id: comp.id, 
+      name: comp.name, 
+      orgKey: comp.orgKey, 
+      competitionKey: competitionKey,
+      divisions: divs 
+    });
   }
   return result;
 }
@@ -2842,8 +2863,8 @@ function getSquadiLadderForTeam(teamID, forceRefresh) {
   if (config.source === 'gameday') {
     result = computeGameDayLadder(config, teamID);
   } else if (config.source === 'squadi') {
-    if (!config.divisionId || !config.competitionKey) {
-      throw new Error('Squadi config missing divisionId or competitionKey');
+    if (!config.divisionId) {
+      throw new Error('Squadi config missing divisionId');
     }
     result = fetchSquadiLadderData(config);
   } else {
@@ -2876,9 +2897,14 @@ function fetchSquadiLadderData(config) {
   }
 
   var url = 'https://api-netball.squadi.com/livescores/teams/ladder/v2'
-    + '?divisionIds=' + config.divisionId
-    + '&competitionKey=' + config.competitionKey
-    + '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
+    + '?divisionIds=' + config.divisionId;
+  
+  // Only add competitionKey if provided
+  if (config.competitionKey) {
+    url += '&competitionKey=' + config.competitionKey;
+  }
+  
+  url += '&filteredOutCompStatuses=1&showForm=1&sportRefId=1';
 
   var options = {
     'method': 'get',
