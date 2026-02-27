@@ -2056,6 +2056,12 @@ function scanSquadiCompetitions(forceRescan) {
   props.setProperty(SCAN_LOCK_KEY, String(Date.now()));
 
   try {
+    // Load auth token
+    var AUTH_TOKEN = loadAuthToken();
+    if (!AUTH_TOKEN || AUTH_TOKEN === 'PASTE_NEW_TOKEN_HERE') {
+      return { success: false, error: 'AUTH_TOKEN_MISSING - Set token in Settings sheet B1' };
+    }
+
     var sheet = ensureSquadiLookupSheet();
     var startId = 4640; // Default start: just before known Nillumbik Force comp
 
@@ -2095,6 +2101,7 @@ function scanSquadiCompetitions(forceRescan) {
         var response = UrlFetchApp.fetch(url, {
           'method': 'get',
           'headers': {
+            'Authorization': AUTH_TOKEN,
             'Accept': 'application/json',
             'Origin': 'https://registration.netballconnect.com',
             'Referer': 'https://registration.netballconnect.com/',
