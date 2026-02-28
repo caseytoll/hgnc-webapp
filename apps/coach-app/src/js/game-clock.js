@@ -30,10 +30,20 @@ export function estimateGameClock(game, now = new Date()) {
     let matchDuration = game.matchDuration || game.fixtureData?.matchDuration;
     
     // Fallback: try to construct startTime from game.date + game.time (for manual games)
+    // Use ISO format (T separator) so Safari parses it as local time correctly
     if (!startTime && game.date && game.time) {
-      const dateStr = `${game.date} ${game.time}`;
-      startTime = dateStr;
-      console.log('[GameClock] Using fallback date+time:', dateStr);
+      const normalised = game.time
+        .toLowerCase()
+        .replace(/\s/g, '')
+        .replace(/^(\d):/, '0$1:')   // ensure leading zero: 9:00am → 09:00am
+        .replace(/(\d+):(\d+)(am|pm)/, (_, h, m, period) => {
+          let hour = parseInt(h, 10);
+          if (period === 'pm' && hour !== 12) hour += 12;
+          if (period === 'am' && hour === 12) hour = 0;
+          return `${String(hour).padStart(2, '0')}:${m}:00`;
+        });
+      startTime = `${game.date}T${normalised}`;
+      console.log('[GameClock] Using fallback date+time:', startTime);
     }
     
     // Use default matchDuration of 40 minutes if not available
@@ -160,13 +170,13 @@ export function formatTimeRemaining(seconds) {
 export function isGameToday(game) {
   try {
     if (!game.date) return false;
-    
-    const gameDate = new Date(game.date);
+
+    // Compare date strings directly to avoid UTC timezone offset bug on Safari/iOS
+    // new Date("YYYY-MM-DD") parses as UTC midnight, which is yesterday in AEST (UTC+11)
     const today = new Date();
-    
-    return gameDate.getFullYear() === today.getFullYear() &&
-           gameDate.getMonth() === today.getMonth() &&
-           gameDate.getDate() === today.getDate();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    return game.date === todayStr;
   } catch (error) {
     return false;
   }
