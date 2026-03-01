@@ -159,7 +159,10 @@
         <div id="tab-schedule" class="tab-panel active">
           <div class="section-header">
             <h2>Schedule</h2>
-            <button class="btn btn-sm" onclick="openAddGameModal()">+ Add</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-ghost" onclick="openImportFixturesModal()" title="Import fixtures from JSON">↓ Import</button>
+              <button class="btn btn-sm" onclick="openAddGameModal()">+ Add</button>
+            </div>
           </div>
           <div id="schedule-list" class="game-list">
             <!-- Games loaded dynamically -->

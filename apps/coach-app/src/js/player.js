@@ -805,3 +805,174 @@ window.addGame = async function () {
     showToast('Game added', 'success');
   }
 };
+
+// ============================================================
+// FIXTURE IMPORT
+// ============================================================
+
+window.openImportFixturesModal = function () {
+  if (!ensureNotReadOnly('openImportFixturesModal')) return;
+
+  openModal(
+    'Import Fixtures',
+    `
+    <p style="color:var(--gray-500);font-size:0.875rem;margin:0 0 12px">
+      Paste JSON from the Nillumbik Fixture Extractor. Existing games are matched by Match ID or round + opponent — manual scores and lineups are never overwritten.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Fixture JSON</label>
+      <textarea class="form-input" id="import-fixtures-json" rows="7"
+        placeholder='[{"round":1,"date":"2026-02-07","opponent":"DC Servals",...}]'
+        style="font-family:monospace;font-size:11px;resize:vertical"></textarea>
+    </div>
+    <div id="import-preview"></div>
+    `,
+    `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-secondary" onclick="previewImport()">Preview</button>
+    <button class="btn btn-primary" id="btn-confirm-import" style="display:none" onclick="confirmImport()">Import</button>
+    `
+  );
+};
+
+window.previewImport = function () {
+  const raw = document.getElementById('import-fixtures-json').value.trim();
+  const preview = document.getElementById('import-preview');
+
+  let imported;
+  try {
+    imported = JSON.parse(raw);
+    if (!Array.isArray(imported)) throw new Error('Expected a JSON array');
+  } catch (e) {
+    preview.innerHTML = `<p style="color:var(--error);font-size:0.875rem;margin-top:8px">⚠ Invalid JSON: ${escapeHtml(e.message)}</p>`;
+    return;
+  }
+
+  const { summary, rows } = _buildImportPlan(imported);
+
+  preview.innerHTML = `
+    <div style="margin-top:12px;border-top:1px solid var(--gray-200);padding-top:12px">
+      <p style="font-size:0.875rem;font-weight:600;margin:0 0 8px">
+        Preview: <span style="color:var(--success)">${summary.added} to add</span>,
+        <span style="color:var(--primary)">${summary.updated} to update</span>,
+        <span style="color:var(--gray-400)">${summary.skipped} unchanged</span>
+      </p>
+      <div style="font-size:0.8rem;max-height:160px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:6px">
+        ${rows.map(r => `<div style="padding:5px 10px;border-bottom:1px solid var(--gray-100);display:flex;gap:8px;align-items:center">
+          <span style="color:${r.type === 'add' ? 'var(--success)' : r.type === 'update' ? 'var(--primary)' : 'var(--gray-400)'}">
+            ${r.type === 'add' ? '+ Add' : r.type === 'update' ? '↻ Update' : '— Skip'}
+          </span>
+          <span>R${r.round} — ${escapeHtml(r.opponent)}</span>
+          ${r.note ? `<span style="color:var(--gray-400)">${escapeHtml(r.note)}</span>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  if (summary.added + summary.updated > 0) {
+    document.getElementById('btn-confirm-import').style.display = '';
+    // stash parsed data for confirm step
+    window._pendingImport = imported;
+  }
+};
+
+window.confirmImport = async function () {
+  if (!window._pendingImport) return;
+  const imported = window._pendingImport;
+  window._pendingImport = null;
+
+  const { changes } = _buildImportPlan(imported);
+  const existing = state.currentTeamData.games;
+
+  for (const change of changes) {
+    if (change.type === 'add') {
+      const g = change.imported;
+      existing.push({
+        gameID: `g${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        round: g.round,
+        opponent: g.opponent || '',
+        date: g.date || '',
+        time: g.time || '',
+        location: '',
+        status: g.status || 'upcoming',
+        captain: null,
+        scores: null,
+        lineup: null,
+        fixtureMatchId: g.fixtureMatchId || null,
+        fixtureScore: g.fixtureScore || null,
+        availablePlayerIDs: state.currentTeamData.players.filter((p) => !p.fillIn).map((p) => p.id),
+      });
+    } else if (change.type === 'update') {
+      Object.assign(change.game, change.updates);
+    }
+  }
+
+  existing.sort((a, b) => a.round - b.round);
+  saveToLocalStorage();
+  closeModal();
+  window.renderSchedule();
+  window.renderMainApp();
+
+  const { summary } = _buildImportPlan(imported); // recalc for toast (will now show 0 changes)
+  const added = changes.filter((c) => c.type === 'add').length;
+  const updated = changes.filter((c) => c.type === 'update').length;
+
+  if (navigator.onLine) {
+    try {
+      await syncToGoogleSheets();
+      showToast(`Imported: ${added} added, ${updated} updated (synced)`, 'success');
+    } catch (err) {
+      showToast(`Imported: ${added} added, ${updated} updated (sync failed)`, 'warning');
+    }
+  } else {
+    showToast(`Imported: ${added} added, ${updated} updated`, 'success');
+  }
+};
+
+function _buildImportPlan(imported) {
+  const existing = state.currentTeamData.games || [];
+  const changes = [];
+  let added = 0, updated = 0, skipped = 0;
+
+  for (const g of imported) {
+    // Match by fixtureMatchId first, then round + opponent
+    let found = g.fixtureMatchId
+      ? existing.find((e) => e.fixtureMatchId === g.fixtureMatchId)
+      : null;
+
+    if (!found && g.round && g.opponent) {
+      found = existing.find(
+        (e) => e.round === g.round && e.opponent?.toLowerCase() === g.opponent.toLowerCase()
+      );
+    }
+
+    if (found) {
+      const updates = {};
+      if (!found.date && g.date) updates.date = g.date;
+      if (!found.time && g.time) updates.time = g.time;
+      if (!found.opponent && g.opponent) updates.opponent = g.opponent;
+      if (!found.fixtureMatchId && g.fixtureMatchId) updates.fixtureMatchId = g.fixtureMatchId;
+      // Always refresh fixtureScore when new data is available
+      if (g.fixtureScore && JSON.stringify(found.fixtureScore) !== JSON.stringify(g.fixtureScore)) {
+        updates.fixtureScore = g.fixtureScore;
+      }
+      // Only upgrade status (upcoming → normal/bye), never downgrade
+      if (found.status === 'upcoming' && g.status && g.status !== 'upcoming') {
+        updates.status = g.status;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        changes.push({ type: 'update', game: found, updates, round: g.round, opponent: g.opponent, note: Object.keys(updates).join(', ') });
+        updated++;
+      } else {
+        changes.push({ type: 'skip', round: g.round, opponent: g.opponent });
+        skipped++;
+      }
+    } else {
+      changes.push({ type: 'add', imported: g, round: g.round, opponent: g.opponent || 'Bye' });
+      added++;
+    }
+  }
+
+  return { changes, summary: { added, updated, skipped }, rows: changes };
+}
