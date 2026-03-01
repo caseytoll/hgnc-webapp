@@ -829,13 +829,13 @@ window.openImportFixturesModal = function () {
     `,
     `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    <button class="btn btn-secondary" onclick="previewImport()">Preview</button>
-    <button class="btn btn-primary" id="btn-confirm-import" style="display:none" onclick="confirmImport()">Import</button>
+    <button class="btn btn-secondary" onclick="previewFixtureImport()">Preview</button>
+    <button class="btn btn-primary" id="btn-confirm-import" style="display:none" onclick="confirmFixtureImport()">Import</button>
     `
   );
 };
 
-window.previewImport = function () {
+window.previewFixtureImport = function () {
   const raw = document.getElementById('import-fixtures-json').value.trim();
   const preview = document.getElementById('import-preview');
 
@@ -876,7 +876,7 @@ window.previewImport = function () {
   }
 };
 
-window.confirmImport = async function () {
+window.confirmFixtureImport = async function () {
   if (!window._pendingImport) return;
   const imported = window._pendingImport;
   window._pendingImport = null;
