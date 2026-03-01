@@ -90,13 +90,13 @@ The Coach's App uses a 6-step wizard for creating new teams:
 4. **Coach** - Optional coach selection
 5. **Integration Setup** - Competition-specific:
    - **NFNL**: Ladder URL (MyGameDay) for auto-sync + results API
-   - **Nillumbik Force**: Fixture sync (GameDay or Squadi/Netball Connect) with auto-detect
+   - **Nillumbik Force**: Fixture sync (GameDay only; Squadi/Netball Connect option disabled in UI)
    - **Other**: No integration setup
 6. **Review** - Confirm all settings before creation
 
 Validation happens at each step with duplicate team detection. The wizard saves competition type, season, coach, and integration config (ladderUrl or resultsApi) via the createTeam API.
 
-**Squadi Auto-Detect**: Click "Auto-Detect from Squadi" in Team Settings to discover HG teams from Squadi/Netball Connect competitions. Detects both "HG" and "Hazel Glen" team name prefixes. Auto-detection caches results for performance (use "Force Rescan" to refresh).
+**Squadi Auto-Detect**: Disabled in the current UI. The backend handler (`autoDetectSquadi`) and `Squadi_Lookup` sheet tab remain in place but the button is not shown.
 
 ### Directory Structure
 
@@ -202,7 +202,7 @@ When modifying UI in one app, check if the other needs the same change:
 - **Scoring panel:** Accordion-style quarters with score steppers and notes
 - **Offline support:** Data saved to localStorage first, synced when online
 - **Caching:** Teams list and team data cached with 5-minute TTL (`TEAM_CACHE_TTL_MS`). Teams list uses stale-while-revalidate (serve cache, refresh in background). Team data uses `lastModified` version check with TTL fallback. Player library loads in background (non-blocking).
-- **Squadi Auto-Discovery:** Team Settings includes "Auto-Detect from Squadi" button that scans Squadi API for HG teams and auto-fills competition/division/team configuration. Results cached in `Squadi_Lookup` sheet tab with 6-month TTL. Force rescan available for updated competitions.
+- **Fixture JSON Import:** Schedule tab includes an "↓ Import" button that accepts a JSON array of fixture data (round, date, time, opponent, fixtureMatchId, fixtureScore, status). Merges by fixtureMatchId first, then round + opponent. Never overwrites manual scores, lineups, or notes.
 - **Main tabs:** Schedule, Roster, Stats, Training (4 bottom nav tabs)
 - **Lineup Planner:** Desktop-optimized full-screen 4-quarter view (opens from game detail). Features:
   - **Layout:** Fixed-position overlay breaking out of #app's 430px max-width. 440px sidebar (bench + position history) + 2×2 quarter grid
@@ -416,7 +416,7 @@ Teams can get ladder/standings data from three sources, configured in Team Setti
 | Source | Config | How It Works |
 |--------|--------|--------------|
 | **NFNL** (static) | `ladderUrl` field | GitHub Action scrapes HTML daily → `public/ladder-<teamID>.json` |
-| **Squadi** (live) | `resultsApi` with `source: "squadi"` | Backend fetches from Squadi API → `getSquadiLadder` action |
+| **Squadi** (disabled) | `resultsApi` with `source: "squadi"` | Backend handler exists but Squadi option is disabled in the UI |
 | **GameDay** (computed) | `resultsApi` with `source: "gameday"` | Backend computes standings from fixture match results (W×4 + D×2 points) |
 
 - **NFNL scraper:** `scripts/fetch-ladder.js` fetches team list, scrapes ladder HTML, writes JSON. Supports `--api` and `--out` CLI args. Has 15s fetch timeout.
@@ -437,7 +437,7 @@ GS_API_URL="https://script.google.com/macros/s/<DEPLOY_ID>/exec" \
 Teams with `resultsApi` configured get automatic game population from external fixture data:
 
 - **Trigger:** Runs after team data loads, if team has fixture config and device is online (non-blocking)
-- **Sources:** Squadi API (`fetchSquadiFixtureData`) or GameDay HTML scraping (`fetchGameDayFixtureData`)
+- **Sources:** GameDay HTML scraping (`fetchGameDayFixtureData`). Squadi source (`fetchSquadiFixtureData`) exists in backend but is disabled in the UI.
 - **Merge algorithm:**
   1. Match fixture to existing game by `fixtureMatchId` first
   2. Fall back to fuzzy match: same round + similar opponent name (via `fuzzyOpponentMatch()`)
@@ -456,14 +456,7 @@ Teams with `resultsApi` configured get automatic game population from external f
 
 ### Squadi Auto-Discovery
 
-The "Auto-Detect from Squadi" feature eliminates manual configuration for new teams:
-
-- **Trigger:** "Auto-Detect from Squadi" button in Team Settings → Squadi section
-- **API Access:** Uses public Squadi fixture API (no authentication required)
-- **Scanning:** Probes competition IDs sequentially, looking for divisions containing "HG" teams
-- **Caching:** Results stored in `Squadi_Lookup` sheet with 6-month TTL
-- **UI Flow:** Shows picker modal with discovered teams, auto-fills config fields on selection, and automatically saves the configuration
-- **Force Rescan:** Available to refresh cached data for new seasons/competitions
+The auto-discover feature is currently disabled in the UI. The backend handler (`autoDetectSquadi`) and `Squadi_Lookup` sheet tab are retained for potential future use. Existing Squadi config stored in teams is preserved as read-only display in Team Settings.
 
 ---
 
@@ -696,6 +689,8 @@ node --check src/js/app.js
 
 **Monitor workflow issues:** If `Resource not accessible by integration`, add `permissions: issues: write` to workflow YAML.
 
+**Safari/iOS date parsing:** `new Date("YYYY-MM-DD")` parses as UTC midnight, which is the previous day in AEST (UTC+11). Always compare date strings directly (e.g. `game.date === todayStr`) rather than parsing with `new Date()`. For constructing a datetime, use ISO format with T separator: `"2026-02-28T09:48:00"`.
+
 **Pattern Detector / GET-only actions returning "unknown post action":** The POST handler lowercases action names before switching. Any action that lives only in the GET handler (`handleApiRequest`) must be called via GET with URL params — not POST with a JSON body. Use `URL.searchParams` to build the request. Actions that take large payloads (training data, analytics) use POST correctly.
 
 ---
@@ -744,3 +739,4 @@ Use `gemini -p` when:
 - `@file.js` includes a single file
 - Paths are relative to current working directory
 - Run from project root for the examples above
+
