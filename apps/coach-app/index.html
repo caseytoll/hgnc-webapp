@@ -476,9 +476,13 @@
           .then(reg => {
             console.log('[PWA] Service worker registered');
 
-            // Check for updates immediately and every 60 seconds
-            reg.update();
-            setInterval(() => reg.update(), 60000);
+            // Check for updates only on app focus (not continuously)
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') {
+                console.log('[PWA] App in focus, checking for updates...');
+                reg.update();
+              }
+            });
 
             // Listen for new service worker installing
             reg.addEventListener('updatefound', () => {
