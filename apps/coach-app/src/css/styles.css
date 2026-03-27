@@ -1886,9 +1886,9 @@
 
 #planner-view .planner-history-row {
   display: grid;
-  grid-template-columns: 80px repeat(7, 32px) 32px 28px;
+  grid-template-columns: 70px repeat(7, 28px) 28px 32px 26px 32px;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   padding: 4px 0;
   border-bottom: 1px solid var(--border-color);
 }
@@ -2080,8 +2080,8 @@
   }
 
   #planner-view .planner-history-row {
-    grid-template-columns: 60px repeat(7, 26px) 26px 26px;
-    gap: 2px;
+    grid-template-columns: 55px repeat(7, 22px) 22px 26px 24px 28px;
+    gap: 1px;
     padding: 3px 0;
   }
 }
