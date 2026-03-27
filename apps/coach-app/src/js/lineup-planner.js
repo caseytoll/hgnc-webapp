@@ -39,7 +39,9 @@ function getPlannerPositionStats() {
       const counts = { GS: 0, GA: 0, WA: 0, C: 0, WD: 0, GD: 0, GK: 0 };
       let offQuarters = 0;
       let captainCount = 0;
+      let gamesPlayedIn = 0;
       games.forEach((game) => {
+        const wasAvailable = game.availablePlayerIDs?.includes(player.id);
         let quartersOnCourt = 0;
         let playedInGame = false;
         ['Q1', 'Q2', 'Q3', 'Q4'].forEach((quarter) => {
@@ -53,12 +55,16 @@ function getPlannerPositionStats() {
             }
           });
         });
-        if (playedInGame) offQuarters += 4 - quartersOnCourt;
+        // Only count Off quarters if player was available AND played in this game
+        if (wasAvailable && playedInGame) {
+          offQuarters += 4 - quartersOnCourt;
+          gamesPlayedIn++;
+        }
         if (game.captain === player.name) captainCount++;
       });
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       const favPositions = new Set(normalizeFavPositions(player.favPosition));
-      return { name: player.name, counts, offQuarters, captainCount, total, favPositions };
+      return { name: player.name, counts, offQuarters, captainCount, total, favPositions, gamesPlayedIn };
     })
     .filter((p) => p.total > 0)
     .sort((a, b) => b.total - a.total);
@@ -256,11 +262,15 @@ function renderPlannerPositionHistory() {
       <span class="planner-history-name"></span>
       ${positions.map((pos) => `<span class="planner-history-pos ${getPosGroup(pos)}">${escapeHtml(pos)}</span>`).join('')}
       <span class="planner-history-pos planner-history-off">Off</span>
+      <span class="planner-history-pos planner-history-off-pct">% Off</span>
       <span class="planner-history-pos planner-history-capt">Cpt</span>
+      <span class="planner-history-pos planner-history-games">Games</span>
     </div>
     ${positionStats
       .map(
-        (player) => `
+        (player) => {
+          const offPercentage = player.gamesPlayedIn > 0 ? Math.round((player.offQuarters / (player.gamesPlayedIn * 4)) * 100) : 0;
+          return `
       <div class="planner-history-row">
         <span class="planner-history-name">${escapeHtml(player.name.split(' ')[0])}</span>
         ${positions
@@ -270,9 +280,12 @@ function renderPlannerPositionHistory() {
           })
           .join('')}
         <span class="planner-history-cell planner-history-off-cell ${player.offQuarters > 0 ? 'has-count' : ''}">${player.offQuarters > 0 ? player.offQuarters : '—'}</span>
+        <span class="planner-history-cell planner-history-off-pct-cell ${offPercentage > 0 ? 'has-count' : ''}">${offPercentage > 0 ? offPercentage + '%' : '—'}</span>
         <span class="planner-history-cell planner-history-capt-cell ${player.captainCount > 0 ? 'has-count' : ''}">${player.captainCount > 0 ? player.captainCount : '—'}</span>
+        <span class="planner-history-cell planner-history-games-cell">${player.gamesPlayedIn}</span>
       </div>
-    `
+    `;
+        }
       )
       .join('')}
   `;
