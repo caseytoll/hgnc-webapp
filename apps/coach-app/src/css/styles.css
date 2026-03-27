@@ -1886,9 +1886,9 @@
 
 #planner-view .planner-history-row {
   display: grid;
-  grid-template-columns: 70px repeat(7, 28px) 28px 32px 26px 32px;
+  grid-template-columns: 65px repeat(7, 24px) 24px 28px 24px 28px;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   padding: 4px 0;
   border-bottom: 1px solid var(--border-color);
 }
@@ -2076,13 +2076,13 @@
   }
 
   #planner-view .planner-history-grid {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   #planner-view .planner-history-row {
-    grid-template-columns: 55px repeat(7, 22px) 22px 26px 24px 28px;
+    grid-template-columns: 50px repeat(7, 18px) 18px 22px 20px 24px;
     gap: 1px;
-    padding: 3px 0;
+    padding: 2px 0;
   }
 }
 
